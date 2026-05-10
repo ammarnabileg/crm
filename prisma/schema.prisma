@@ -1,0 +1,425 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  ACCOUNT_MANAGER
+  WRITER
+  BROKER
+}
+
+enum ArticleStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_EDIT
+}
+
+enum LeadSource {
+  FORM
+  WHATSAPP
+  PHONE
+  HOMEPAGE
+  PROJECT_PAGE
+  ARTICLE
+}
+
+enum LeadStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  CLOSED_WON
+  CLOSED_LOST
+  DUPLICATE
+}
+
+enum LeadScore {
+  COLD
+  WARM
+  HOT
+  HIGH_INTENT
+}
+
+enum PipelineStage {
+  NEW_LEAD
+  ATTEMPTED_CONTACT
+  CONTACTED
+  INTERESTED
+  VIEWING_SCHEDULED
+  VIEWING_COMPLETED
+  NEGOTIATION
+  RESERVATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum DealStatus {
+  PENDING_REVIEW
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum CommissionStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  PAYABLE
+  PAID
+  REJECTED
+}
+
+enum PayoutStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+  COMPLETED
+  FROZEN
+}
+
+enum ComplaintType {
+  COMMISSION_DISPUTE
+  LEAD_OWNERSHIP
+  BROKER_BEHAVIOR
+  CONTENT_ISSUE
+  PAYMENT_ISSUE
+  OTHER
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  phone          String?
+  password       String
+  role           Role     @default(WRITER)
+  affiliateCode  String   @unique @default(cuid())
+  trustScore     Float    @default(100)
+  isActive       Boolean  @default(true)
+  isDeleted      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  articles         Article[]
+  leads            Lead[]         @relation("WriterLeads")
+  commissions      Commission[]
+  company          BrokerCompany? @relation("CompanyAccountManager")
+  managedCompany   BrokerCompany? @relation("ManagedCompany", fields: [managedCompanyId], references: [id])
+  managedCompanyId String?
+  complaints       Complaint[]
+  auditLogs        AuditLog[]
+  payouts          Payout[]
+}
+
+model Country {
+  id        String   @id @default(cuid())
+  name      String
+  nameAr    String
+  code      String   @unique
+  isActive  Boolean  @default(true)
+  cities    City[]
+  createdAt DateTime @default(now())
+}
+
+model City {
+  id        String   @id @default(cuid())
+  name      String
+  nameAr    String
+  image     String?
+  country   Country  @relation(fields: [countryId], references: [id])
+  countryId String
+  isActive  Boolean  @default(true)
+  isDeleted Boolean  @default(false)
+  projects  Project[]
+  articles  Article[]
+  leads     Lead[]
+  createdAt DateTime @default(now())
+}
+
+model DeveloperCompany {
+  id        String    @id @default(cuid())
+  name      String
+  nameAr    String?
+  logo      String?
+  isActive  Boolean   @default(true)
+  isDeleted Boolean   @default(false)
+  projects  Project[]
+  createdAt DateTime  @default(now())
+}
+
+model BrokerCompany {
+  id               String   @id @default(cuid())
+  name             String
+  nameAr           String?
+  logo             String?
+  phone            String
+  email            String?
+  commissionRate   Float    @default(0)
+  isActive         Boolean  @default(true)
+  isDeleted        Boolean  @default(false)
+  accountManager   User?    @relation("CompanyAccountManager", fields: [accountManagerId], references: [id])
+  accountManagerId String?
+  staff            User[]   @relation("ManagedCompany")
+  leads            Lead[]
+  deals            Deal[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Project {
+  id             String           @id @default(cuid())
+  name           String
+  nameAr         String?
+  slug           String           @unique
+  developer      DeveloperCompany @relation(fields: [developerId], references: [id])
+  developerId    String
+  city           City             @relation(fields: [cityId], references: [id])
+  cityId         String
+  location       String?
+  salesPhone     String           @default("0123456789")
+  minPrice       Float?
+  minDownPayment Float?
+  minInstallment Float?
+  minArea        Float?
+  description    String?          @db.Text
+  seoTitle       String?
+  seoDescription String?
+  seoKeywords    String?
+  images         String[]
+  isPublished    Boolean          @default(false)
+  isDeleted      Boolean          @default(false)
+  articles       Article[]
+  leads          Lead[]
+  units          ProjectUnit[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model ProjectUnit {
+  id        String   @id @default(cuid())
+  name      String
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Article {
+  id               String        @id @default(cuid())
+  title            String
+  slug             String        @unique
+  content          String        @db.Text
+  excerpt          String?
+  coverImage       String?
+  author           User          @relation(fields: [authorId], references: [id])
+  authorId         String
+  city             City?         @relation(fields: [cityId], references: [id])
+  cityId           String?
+  project          Project?      @relation(fields: [projectId], references: [id])
+  projectId        String?
+  unit             String?
+  status           ArticleStatus @default(PENDING)
+  rejectionReason  String?
+  seoTitle         String?
+  seoDescription   String?
+  seoKeywords      String?
+  seoScore         Float?
+  readabilityScore Float?
+  qualityScore     Float?
+  viewCount        Int           @default(0)
+  leadCount        Int           @default(0)
+  isDeleted        Boolean       @default(false)
+  publishedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  leads            Lead[]
+  faqItems         ArticleFaq[]
+}
+
+model ArticleFaq {
+  id        String  @id @default(cuid())
+  article   Article @relation(fields: [articleId], references: [id])
+  articleId String
+  question  String
+  answer    String  @db.Text
+  order     Int     @default(0)
+}
+
+model Lead {
+  id             String        @id @default(cuid())
+  name           String
+  phone          String
+  email          String?
+  interestedArea String?
+  source         LeadSource    @default(FORM)
+  status         LeadStatus    @default(NEW)
+  score          LeadScore     @default(COLD)
+
+  article         Article?      @relation(fields: [articleId], references: [id])
+  articleId       String?
+  writer          User?         @relation("WriterLeads", fields: [writerId], references: [id])
+  writerId        String?
+  city            City?         @relation(fields: [cityId], references: [id])
+  cityId          String?
+  project         Project?      @relation(fields: [projectId], references: [id])
+  projectId       String?
+
+  utmSource     String?
+  utmMedium     String?
+  utmCampaign   String?
+  referrer      String?
+  ipAddress     String?
+  deviceInfo    String?
+
+  brokerCompany   BrokerCompany? @relation(fields: [brokerCompanyId], references: [id])
+  brokerCompanyId String?
+
+  pipelineStage PipelineStage @default(NEW_LEAD)
+  notes         String?       @db.Text
+
+  isDuplicate Boolean @default(false)
+  isDeleted   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  interactions LeadInteraction[]
+  deal         Deal?
+  commission   Commission?
+  complaints   Complaint[]
+}
+
+model LeadInteraction {
+  id        String   @id @default(cuid())
+  lead      Lead     @relation(fields: [leadId], references: [id])
+  leadId    String
+  type      String
+  content   String?  @db.Text
+  createdBy String
+  createdAt DateTime @default(now())
+}
+
+model Deal {
+  id              String        @id @default(cuid())
+  lead            Lead          @relation(fields: [leadId], references: [id])
+  leadId          String        @unique
+  brokerCompany   BrokerCompany @relation(fields: [brokerCompanyId], references: [id])
+  brokerCompanyId String
+  saleAmount      Float
+  netProfit       Float
+  status          DealStatus    @default(PENDING_REVIEW)
+  proofFiles      String[]
+  adminNotes      String?
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  isDeleted       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  commission      Commission?
+}
+
+model Commission {
+  id        String           @id @default(cuid())
+  lead      Lead             @relation(fields: [leadId], references: [id])
+  leadId    String           @unique
+  deal      Deal             @relation(fields: [dealId], references: [id])
+  dealId    String           @unique
+  writer    User             @relation(fields: [writerId], references: [id])
+  writerId  String
+  amount    Float
+  rate      Float            @default(0.20)
+  status    CommissionStatus @default(PENDING)
+  isDeleted Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  payout    Payout?
+}
+
+model Payout {
+  id           String       @id @default(cuid())
+  writer       User         @relation(fields: [writerId], references: [id])
+  writerId     String
+  commission   Commission   @relation(fields: [commissionId], references: [id])
+  commissionId String       @unique
+  amount       Float
+  status       PayoutStatus @default(PENDING)
+  bankDetails  String?
+  adminNotes   String?
+  processedBy  String?
+  processedAt  DateTime?
+  isDeleted    Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model Complaint {
+  id          String          @id @default(cuid())
+  title       String
+  description String          @db.Text
+  type        ComplaintType
+  status      ComplaintStatus @default(OPEN)
+  priority    Priority        @default(MEDIUM)
+  submittedBy User            @relation(fields: [userId], references: [id])
+  userId      String
+  lead        Lead?           @relation(fields: [leadId], references: [id])
+  leadId      String?
+  resolution  String?         @db.Text
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  isDeleted   Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  entity      String
+  entityId    String
+  action      String
+  changes     Json?
+  performedBy User?    @relation(fields: [userId], references: [id])
+  userId      String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  group     String   @default("general")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GlobalFaq {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String   @db.Text
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
