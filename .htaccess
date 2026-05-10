@@ -1,0 +1,10 @@
+Options -Indexes
+RewriteEngine On
+
+# Allow actual files and directories
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Clean URL rewriting (optional future use)
+# RewriteRule ^article/([^/]+)/?$ /article.php?slug=$1 [L,QSA]
+# RewriteRule ^project/([^/]+)/?$ /project.php?slug=$1 [L,QSA]
