@@ -181,7 +181,7 @@ model BrokerCompany {
   isActive         Boolean  @default(true)
   isDeleted        Boolean  @default(false)
   accountManager   User?    @relation("CompanyAccountManager", fields: [accountManagerId], references: [id])
-  accountManagerId String?
+  accountManagerId String?  @unique
   staff            User[]   @relation("ManagedCompany")
   leads            Lead[]
   deals            Deal[]

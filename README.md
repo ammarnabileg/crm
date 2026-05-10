@@ -1,50 +1,44 @@
-\# HalaOps — CRM \& Operational Intelligence System
+# مربح (Morbeh) - منصة العقارات العقارية
 
+Real estate affiliate platform built with Next.js 15, Prisma, PostgreSQL, and NextAuth.js v5.
 
+## Quick Start
 
-> Blueprint for the next-generation CRM for \*\*Hala Career\*\*: not a sales CRM,
+1. Copy `.env.example` to `.env` and fill in your database URL and NextAuth secret
+2. Run `npm install`
+3. Run `npx prisma db push` to create tables
+4. Run `npm run db:seed` to seed initial data
+5. Run `npm run dev` to start the dev server
 
-> but an Operational Intelligence System that combines tasks, performance,
+## Default Credentials (after seeding)
 
-> gamification, and AI insights — bilingual AR/EN by design.
+- **Admin**: admin@morbeh.com / admin123456
+- **Writer**: writer@morbeh.com / writer123456
 
+## Routes
 
+- `/` — Public homepage with hero, cities grid, articles, lead form
+- `/articles/[slug]` — Article page with split layout + sticky lead capture form
+- `/projects/[slug]` — Project page with split layout + sticky lead capture form
+- `/login`, `/register` — Auth pages
+- `/dashboard/*` — Writer dashboard (WRITER role)
+- `/admin/*` — Admin panel (ADMIN/SUPER_ADMIN/ACCOUNT_MANAGER roles)
+- `/broker/*` — Broker dashboard (BROKER role)
 
-\## Documents
+## Tech Stack
 
-| File | Contents |
+- Next.js 15 (App Router)
+- Prisma + PostgreSQL
+- NextAuth.js v5 (Credentials provider, JWT)
+- Tailwind CSS (RTL Arabic support)
+- Cairo font (Google Fonts)
+- React Hook Form + Zod validation
+- Lucide React icons
 
-|------|----------|
+## Business Flow
 
-| \[00-MASTER-BLUEPRINT.md](./00-MASTER-BLUEPRINT.md) | Vision, architecture, modules, roadmap (the main doc) |
-
-| \[01-database-schema.sql](./01-database-schema.sql) | Postgres 16 schema with RLS + pgvector |
-
-| \[02-api-spec.md](./02-api-spec.md) | REST + WebSocket + state machines |
-
-| \[03-gamification-and-kpi.md](./03-gamification-and-kpi.md) | XP formulas, anti-cheat, KPI engine, Truth Index |
-
-
-
-\## TL;DR
-
-\- \*\*Modular Monolith\*\* in NestJS + Next.js 15, event-driven core, RLS multi-tenant.
-
-\- \*\*Five Pillars\*\* for performance: Performance, Reliability, Leadership, Consistency, Growth.
-
-\- \*\*Truth Index\*\* prevents fake KPIs by requiring corroborating events.
-
-\- \*\*Gamification\*\* modeled on Duolingo (leagues, streaks, missions) but tied to real work, with anti-farming caps and after-hours dampers.
-
-\- \*\*AI Copilot\*\* embedded everywhere: smart assignment, voice-to-action, RAG chat, burnout detection, deal win prediction.
-
-\- \*\*Bilingual-native\*\*: RTL/LTR from day one, not a translation layer.
-
-\- \*\*Roadmap\*\*: MVP in 8 weeks → V2 (insights+AI) by week 20 → V3 (full game+mobile) by week 32 → Enterprise after.
-
-
-
-\## Why this is different
-
-Most CRMs assume self-reported truth. HalaOps assumes nothing — every metric is derived from events the system observes, every score has an evidence trail, every leaderboard has anti-cheat guardrails. Management gets a live, honest view of the company.
-
+1. Writer publishes SEO article → Lead submits form on article
+2. Admin assigns lead to broker company in CRM
+3. Broker closes deal, submits deal details
+4. System auto-calculates 20% commission for the writer
+5. Admin reviews and approves commission payout
