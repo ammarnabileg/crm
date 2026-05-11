@@ -1,7 +1,7 @@
 <?php
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'morbeh');
-define('DB_USER', 'root');
+define('DB_NAME', 'admin_morbeh');
+define('DB_USER', 'morbeh');
 define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 
