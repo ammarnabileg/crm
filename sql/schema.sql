@@ -1,7 +1,5 @@
 -- All tables. UTF8MB4. Soft deletes (is_deleted=0/1).
-
-CREATE DATABASE IF NOT EXISTS morbeh CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE morbeh;
+-- Import this file directly into your existing database (no CREATE DATABASE needed).
 
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
