@@ -240,6 +240,36 @@ critical fixes to this blueprint:
   inventory (F2). New tables: `workspace_types`, `system_modules`,
   `onboarding_progress` (D3).
 
+## Migration Status — Blueprint Realized
+
+The blueprint is fully migrated and verified against MySQL/MariaDB. The schema is
+implemented by `database/migrations/0018`–`0032` (created tables + companion FK
+migrations + built→blueprint cutover) on top of the original `0001`–`0017`:
+
+- `0018` — D0 reference data (`currencies`, `countries`, `languages`, `timezones`),
+  configuration-driven lookups (`lookup_categories`, `lookup_values`), the
+  `system_modules` registry, and the `permissions.module_id`/`action` link (R1-03,
+  dropping the free-text `permissions.group`).
+- `0019`–`0029` — every domain D1–D10 + the D0 polymorphic shared tables, each as a
+  create migration (columns + indexes) plus a companion `01NN_fk_*` migration that
+  adds all foreign keys after every table exists (so create-order and the
+  jobs↔pipelines cycle never block the build).
+- `0030` — D2 support tables (`workspace_statuses`, `integrations`,
+  `integration_status`, `domain_status`, `invitation_status`).
+- `0031` — built→blueprint renames (`activity_log`→`activity_logs`,
+  `permission_role`→`role_permissions`, `membership_role`→`membership_roles`,
+  `user_role`→`user_roles`, `ai_credentials`→`tenant_ai_keys`).
+- `0032` — the no-ENUM cutover: `workspaces.status`, `subscriptions.status`,
+  `memberships.status`, `users.status`, `plans.interval` → configuration-driven
+  status-table / `lookup_values` FKs.
+
+**Verified (fresh install, from scratch):** 43 migrations, 0 failures; **167 tables**
+(166 business + the `migrations` ledger); **0 ENUM columns**; **451 foreign keys**;
+seeded by `ReferenceDataSeeder` + `LookupSeeder` + `DatabaseSeeder`
+(30 currencies, 46 countries, 16 languages, 33 timezones, 49 lookup categories,
+215 lookup values, 21 system modules, all per-entity status tables). Application
+test suite green; registration and dashboard flows verified end-to-end.
+
 ## Open Questions
 
 - Per-entity status tables vs a single generic `statuses` table: the blueprint
