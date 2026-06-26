@@ -17,38 +17,40 @@ return [
     'super_admin_role' => 'super-admin',
 
     /*
-     * The permission catalogue, grouped for the role-editor UI. Each entry is
-     * [key, name, group, description].
+     * The permission catalogue. Each entry is [key, name, module, description].
+     * `module` is a system_modules.key (the module IS the permission group —
+     * docs/database/12 R1-03); the enforced `action` is derived from the key
+     * suffix. The canonical key remains `<module>.<action>`.
      */
     'permissions' => [
         // Dashboard
-        ['dashboard.view', 'View dashboard', 'Dashboard', 'Access the main dashboard.'],
+        ['dashboard.view', 'View dashboard', 'dashboard', 'Access the main dashboard.'],
 
         // Workspace profile
-        ['workspace.view', 'View workspace', 'Workspace', 'View the current workspace profile.'],
-        ['workspace.update', 'Edit workspace', 'Workspace', 'Edit the current workspace profile and settings.'],
+        ['workspace.view', 'View workspace', 'workspaces', 'View the current workspace profile.'],
+        ['workspace.update', 'Edit workspace', 'workspaces', 'Edit the current workspace profile and settings.'],
 
         // Members
-        ['members.view', 'View members', 'Members', 'See the people in the workspace.'],
-        ['members.invite', 'Invite members', 'Members', 'Invite new people to the workspace.'],
-        ['members.update', 'Edit members', 'Members', 'Change member roles and details.'],
-        ['members.remove', 'Remove members', 'Members', 'Remove people from the workspace.'],
+        ['members.view', 'View members', 'members', 'See the people in the workspace.'],
+        ['members.invite', 'Invite members', 'members', 'Invite new people to the workspace.'],
+        ['members.update', 'Edit members', 'members', 'Change member roles and details.'],
+        ['members.remove', 'Remove members', 'members', 'Remove people from the workspace.'],
 
         // Roles
-        ['roles.view', 'View roles', 'Roles & Permissions', 'View roles and their permissions.'],
-        ['roles.manage', 'Manage roles', 'Roles & Permissions', 'Create, edit and delete roles.'],
+        ['roles.view', 'View roles', 'roles', 'View roles and their permissions.'],
+        ['roles.manage', 'Manage roles', 'roles', 'Create, edit and delete roles.'],
 
         // Billing
-        ['billing.view', 'View billing', 'Billing', 'View subscription and invoices.'],
-        ['billing.manage', 'Manage billing', 'Billing', 'Change plans and manage the subscription.'],
+        ['billing.view', 'View billing', 'billing', 'View subscription and invoices.'],
+        ['billing.manage', 'Manage billing', 'billing', 'Change plans and manage the subscription.'],
 
         // AI
-        ['ai.view', 'View AI settings', 'AI', 'View configured AI providers.'],
-        ['ai.manage', 'Manage AI settings', 'AI', 'Add or update AI provider keys.'],
+        ['ai.view', 'View AI settings', 'ai', 'View configured AI providers.'],
+        ['ai.manage', 'Manage AI settings', 'ai', 'Add or update AI provider keys.'],
 
         // Settings
-        ['settings.view', 'View settings', 'Settings', 'View workspace settings.'],
-        ['settings.manage', 'Manage settings', 'Settings', 'Change workspace settings.'],
+        ['settings.view', 'View settings', 'settings', 'View workspace settings.'],
+        ['settings.manage', 'Manage settings', 'settings', 'Change workspace settings.'],
     ],
 
     /*

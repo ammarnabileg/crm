@@ -30,15 +30,23 @@ final class RbacManager
     {
         $now = now();
         $map = [];
+        $moduleIds = $this->moduleKeyToId();
 
-        foreach ((array) config('rbac.permissions', []) as [$key, $name, $group, $description]) {
+        foreach ((array) config('rbac.permissions', []) as [$key, $name, $moduleKey, $description]) {
+            $moduleId = $moduleIds[$moduleKey] ?? null;
+            if ($moduleId === null) {
+                throw new \RuntimeException("RBAC: permission '{$key}' references unknown module '{$moduleKey}'.");
+            }
+            $action = $this->actionFromKey($key);
+
             $existing = $this->db->table('permissions')->where('key', '=', $key)->first();
 
             if ($existing === null) {
                 $id = $this->db->table('permissions')->insertGetId([
                     'key'         => $key,
+                    'module_id'   => $moduleId,
+                    'action'      => $action,
                     'name'        => $name,
-                    'group'       => $group,
                     'description' => $description,
                     'created_at'  => $now,
                     'updated_at'  => $now,
@@ -46,8 +54,9 @@ final class RbacManager
             } else {
                 $id = (int) $existing['id'];
                 $this->db->table('permissions')->where('id', '=', $id)->update([
+                    'module_id'   => $moduleId,
+                    'action'      => $action,
                     'name'        => $name,
-                    'group'       => $group,
                     'description' => $description,
                     'updated_at'  => $now,
                 ]);
@@ -57,6 +66,30 @@ final class RbacManager
         }
 
         return $map;
+    }
+
+    /**
+     * @return array<string, int> system module key => id
+     */
+    private function moduleKeyToId(): array
+    {
+        $map = [];
+        foreach ($this->db->table('system_modules')->select('id', 'key')->get() as $row) {
+            $map[$row['key']] = (int) $row['id'];
+        }
+
+        return $map;
+    }
+
+    /**
+     * The enforced action is the key's last dot-segment (e.g. `jobs.create` →
+     * `create`); permission keys without a dot use the whole key as the action.
+     */
+    private function actionFromKey(string $key): string
+    {
+        $pos = strrpos($key, '.');
+
+        return $pos === false ? $key : substr($key, $pos + 1);
     }
 
     /**
