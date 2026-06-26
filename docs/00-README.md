@@ -69,7 +69,7 @@ sequenceDiagram
 2. [02-Business-Rules](02-Business-Rules.md) — the enumerated invariants everything cites.
 3. [03-System-Architecture](03-System-Architecture.md) → [06-ERD](06-ERD.md) — how the system and data are shaped.
 4. [07-RBAC](07-RBAC.md) → [11-Permissions-Matrix](11-Permissions-Matrix.md) — identity, tenancy, authorization.
-5. [12-Company-Management](12-Company-Management.md) → [18-AI-Interview-Engine](18-AI-Interview-Engine.md) — companies, billing, AI.
+5. [12-Workspace-Management](12-Workspace-Management.md) → [18-AI-Interview-Engine](18-AI-Interview-Engine.md) — companies, billing, AI.
 6. [19-Candidate-Journey](19-Candidate-Journey.md) → [26-Notification-System](26-Notification-System.md) — journeys and recruitment domain.
 7. [27-Storage-System](27-Storage-System.md) → [38-Audit-System](38-Audit-System.md) — supporting systems, app tiers, ops.
 8. [39-Testing-Strategy](39-Testing-Strategy.md) → [45-Future-Roadmap](45-Future-Roadmap.md) and [CHANGELOG](CHANGELOG.md) — quality, deployment, roadmap.
@@ -104,7 +104,7 @@ Mandatory section template for every doc (H2 headings, in order): Purpose, Why I
 | 09 | [09-Authentication](09-Authentication.md) | Login, register, password reset, sessions, throttling |
 | 10 | [10-Authorization](10-Authorization.md) | Permission checks, policy gates, middleware enforcement |
 | 11 | [11-Permissions-Matrix](11-Permissions-Matrix.md) | Role × permission matrix for every default role |
-| 12 | [12-Company-Management](12-Company-Management.md) | Company creation, provisioning, membership management |
+| 12 | [12-Workspace-Management](12-Workspace-Management.md) | Company creation, provisioning, membership management |
 | 13 | [13-Subscription-System](13-Subscription-System.md) | Data-driven plans and subscription lifecycle |
 | 14 | [14-Billing-System](14-Billing-System.md) | Invoices, payments, payment methods |
 | 15 | [15-Payment-Gateways](15-Payment-Gateways.md) | Pluggable gateways (Moyasar, Tap, HyperPay…) and webhooks |
@@ -140,10 +140,19 @@ Mandatory section template for every doc (H2 headings, in order): Purpose, Why I
 | 45 | [45-Future-Roadmap](45-Future-Roadmap.md) | Phased roadmap and 5-year scalability outlook |
 | 46 | [46-Architecture-Review](46-Architecture-Review.md) | Independent self-audit: verification results, strengths, weaknesses, gaps, risks, 5-year outlook |
 | 47 | [47-Enterprise-Architecture-Standards](47-Enterprise-Architecture-Standards.md) | Binding standard: layers, SOLID, DI, Repository/Service/DTO, Events, Cache/Storage/Search/Queue/AI/Notification contracts, Settings, Feature Flags, Audit, Soft Delete, UUID, Policies |
+| 48 | [48-Multi-Tenant-RBAC-Bible](48-Multi-Tenant-RBAC-Bible.md) | System constitution: one identity, many workspaces, roles+permissions+memberships, current tenant, fail-closed isolation, impersonation, the Golden Rule |
 | — | [CHANGELOG](CHANGELOG.md) | Versioned record of changes (Keep a Changelog) |
 
-That is 47 numbered documents (00–46) plus the CHANGELOG. The set covers the
-originally specified 00–45 plus the architecture-review / self-audit report.
+That is 49 numbered documents (00–48) plus the CHANGELOG.
+
+### Database blueprint (`/docs/database/`)
+
+The complete, scale-ready database design (the **Final Database Blueprint**,
+design-only until approved) lives under [`database/`](database/00-Database-Bible.md):
+the [Database Bible](database/00-Database-Bible.md) (standard + inventory), 11
+domain designs + [12 Workspace/Modules/Registries](database/12-Workspace-Types-Modules-Registries.md)
+(Revision R1), the consolidated [99-ERD-Blueprint](database/99-ERD-Blueprint.md)
+(166 tables), and the external-architect [98-Validation-Report](database/98-Validation-Report.md).
 
 ## Database Relations
 

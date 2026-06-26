@@ -1,7 +1,7 @@
 # 02 — RBAC & Membership (Domain D1)
 
 The authorization core of HalaOps. This domain answers one question for every
-request: **"can this user do this thing in this company?"** It defines *who a
+request: **"can this user do this thing in this workspace?"** It defines *who a
 user is inside a tenant* (`memberships`), *what bundles of capability exist*
 (`roles`, with inheritance), *the atomic capabilities themselves* (`permissions`,
 grouped by `permission_groups`), *how they are wired together* (`role_permissions`,
@@ -13,7 +13,7 @@ grouped by `permission_groups`), *how they are wired together* (`role_permission
 The design follows HalaOps Business Rule **DB-1**: there is exactly one `users`
 table and there are no `admin`/`hr`/`candidate`/`owner` tables — *capability is
 data*, expressed entirely through this domain. A person becomes an "Owner" of
-company A and a plain "Member" of company B purely by which roles hang off each
+workspace A and a plain "Member" of workspace B purely by which roles hang off each
 of their memberships; the same global user row is reused everywhere (DB-2).
 
 This document is part of the **HalaOps Final Database Blueprint**. Tables shipped
@@ -52,7 +52,7 @@ blueprint renames a built table, both names are stated explicitly.
 - [99-ERD-Blueprint](99-ERD-Blueprint.md) — the complete cross-domain ERD
 - [98-Validation-Report](98-Validation-Report.md) — external-architect review and fixes
 - [01-Lookups-Reference](01-Lookups-Reference.md) — D0: `lookup_categories`/`lookup_values` (membership status, history action types), `status_histories`, `activity_logs`, `translations`
-- [03-Companies-Settings](03-Companies-Settings.md) — D2: `companies` (tenant anchor) and `company_invitations` (feeds `memberships`)
+- [03-Workspaces-Settings](03-Workspaces-Settings.md) — D2: `workspaces` (tenant anchor) and `workspace_invitations` (feeds `memberships`)
 - [04-Authentication](04-Authentication.md) — D3: `users` sign-in; sessions resolve the active membership whose roles this domain evaluates
 - Up-stream specs: [../07-RBAC](../07-RBAC.md), [../08-Multi-Tenant](../08-Multi-Tenant.md), [../47-Enterprise-Architecture-Standards](../47-Enterprise-Architecture-Standards.md)
 - Source of truth for BUILT tables: `database/migrations/0003`–`0008`, `0016`, and `config/rbac.php`
@@ -60,8 +60,8 @@ blueprint renames a built table, both names are stated explicitly.
 ## Domain model (how authorization is computed)
 
 1. **Principals.** Authorization is granted to two kinds of principal:
-   - a **user** directly, via `user_roles`, for *global* roles (`roles.company_id IS NULL`) such as platform `super-admin` — these bypass tenant scoping;
-   - a **membership** (a user-in-a-company), via `membership_roles`, for *tenant* roles (`roles.company_id = <that company>`).
+   - a **user** directly, via `user_roles`, for *global* roles (`roles.workspace_id IS NULL`) such as platform `super-admin` — these bypass tenant scoping;
+   - a **membership** (a user-in-a-workspace), via `membership_roles`, for *tenant* roles (`roles.workspace_id = <that workspace>`).
 2. **Roles bundle permissions** through `role_permissions`, and roles form a
    single-parent tree via `roles.parent_id`. A role's **effective permissions** =
    its own `role_permissions` rows ∪ those of all ancestors (transitive closure
@@ -104,10 +104,10 @@ effective(principal) =
 
 ```mermaid
 erDiagram
-    companies   ||--o{ roles               : "scopes (tenant roles)"
-    companies   ||--o{ memberships         : "has"
-    companies   ||--o{ policies            : "scopes"
-    companies   ||--o{ permission_caches   : "scopes"
+    workspaces   ||--o{ roles               : "scopes (tenant roles)"
+    workspaces   ||--o{ memberships         : "has"
+    workspaces   ||--o{ policies            : "scopes"
+    workspaces   ||--o{ permission_caches   : "scopes"
     users       ||--o{ memberships         : "is member via"
     users       ||--o{ user_roles          : "directly holds (global)"
     users       ||--o{ permission_caches   : "global cache for"
@@ -139,11 +139,11 @@ erDiagram
 
 ### `roles` — BUILT (migration 0004; `uuid`/`deleted_at` added in 0016)
 
-- **Status / purpose:** BUILT. A named bundle of permissions. `company_id NULL`
+- **Status / purpose:** BUILT. A named bundle of permissions. `workspace_id NULL`
   ⇒ **global** role (platform-level, e.g. `super-admin`, assigned to users via
-  `user_roles`); `company_id` set ⇒ **tenant** role (assigned via
+  `user_roles`); `workspace_id` set ⇒ **tenant** role (assigned via
   `membership_roles`). Single-parent inheritance via `parent_id`.
-- **Tenant-scoped?** Yes for tenant roles; nullable `company_id` deliberately
+- **Tenant-scoped?** Yes for tenant roles; nullable `workspace_id` deliberately
   allows global roles. **Soft-delete?** Yes (`deleted_at`, added in 0016).
 - **Blueprint note:** built columns are kept verbatim; the blueprint *adds*
   `uuid` (already back-filled by 0016), `is_default`, `created_by`/`updated_by`,
@@ -153,13 +153,13 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED AI | no | — | PK |
 | `uuid` | CHAR(36) | no | — | public id; back-filled by 0016 (was added NULL then populated) |
-| `company_id` | BIGINT UNSIGNED | yes | NULL | **NULL = global role**; else tenant owner → companies |
+| `workspace_id` | BIGINT UNSIGNED | yes | NULL | **NULL = global role**; else tenant owner → workspaces |
 | `parent_id` | BIGINT UNSIGNED | yes | NULL | inheritance parent → roles (self-ref) |
 | `name` | VARCHAR(120) | no | — | display name ("Owner", "Administrator") |
-| `slug` | VARCHAR(120) | no | — | stable machine key ("owner", "super-admin"); unique per company |
+| `slug` | VARCHAR(120) | no | — | stable machine key ("owner", "super-admin"); unique per workspace |
 | `description` | VARCHAR(255) | yes | NULL | role-editor help text |
 | `is_system` | TINYINT(1) | no | 0 | seeded/protected role; cannot be deleted by tenants |
-| `is_default` | TINYINT(1) | no | 0 | **BLUEPRINT** — auto-assigned to new members of the company |
+| `is_default` | TINYINT(1) | no | 0 | **BLUEPRINT** — auto-assigned to new members of the workspace |
 | `priority` | INT | no | 0 | higher wins for UI ordering / tie-break (Owner=100, Admin=80, Member=10 per `config/rbac.php`) |
 | `created_by` | BIGINT UNSIGNED | yes | NULL | **BLUEPRINT** — actor → users (SET NULL) |
 | `updated_by` | BIGINT UNSIGNED | yes | NULL | **BLUEPRINT** — actor → users (SET NULL) |
@@ -167,27 +167,27 @@ erDiagram
 | `updated_at` | TIMESTAMP | yes | NULL | |
 | `deleted_at` | TIMESTAMP | yes | NULL | soft delete (added 0016) |
 
-- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE(`company_id`,`slug`).
+- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE(`workspace_id`,`slug`).
 - **Indexes:**
   - `roles_uuid_unique` → (`uuid`) — unique
-  - `roles_company_slug_unique` → (`company_id`,`slug`) — unique (built) — one slug per tenant; NULL `company_id` group holds global roles
+  - `roles_workspace_slug_unique` → (`workspace_id`,`slug`) — unique (built) — one slug per tenant; NULL `workspace_id` group holds global roles
   - `roles_parent_id_index` → (`parent_id`) — index (FK, built)
   - `roles_deleted_at_index` → (`deleted_at`) — index (built, 0016)
-  - `roles_company_id_index` → (`company_id`) — index **BLUEPRINT** (built table relies on the composite's leftmost prefix; explicit index added for clarity)
+  - `roles_workspace_id_index` → (`workspace_id`) — index **BLUEPRINT** (built table relies on the composite's leftmost prefix; explicit index added for clarity)
   - `roles_created_by_index` → (`created_by`) — index **BLUEPRINT** (FK)
 - **Foreign keys:**
-  - `company_id` → companies(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE (built) — deleting a tenant drops its roles
+  - `workspace_id` → workspaces(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE (built) — deleting a tenant drops its roles
   - `parent_id` → roles(`id`) **ON DELETE SET NULL** ON UPDATE CASCADE (built) — orphaned child becomes a root; no inheritance loop allowed (app-enforced)
   - `created_by` / `updated_by` → users(`id`) ON DELETE SET NULL (BLUEPRINT)
 - **Relationships + cardinality:**
-  - company 1—* roles (tenant roles); global roles have company 0
+  - workspace 1—* roles (tenant roles); global roles have workspace 0
   - role 1—* roles (self, via `parent_id`) — inheritance tree
   - role *—* permissions (via `role_permissions`)
   - role *—* memberships (via `membership_roles`) and role *—* users (via `user_roles`)
-- **Notes:** `slug` uniqueness is *per company* so two tenants can both have an
+- **Notes:** `slug` uniqueness is *per workspace* so two tenants can both have an
   `admin` role. Inheritance is acyclic by app invariant (a role cannot be its own
   ancestor). `is_system` rows come from `config/rbac.php` (`owner`, `admin`,
-  `member`) seeded per new company; the global `super-admin` slug also lives there.
+  `member`) seeded per new workspace; the global `super-admin` slug also lives there.
 
 ---
 
@@ -197,7 +197,7 @@ erDiagram
   ("Dashboard", "Members", "Roles & Permissions", "Billing", "AI", "Settings")
   used to organize the permission catalog in the role-editor UI. Replaces the
   free-text `permissions.group` VARCHAR shipped in 0005.
-- **Tenant-scoped?** No — global platform catalog (seeded, not company-scoped).
+- **Tenant-scoped?** No — global platform catalog (seeded, not workspace-scoped).
   **Soft-delete?** No (reference catalog; hard-managed via seed).
 - **Migration note:** populate from the distinct `permissions.group` values, then
   swap `permissions.group` (string) for `permissions.permission_group_id` (FK).
@@ -277,8 +277,8 @@ erDiagram
 - **Status / purpose:** BUILT (as `permission_role`). Pivot: which permissions a
   role grants. Combined with `roles.parent_id` inheritance, a role's effective set
   is its own rows here plus its ancestors'.
-- **Tenant-scoped?** No own `company_id` — tenancy flows through `role_id`
-  (the role carries the company). **Soft-delete?** No (pure pivot, hard-deleted).
+- **Tenant-scoped?** No own `workspace_id` — tenancy flows through `role_id`
+  (the role carries the workspace). **Soft-delete?** No (pure pivot, hard-deleted).
 - **Rename:** built `permission_role` → blueprint `role_permissions`.
 - **Blueprint addition:** optional grant-audit columns (`created_at`,
   `created_by`) so a grant is timestamped; the built table is a bare composite-PK
@@ -314,7 +314,7 @@ erDiagram
 
 - **Status / purpose:** BUILT (as `user_role`). Pivot assigning **global**
   (platform) roles directly to users — most importantly `super-admin`. These roles
-  are not tied to a company and grant platform-wide capability that bypasses
+  are not tied to a workspace and grant platform-wide capability that bypasses
   tenant scoping.
 - **Tenant-scoped?** No, by design (these are the *cross-tenant* grants).
   **Soft-delete?** No (pivot).
@@ -324,7 +324,7 @@ erDiagram
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
 | `user_id` | BIGINT UNSIGNED | no | — | → users (part of PK) |
-| `role_id` | BIGINT UNSIGNED | no | — | → roles (part of PK); expected to be a global role (`company_id IS NULL`) |
+| `role_id` | BIGINT UNSIGNED | no | — | → roles (part of PK); expected to be a global role (`workspace_id IS NULL`) |
 | `created_at` | TIMESTAMP | yes | NULL | **BLUEPRINT** — when granted |
 | `created_by` | BIGINT UNSIGNED | yes | NULL | **BLUEPRINT** — actor → users (SET NULL) |
 
@@ -338,7 +338,7 @@ erDiagram
   - `role_id` → roles(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE (built)
   - `created_by` → users(`id`) ON DELETE SET NULL (BLUEPRINT)
 - **Relationships + cardinality:** user *—* role (M:N) for global roles.
-- **Notes:** App invariant — only roles with `company_id IS NULL` should be
+- **Notes:** App invariant — only roles with `workspace_id IS NULL` should be
   attached here (tenant roles belong on `membership_roles`). Not enforceable by a
   plain FK; enforced at the service layer and checked by validation. Writes
   invalidate the user's global `permission_caches` row and append to
@@ -348,12 +348,12 @@ erDiagram
 
 ### `memberships` — BUILT (migration 0003; `uuid`/`deleted_at` added in 0016)
 
-- **Status / purpose:** BUILT. The user ↔ company link and the *anchor of tenant
-  authorization*. A user may belong to many companies; inside each, their
+- **Status / purpose:** BUILT. The user ↔ workspace link and the *anchor of tenant
+  authorization*. A user may belong to many workspaces; inside each, their
   capability is defined by the roles attached to **this** membership
-  (`membership_roles`). This is what lets one user be Owner in company A and
-  Member in company B with no row duplication.
-- **Tenant-scoped?** Yes (`company_id`). **Soft-delete?** Yes (`deleted_at`,
+  (`membership_roles`). This is what lets one user be Owner in workspace A and
+  Member in workspace B with no row duplication.
+- **Tenant-scoped?** Yes (`workspace_id`). **Soft-delete?** Yes (`deleted_at`,
   added 0016).
 - **Blueprint note:** the built table stores `status` as
   `ENUM('active','invited','suspended')`. Per Bible §2/DB-4 (no hard-coded
@@ -369,11 +369,11 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED AI | no | — | PK |
 | `uuid` | CHAR(36) | no | — | public id (back-filled 0016) |
-| `company_id` | BIGINT UNSIGNED | no | — | → companies (tenant) |
+| `workspace_id` | BIGINT UNSIGNED | no | — | → workspaces (tenant) |
 | `user_id` | BIGINT UNSIGNED | no | — | → users |
 | `status` | ENUM('active','invited','suspended') | no | 'active' | **BUILT** — superseded by `membership_status_id` (drop after backfill) |
 | `membership_status_id` | BIGINT UNSIGNED | yes | NULL | **BLUEPRINT** → lookup_values(`membership_status`); NOT NULL after migration |
-| `title` | VARCHAR(120) | yes | NULL | the person's title in this company ("Head of Talent") |
+| `title` | VARCHAR(120) | yes | NULL | the person's title in this workspace ("Head of Talent") |
 | `invited_by` | BIGINT UNSIGNED | yes | NULL | → users (who invited them) |
 | `invited_at` | TIMESTAMP | yes | NULL | |
 | `joined_at` | TIMESTAMP | yes | NULL | |
@@ -381,28 +381,28 @@ erDiagram
 | `updated_at` | TIMESTAMP | yes | NULL | |
 | `deleted_at` | TIMESTAMP | yes | NULL | soft delete (added 0016) |
 
-- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE(`company_id`,`user_id`) — a user has at
-  most one membership per company.
+- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE(`workspace_id`,`user_id`) — a user has at
+  most one membership per workspace.
 - **Indexes:**
   - `memberships_uuid_unique` → (`uuid`) — unique (0016)
-  - `memberships_company_user_unique` → (`company_id`,`user_id`) — unique (built)
-  - `memberships_user_id_index` → (`user_id`) — index (built; "all companies for a user")
+  - `memberships_workspace_user_unique` → (`workspace_id`,`user_id`) — unique (built)
+  - `memberships_user_id_index` → (`user_id`) — index (built; "all workspaces for a user")
   - `memberships_status_index` → (`status`) — index (built; dropped with the ENUM column)
   - `memberships_deleted_at_index` → (`deleted_at`) — index (0016)
   - `memberships_membership_status_id_index` → (`membership_status_id`) — index **BLUEPRINT** (FK)
   - `memberships_invited_by_index` → (`invited_by`) — index **BLUEPRINT** (FK; built table omits it)
-  - `memberships_company_status_index` → (`company_id`,`membership_status_id`) — composite **BLUEPRINT** (hot path: "active members of company X")
+  - `memberships_workspace_status_index` → (`workspace_id`,`membership_status_id`) — composite **BLUEPRINT** (hot path: "active members of workspace X")
 - **Foreign keys:**
-  - `company_id` → companies(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE (built)
+  - `workspace_id` → workspaces(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE (built)
   - `user_id` → users(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE (built)
   - `invited_by` → users(`id`) **ON DELETE SET NULL** ON UPDATE CASCADE (built)
   - `membership_status_id` → lookup_values(`id`) **ON DELETE RESTRICT** ON UPDATE CASCADE (BLUEPRINT)
 - **Relationships + cardinality:**
-  - company 1—* memberships; user 1—* memberships
+  - workspace 1—* memberships; user 1—* memberships
   - membership *—* roles (via `membership_roles`)
   - membership 1—* permission_caches (its materialized effective set)
-- **Notes:** Deleting a company or user cascades the membership (and via
-  `membership_roles` CASCADE, its role links). `company_invitations` (D2) is the
+- **Notes:** Deleting a workspace or user cascades the membership (and via
+  `membership_roles` CASCADE, its role links). `workspace_invitations` (D2) is the
   pre-acceptance staging; on acceptance a `memberships` row is created with the
   invited status. Status-change transitions are recorded in the polymorphic D0
   `status_histories` (subject_type = 'membership').
@@ -413,9 +413,9 @@ erDiagram
 
 - **Status / purpose:** BUILT (as `membership_role`). Pivot assigning **tenant**
   roles to a membership — the roles a specific user holds inside a specific
-  company. This is the per-tenant authorization wiring.
+  workspace. This is the per-tenant authorization wiring.
 - **Tenant-scoped?** Implicitly — both `membership_id` and `role_id` carry the
-  same company; an app invariant requires `roles.company_id = membership.company_id`
+  same workspace; an app invariant requires `roles.workspace_id = membership.workspace_id`
   (or the role is global, though global roles normally go on `user_roles`).
   **Soft-delete?** No (pivot).
 - **Rename:** built `membership_role` → blueprint `membership_roles`.
@@ -431,15 +431,15 @@ erDiagram
 - **Keys:** composite PK (`membership_id`,`role_id`). No surrogate id/uuid (pivot).
 - **Indexes:**
   - PRIMARY → (`membership_id`,`role_id`) — composite PK (built)
-  - `membership_role_role_id_index` → (`role_id`) — index (built; "who has role X in any company")
+  - `membership_role_role_id_index` → (`role_id`) — index (built; "who has role X in any workspace")
   - `membership_roles_created_by_index` → (`created_by`) — index **BLUEPRINT** (FK)
 - **Foreign keys:**
   - `membership_id` → memberships(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE (built)
   - `role_id` → roles(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE (built)
   - `created_by` → users(`id`) ON DELETE SET NULL (BLUEPRINT)
 - **Relationships + cardinality:** membership *—* role (M:N) for tenant roles.
-- **Notes:** The cross-company-consistency invariant (role's company = membership's
-  company) is enforced at the service layer (a composite FK cannot express it).
+- **Notes:** The cross-workspace-consistency invariant (role's workspace = membership's
+  workspace) is enforced at the service layer (a composite FK cannot express it).
   Writes invalidate that membership's `permission_caches` row and append to
   `role_histories`.
 
@@ -453,7 +453,7 @@ erDiagram
   attached to a **role**, a **membership**, or a **user**. It answers "*may* this
   principal exercise these permissions *here, under these conditions*", layered
   over the flat "has permission" answer from `role_permissions`.
-- **Tenant-scoped?** Yes (`company_id`), with `NULL` allowed for global/platform
+- **Tenant-scoped?** Yes (`workspace_id`), with `NULL` allowed for global/platform
   policies (mirrors `roles`). **Soft-delete?** Yes (`deleted_at`) — policies are
   important, audited security objects.
 
@@ -461,12 +461,12 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED AI | no | — | PK |
 | `uuid` | CHAR(36) | no | — | public id |
-| `company_id` | BIGINT UNSIGNED | yes | NULL | NULL = global policy; else → companies |
+| `workspace_id` | BIGINT UNSIGNED | yes | NULL | NULL = global policy; else → workspaces |
 | `name` | VARCHAR(150) | no | — | display name ("Only own candidates") |
-| `slug` | VARCHAR(150) | no | — | machine key; unique per company |
+| `slug` | VARCHAR(150) | no | — | machine key; unique per workspace |
 | `description` | VARCHAR(255) | yes | NULL | |
 | `effect` | VARCHAR(10) | no | 'allow' | 'allow' or 'deny' — **config-driven via `lookup_values`(`policy_effect`)** would be over-engineering; kept as a constrained 2-value string, **deny wins** in resolution |
-| `subject_type` | VARCHAR(60) | yes | NULL | polymorphic attach target: 'role' / 'membership' / 'user' (NULL = company-wide) |
+| `subject_type` | VARCHAR(60) | yes | NULL | polymorphic attach target: 'role' / 'membership' / 'user' (NULL = workspace-wide) |
 | `subject_id` | BIGINT UNSIGNED | yes | NULL | id within `subject_type` |
 | `conditions` | JSON | yes | NULL | ABAC conditions (e.g. `{"owner":true,"field":"department_id"}`) evaluated at request time |
 | `priority` | INT | no | 0 | resolution order among policies (higher first) |
@@ -478,20 +478,20 @@ erDiagram
 | `updated_at` | TIMESTAMP | yes | NULL | |
 | `deleted_at` | TIMESTAMP | yes | NULL | soft delete |
 
-- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE(`company_id`,`slug`).
+- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE(`workspace_id`,`slug`).
 - **Indexes:**
   - `policies_uuid_unique` → (`uuid`) — unique
-  - `policies_company_slug_unique` → (`company_id`,`slug`) — unique
-  - `policies_company_id_index` → (`company_id`) — index (FK)
+  - `policies_workspace_slug_unique` → (`workspace_id`,`slug`) — unique
+  - `policies_workspace_id_index` → (`workspace_id`) — index (FK)
   - `policies_subject_index` → (`subject_type`,`subject_id`) — composite/poly (resolve policies for a given role/membership/user)
-  - `policies_company_active_index` → (`company_id`,`is_active`) — composite (active policies for a tenant)
+  - `policies_workspace_active_index` → (`workspace_id`,`is_active`) — composite (active policies for a tenant)
   - `policies_created_by_index` → (`created_by`) — index (FK)
 - **Foreign keys:**
-  - `company_id` → companies(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  - `workspace_id` → workspaces(`id`) ON DELETE CASCADE ON UPDATE CASCADE
   - `created_by` / `updated_by` → users(`id`) ON DELETE SET NULL
   - **(no FK on `subject_type`/`subject_id`)** — polymorphic; integrity at app layer + the (type,id) index (Bible §6)
 - **Relationships + cardinality:**
-  - company 1—* policies (tenant); global policies have company 0
+  - workspace 1—* policies (tenant); global policies have workspace 0
   - policy *—* permissions (via `policy_permissions`)
   - policy }o—|| {role|membership|user} (polymorphic attach via `subject_type`/`subject_id`)
 - **Notes:** The polymorphic attach (instead of three nullable FK columns) follows
@@ -506,7 +506,7 @@ erDiagram
 - **Status / purpose:** BLUEPRINT. Pivot selecting which permissions a policy
   governs — i.e. the permission keys whose exercise the policy's effect/conditions
   apply to.
-- **Tenant-scoped?** No own `company_id` (flows through `policy_id`).
+- **Tenant-scoped?** No own `workspace_id` (flows through `policy_id`).
   **Soft-delete?** No (pivot).
 
 | Column | Type | Null | Default | Notes |
@@ -538,8 +538,8 @@ erDiagram
   of recomputing role-inheritance + policy resolution per request. One principal
   is *either* a membership (tenant scope) *or* a user (global scope), expressed
   polymorphically.
-- **Tenant-scoped?** Yes for membership-scoped rows (`company_id` set); global
-  (user-scoped) rows have `company_id NULL`. **Soft-delete?** No — it is a
+- **Tenant-scoped?** Yes for membership-scoped rows (`workspace_id` set); global
+  (user-scoped) rows have `workspace_id NULL`. **Soft-delete?** No — it is a
   derived, regenerable cache; rows are hard-deleted/replaced on invalidation.
 - **Shape choice:** one row per (principal, permission) for index-friendly
   membership checks, plus a `permissions` JSON snapshot column for bulk
@@ -549,7 +549,7 @@ erDiagram
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED AI | no | — | PK |
-| `company_id` | BIGINT UNSIGNED | yes | NULL | tenant scope; NULL = global (user) cache |
+| `workspace_id` | BIGINT UNSIGNED | yes | NULL | tenant scope; NULL = global (user) cache |
 | `principal_type` | VARCHAR(40) | no | — | 'membership' or 'user' (polymorphic) |
 | `principal_id` | BIGINT UNSIGNED | no | — | id within `principal_type` |
 | `permission_id` | BIGINT UNSIGNED | yes | NULL | the granted permission → permissions; NULL when row is the JSON-snapshot row |
@@ -572,11 +572,11 @@ erDiagram
   - `permission_caches_principal_permission_unique` → (`principal_type`,`principal_id`,`permission_id`) — unique
   - `permission_caches_principal_index` → (`principal_type`,`principal_id`) — composite/poly (load all for a principal)
   - `permission_caches_lookup_index` → (`principal_type`,`principal_id`,`permission_key`) — composite (the hot "does principal have key K" probe)
-  - `permission_caches_company_id_index` → (`company_id`) — index
+  - `permission_caches_workspace_id_index` → (`workspace_id`) — index
   - `permission_caches_permission_id_index` → (`permission_id`) — index (FK)
   - `permission_caches_expires_at_index` → (`expires_at`) — index (TTL sweep)
 - **Foreign keys:**
-  - `company_id` → companies(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE
+  - `workspace_id` → workspaces(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE
   - `permission_id` → permissions(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE
   - **(no FK on `principal_type`/`principal_id`)** — polymorphic; app-enforced.
 - **Relationships + cardinality:**
@@ -603,15 +603,15 @@ erDiagram
   appended (who, what, when, why). This is a first-class security trail, distinct
   from the generic D0 `activity_logs`/`status_histories`: it makes access reviews
   and "who could do X, and since when" queries cheap and unambiguous.
-- **Tenant-scoped?** Yes when the assignment is tenant-scoped (`company_id` set);
-  global-role grants have `company_id NULL`. **Soft-delete?** No — append-only
+- **Tenant-scoped?** Yes when the assignment is tenant-scoped (`workspace_id` set);
+  global-role grants have `workspace_id NULL`. **Soft-delete?** No — append-only
   history (never edited/deleted; partition/archive by time at scale).
 
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED AI | no | — | PK |
 | `uuid` | CHAR(36) | yes | NULL | public id (optional on append-only history per Bible §1) |
-| `company_id` | BIGINT UNSIGNED | yes | NULL | tenant scope; NULL for global-role events |
+| `workspace_id` | BIGINT UNSIGNED | yes | NULL | tenant scope; NULL for global-role events |
 | `role_id` | BIGINT UNSIGNED | yes | NULL | the role granted/revoked → roles (SET NULL if role later deleted) |
 | `principal_type` | VARCHAR(40) | no | — | 'membership' or 'user' (whom it was assigned to) |
 | `principal_id` | BIGINT UNSIGNED | no | — | id within `principal_type` |
@@ -627,18 +627,18 @@ erDiagram
   - `role_histories_uuid_unique` → (`uuid`) — unique (sparse)
   - `role_histories_principal_index` → (`principal_type`,`principal_id`) — composite/poly (history for a principal)
   - `role_histories_role_id_index` → (`role_id`) — index (FK; history for a role)
-  - `role_histories_company_created_index` → (`company_id`,`created_at`) — composite (tenant timeline)
+  - `role_histories_workspace_created_index` → (`workspace_id`,`created_at`) — composite (tenant timeline)
   - `role_histories_performed_by_index` → (`performed_by`) — index (FK)
   - `role_histories_action_id_index` → (`action_id`) — index (FK)
 - **Foreign keys:**
-  - `company_id` → companies(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE
+  - `workspace_id` → workspaces(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE
   - `role_id` → roles(`id`) **ON DELETE SET NULL** ON UPDATE CASCADE (keep history even if the role is removed)
   - `action_id` → lookup_values(`id`) **ON DELETE RESTRICT** ON UPDATE CASCADE
   - `performed_by` → users(`id`) **ON DELETE SET NULL** ON UPDATE CASCADE
   - **(no FK on `principal_type`/`principal_id`)** — polymorphic; app-enforced.
 - **Relationships + cardinality:**
   - role 1—* role_histories; principal (membership|user) 1—* role_histories
-  - company 1—* role_histories
+  - workspace 1—* role_histories
 - **Notes:** Append-only; at scale partition by `RANGE(created_at)` (monthly) per
   Bible §7. Complements but does not replace D0 `activity_logs` (which also logs
   the change generically); this table is the *security-specific* projection the
@@ -655,14 +655,14 @@ erDiagram
   together they fully reconstruct how any principal's effective access changed
   over time.
 - **Tenant-scoped?** Yes when the affected role/policy is tenant-scoped
-  (`company_id` set); global roles/policies → `company_id NULL`.
+  (`workspace_id` set); global roles/policies → `workspace_id NULL`.
   **Soft-delete?** No — append-only history.
 
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED AI | no | — | PK |
 | `uuid` | CHAR(36) | yes | NULL | public id (optional on append-only history) |
-| `company_id` | BIGINT UNSIGNED | yes | NULL | tenant scope; NULL for global grantor |
+| `workspace_id` | BIGINT UNSIGNED | yes | NULL | tenant scope; NULL for global grantor |
 | `permission_id` | BIGINT UNSIGNED | yes | NULL | the permission → permissions (SET NULL if later deleted) |
 | `permission_key` | VARCHAR(120) | yes | NULL | denormalized key copy (survives permission deletion) |
 | `grantor_type` | VARCHAR(40) | no | — | what the permission was attached to: 'role' or 'policy' |
@@ -679,18 +679,18 @@ erDiagram
   - `permission_histories_uuid_unique` → (`uuid`) — unique (sparse)
   - `permission_histories_grantor_index` → (`grantor_type`,`grantor_id`) — composite/poly (history for a role or policy)
   - `permission_histories_permission_id_index` → (`permission_id`) — index (FK; history for a permission)
-  - `permission_histories_company_created_index` → (`company_id`,`created_at`) — composite (tenant timeline)
+  - `permission_histories_workspace_created_index` → (`workspace_id`,`created_at`) — composite (tenant timeline)
   - `permission_histories_performed_by_index` → (`performed_by`) — index (FK)
   - `permission_histories_action_id_index` → (`action_id`) — index (FK)
 - **Foreign keys:**
-  - `company_id` → companies(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE
+  - `workspace_id` → workspaces(`id`) **ON DELETE CASCADE** ON UPDATE CASCADE
   - `permission_id` → permissions(`id`) **ON DELETE SET NULL** ON UPDATE CASCADE
   - `action_id` → lookup_values(`id`) **ON DELETE RESTRICT** ON UPDATE CASCADE
   - `performed_by` → users(`id`) **ON DELETE SET NULL** ON UPDATE CASCADE
   - **(no FK on `grantor_type`/`grantor_id`)** — polymorphic; app-enforced.
 - **Relationships + cardinality:**
   - permission 1—* permission_histories; grantor (role|policy) 1—* permission_histories
-  - company 1—* permission_histories
+  - workspace 1—* permission_histories
 - **Notes:** Append-only; partition by `RANGE(created_at)` at scale. The
   denormalized `permission_key` is retained deliberately so the trail stays
   meaningful even after a permission key is removed from the catalog.
@@ -725,7 +725,7 @@ erDiagram
 
 ## Cross-domain assumptions & open questions
 
-- **`companies` (D2)** and **`users` (D3/global)** are the FK anchors for the whole
+- **`workspaces` (D2)** and **`users` (D3/global)** are the FK anchors for the whole
   domain; both are BUILT (0001/0002). Assumed stable.
 - **`lookup_categories`/`lookup_values` (D0)** must define three categories:
   `membership_status` (active/invited/suspended — migrated from the built ENUM),
@@ -741,7 +741,7 @@ erDiagram
   *additional*, per the task spec. *Open question for sign-off:* confirm the team
   wants both the explicit security-history tables **and** the generic polymorphic
   logs (this design keeps both).
-- **`company_invitations` (D2)** is assumed to be the pre-acceptance staging that
+- **`workspace_invitations` (D2)** is assumed to be the pre-acceptance staging that
   produces a `memberships` row on acceptance; the `memberships.invited_by`/
   `invited_at` columns (BUILT) bridge to it.
 - **Rename migrations** (`permission_role`→`role_permissions`,

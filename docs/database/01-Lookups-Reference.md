@@ -34,7 +34,7 @@ soft-deletable entities, InnoDB / `utf8mb4` / `utf8mb4_unicode_ci`.
 - [00-Database-Bible](00-Database-Bible.md) — the authoritative standard + table inventory
 - [99-ERD-Blueprint](99-ERD-Blueprint.md) — the complete ERD (all tables, relationships, FKs, indexes)
 - [98-Validation-Report](98-Validation-Report.md) — external-architect review and fixes
-- Consuming domains (every domain depends on D0): [D1 RBAC](02-RBAC-Membership.md) · [D2 Companies](03-Companies-Settings.md) · [D3 Auth](04-Authentication.md) · [D4 Billing](05-Subscriptions-Billing.md) · [D5 Jobs](06-Jobs.md) · [D6 Candidates](07-Candidates.md) · [D7 Applications & Interviews](08-Applications-Interviews.md) · [D8 AI & Notifications](09-AI-Notifications.md) · [D9 HR & Talent](10-HR-Talent.md) · [D10 Files/Queue/Analytics/Logs](11-Files-Queue-Analytics-Logs.md)
+- Consuming domains (every domain depends on D0): [D1 RBAC](02-RBAC-Membership.md) · [D2 Workspaces](03-Workspaces-Settings.md) · [D3 Auth](04-Authentication.md) · [D4 Billing](05-Subscriptions-Billing.md) · [D5 Jobs](06-Jobs.md) · [D6 Candidates](07-Candidates.md) · [D7 Applications & Interviews](08-Applications-Interviews.md) · [D8 AI & Notifications](09-AI-Notifications.md) · [D9 HR & Talent](10-HR-Talent.md) · [D10 Files/Queue/Analytics/Logs](11-Files-Queue-Analytics-Logs.md)
 - `activity_logs` (the audit trail / timelines, polymorphic sibling of `status_histories`) is defined in [D10](11-Files-Queue-Analytics-Logs.md); BUILT as `activity_log` in `database/migrations/0015_create_activity_log_table.php`.
 
 ## Domain ERD
@@ -42,8 +42,8 @@ soft-deletable entities, InnoDB / `utf8mb4` / `utf8mb4_unicode_ci`.
 ```mermaid
 erDiagram
     lookup_categories ||--o{ lookup_values : "groups"
-    companies ||--o{ lookup_values : "tenant override (company_id NULL = system)"
-    companies ||--o{ lookup_categories : "tenant override (company_id NULL = system)"
+    workspaces ||--o{ lookup_values : "tenant override (workspace_id NULL = system)"
+    workspaces ||--o{ lookup_categories : "tenant override (workspace_id NULL = system)"
     lookup_values }o--o| lookup_values : "self (parent_id, hierarchy)"
 
     countries ||--o{ countries : "self (default currency / phone)"
@@ -51,25 +51,25 @@ erDiagram
     languages  ||--o{ translations : "(via locale string, app-enforced)"
 
     tags ||--o{ taggables : "applied via"
-    companies ||--o{ tags : "tenant-scoped"
+    workspaces ||--o{ tags : "tenant-scoped"
 
-    companies ||--o{ notes : "tenant-scoped"
+    workspaces ||--o{ notes : "tenant-scoped"
     users ||--o{ notes : "author (created_by)"
     notes }o--|| lookup_values : "type_id (note types)"
 
-    companies ||--o{ attachments : "tenant-scoped"
+    workspaces ||--o{ attachments : "tenant-scoped"
     files ||--o{ attachments : "links file to any entity"
     users ||--o{ attachments : "uploaded_by"
 
-    companies ||--o{ translations : "tenant-scoped (NULL = global)"
+    workspaces ||--o{ translations : "tenant-scoped (NULL = global)"
 
-    companies ||--o{ status_histories : "tenant-scoped"
+    workspaces ||--o{ status_histories : "tenant-scoped"
     users ||--o{ status_histories : "changed_by"
 
     lookup_categories {
         bigint id PK
         char uuid UK
-        bigint company_id FK "NULL = system"
+        bigint workspace_id FK "NULL = system"
         string key
         string label
     }
@@ -77,7 +77,7 @@ erDiagram
         bigint id PK
         char uuid UK
         bigint category_id FK
-        bigint company_id FK "NULL = system"
+        bigint workspace_id FK "NULL = system"
         bigint parent_id FK "self, nullable"
         string key
         string label
@@ -116,7 +116,7 @@ erDiagram
     attachments {
         bigint id PK
         char uuid UK
-        bigint company_id FK
+        bigint workspace_id FK
         bigint file_id FK
         string attachable_type
         bigint attachable_id
@@ -124,7 +124,7 @@ erDiagram
     notes {
         bigint id PK
         char uuid UK
-        bigint company_id FK
+        bigint workspace_id FK
         string notable_type
         bigint notable_id
         bigint type_id FK
@@ -132,7 +132,7 @@ erDiagram
     tags {
         bigint id PK
         char uuid UK
-        bigint company_id FK
+        bigint workspace_id FK
         string slug
     }
     taggables {
@@ -144,7 +144,7 @@ erDiagram
     status_histories {
         bigint id PK
         char uuid UK
-        bigint company_id FK
+        bigint workspace_id FK
         string subject_type
         bigint subject_id
         bigint from_status_id
@@ -162,7 +162,7 @@ Every cross-cutting table in this domain (`translations`, `attachments`, `notes`
 
 - `<x>_type` VARCHAR(120) NOT NULL — a stable logical entity key, **not** a PHP
   class FQN. Use the singular table/entity name: `job`, `application`,
-  `interview`, `candidate_profile`, `offer`, `company`, `user`, `file`, etc. A
+  `interview`, `candidate_profile`, `offer`, `workspace`, `user`, `file`, etc. A
   fixed map of allowed values is maintained in application config and validated
   on write.
 - `<x>_id` BIGINT UNSIGNED NOT NULL — the owner row's numeric `id` (the internal
@@ -177,10 +177,10 @@ Rules that apply to **every** morph table:
   tables) — referential integrity is enforced in the application layer and by the
   `(type,id)` index. This is the documented exception to "every relationship is an
   FK" (00-Database-Bible §Foreign keys / DB-5).
-- All **genuine** relationships on the same table (`company_id`, `file_id`,
+- All **genuine** relationships on the same table (`workspace_id`, `file_id`,
   `tag_id`, `created_by`/`changed_by` → users) remain **hard FKs**.
-- Tenant-scoped morph tables additionally carry an indexed `company_id` and the
-  hot path is the composite `(company_id, <x>_type, <x>_id)`.
+- Tenant-scoped morph tables additionally carry an indexed `workspace_id` and the
+  hot path is the composite `(workspace_id, <x>_type, <x>_id)`.
 - On owner deletion the application is responsible for cleaning up / soft-deleting
   the morph rows (no DB cascade across the polymorphic edge).
 
@@ -195,7 +195,7 @@ Rules that apply to **every** morph table:
 - **Purpose**: Registry of generic, configurable lookup lists (e.g. `note_types`,
   `employment_types`, `experience_levels`, `document_types`, `contact_channels`,
   `social_link_types`). Each category groups a set of `lookup_values`.
-- **Tenant-scoped?**: Optional — `company_id` NULL = system-global category;
+- **Tenant-scoped?**: Optional — `workspace_id` NULL = system-global category;
   non-null = a tenant-defined category. (System categories are the norm; tenant
   categories support white-label extensibility.)
 - **Soft-delete?**: Yes (`deleted_at`) — categories are configuration entities;
@@ -207,7 +207,7 @@ Rules that apply to **every** morph table:
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | no | AI | PK |
 | `uuid` | CHAR(36) | no | — | public id, UNIQUE |
-| `company_id` | BIGINT UNSIGNED | yes | NULL | NULL = system default; non-null = tenant-defined category → companies |
+| `workspace_id` | BIGINT UNSIGNED | yes | NULL | NULL = system default; non-null = tenant-defined category → workspaces |
 | `key` | VARCHAR(60) | no | — | machine name, e.g. `note_types` |
 | `label` | VARCHAR(120) | no | — | human label |
 | `description` | VARCHAR(255) | yes | NULL | admin-facing description |
@@ -222,16 +222,16 @@ Rules that apply to **every** morph table:
 
 - **PK**: `id`
 - **UUID**: UNIQUE `uuid`
-- **Unique**: `(company_id, key)` — a category `key` is unique per tenant scope
-  (and once for the system scope where `company_id` IS NULL).
+- **Unique**: `(workspace_id, key)` — a category `key` is unique per tenant scope
+  (and once for the system scope where `workspace_id` IS NULL).
 
 ### Indexes
 
 | name | columns | type |
 |---|---|---|
 | `lookup_categories_uuid_unique` | `uuid` | unique |
-| `lookup_categories_company_key_unique` | `company_id, key` | unique/composite |
-| `lookup_categories_company_id_index` | `company_id` | index (FK) |
+| `lookup_categories_workspace_key_unique` | `workspace_id, key` | unique/composite |
+| `lookup_categories_workspace_id_index` | `workspace_id` | index (FK) |
 | `lookup_categories_key_index` | `key` | index |
 | `lookup_categories_deleted_at_index` | `deleted_at` | index |
 
@@ -239,13 +239,13 @@ Rules that apply to **every** morph table:
 
 | column | → ref | on delete | on update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 
 ### Relationships + cardinality
 
 - `lookup_categories` 1—* `lookup_values` (a category has many values).
-- `companies` 1—* `lookup_categories` (a tenant may own custom categories; system
-  categories have NULL `company_id`).
+- `workspaces` 1—* `lookup_categories` (a tenant may own custom categories; system
+  categories have NULL `workspace_id`).
 
 ### Notes
 
@@ -264,7 +264,7 @@ Rules that apply to **every** morph table:
 - **Purpose**: The configurable values within a category — the actual options
   entities reference (e.g. the `note_types` values `general`, `interview`,
   `internal`). Replaces hard-coded ENUMs across the schema.
-- **Tenant-scoped?**: Optional — `company_id` NULL = system default value;
+- **Tenant-scoped?**: Optional — `workspace_id` NULL = system default value;
   non-null = tenant override/custom value within the (possibly system) category.
 - **Soft-delete?**: Yes (`deleted_at`) — retiring a value must not break rows that
   still reference it; prefer `is_active=0` then soft delete.
@@ -276,7 +276,7 @@ Rules that apply to **every** morph table:
 | `id` | BIGINT UNSIGNED | no | AI | PK |
 | `uuid` | CHAR(36) | no | — | public id, UNIQUE |
 | `category_id` | BIGINT UNSIGNED | no | — | → lookup_categories |
-| `company_id` | BIGINT UNSIGNED | yes | NULL | NULL = system default; non-null = tenant value → companies |
+| `workspace_id` | BIGINT UNSIGNED | yes | NULL | NULL = system default; non-null = tenant value → workspaces |
 | `parent_id` | BIGINT UNSIGNED | yes | NULL | self-ref for hierarchical lookups (e.g. industry > sub-industry) |
 | `key` | VARCHAR(60) | no | — | machine value, e.g. `full_time` |
 | `label` | VARCHAR(120) | no | — | display label |
@@ -293,18 +293,18 @@ Rules that apply to **every** morph table:
 
 - **PK**: `id`
 - **UUID**: UNIQUE `uuid`
-- **Unique**: `(category_id, company_id, key)` — a value `key` is unique within
+- **Unique**: `(category_id, workspace_id, key)` — a value `key` is unique within
   its category per tenant scope (matches the context's
-  `UNIQUE(category_id, company_id, key)`).
+  `UNIQUE(category_id, workspace_id, key)`).
 
 ### Indexes
 
 | name | columns | type |
 |---|---|---|
 | `lookup_values_uuid_unique` | `uuid` | unique |
-| `lookup_values_category_company_key_unique` | `category_id, company_id, key` | unique/composite |
+| `lookup_values_category_workspace_key_unique` | `category_id, workspace_id, key` | unique/composite |
 | `lookup_values_category_id_index` | `category_id` | index (FK) |
-| `lookup_values_company_id_index` | `company_id` | index (FK) |
+| `lookup_values_workspace_id_index` | `workspace_id` | index (FK) |
 | `lookup_values_parent_id_index` | `parent_id` | index (FK) |
 | `lookup_values_category_active_sort_index` | `category_id, is_active, sort_order` | composite (option-list fetch) |
 | `lookup_values_deleted_at_index` | `deleted_at` | index |
@@ -314,7 +314,7 @@ Rules that apply to **every** morph table:
 | column | → ref | on delete | on update |
 |---|---|---|---|
 | `category_id` | `lookup_categories(id)` | CASCADE | CASCADE |
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `parent_id` | `lookup_values(id)` | SET NULL | CASCADE |
 
 ### Relationships + cardinality
@@ -334,8 +334,8 @@ Rules that apply to **every** morph table:
 - `meta` JSON keeps the table narrow while allowing per-value attributes without
   schema churn.
 - Tenant override pattern: a tenant copies/extends a system category's values by
-  inserting rows with its `company_id`; resolution prefers tenant rows then falls
-  back to system (`company_id IS NULL`).
+  inserting rows with its `workspace_id`; resolution prefers tenant rows then falls
+  back to system (`workspace_id IS NULL`).
 
 ---
 
@@ -394,7 +394,7 @@ Rules that apply to **every** morph table:
 
 - `currencies` 1—* `countries` (a currency is the default for many countries).
 - `countries` 1—* consuming entities — addresses/locations (`locations`,
-  `candidate_profiles`, `companies`) reference `country_id` (FK declared in those
+  `candidate_profiles`, `workspaces`) reference `country_id` (FK declared in those
   domains).
 
 ### Notes
@@ -466,7 +466,7 @@ Rules that apply to **every** morph table:
 
 - **Type**: BLUEPRINT
 - **Purpose**: Supported languages/locales for multi-language UI and content
-  (`translations`). Drives locale columns on users/companies. Global, seeded.
+  (`translations`). Drives locale columns on users/workspaces. Global, seeded.
 - **Tenant-scoped?**: No (global reference data; tenants *select* from it).
 - **Soft-delete?**: No — toggled via `is_active`.
 
@@ -506,7 +506,7 @@ Rules that apply to **every** morph table:
 
 ### Relationships + cardinality
 
-- `languages` 1—* locale references — users/companies locale columns and
+- `languages` 1—* locale references — users/workspaces locale columns and
   `candidate_languages`/`job_languages` (declared in their domains) reference
   `language_id`.
 - `languages` relates to `translations` by the `locale` *string* (not a hard FK —
@@ -525,7 +525,7 @@ Rules that apply to **every** morph table:
 
 - **Type**: BLUEPRINT
 - **Purpose**: IANA timezone reference for multi-timezone scheduling, display, and
-  per-user/company `timezone` columns. Global, seeded.
+  per-user/workspace `timezone` columns. Global, seeded.
 - **Tenant-scoped?**: No (global reference data).
 - **Soft-delete?**: No — toggled via `is_active`.
 
@@ -569,14 +569,14 @@ Rules that apply to **every** morph table:
 ### Relationships + cardinality
 
 - `countries` 1—* `timezones`.
-- `timezones` 1—* timezone references — users/companies/schedules/meetings carry a
+- `timezones` 1—* timezone references — users/workspaces/schedules/meetings carry a
   `timezone_id` (declared in their domains).
 
 ### Notes
 
 - Multi-timezone (§8). `offset_minutes` is denormalized purely for ordering;
   authoritative offsets (incl. DST) come from the IANA name at runtime. The BUILT
-  `companies.timezone` string column will migrate toward a `timezone_id` FK.
+  `workspaces.timezone` string column will migrate toward a `timezone_id` FK.
 
 ---
 
@@ -586,7 +586,7 @@ Rules that apply to **every** morph table:
 - **Purpose**: Polymorphic per-field translation store for multi-language content
   (e.g. a job title/description, a category label) — one row per
   (entity, locale, field).
-- **Tenant-scoped?**: Optional — `company_id` indexed; NULL = global/system
+- **Tenant-scoped?**: Optional — `workspace_id` indexed; NULL = global/system
   content (e.g. system lookup labels), non-null = tenant content.
 - **Soft-delete?**: No — translations are hard-deleted/overwritten with their
   parent (lightweight content rows).
@@ -597,7 +597,7 @@ Rules that apply to **every** morph table:
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | no | AI | PK |
 | `uuid` | CHAR(36) | no | — | public id, UNIQUE |
-| `company_id` | BIGINT UNSIGNED | yes | NULL | tenant scope; NULL = global content → companies |
+| `workspace_id` | BIGINT UNSIGNED | yes | NULL | tenant scope; NULL = global content → workspaces |
 | `translatable_type` | VARCHAR(120) | no | — | morph type (e.g. `job`, `lookup_value`) |
 | `translatable_id` | BIGINT UNSIGNED | no | — | morph id (owner row id) |
 | `locale` | VARCHAR(10) | no | — | matches `languages.code` (app-validated) |
@@ -620,14 +620,14 @@ Rules that apply to **every** morph table:
 | `translations_uuid_unique` | `uuid` | unique |
 | `translations_morph_locale_field_unique` | `translatable_type, translatable_id, locale, field` | unique/composite |
 | `translations_translatable_index` | `translatable_type, translatable_id` | poly (composite) |
-| `translations_company_id_index` | `company_id` | index (FK) |
+| `translations_workspace_id_index` | `workspace_id` | index (FK) |
 | `translations_locale_index` | `locale` | index |
 
 ### Foreign keys
 
 | column | → ref | on delete | on update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 
 Morph pair (`translatable_type`,`translatable_id`) has **no FK** (polymorphic —
 app-enforced, see "The polymorphic pattern").
@@ -635,8 +635,8 @@ app-enforced, see "The polymorphic pattern").
 ### Relationships + cardinality
 
 - any translatable entity 1—* `translations` (one row per locale × field).
-- `companies` 1—* `translations` (tenant content; global content has NULL
-  `company_id`).
+- `workspaces` 1—* `translations` (tenant content; global content has NULL
+  `workspace_id`).
 - `languages` —< `translations` via the `locale` string (app-validated, not a hard
   FK; see `languages` notes).
 
@@ -655,7 +655,7 @@ app-enforced, see "The polymorphic pattern").
 - **Purpose**: Polymorphic link between a stored `file` (D10 `files`) and any
   entity — replaces per-entity tables (`job_attachments`, `interview_attachments`,
   …). E.g. "Job attachments → polymorphic `attachments` with `attachable_type='job'`".
-- **Tenant-scoped?**: Yes — indexed `company_id` (FK).
+- **Tenant-scoped?**: Yes — indexed `workspace_id` (FK).
 - **Soft-delete?**: Yes (`deleted_at`) — detaching a file from an entity should be
   reversible/auditable; the underlying `file` lifecycle is managed in D10.
 
@@ -665,7 +665,7 @@ app-enforced, see "The polymorphic pattern").
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | no | AI | PK |
 | `uuid` | CHAR(36) | no | — | public id, UNIQUE |
-| `company_id` | BIGINT UNSIGNED | no | — | tenant scope → companies |
+| `workspace_id` | BIGINT UNSIGNED | no | — | tenant scope → workspaces |
 | `file_id` | BIGINT UNSIGNED | no | — | → files (D10) — the actual stored object |
 | `attachable_type` | VARCHAR(120) | no | — | morph type (e.g. `job`, `application`, `candidate_profile`) |
 | `attachable_id` | BIGINT UNSIGNED | no | — | morph id (owner row id) |
@@ -690,8 +690,8 @@ app-enforced, see "The polymorphic pattern").
 |---|---|---|
 | `attachments_uuid_unique` | `uuid` | unique |
 | `attachments_attachable_index` | `attachable_type, attachable_id` | poly (composite) |
-| `attachments_company_morph_index` | `company_id, attachable_type, attachable_id` | composite (hot path) |
-| `attachments_company_id_index` | `company_id` | index (FK) |
+| `attachments_workspace_morph_index` | `workspace_id, attachable_type, attachable_id` | composite (hot path) |
+| `attachments_workspace_id_index` | `workspace_id` | index (FK) |
 | `attachments_file_id_index` | `file_id` | index (FK) |
 | `attachments_uploaded_by_index` | `uploaded_by` | index (FK) |
 | `attachments_collection_index` | `collection` | index |
@@ -701,7 +701,7 @@ app-enforced, see "The polymorphic pattern").
 
 | column | → ref | on delete | on update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `file_id` | `files(id)` | CASCADE | CASCADE |
 | `uploaded_by` | `users(id)` | SET NULL | CASCADE |
 
@@ -712,7 +712,7 @@ app-enforced).
 
 - `files` 1—* `attachments` (one file may be attached to many entities).
 - any attachable entity 1—* `attachments`.
-- `companies` 1—* `attachments`; `users` 1—* `attachments` (uploader).
+- `workspaces` 1—* `attachments`; `users` 1—* `attachments` (uploader).
 
 ### Notes
 
@@ -727,9 +727,9 @@ app-enforced).
 
 - **Type**: BLUEPRINT
 - **Purpose**: Polymorphic free-text notes/comments attached to any entity
-  (candidate, application, interview, job, company…), authored by a user, typed via
+  (candidate, application, interview, job, workspace…), authored by a user, typed via
   a lookup.
-- **Tenant-scoped?**: Yes — indexed `company_id` (FK).
+- **Tenant-scoped?**: Yes — indexed `workspace_id` (FK).
 - **Soft-delete?**: Yes (`deleted_at`) — notes are business content; removal is
   reversible/auditable.
 
@@ -739,7 +739,7 @@ app-enforced).
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | no | AI | PK |
 | `uuid` | CHAR(36) | no | — | public id, UNIQUE |
-| `company_id` | BIGINT UNSIGNED | no | — | tenant scope → companies |
+| `workspace_id` | BIGINT UNSIGNED | no | — | tenant scope → workspaces |
 | `notable_type` | VARCHAR(120) | no | — | morph type (e.g. `candidate_profile`, `application`) |
 | `notable_id` | BIGINT UNSIGNED | no | — | morph id (owner row id) |
 | `type_id` | BIGINT UNSIGNED | yes | NULL | → lookup_values (category `note_types`) |
@@ -763,8 +763,8 @@ app-enforced).
 |---|---|---|
 | `notes_uuid_unique` | `uuid` | unique |
 | `notes_notable_index` | `notable_type, notable_id` | poly (composite) |
-| `notes_company_morph_index` | `company_id, notable_type, notable_id` | composite (hot path) |
-| `notes_company_id_index` | `company_id` | index (FK) |
+| `notes_workspace_morph_index` | `workspace_id, notable_type, notable_id` | composite (hot path) |
+| `notes_workspace_id_index` | `workspace_id` | index (FK) |
 | `notes_type_id_index` | `type_id` | index (FK) |
 | `notes_user_id_index` | `user_id` | index (FK) |
 | `notes_body_fulltext` | `body` | fulltext |
@@ -774,7 +774,7 @@ app-enforced).
 
 | column | → ref | on delete | on update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `type_id` | `lookup_values(id)` | RESTRICT | CASCADE |
 | `user_id` | `users(id)` | SET NULL | CASCADE |
 
@@ -785,7 +785,7 @@ Morph pair (`notable_type`,`notable_id`) has **no FK** (polymorphic — app-enfo
 - any notable entity 1—* `notes`.
 - `users` 1—* `notes` (author).
 - `lookup_values` 1—* `notes` (note type; RESTRICT so an in-use type can't vanish).
-- `companies` 1—* `notes`.
+- `workspaces` 1—* `notes`.
 
 ### Notes
 
@@ -800,7 +800,7 @@ Morph pair (`notable_type`,`notable_id`) has **no FK** (polymorphic — app-enfo
 - **Type**: BLUEPRINT
 - **Purpose**: Tenant-defined labels that can be applied to many entity types via
   the `taggables` pivot (e.g. tagging candidates, applications, jobs).
-- **Tenant-scoped?**: Yes — indexed `company_id` (FK); tags are per tenant.
+- **Tenant-scoped?**: Yes — indexed `workspace_id` (FK); tags are per tenant.
 - **Soft-delete?**: Yes (`deleted_at`) — removing a tag definition should not hard
   break tagged history; soft delete then app cleans `taggables`.
 
@@ -810,7 +810,7 @@ Morph pair (`notable_type`,`notable_id`) has **no FK** (polymorphic — app-enfo
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | no | AI | PK |
 | `uuid` | CHAR(36) | no | — | public id, UNIQUE |
-| `company_id` | BIGINT UNSIGNED | no | — | tenant scope → companies |
+| `workspace_id` | BIGINT UNSIGNED | no | — | tenant scope → workspaces |
 | `name` | VARCHAR(80) | no | — | display name |
 | `slug` | VARCHAR(90) | no | — | normalized key, unique per tenant |
 | `color` | VARCHAR(20) | yes | NULL | UI color (hex/token) |
@@ -825,15 +825,15 @@ Morph pair (`notable_type`,`notable_id`) has **no FK** (polymorphic — app-enfo
 
 - **PK**: `id`
 - **UUID**: UNIQUE `uuid`
-- **Unique**: `(company_id, slug)` — a tag slug is unique within a tenant.
+- **Unique**: `(workspace_id, slug)` — a tag slug is unique within a tenant.
 
 ### Indexes
 
 | name | columns | type |
 |---|---|---|
 | `tags_uuid_unique` | `uuid` | unique |
-| `tags_company_slug_unique` | `company_id, slug` | unique/composite |
-| `tags_company_id_index` | `company_id` | index (FK) |
+| `tags_workspace_slug_unique` | `workspace_id, slug` | unique/composite |
+| `tags_workspace_id_index` | `workspace_id` | index (FK) |
 | `tags_created_by_index` | `created_by` | index (FK) |
 | `tags_name_index` | `name` | index |
 | `tags_deleted_at_index` | `deleted_at` | index |
@@ -842,14 +842,14 @@ Morph pair (`notable_type`,`notable_id`) has **no FK** (polymorphic — app-enfo
 
 | column | → ref | on delete | on update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `created_by` | `users(id)` | SET NULL | CASCADE |
 
 ### Relationships + cardinality
 
 - `tags` *—* entities via `taggables` (many-to-many, polymorphic on the entity
   side).
-- `companies` 1—* `tags`; `users` 1—* `tags` (creator).
+- `workspaces` 1—* `tags`; `users` 1—* `tags` (creator).
 
 ### Notes
 
@@ -863,8 +863,8 @@ Morph pair (`notable_type`,`notable_id`) has **no FK** (polymorphic — app-enfo
 - **Type**: BLUEPRINT
 - **Purpose**: Polymorphic pivot linking a `tag` to any entity (the M:N join for
   tagging). Replaces per-entity tag pivots.
-- **Tenant-scoped?**: Indirectly (via `tag_id` → `tags.company_id`); a denormalized
-  `company_id` is included for tenant-scoped queries and isolation.
+- **Tenant-scoped?**: Indirectly (via `tag_id` → `tags.workspace_id`); a denormalized
+  `workspace_id` is included for tenant-scoped queries and isolation.
 - **Soft-delete?**: No — pure pivot; rows are hard-deleted when untagged
   (00-Database-Bible §"pivots are hard/expired").
 
@@ -873,7 +873,7 @@ Morph pair (`notable_type`,`notable_id`) has **no FK** (polymorphic — app-enfo
 | column | type | null | default | notes |
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | no | AI | PK |
-| `company_id` | BIGINT UNSIGNED | no | — | denormalized tenant scope → companies |
+| `workspace_id` | BIGINT UNSIGNED | no | — | denormalized tenant scope → workspaces |
 | `tag_id` | BIGINT UNSIGNED | no | — | → tags |
 | `taggable_type` | VARCHAR(120) | no | — | morph type (e.g. `candidate_profile`, `job`) |
 | `taggable_id` | BIGINT UNSIGNED | no | — | morph id (owner row id) |
@@ -894,16 +894,16 @@ Morph pair (`notable_type`,`notable_id`) has **no FK** (polymorphic — app-enfo
 |---|---|---|
 | `taggables_tag_morph_unique` | `tag_id, taggable_type, taggable_id` | unique/composite |
 | `taggables_taggable_index` | `taggable_type, taggable_id` | poly (composite) |
-| `taggables_company_morph_index` | `company_id, taggable_type, taggable_id` | composite (hot path) |
+| `taggables_workspace_morph_index` | `workspace_id, taggable_type, taggable_id` | composite (hot path) |
 | `taggables_tag_id_index` | `tag_id` | index (FK) |
-| `taggables_company_id_index` | `company_id` | index (FK) |
+| `taggables_workspace_id_index` | `workspace_id` | index (FK) |
 | `taggables_tagged_by_index` | `tagged_by` | index (FK) |
 
 ### Foreign keys
 
 | column | → ref | on delete | on update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `tag_id` | `tags(id)` | CASCADE | CASCADE |
 | `tagged_by` | `users(id)` | SET NULL | CASCADE |
 
@@ -912,13 +912,13 @@ Morph pair (`taggable_type`,`taggable_id`) has **no FK** (polymorphic — app-en
 ### Relationships + cardinality
 
 - `tags` 1—* `taggables` *—1 any taggable entity (resolves the tag M:N).
-- `companies` 1—* `taggables`.
+- `workspaces` 1—* `taggables`.
 
 ### Notes
 
 - Polymorphic pivot (§6). The two composites cover both access paths: "all tags on
   entity X" (`taggable_type, taggable_id`) and "all entities with tag T"
-  (`tag_id` index / the unique key). `company_id` is denormalized from `tags` so
+  (`tag_id` index / the unique key). `workspace_id` is denormalized from `tags` so
   tenant-scoped reads don't need a join; the app keeps it consistent with the
   parent tag.
 
@@ -931,7 +931,7 @@ Morph pair (`taggable_type`,`taggable_id`) has **no FK** (polymorphic — app-en
   (jobs, applications, interviews, offers, subscriptions, invoices, payments…):
   who changed what status, from → to, when, with an optional note. Complements the
   per-entity `*_statuses` tables and the broader `activity_logs` audit trail.
-- **Tenant-scoped?**: Yes — indexed `company_id` (FK).
+- **Tenant-scoped?**: Yes — indexed `workspace_id` (FK).
 - **Soft-delete?**: No — append-only audit ledger; never edited or soft-deleted
   (history must be immutable). Hard-retained/archived with its tenant.
 
@@ -941,7 +941,7 @@ Morph pair (`taggable_type`,`taggable_id`) has **no FK** (polymorphic — app-en
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | no | AI | PK |
 | `uuid` | CHAR(36) | no | — | public id, UNIQUE |
-| `company_id` | BIGINT UNSIGNED | no | — | tenant scope → companies |
+| `workspace_id` | BIGINT UNSIGNED | no | — | tenant scope → workspaces |
 | `subject_type` | VARCHAR(120) | no | — | morph type (e.g. `application`, `interview`) |
 | `subject_id` | BIGINT UNSIGNED | no | — | morph id (owner row id) |
 | `status_type` | VARCHAR(120) | yes | NULL | which status dimension changed (e.g. `application_status`) — disambiguates entities with multiple status fields |
@@ -965,8 +965,8 @@ Morph pair (`taggable_type`,`taggable_id`) has **no FK** (polymorphic — app-en
 |---|---|---|
 | `status_histories_uuid_unique` | `uuid` | unique |
 | `status_histories_subject_index` | `subject_type, subject_id` | poly (composite) |
-| `status_histories_company_morph_index` | `company_id, subject_type, subject_id` | composite (hot path) |
-| `status_histories_company_id_index` | `company_id` | index (FK) |
+| `status_histories_workspace_morph_index` | `workspace_id, subject_type, subject_id` | composite (hot path) |
+| `status_histories_workspace_id_index` | `workspace_id` | index (FK) |
 | `status_histories_changed_by_index` | `changed_by` | index (FK) |
 | `status_histories_created_at_index` | `created_at` | index (timeline / range) |
 
@@ -974,7 +974,7 @@ Morph pair (`taggable_type`,`taggable_id`) has **no FK** (polymorphic — app-en
 
 | column | → ref | on delete | on update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `changed_by` | `users(id)` | SET NULL | CASCADE |
 
 Morph pair (`subject_type`,`subject_id`) and `from_status_id`/`to_status_id` have
@@ -987,7 +987,7 @@ history readable even if a status row is later renamed or removed.
 
 - any workflow subject 1—* `status_histories` (a row per transition).
 - `users` 1—* `status_histories` (actor; NULL = system transition).
-- `companies` 1—* `status_histories`.
+- `workspaces` 1—* `status_histories`.
 - Logically relates to the per-entity `*_statuses` tables (e.g.
   `application_statuses`, `interview_statuses`, `offer_statuses`) via
   `from_status_id`/`to_status_id` — app-resolved by `subject_type`/`status_type`.
@@ -998,14 +998,14 @@ history readable even if a status row is later renamed or removed.
   is the general audit/timeline (all actions, `old_values`/`new_values`); this
   table is the focused **status** ledger driving stage funnels and SLA timers.
 - Scale: append-mostly and per-tenant; like other high-volume audit tables it can
-  be partitioned by RANGE(`created_at`) (monthly) and/or sharded by `company_id`
+  be partitioned by RANGE(`created_at`) (monthly) and/or sharded by `workspace_id`
   (§7). `status_type` disambiguates entities carrying more than one status field.
 
 ---
 
 ## Cross-domain assumptions & open questions
 
-- **FK anchors assumed BUILT/standardized**: `companies(id)` and `users(id)` are
+- **FK anchors assumed BUILT/standardized**: `workspaces(id)` and `users(id)` are
   BIGINT UNSIGNED PKs (confirmed in migrations 0001/0002) — every FK here matches
   that width. `files(id)` (D10) is assumed BIGINT UNSIGNED; `attachments.file_id`
   depends on D10 finalizing `files`.
@@ -1019,9 +1019,9 @@ history readable even if a status row is later renamed or removed.
 - **`notes.type_id` → `lookup_values`** assumes a seeded `note_types` category in
   `lookup_categories`; other domains adding typed notes/lookups must seed their
   categories here.
-- **`translations.locale` / `taggables.company_id`** are intentionally denormalized
+- **`translations.locale` / `taggables.workspace_id`** are intentionally denormalized
   (string locale; copied tenant id) for throughput/isolation — the app keeps them
-  consistent with `languages.code` / parent `tags.company_id` respectively.
+  consistent with `languages.code` / parent `tags.workspace_id` respectively.
 - **Per-entity status tables vs generic**: consistent with 00-Database-Bible's open
   question — this domain commits to generic `lookup_*` for non-workflow lists and
   the polymorphic `status_histories` ledger, leaving workflow `*_statuses` to their

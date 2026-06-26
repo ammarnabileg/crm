@@ -1,4 +1,4 @@
-# 12 — Company Management (إدارة الشركات)
+# 12 — Workspace Management
 
 Companies are the tenants of HalaOps; this document defines how a company is created, provisioned, switched, governed, and retired across its whole lifecycle.
 

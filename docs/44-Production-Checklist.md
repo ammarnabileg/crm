@@ -201,7 +201,7 @@ flowchart LR
 ### 16. Final Smoke Test
 
 - [ ] Super-admin can log in.
-- [ ] A new user can register and create a company (becomes Owner, trial subscription provisioned) ([12-Company-Management]).
+- [ ] A new user can register and create a company (becomes Owner, trial subscription provisioned) ([12-Workspace-Management]).
 - [ ] RBAC enforced: a member without a permission is blocked; an owner is allowed ([07-RBAC]).
 - [ ] Core domain happy path works (create job → application → interview → evaluation, as modules ship) ([24-Job-Lifecycle], [25-Application-Lifecycle]).
 - [ ] A payment completes and a notification/email is delivered.

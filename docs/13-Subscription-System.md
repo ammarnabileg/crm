@@ -4,7 +4,7 @@ Data-driven subscription plans and a strict per-company subscription lifecycle (
 
 ## Related Documents
 
-- [12 — Company Management](12-Company-Management.md) — the trial subscription is created atomically when a company is provisioned.
+- [12 — Company Management](12-Workspace-Management.md) — the trial subscription is created atomically when a company is provisioned.
 - [14 — Billing System](14-Billing-System.md) — invoices, payments, taxes and dunning that move subscriptions between states.
 - [15 — Payment Gateways](15-Payment-Gateways.md) — how recurring charges are taken to keep a subscription `active`.
 - [07 — RBAC](07-RBAC.md) — `billing.view` / `billing.manage` gate subscription operations.
@@ -94,7 +94,7 @@ Changing plans updates `subscriptions.plan_id` and re-snapshots `amount`/`curren
 8. **Plan limits are enforced at the action boundary**, not just in the UI. Example: inviting a member checks `plan.limit('max_members')` against `Company::membersCount()` before creating the membership.
 9. **Only `is_active && is_public` plans are offered** on pricing/upgrade screens (`Plan::active()`); inactive or private plans may still back existing subscriptions but are not selectable.
 10. **`plan_id` is `RESTRICT`** — a plan that backs any subscription cannot be deleted; deactivate it (`is_active=0`) instead.
-11. **A company with no active plan at creation** simply has no subscription row; this is a misconfiguration handled gracefully (see [12](12-Company-Management.md)).
+11. **A company with no active plan at creation** simply has no subscription row; this is a misconfiguration handled gracefully (see [12](12-Workspace-Management.md)).
 
 ## Database Relations
 

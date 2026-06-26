@@ -8,7 +8,7 @@ until this blueprint and its ERD are approved.**
 
 - [99-ERD-Blueprint](99-ERD-Blueprint.md) — the complete ERD (all tables, relationships, cardinality, FKs, indexes)
 - [98-Validation-Report](98-Validation-Report.md) — external-architect review and fixes
-- Domain designs: [D0 Lookups](01-Lookups-Reference.md) · [D1 RBAC](02-RBAC-Membership.md) · [D2 Companies](03-Companies-Settings.md) · [D3 Auth](04-Authentication.md) · [D4 Billing](05-Subscriptions-Billing.md) · [D5 Jobs](06-Jobs.md) · [D6 Candidates](07-Candidates.md) · [D7 Applications & Interviews](08-Applications-Interviews.md) · [D8 AI & Notifications](09-AI-Notifications.md) · [D9 HR & Talent](10-HR-Talent.md) · [D10 Files/Queue/Analytics/Logs](11-Files-Queue-Analytics-Logs.md)
+- Domain designs: [D0 Lookups](01-Lookups-Reference.md) · [D1 RBAC](02-RBAC-Membership.md) · [D2 Workspaces](03-Workspaces-Settings.md) · [D3 Auth](04-Authentication.md) · [D4 Billing](05-Subscriptions-Billing.md) · [D5 Jobs](06-Jobs.md) · [D6 Candidates](07-Candidates.md) · [D7 Applications & Interviews](08-Applications-Interviews.md) · [D8 AI & Notifications](09-AI-Notifications.md) · [D9 HR & Talent](10-HR-Talent.md) · [D10 Files/Queue/Analytics/Logs](11-Files-Queue-Analytics-Logs.md)
 - Up-stream specs: [../05-Database-Architecture](../05-Database-Architecture.md), [../06-ERD](../06-ERD.md), [../08-Multi-Tenant](../08-Multi-Tenant.md), [../47-Enterprise-Architecture-Standards](../47-Enterprise-Architecture-Standards.md)
 
 ## Purpose (الهدف)
@@ -31,7 +31,7 @@ is a true blueprint.
 
 | Entity | Target | Implication |
 |--------|--------|-------------|
-| Companies (tenants) | 100,000 | shard-ready by `company_id`; tenant scope on every row |
+| Workspaces (tenants) | 100,000 | shard-ready by `workspace_id`; tenant scope on every row |
 | Users | 10,000,000 | global `users`; lean rows; UUID public ids |
 | Interviews | 100,000,000 | partition interview_messages/logs by time; narrow rows |
 | AI records | billions | append-only ai_requests/responses/logs; partitioned; FK-light |
@@ -41,7 +41,7 @@ is a true blueprint.
 ### Base columns (every table)
 `id` BIGINT UNSIGNED PK AI · `uuid` CHAR(36) UNIQUE (public id) · `created_at` ·
 `updated_at` · `deleted_at` (soft-deletable only) · tenant tables carry an indexed
-`company_id` FK → companies. Very-high-volume append tables may omit `uuid` for
+`workspace_id` FK → workspaces. Very-high-volume append tables may omit `uuid` for
 write throughput (noted per table).
 
 ### Naming
@@ -57,7 +57,7 @@ Nothing — no status, type, category, or workflow — is a hard-coded ENUM.
 
 - **Per-entity status tables** (`job_statuses`, `application_statuses`,
   `interview_statuses`, `offer_statuses`, `subscription_statuses`,
-  `invoice_statuses`, `payment_statuses`): `company_id` NULL = system default,
+  `invoice_statuses`, `payment_statuses`): `workspace_id` NULL = system default,
   non-null = tenant custom; with `key,label,color,sort_order,is_default,
   is_initial,is_terminal,is_system`. Entities reference `<x>_status_id` FK.
 - **Generic lookups** (`lookup_categories` + `lookup_values`) for simple
@@ -73,7 +73,7 @@ tables may be FK-light for throughput (documented per table).
 
 ### Indexes (defined for every table)
 PRIMARY(id); UNIQUE(uuid) + business-unique composites; an index on every FK;
-hot-path composites (`company_id,status_id`, `company_id,created_at`); FULLTEXT
+hot-path composites (`workspace_id,status_id`, `workspace_id,created_at`); FULLTEXT
 for free-text search; (`type`,`id`) on polymorphic tables.
 
 ### Soft delete & audit
@@ -89,7 +89,7 @@ job_attachments / interview_attachments / … separately. **This is a deliberate
 normalization decision**: dozens of near-identical attachment/note/history
 tables would duplicate structure; one indexed polymorphic table per concern is
 normalized and scales, with integrity enforced at the application layer. Genuine
-relational links (company_id, user_id, job_id, …) remain hard FKs.
+relational links (workspace_id, user_id, job_id, …) remain hard FKs.
 
 ## Workflow (Design → Approval → Implementation)
 
@@ -107,7 +107,7 @@ flowchart LR
 
 - **DB-1** One `users` table. No candidate/hr/admin/owner/employee tables — a
   person is a user; capability comes from RBAC + memberships.
-- **DB-2** Every tenant row carries `company_id` (FK, indexed); no cross-tenant
+- **DB-2** Every tenant row carries `workspace_id` (FK, indexed); no cross-tenant
   rows.
 - **DB-3** Every table has `id` + `uuid`; the public surface uses `uuid`.
 - **DB-4** No hard-coded status/type/category/workflow (config-driven, §above).
@@ -136,7 +136,7 @@ migration.
 
 ## Edge Cases
 
-- Tenant-custom statuses coexist with system defaults (`company_id` NULL vs set).
+- Tenant-custom statuses coexist with system defaults (`workspace_id` NULL vs set).
 - Polymorphic associations cannot use DB FKs → integrity enforced in the app and
   by indexed (type,id) lookups.
 - Billions-scale tables trade hard FKs for write throughput (documented).
@@ -144,7 +144,7 @@ migration.
 ## Performance
 
 Covered per table via indexes; high-volume tables are partitioned by time and/or
-sharded by `company_id`; heavy payloads (transcripts, AI JSON) are isolated in
+sharded by `workspace_id`; heavy payloads (transcripts, AI JSON) are isolated in
 LONGTEXT/JSON columns excluded from list queries.
 
 ## Testing
@@ -158,8 +158,8 @@ until the ERD is approved.
 
 Multi-language (`translations`), multi-currency (`currencies`,`plan_prices`),
 multi-timezone, multi-gateway (`payment_gateways`), multi-AI
-(`ai_providers`/`ai_models`), white-label/career-sites (`company_domains`,
-`company_branding`), marketplace (`company_integrations`). New domains add their
+(`ai_providers`/`ai_models`), white-label/career-sites (`workspace_domains`,
+`workspace_branding`), marketplace (`workspace_integrations`). New domains add their
 own tables on this standard without altering existing ones.
 
 ## Table Inventory (authoritative — each table owned by exactly one domain)
@@ -176,9 +176,9 @@ own tables on this standard without altering existing ones.
   permission_groups, role_permissions*, user_roles*, memberships*,
   membership_roles*, policies, policy_permissions, permission_caches,
   role_histories, permission_histories. (*BUILT, some renamed.)
-- **D2 — Companies & Settings** ([03](03-Companies-Settings.md)): companies*,
-  company_settings, company_branding, company_billing, company_ai_settings,
-  company_storage, company_integrations, company_domains, company_invitations,
+- **D2 — Workspaces & Settings** ([03](03-Workspaces-Settings.md)): workspaces*,
+  workspace_settings, workspace_branding, workspace_billing, workspace_ai_settings,
+  workspace_storage, workspace_integrations, workspace_domains, workspace_invitations,
   global_settings, user_settings, mail_settings. (settings* BUILT.)
 - **D3 — Authentication** ([04](04-Authentication.md)): sessions, remember_tokens,
   password_resets*, login_histories, devices, failed_login_attempts, mfa_methods,
@@ -217,8 +217,28 @@ own tables on this standard without altering existing ones.
   activity_logs (BUILT as activity_log), system_logs, security_logs, api_logs,
   billing_logs.
 
-Approximately **130 tables**. The complete picture — with every relationship,
-cardinality, FK and index — is in [99-ERD-Blueprint](99-ERD-Blueprint.md).
+**166 tables** total (the consolidated count in [99-ERD-Blueprint](99-ERD-Blueprint.md)
+is 163, plus the 3 added by Revision R1 below). The complete picture — with every
+relationship, cardinality, FK and index — is in [99-ERD-Blueprint](99-ERD-Blueprint.md).
+
+## Revision R1 — Workspace, Modules & Registries
+
+See [12-Workspace-Types-Modules-Registries](12-Workspace-Types-Modules-Registries.md)
+(authoritative). It applies two enterprise refinements and the validation's
+critical fixes to this blueprint:
+
+- **Workspace (not Company):** the tenant entity is `workspaces` (was
+  `companies`), the tenant FK is `workspace_id` (was `company_id`), and tenant
+  tables `company_*` become `workspace_*`. A workspace has a **type** via the new
+  global `workspace_types` catalog (company / organization / university /
+  government / hospital / school / agency / nonprofit) — the same architecture
+  serves any org type. This is a built→blueprint rename executed at cutover.
+- **System modules:** the new global `system_modules` registry; `permissions`
+  reference `module_id` (not a free-text group), superseding `permission_groups`.
+- **Registries:** a canonical Lookup-Category Registry (F3) and Polymorphic-Type
+  Registry (F4); the built `onboarding_progress` table is adopted into the
+  inventory (F2). New tables: `workspace_types`, `system_modules`,
+  `onboarding_progress` (D3).
 
 ## Open Questions
 

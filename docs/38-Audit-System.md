@@ -6,7 +6,7 @@ The audit trail of HalaOps, backed by the `activity_log` table and written throu
 
 - [07 — RBAC](07-RBAC.md)
 - [08 — Multi-Tenant](08-Multi-Tenant.md)
-- [12 — Company Management](12-Company-Management.md)
+- [12 — Company Management](12-Workspace-Management.md)
 - [14 — Billing System](14-Billing-System.md)
 - [25 — Application Lifecycle](25-Application-Lifecycle.md)
 - [34 — Security](34-Security.md)

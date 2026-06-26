@@ -8,7 +8,7 @@ A pluggable payment-gateway layer behind a single `PaymentGatewayInterface` with
 - [13 — Subscription System](13-Subscription-System.md) — charges keep subscriptions `active`; failures trigger `past_due`/dunning.
 - [34 — Security](34-Security.md) — PCI, secret encryption (AES-256-GCM), webhook verification.
 - [05 — Database Architecture](05-Database-Architecture.md) — canonical `payments`, `payment_methods`, `gateway_events` schema.
-- [12 — Company Management](12-Company-Management.md) — per-tenant gateway configuration via company settings.
+- [12 — Company Management](12-Workspace-Management.md) — per-tenant gateway configuration via company settings.
 
 ---
 

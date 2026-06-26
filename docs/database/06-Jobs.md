@@ -4,7 +4,7 @@ The **D5 — Jobs** domain of the HalaOps FINAL DATABASE BLUEPRINT. It models a
 **job** as the anchor of the entire recruitment domain (every application,
 interview, evaluation and decision exists *because of* a job) together with its
 configuration: status workflow, locations, required skills/languages, benefits,
-screening questions, AI scoring criteria, and the per-company/per-job hiring
+screening questions, AI scoring criteria, and the per-workspace/per-job hiring
 **pipeline** of stages.
 
 All twelve tables below are **BLUEPRINT** — none are built yet (they are not in
@@ -16,7 +16,7 @@ Engine/charset for every table: **MySQL/MariaDB InnoDB, `utf8mb4` /
 `utf8mb4_unicode_ci`**. Every table follows the global conventions in
 [00-Database-Bible](00-Database-Bible.md) §Architecture: `id` BIGINT UNSIGNED PK
 AI, `uuid` CHAR(36) UNIQUE public id, `created_at`/`updated_at`, `deleted_at` on
-soft-deletable entities, and an indexed `company_id` FK on every tenant row
+soft-deletable entities, and an indexed `workspace_id` FK on every tenant row
 (DB-2).
 
 > **Supersession note.** The legacy spec [../24-Job-Lifecycle](../24-Job-Lifecycle.md)
@@ -42,11 +42,11 @@ soft-deletable entities, and an indexed `company_id` FK on every tenant row
 
 ```mermaid
 erDiagram
-    companies      ||--o{ jobs            : "has"
-    companies      ||--o{ job_statuses    : "customizes"
-    companies      ||--o{ locations       : "owns"
-    companies      ||--o{ benefits        : "defines"
-    companies      ||--o{ pipelines       : "configures"
+    workspaces      ||--o{ jobs            : "has"
+    workspaces      ||--o{ job_statuses    : "customizes"
+    workspaces      ||--o{ locations       : "owns"
+    workspaces      ||--o{ benefits        : "defines"
+    workspaces      ||--o{ pipelines       : "configures"
 
     job_statuses   ||--o{ jobs            : "classifies"
     departments    ||--o{ jobs            : "groups"
@@ -86,7 +86,7 @@ erDiagram
 
 ## §9.1 `jobs`
 
-- **BLUEPRINT** · Purpose: a job posting / requisition — the anchor of the recruitment domain. · Tenant-scoped: **yes** (`company_id`). · Soft-delete: **yes** (`deleted_at`; archive is a status, hard-delete is super-admin-only and cascades).
+- **BLUEPRINT** · Purpose: a job posting / requisition — the anchor of the recruitment domain. · Tenant-scoped: **yes** (`workspace_id`). · Soft-delete: **yes** (`deleted_at`; archive is a status, hard-delete is super-admin-only and cascades).
 
 ### Columns
 
@@ -94,14 +94,14 @@ erDiagram
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
 | `uuid` | CHAR(36) | NO | — | Public id (URLs/API); UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `companies(id)` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `workspaces(id)` |
 | `job_status_id` | BIGINT UNSIGNED | NO | — | FK → `job_statuses(id)`; replaces the legacy `status` ENUM |
 | `pipeline_id` | BIGINT UNSIGNED | YES | NULL | FK → `pipelines(id)`; the hiring pipeline this job uses (NULL until seeded) |
 | `department_id` | BIGINT UNSIGNED | YES | NULL | FK → D9 `departments(id)` |
 | `employment_type_id` | BIGINT UNSIGNED | YES | NULL | FK → `lookup_values(id)` (category `job_employment_type`: full_time/part_time/contract/intern/temporary) |
 | `experience_level_id` | BIGINT UNSIGNED | YES | NULL | FK → `lookup_values(id)` (category `job_experience_level`: junior/mid/senior/lead…) |
 | `title` | VARCHAR(160) | NO | — | Job title; FULLTEXT |
-| `slug` | VARCHAR(180) | NO | — | URL slug; unique per company |
+| `slug` | VARCHAR(180) | NO | — | URL slug; unique per workspace |
 | `description` | LONGTEXT | YES | NULL | Full job description (markdown/HTML); FULLTEXT |
 | `summary` | VARCHAR(500) | YES | NULL | Short teaser for cards/careers list |
 | `openings` | INT UNSIGNED | NO | 1 | Headcount; `>= 1` (app-validated) |
@@ -121,16 +121,16 @@ erDiagram
 | `deleted_at` | TIMESTAMP | YES | NULL | Soft delete |
 
 ### Keys
-- **PK**: `id`. **UUID**: UNIQUE(`uuid`). **Business-unique**: UNIQUE(`company_id`,`slug`).
+- **PK**: `id`. **UUID**: UNIQUE(`uuid`). **Business-unique**: UNIQUE(`workspace_id`,`slug`).
 
 ### Indexes
 | Name | Columns | Type |
 |---|---|---|
 | `jobs_uuid_unique` | (`uuid`) | unique |
-| `jobs_company_slug_unique` | (`company_id`,`slug`) | unique |
-| `jobs_company_status_index` | (`company_id`,`job_status_id`) | composite — dashboard list + careers query |
-| `jobs_company_created_index` | (`company_id`,`created_at`) | composite — recent jobs |
-| `jobs_company_dept_index` | (`company_id`,`department_id`) | composite |
+| `jobs_workspace_slug_unique` | (`workspace_id`,`slug`) | unique |
+| `jobs_workspace_status_index` | (`workspace_id`,`job_status_id`) | composite — dashboard list + careers query |
+| `jobs_workspace_created_index` | (`workspace_id`,`created_at`) | composite — recent jobs |
+| `jobs_workspace_dept_index` | (`workspace_id`,`department_id`) | composite |
 | `jobs_pipeline_id_index` | (`pipeline_id`) | index (FK) |
 | `jobs_department_id_index` | (`department_id`) | index (FK) |
 | `jobs_employment_type_id_index` | (`employment_type_id`) | index (FK) |
@@ -146,7 +146,7 @@ erDiagram
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `job_status_id` | `job_statuses(id)` | RESTRICT | CASCADE |
 | `pipeline_id` | `pipelines(id)` | SET NULL | CASCADE |
 | `department_id` | `departments(id)` (D9) | SET NULL | CASCADE |
@@ -158,7 +158,7 @@ erDiagram
 | `updated_by` | `users(id)` | SET NULL | CASCADE |
 
 ### Relationships + cardinality
-- `companies` 1—* `jobs` · `job_statuses` 1—* `jobs` · `pipelines` 1—* `jobs` · `departments` 1—* `jobs`.
+- `workspaces` 1—* `jobs` · `job_statuses` 1—* `jobs` · `pipelines` 1—* `jobs` · `departments` 1—* `jobs`.
 - `jobs` *—* `locations` (via `job_locations`), `jobs` *—* `skills` (via `job_skills`), `jobs` *—* `languages` (via `job_languages`), `jobs` *—* `benefits` (via `job_benefits`).
 - `jobs` 1—* `job_questions`, `jobs` 1—* `job_criteria`.
 - `jobs` 1—* `applications` (D7, `applications.job_id`, ON DELETE CASCADE) and transitively interviews/evaluations.
@@ -167,13 +167,13 @@ erDiagram
 - **Config-driven**: status, employment type, experience level and salary period are all FK refs (no ENUMs) → DB-4. Statuses carry workflow flags (see `job_statuses`).
 - **Polymorphic add-ons** (do NOT redefine here): job attachments → `attachments` (`attachable_type='job'`); free-text notes → `notes` (`notable_type='job'`); labels → `tags`+`taggables` (`taggable_type='job'`); status transitions → `status_histories` (`subject_type='job'`); audit/timeline → `activity_logs` (`subject_type='job'`); localized title/description → `translations` (`translatable_type='job'`). See [01-Lookups-Reference](01-Lookups-Reference.md).
 - **Normalization**: department/location/currency are 3NF refs, not scalar strings; many-to-many sets live in pivots; `meta` JSON holds genuinely sparse/extensible attributes only.
-- **Scale**: hot paths covered by `(company_id,job_status_id)` and `(company_id,created_at)`; careers page caches the open-jobs list per company (doc 24 §11) keyed off `published_at`. FULLTEXT queries are always tenant-filtered.
+- **Scale**: hot paths covered by `(workspace_id,job_status_id)` and `(workspace_id,created_at)`; careers page caches the open-jobs list per workspace (doc 24 §11) keyed off `published_at`. FULLTEXT queries are always tenant-filtered.
 
 ---
 
 ## §9.2 `job_statuses`
 
-- **BLUEPRINT** · Purpose: config-driven status catalog + workflow flags for the job lifecycle (`draft/open/paused/closed/archived` shipped as DEFAULT rows, **not** an enum). · Tenant-scoped: **optional** (`company_id` NULL = system default; non-null = tenant custom/override). · Soft-delete: **yes** (custom statuses may be retired).
+- **BLUEPRINT** · Purpose: config-driven status catalog + workflow flags for the job lifecycle (`draft/open/paused/closed/archived` shipped as DEFAULT rows, **not** an enum). · Tenant-scoped: **optional** (`workspace_id` NULL = system default; non-null = tenant custom/override). · Soft-delete: **yes** (custom statuses may be retired).
 
 ### Columns
 
@@ -181,7 +181,7 @@ erDiagram
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | YES | NULL | NULL = system default; set = tenant custom; FK → `companies(id)` |
+| `workspace_id` | BIGINT UNSIGNED | YES | NULL | NULL = system default; set = tenant custom; FK → `workspaces(id)` |
 | `key` | VARCHAR(60) | NO | — | Machine key (`draft`,`open`,`paused`,`closed`,`archived`,…) |
 | `label` | VARCHAR(120) | NO | — | Human label (translatable via `translations`) |
 | `color` | VARCHAR(20) | YES | NULL | UI badge color (hex/token) |
@@ -196,35 +196,35 @@ erDiagram
 | `deleted_at` | TIMESTAMP | YES | NULL | Soft delete |
 
 ### Keys
-- **PK**: `id`. **UUID**: UNIQUE(`uuid`). **Business-unique**: UNIQUE(`company_id`,`key`) (a NULL `company_id` is the global default keyspace; tenant rows reuse keys to override).
+- **PK**: `id`. **UUID**: UNIQUE(`uuid`). **Business-unique**: UNIQUE(`workspace_id`,`key`) (a NULL `workspace_id` is the global default keyspace; tenant rows reuse keys to override).
 
 ### Indexes
 | Name | Columns | Type |
 |---|---|---|
 | `job_statuses_uuid_unique` | (`uuid`) | unique |
-| `job_statuses_company_key_unique` | (`company_id`,`key`) | unique |
-| `job_statuses_company_sort_index` | (`company_id`,`sort_order`) | composite |
+| `job_statuses_workspace_key_unique` | (`workspace_id`,`key`) | unique |
+| `job_statuses_workspace_sort_index` | (`workspace_id`,`sort_order`) | composite |
 | `job_statuses_is_default_index` | (`is_default`) | index |
 | `job_statuses_deleted_at_index` | (`deleted_at`) | index |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 
 ### Relationships + cardinality
 - `job_statuses` 1—* `jobs` (via `jobs.job_status_id`, RESTRICT — a status in use cannot be deleted).
-- `companies` 1—* `job_statuses` (custom statuses); system defaults have `company_id` NULL.
+- `workspaces` 1—* `job_statuses` (custom statuses); system defaults have `workspace_id` NULL.
 
 ### Notes
-- **DEFAULT rows (system, `company_id` NULL, `is_system=1`)** seed the canonical lifecycle: `draft` (`is_default`,`is_initial`), `open` (`is_initial`,`is_published_state`), `paused`, `closed` (`is_terminal`), `archived` (`is_terminal`). Legal transitions (per doc 24 §4.1) are enforced in `JobService`; the flags (`is_initial`/`is_terminal`/`is_published_state`) let the app validate them data-drivenly.
+- **DEFAULT rows (system, `workspace_id` NULL, `is_system=1`)** seed the canonical lifecycle: `draft` (`is_default`,`is_initial`), `open` (`is_initial`,`is_published_state`), `paused`, `closed` (`is_terminal`), `archived` (`is_terminal`). Legal transitions (per doc 24 §4.1) are enforced in `JobService`; the flags (`is_initial`/`is_terminal`/`is_published_state`) let the app validate them data-drivenly.
 - This is the per-entity status-table pattern from [00-Database-Bible](00-Database-Bible.md) §Configuration-Driven; parallels `application_statuses`, `interview_statuses`, etc.
 
 ---
 
 ## §9.3 `locations`
 
-- **BLUEPRINT** · Purpose: reusable company offices / job locations (a job may be posted at several; many jobs share one office). · Tenant-scoped: **yes**. · Soft-delete: **yes**.
+- **BLUEPRINT** · Purpose: reusable workspace offices / job locations (a job may be posted at several; many jobs share one office). · Tenant-scoped: **yes**. · Soft-delete: **yes**.
 
 ### Columns
 
@@ -232,7 +232,7 @@ erDiagram
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `companies(id)` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `workspaces(id)` |
 | `name` | VARCHAR(150) | YES | NULL | Office/site label (e.g. "Riyadh HQ") |
 | `country_id` | BIGINT UNSIGNED | NO | — | FK → `countries(id)` (D0 reference data) |
 | `city` | VARCHAR(120) | YES | NULL | City |
@@ -255,8 +255,8 @@ erDiagram
 | Name | Columns | Type |
 |---|---|---|
 | `locations_uuid_unique` | (`uuid`) | unique |
-| `locations_company_id_index` | (`company_id`) | index (FK) |
-| `locations_company_country_index` | (`company_id`,`country_id`) | composite |
+| `locations_workspace_id_index` | (`workspace_id`) | index (FK) |
+| `locations_workspace_country_index` | (`workspace_id`,`country_id`) | composite |
 | `locations_country_id_index` | (`country_id`) | index (FK) |
 | `locations_timezone_id_index` | (`timezone_id`) | index (FK) |
 | `locations_lat_lng_index` | (`latitude`,`longitude`) | composite — proximity |
@@ -265,12 +265,12 @@ erDiagram
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `country_id` | `countries(id)` | RESTRICT | CASCADE |
 | `timezone_id` | `timezones(id)` | RESTRICT | CASCADE |
 
 ### Relationships + cardinality
-- `companies` 1—* `locations` · `countries` 1—* `locations`.
+- `workspaces` 1—* `locations` · `countries` 1—* `locations`.
 - `locations` *—* `jobs` (via `job_locations`).
 
 ### Notes
@@ -280,14 +280,14 @@ erDiagram
 
 ## §9.4 `job_locations`
 
-- **BLUEPRINT** · Purpose: pivot — which locations a job is posted at. · Tenant-scoped: **yes** (carries `company_id` for shard-locality/tenant filters). · Soft-delete: **no** (pure pivot, hard-deleted).
+- **BLUEPRINT** · Purpose: pivot — which locations a job is posted at. · Tenant-scoped: **yes** (carries `workspace_id` for shard-locality/tenant filters). · Soft-delete: **no** (pure pivot, hard-deleted).
 
 ### Columns
 
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `companies(id)` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `workspaces(id)` |
 | `job_id` | BIGINT UNSIGNED | NO | — | FK → `jobs(id)` |
 | `location_id` | BIGINT UNSIGNED | NO | — | FK → `locations(id)` |
 | `is_primary` | TINYINT(1) | NO | 0 | Marks the primary posting location |
@@ -302,12 +302,12 @@ erDiagram
 |---|---|---|
 | `job_locations_job_location_unique` | (`job_id`,`location_id`) | unique |
 | `job_locations_location_id_index` | (`location_id`) | index (FK) |
-| `job_locations_company_id_index` | (`company_id`) | index (FK) |
+| `job_locations_workspace_id_index` | (`workspace_id`) | index (FK) |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `job_id` | `jobs(id)` | CASCADE | CASCADE |
 | `location_id` | `locations(id)` | CASCADE | CASCADE |
 
@@ -328,7 +328,7 @@ erDiagram
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `companies(id)` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `workspaces(id)` |
 | `job_id` | BIGINT UNSIGNED | NO | — | FK → `jobs(id)` |
 | `skill_id` | BIGINT UNSIGNED | NO | — | FK → `skills(id)` (**D6** catalog) |
 | `required_level_id` | BIGINT UNSIGNED | YES | NULL | FK → `lookup_values(id)` (category `skill_level`: beginner/intermediate/advanced/expert) |
@@ -346,12 +346,12 @@ erDiagram
 | `job_skills_job_skill_unique` | (`job_id`,`skill_id`) | unique |
 | `job_skills_skill_id_index` | (`skill_id`) | index (FK) |
 | `job_skills_required_level_id_index` | (`required_level_id`) | index (FK) |
-| `job_skills_company_id_index` | (`company_id`) | index (FK) |
+| `job_skills_workspace_id_index` | (`workspace_id`) | index (FK) |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `job_id` | `jobs(id)` | CASCADE | CASCADE |
 | `skill_id` | `skills(id)` (D6) | RESTRICT | CASCADE |
 | `required_level_id` | `lookup_values(id)` | RESTRICT | CASCADE |
@@ -374,7 +374,7 @@ erDiagram
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `companies(id)` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `workspaces(id)` |
 | `job_id` | BIGINT UNSIGNED | NO | — | FK → `jobs(id)` |
 | `language_id` | BIGINT UNSIGNED | NO | — | FK → `languages(id)` (**D0** reference data) |
 | `proficiency_id` | BIGINT UNSIGNED | YES | NULL | FK → `lookup_values(id)` (category `language_proficiency`: basic/conversational/fluent/native) |
@@ -391,12 +391,12 @@ erDiagram
 | `job_languages_job_language_unique` | (`job_id`,`language_id`) | unique |
 | `job_languages_language_id_index` | (`language_id`) | index (FK) |
 | `job_languages_proficiency_id_index` | (`proficiency_id`) | index (FK) |
-| `job_languages_company_id_index` | (`company_id`) | index (FK) |
+| `job_languages_workspace_id_index` | (`workspace_id`) | index (FK) |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `job_id` | `jobs(id)` | CASCADE | CASCADE |
 | `language_id` | `languages(id)` (D0) | RESTRICT | CASCADE |
 | `proficiency_id` | `lookup_values(id)` | RESTRICT | CASCADE |
@@ -411,7 +411,7 @@ erDiagram
 
 ## §9.7 `benefits`
 
-- **BLUEPRINT** · Purpose: company-scoped catalog of benefits/perks (lookup-like, but tenant-owned and richer than a generic lookup row). · Tenant-scoped: **yes**. · Soft-delete: **yes**.
+- **BLUEPRINT** · Purpose: workspace-scoped catalog of benefits/perks (lookup-like, but tenant-owned and richer than a generic lookup row). · Tenant-scoped: **yes**. · Soft-delete: **yes**.
 
 ### Columns
 
@@ -419,7 +419,7 @@ erDiagram
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `companies(id)` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `workspaces(id)` |
 | `key` | VARCHAR(60) | NO | — | Machine key (e.g. `health_insurance`) |
 | `label` | VARCHAR(150) | NO | — | Display name (translatable) |
 | `description` | VARCHAR(500) | YES | NULL | Detail |
@@ -432,25 +432,25 @@ erDiagram
 | `deleted_at` | TIMESTAMP | YES | NULL | Soft delete |
 
 ### Keys
-- **PK**: `id`. **UUID**: UNIQUE(`uuid`). **Business-unique**: UNIQUE(`company_id`,`key`).
+- **PK**: `id`. **UUID**: UNIQUE(`uuid`). **Business-unique**: UNIQUE(`workspace_id`,`key`).
 
 ### Indexes
 | Name | Columns | Type |
 |---|---|---|
 | `benefits_uuid_unique` | (`uuid`) | unique |
-| `benefits_company_key_unique` | (`company_id`,`key`) | unique |
+| `benefits_workspace_key_unique` | (`workspace_id`,`key`) | unique |
 | `benefits_category_id_index` | (`category_id`) | index (FK) |
-| `benefits_company_active_index` | (`company_id`,`is_active`) | composite |
+| `benefits_workspace_active_index` | (`workspace_id`,`is_active`) | composite |
 | `benefits_deleted_at_index` | (`deleted_at`) | index |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `category_id` | `lookup_values(id)` | RESTRICT | CASCADE |
 
 ### Relationships + cardinality
-- `companies` 1—* `benefits` · `benefits` *—* `jobs` (via `job_benefits`).
+- `workspaces` 1—* `benefits` · `benefits` *—* `jobs` (via `job_benefits`).
 
 ### Notes
 - Modeled as a first-class tenant table (not a `lookup_values` row) because benefits carry their own attributes (description, icon, category) and are tenant-curated catalogs reused across jobs — config-driven without being a generic lookup. `category_id` itself is a generic lookup.
@@ -466,7 +466,7 @@ erDiagram
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `companies(id)` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `workspaces(id)` |
 | `job_id` | BIGINT UNSIGNED | NO | — | FK → `jobs(id)` |
 | `benefit_id` | BIGINT UNSIGNED | NO | — | FK → `benefits(id)` |
 | `value` | VARCHAR(255) | YES | NULL | Optional per-job detail (e.g. "30 days") overriding the catalog default |
@@ -482,12 +482,12 @@ erDiagram
 |---|---|---|
 | `job_benefits_job_benefit_unique` | (`job_id`,`benefit_id`) | unique |
 | `job_benefits_benefit_id_index` | (`benefit_id`) | index (FK) |
-| `job_benefits_company_id_index` | (`company_id`) | index (FK) |
+| `job_benefits_workspace_id_index` | (`workspace_id`) | index (FK) |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `job_id` | `jobs(id)` | CASCADE | CASCADE |
 | `benefit_id` | `benefits(id)` | RESTRICT | CASCADE |
 
@@ -509,7 +509,7 @@ erDiagram
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `companies(id)` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `workspaces(id)` |
 | `job_id` | BIGINT UNSIGNED | NO | — | FK → `jobs(id)` |
 | `question_type_id` | BIGINT UNSIGNED | NO | — | FK → `lookup_values(id)` (category `question_type`: text/textarea/single_choice/multi_choice/boolean/number/file/date) |
 | `question` | VARCHAR(500) | NO | — | Prompt shown to the applicant (translatable) |
@@ -532,13 +532,13 @@ erDiagram
 | `job_questions_uuid_unique` | (`uuid`) | unique |
 | `job_questions_job_sort_index` | (`job_id`,`sort_order`) | composite — render order |
 | `job_questions_question_type_id_index` | (`question_type_id`) | index (FK) |
-| `job_questions_company_id_index` | (`company_id`) | index (FK) |
+| `job_questions_workspace_id_index` | (`workspace_id`) | index (FK) |
 | `job_questions_deleted_at_index` | (`deleted_at`) | index |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `job_id` | `jobs(id)` | CASCADE | CASCADE |
 | `question_type_id` | `lookup_values(id)` | RESTRICT | CASCADE |
 
@@ -560,7 +560,7 @@ erDiagram
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `companies(id)` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `workspaces(id)` |
 | `job_id` | BIGINT UNSIGNED | NO | — | FK → `jobs(id)` |
 | `criterion_type_id` | BIGINT UNSIGNED | YES | NULL | FK → `lookup_values(id)` (category `criterion_type`: skill/experience/education/culture_fit/language/custom) |
 | `name` | VARCHAR(150) | NO | — | Criterion label (e.g. "Backend depth") |
@@ -582,13 +582,13 @@ erDiagram
 | `job_criteria_uuid_unique` | (`uuid`) | unique |
 | `job_criteria_job_sort_index` | (`job_id`,`sort_order`) | composite |
 | `job_criteria_criterion_type_id_index` | (`criterion_type_id`) | index (FK) |
-| `job_criteria_company_id_index` | (`company_id`) | index (FK) |
+| `job_criteria_workspace_id_index` | (`workspace_id`) | index (FK) |
 | `job_criteria_deleted_at_index` | (`deleted_at`) | index |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `job_id` | `jobs(id)` | CASCADE | CASCADE |
 | `criterion_type_id` | `lookup_values(id)` | RESTRICT | CASCADE |
 
@@ -602,7 +602,7 @@ erDiagram
 
 ## §9.11 `pipelines`
 
-- **BLUEPRINT** · Purpose: a configurable hiring workflow (set of stages) at company level (template) or job level. · Tenant-scoped: **yes**. · Soft-delete: **yes**.
+- **BLUEPRINT** · Purpose: a configurable hiring workflow (set of stages) at workspace level (template) or job level. · Tenant-scoped: **yes**. · Soft-delete: **yes**.
 
 ### Columns
 
@@ -610,11 +610,11 @@ erDiagram
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `companies(id)` |
-| `job_id` | BIGINT UNSIGNED | YES | NULL | FK → `jobs(id)`; NULL = company-level **template**, set = job-specific instance |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `workspaces(id)` |
+| `job_id` | BIGINT UNSIGNED | YES | NULL | FK → `jobs(id)`; NULL = workspace-level **template**, set = job-specific instance |
 | `name` | VARCHAR(150) | NO | — | Pipeline name (e.g. "Standard hiring") |
 | `description` | VARCHAR(500) | YES | NULL | |
-| `is_default` | TINYINT(1) | NO | 0 | Default template cloned into new jobs (only one default per company) |
+| `is_default` | TINYINT(1) | NO | 0 | Default template cloned into new jobs (only one default per workspace) |
 | `is_template` | TINYINT(1) | NO | 0 | Reusable template vs concrete job pipeline |
 | `is_active` | TINYINT(1) | NO | 1 | Selectable |
 | `created_by` | BIGINT UNSIGNED | YES | NULL | FK → `users(id)` ON DELETE SET NULL |
@@ -623,14 +623,14 @@ erDiagram
 | `deleted_at` | TIMESTAMP | YES | NULL | Soft delete |
 
 ### Keys
-- **PK**: `id`. **UUID**: UNIQUE(`uuid`). **Business-unique**: UNIQUE(`company_id`,`job_id`) when `job_id` is set (one pipeline instance per job; MySQL treats multiple NULLs as distinct, so company templates are not constrained by this).
+- **PK**: `id`. **UUID**: UNIQUE(`uuid`). **Business-unique**: UNIQUE(`workspace_id`,`job_id`) when `job_id` is set (one pipeline instance per job; MySQL treats multiple NULLs as distinct, so workspace templates are not constrained by this).
 
 ### Indexes
 | Name | Columns | Type |
 |---|---|---|
 | `pipelines_uuid_unique` | (`uuid`) | unique |
-| `pipelines_company_job_unique` | (`company_id`,`job_id`) | unique (NULL `job_id` repeatable) |
-| `pipelines_company_default_index` | (`company_id`,`is_default`) | composite |
+| `pipelines_workspace_job_unique` | (`workspace_id`,`job_id`) | unique (NULL `job_id` repeatable) |
+| `pipelines_workspace_default_index` | (`workspace_id`,`is_default`) | composite |
 | `pipelines_job_id_index` | (`job_id`) | index (FK) |
 | `pipelines_created_by_index` | (`created_by`) | index (FK) |
 | `pipelines_deleted_at_index` | (`deleted_at`) | index |
@@ -638,16 +638,16 @@ erDiagram
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `job_id` | `jobs(id)` | CASCADE | CASCADE |
 | `created_by` | `users(id)` | SET NULL | CASCADE |
 
 ### Relationships + cardinality
-- `companies` 1—* `pipelines` · `pipelines` 1—* `pipeline_stages`.
-- `jobs` 1—1 `pipelines` (job-specific instance; `jobs.pipeline_id` also points back for the active pipeline) and `jobs` *—1 a company **template** pipeline at creation time.
+- `workspaces` 1—* `pipelines` · `pipelines` 1—* `pipeline_stages`.
+- `jobs` 1—1 `pipelines` (job-specific instance; `jobs.pipeline_id` also points back for the active pipeline) and `jobs` *—1 a workspace **template** pipeline at creation time.
 
 ### Notes
-- Replaces doc 24's "`pipeline_stages.job_id = NULL` template" sketch with an explicit `pipelines` parent so a company can keep **several named templates**; `JobService::seedPipeline` clones the default template into a per-job pipeline (doc 24 §4.2/§4.4). `jobs.pipeline_id` ↔ `pipelines.job_id` form the active-pipeline link; the cyclic pair is resolved at app layer (create pipeline, then set `jobs.pipeline_id`).
+- Replaces doc 24's "`pipeline_stages.job_id = NULL` template" sketch with an explicit `pipelines` parent so a workspace can keep **several named templates**; `JobService::seedPipeline` clones the default template into a per-job pipeline (doc 24 §4.2/§4.4). `jobs.pipeline_id` ↔ `pipelines.job_id` form the active-pipeline link; the cyclic pair is resolved at app layer (create pipeline, then set `jobs.pipeline_id`).
 
 ---
 
@@ -661,7 +661,7 @@ erDiagram
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `companies(id)` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant; FK → `workspaces(id)` |
 | `pipeline_id` | BIGINT UNSIGNED | NO | — | FK → `pipelines(id)` |
 | `application_status_id` | BIGINT UNSIGNED | YES | NULL | FK → `application_statuses(id)` (**D7**) — the status applications get while in this stage |
 | `stage_type_id` | BIGINT UNSIGNED | NO | — | FK → `lookup_values(id)` (category `pipeline_stage_type`: applied/screening/interview/assessment/offer/hired/rejected) |
@@ -687,13 +687,13 @@ erDiagram
 | `pipeline_stages_pipeline_sort_unique` | (`pipeline_id`,`sort_order`) | unique — ordering |
 | `pipeline_stages_application_status_id_index` | (`application_status_id`) | index (FK) |
 | `pipeline_stages_stage_type_id_index` | (`stage_type_id`) | index (FK) |
-| `pipeline_stages_company_id_index` | (`company_id`) | index (FK) |
+| `pipeline_stages_workspace_id_index` | (`workspace_id`) | index (FK) |
 | `pipeline_stages_deleted_at_index` | (`deleted_at`) | index |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `pipeline_id` | `pipelines(id)` | CASCADE | CASCADE |
 | `application_status_id` | `application_statuses(id)` (D7) | RESTRICT | CASCADE |
 | `stage_type_id` | `lookup_values(id)` | RESTRICT | CASCADE |
@@ -724,7 +724,7 @@ this domain reuses the shared D0 tables instead of per-entity copies:
 
 Integrity for these is enforced at the application layer; the (type,id)
 composite indexes live on the shared tables (D0). Genuine relational links
-(`company_id`, `job_id`, `created_by`, catalog FKs) are hard foreign keys as
+(`workspace_id`, `job_id`, `created_by`, catalog FKs) are hard foreign keys as
 specified above.
 
 ## Open Questions / Assumptions

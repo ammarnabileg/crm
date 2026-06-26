@@ -6,7 +6,7 @@ Invoices, payments, KSA VAT (15%), billing cycles, dunning, receipts and refunds
 
 - [13 — Subscription System](13-Subscription-System.md) — the lifecycle states that billing events drive (`active`, `past_due`, …).
 - [15 — Payment Gateways](15-Payment-Gateways.md) — pluggable gateways and webhooks that actually move money and confirm payments.
-- [12 — Company Management](12-Company-Management.md) — companies are the billed tenant; cancellation/deletion lifecycle.
+- [12 — Company Management](12-Workspace-Management.md) — companies are the billed tenant; cancellation/deletion lifecycle.
 - [05 — Database Architecture](05-Database-Architecture.md) — canonical `invoices`, `payments`, `payment_methods` schema.
 - [07 — RBAC](07-RBAC.md) — `billing.view` / `billing.manage` gate billing operations.
 

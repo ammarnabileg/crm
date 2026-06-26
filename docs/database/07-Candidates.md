@@ -3,7 +3,7 @@
 The candidate domain of the HalaOps **FINAL DATABASE BLUEPRINT**. It models a
 person's **reusable CV** — profile, skills, languages, work experience, education,
 certificates, social links and uploaded documents — as data that is **global to
-the user**, not duplicated per company. Every table here is **BLUEPRINT** (none is
+the user**, not duplicated per workspace. Every table here is **BLUEPRINT** (none is
 in migrations 0001–0016 yet); this document is the target the implementation
 migrates toward. **DESIGN ONLY — no migrations, no code.**
 
@@ -21,7 +21,7 @@ migrates toward. **DESIGN ONLY — no migrations, no code.**
 - [05 — Subscriptions & Billing (D4)](05-Subscriptions-Billing.md) — `currencies` reference for `expected_salary_currency_id` (money = amount + `currency_id`).
 - [06 — Jobs (D5)](06-Jobs.md) — **shares the `skills` catalog defined here**; jobs link to it via `job_skills` and to `languages` via `job_languages`. Skill matching between a job and a candidate joins `job_skills` ↔ `candidate_skills` on `skill_id`.
 - [08 — Applications & Interviews (D7)](08-Applications-Interviews.md) — `applications` link a `users` row (the candidate) to a `jobs` row; an application may snapshot/point at this profile and at `candidate_documents` (e.g. the CV used to apply).
-- [10 — HR & Talent Pool (D9)](10-HR-Talent.md) — **per-company grouping of candidates lives here** (`pools`, `pool_groups`, `pool_candidates`). This domain deliberately holds **no** per-company candidate data; the Talent Pool is the tenant-scoped layer over the global profile.
+- [10 — HR & Talent Pool (D9)](10-HR-Talent.md) — **per-workspace grouping of candidates lives here** (`pools`, `pool_groups`, `pool_candidates`). This domain deliberately holds **no** per-workspace candidate data; the Talent Pool is the tenant-scoped layer over the global profile.
 - [11 — Files / Queue / Analytics / Logs (D10)](11-Files-Queue-Analytics-Logs.md) — owns `files`; `candidate_documents.file_id` → `files`.
 - [99 — ERD Blueprint](99-ERD-Blueprint.md) — the consolidated cross-domain ERD this domain feeds into.
 - Up-stream spec: [../19-Candidate-Journey.md](../19-Candidate-Journey.md) — the product journey ("Candidate profile as a reusable CV", §Future Expansion) this schema realises.
@@ -33,7 +33,7 @@ migrates toward. **DESIGN ONLY — no migrations, no code.**
 To define, before any migration, the normalized schema for a candidate's
 **portable professional profile**: a single structured CV owned by the `users`
 row that pre-fills applications, powers AI/skill matching against jobs, and can be
-surfaced (with consent) in a company's Talent Pool — without ever splitting a
+surfaced (with consent) in a workspace's Talent Pool — without ever splitting a
 person into multiple identity rows or copying their CV per tenant.
 
 ## Why It Exists (سبب وجوده)
@@ -42,9 +42,9 @@ The candidate is the only actor who is *outside* a tenant's staff yet owns rich,
 reusable data. Two facts drive this design:
 
 1. **The CV is global, the relationship is tenant-scoped.** One human applies to
-   many unrelated companies. Their skills, experience and education do not change
-   per company, so they are stored **once**, keyed by `user_id`. What *is*
-   per-company — which pool they sit in, the application, the interview scores —
+   many unrelated workspaces. Their skills, experience and education do not change
+   per workspace, so they are stored **once**, keyed by `user_id`. What *is*
+   per-workspace — which pool they sit in, the application, the interview scores —
    lives in D7/D9, never here. This keeps 3NF (no duplicated CV rows) and keeps
    cross-tenant privacy a property of *where data lives*, not of careful querying.
 2. **Structured, not blob.** Storing experience/education/skills as normalized
@@ -58,7 +58,7 @@ reusable data. Two facts drive this design:
 `candidate_profiles`, `skills`, `candidate_skills`, `candidate_languages`,
 `experiences`, `educations`, `certificates`, `social_links`, `candidate_documents`.
 
-> **Ownership boundaries (no table defined twice):** `users`, `companies` → D2;
+> **Ownership boundaries (no table defined twice):** `users`, `workspaces` → D2;
 > `languages`, `currencies`, `lookup_values`, and all polymorphic tables
 > (`notes`, `tags`, `taggables`, `attachments`, `status_histories`,
 > `activity_logs`) → D0; `files` → D10; `job_skills`/`job_languages` → D5;
@@ -73,10 +73,10 @@ reusable data. Two facts drive this design:
   even before a profile row is fully filled, and an application can join straight
   from `users` to experiences/skills. (Rationale: `users` is the durable identity;
   `candidate_profiles` is an optional, lazily-created extension.)
-- **Profile data is GLOBAL** — these tables carry **no `company_id`** (the only
-  D6 tables that are *not* tenant-scoped, by design). Per-company grouping is the
+- **Profile data is GLOBAL** — these tables carry **no `workspace_id`** (the only
+  D6 tables that are *not* tenant-scoped, by design). Per-workspace grouping is the
   D9 Talent Pool. `skills` is the one exception: it is a **catalog** that is
-  *company-scoped + system* (a tenant may add private skills; `company_id` NULL =
+  *workspace-scoped + system* (a tenant may add private skills; `workspace_id` NULL =
   shared system skill).
 - **Config-driven, no ENUMs.** Skill category, skill proficiency level, language
   proficiency, social platform, and document type are all **`lookup_values`** (D0)
@@ -105,7 +105,7 @@ erDiagram
 
     users ||--o{ candidate_skills : "claims (CASCADE)"
     skills ||--o{ candidate_skills : "rated (RESTRICT)"
-    companies ||--o{ skills : "owns custom (CASCADE, NULL=system)"
+    workspaces ||--o{ skills : "owns custom (CASCADE, NULL=system)"
     lookup_values ||--o{ skills : "category (RESTRICT)"
     lookup_values ||--o{ candidate_skills : "level (RESTRICT)"
 
@@ -125,7 +125,7 @@ erDiagram
 
     skills ||--o{ job_skills : "required by jobs (D5)"
     users ||--o{ applications : "applies (D7)"
-    users ||--o{ pool_candidates : "pooled per company (D9)"
+    users ||--o{ pool_candidates : "pooled per workspace (D9)"
 
     candidate_profiles {
         bigint id PK
@@ -143,7 +143,7 @@ erDiagram
     skills {
         bigint id PK
         char uuid UK
-        bigint company_id FK "NULL=system, else tenant custom"
+        bigint workspace_id FK "NULL=system, else tenant custom"
         bigint category_id FK "lookup"
         varchar name
         varchar slug
@@ -224,8 +224,8 @@ erDiagram
   `languages` **via** `candidate_languages`.
 - `skills` **\*—\*** `jobs` **via** `job_skills` (D5) — the shared catalog enables
   job↔candidate skill matching on `skill_id`.
-- `companies` **1—*** `skills` (custom, `company_id` non-NULL); system skills have
-  `company_id` NULL.
+- `workspaces` **1—*** `skills` (custom, `workspace_id` non-NULL); system skills have
+  `workspace_id` NULL.
 - `currencies` **1—*** `candidate_profiles` (expected-salary currency).
 - `files` **1—1** `candidate_documents` (each document row points at one file).
 - `lookup_values` **1—*** `skills` (category), `candidate_skills` (level),
@@ -240,7 +240,7 @@ erDiagram
 
 1:1 extension of `users` holding the person's global, reusable CV header. Created
 lazily the first time a user builds a profile; absence of a row simply means "no
-structured CV yet". **No `company_id`** — this is global candidate data.
+structured CV yet". **No `workspace_id`** — this is global candidate data.
 
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
@@ -289,8 +289,8 @@ structured CV yet". **No `company_id`** — this is global candidate data.
 - **Relationships + cardinality:** users **1—1** candidate_profiles; currencies
   **1—\*** candidate_profiles; countries **1—\*** candidate_profiles (×2);
   lookup_values **1—\*** candidate_profiles (availability / period / gender).
-- **Notes:** GLOBAL by design (no `company_id`) — the CV is the person's, not a
-  tenant's; per-company context is D9. Money modelled as amount+`currency_id`
+- **Notes:** GLOBAL by design (no `workspace_id`) — the CV is the person's, not a
+  tenant's; per-workspace context is D9. Money modelled as amount+`currency_id`
   (DB §8). FULLTEXT supports the "searchable talent pool" journey; `is_searchable`
   gates it for privacy (DB §Edge: consent). Identity/contact basics
   (name/email/phone/avatar/locale/timezone) stay on `users` (D2) — **not**
@@ -299,19 +299,19 @@ structured CV yet". **No `company_id`** — this is global candidate data.
 ### 2. `skills` — **BLUEPRINT** · catalog (system + tenant-scoped) · soft-delete: **yes**
 
 The shared **skills catalog**, owned by D6 but used by both candidates
-(`candidate_skills`) and jobs (`job_skills`, D5). `company_id` NULL = a system
+(`candidate_skills`) and jobs (`job_skills`, D5). `workspace_id` NULL = a system
 skill available to everyone; non-NULL = a tenant's private/custom skill.
 
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
 | id | BIGINT UNSIGNED AI | no | — | **PK** |
 | uuid | CHAR(36) | no | — | **UNIQUE**, public id |
-| company_id | BIGINT UNSIGNED | yes | NULL | **FK → companies(id)**; NULL = system/global skill, non-NULL = tenant custom |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | **FK → workspaces(id)**; NULL = system/global skill, non-NULL = tenant custom |
 | category_id | BIGINT UNSIGNED | yes | NULL | **FK → lookup_values(id)** (category `skill_category`: technical / soft / language_tool / domain …) |
 | name | VARCHAR(120) | no | — | display name (e.g. "PHP", "Project Management") |
 | slug | VARCHAR(140) | no | — | normalized key for matching/dedup (lower, hyphenated) |
 | description | VARCHAR(255) | yes | NULL | optional definition |
-| is_system | TINYINT(1) | no | 0 | 1 = seeded, protected from tenant deletion (mirrors `company_id` NULL) |
+| is_system | TINYINT(1) | no | 0 | 1 = seeded, protected from tenant deletion (mirrors `workspace_id` NULL) |
 | is_active | TINYINT(1) | no | 1 | hidden from pickers when 0 |
 | usage_count | INT UNSIGNED | no | 0 | denormalized popularity counter (app-maintained) for ranking suggestions |
 | created_by | BIGINT UNSIGNED | yes | NULL | **FK → users(id)** (who added a custom skill) |
@@ -319,25 +319,25 @@ skill available to everyone; non-NULL = a tenant's private/custom skill.
 | updated_at | TIMESTAMP | yes | NULL | |
 | deleted_at | TIMESTAMP | yes | NULL | soft delete |
 
-- **Keys:** PK(id); UNIQUE(uuid); **UNIQUE(company_id, slug)** (one skill name per
-  scope; NULL `company_id` is the single system namespace).
+- **Keys:** PK(id); UNIQUE(uuid); **UNIQUE(workspace_id, slug)** (one skill name per
+  scope; NULL `workspace_id` is the single system namespace).
 - **Indexes:**
   - `pk` → (id) — primary
   - `uq_skills_uuid` → (uuid) — unique
-  - `uq_skills_company_slug` → (company_id, slug) — unique (per-scope dedup)
+  - `uq_skills_workspace_slug` → (workspace_id, slug) — unique (per-scope dedup)
   - `ix_skills_category` → (category_id) — index (FK)
-  - `ix_skills_company_active` → (company_id, is_active) — composite (picker lists)
+  - `ix_skills_workspace_active` → (workspace_id, is_active) — composite (picker lists)
   - `ix_skills_created_by` → (created_by) — index (FK)
   - `ix_skills_name` → (name) — index (prefix/typeahead lookups)
 - **Foreign keys:**
-  - company_id → companies(id) — **ON DELETE CASCADE**, ON UPDATE CASCADE (custom skills die with the tenant; system skills have NULL and are unaffected)
+  - workspace_id → workspaces(id) — **ON DELETE CASCADE**, ON UPDATE CASCADE (custom skills die with the tenant; system skills have NULL and are unaffected)
   - category_id → lookup_values(id) — ON DELETE RESTRICT, ON UPDATE CASCADE
   - created_by → users(id) — ON DELETE SET NULL, ON UPDATE CASCADE
-- **Relationships + cardinality:** companies **1—\*** skills (custom);
+- **Relationships + cardinality:** workspaces **1—\*** skills (custom);
   lookup_values **1—\*** skills (category); skills **\*—\*** users (via
   `candidate_skills`); skills **\*—\*** jobs (via `job_skills`, D5).
 - **Notes:** Single catalog shared across D5/D6 avoids duplicating a skills list
-  per domain (3NF, DB §1). The system/tenant split (NULL `company_id` + `is_system`)
+  per domain (3NF, DB §1). The system/tenant split (NULL `workspace_id` + `is_system`)
   is the same pattern as config-driven status/lookup tables (DB §2). `slug` is the
   match key so "PHP" entered by two tenants and the system can be reconciled; a
   tenant-custom skill can later be promoted to system. Soft-delete preserves
@@ -411,7 +411,7 @@ A candidate's work-history entries (their CV's experience section).
 | id | BIGINT UNSIGNED AI | no | — | **PK** |
 | uuid | CHAR(36) | no | — | **UNIQUE**, public id |
 | user_id | BIGINT UNSIGNED | no | — | **FK → users(id)** |
-| company_name | VARCHAR(180) | no | — | employer name (free text — external employers, not tenant `companies`) |
+| company_name | VARCHAR(180) | no | — | employer name (free text — external employers, not tenant `workspaces`) |
 | title | VARCHAR(150) | no | — | role/job title held |
 | employment_type_id | BIGINT UNSIGNED | yes | NULL | **FK → lookup_values(id)** (category `employment_type`, shared with D5 jobs: full_time / part_time / contract / intern …) |
 | location | VARCHAR(180) | yes | NULL | city/country or "Remote" |
@@ -435,7 +435,7 @@ A candidate's work-history entries (their CV's experience section).
   - employment_type_id → lookup_values(id) — ON DELETE RESTRICT, ON UPDATE CASCADE
 - **Relationships + cardinality:** users **1—\*** experiences.
 - **Notes:** `company_name` is free text (the candidate's external employers are
-  not HalaOps tenants — do **not** FK to `companies`). `is_current` + nullable
+  not HalaOps tenants — do **not** FK to `workspaces`). `is_current` + nullable
   `end_date` model the open-ended "present" role; app validates
   `end_date >= start_date` and that `is_current` ⟺ `end_date IS NULL`.
 
@@ -602,17 +602,17 @@ the user identity:
 
 | Concern | Shared table (owner D0) | How D6 uses it |
 |--------|--------------------------|----------------|
-| Notes (recruiter notes on a candidate) | `notes` (`notable_type`,`notable_id`, `type_id`→lookup) | `notable_type = 'user'`, `notable_id = users.id`. (Tenant scoping/visibility of a note is the note's own `company_id`, in D0 — so Company A's notes on a shared candidate stay private to A.) |
-| Tags / labels | `tags` + `taggables` (`taggable_type`,`taggable_id`) | `taggable_type = 'user'`; company-scoped tags group candidates without touching the global profile. |
+| Notes (recruiter notes on a candidate) | `notes` (`notable_type`,`notable_id`, `type_id`→lookup) | `notable_type = 'user'`, `notable_id = users.id`. (Tenant scoping/visibility of a note is the note's own `workspace_id`, in D0 — so Workspace A's notes on a shared candidate stay private to A.) |
+| Tags / labels | `tags` + `taggables` (`taggable_type`,`taggable_id`) | `taggable_type = 'user'`; workspace-scoped tags group candidates without touching the global profile. |
 | Extra file attachments (non-CV) | `attachments` (`attachable_type`,`attachable_id`, `file_id`) | `attachable_type = 'user'`; CV-class documents instead use the first-class `candidate_documents` registry above. |
 | Status history | `status_histories` (`subject_type`,`subject_id`, …) | candidate profiles have no workflow status of their own; *pool membership* status (D9) and *application* status (D7) carry the workflow and their own histories. |
 | Audit trail / timeline | `activity_logs` (`subject_type`,`subject_id`, `old_values`,`new_values`,…) | profile/CV edits logged with `subject_type = 'candidate_profile'` (or `'experience'`, etc.) — satisfies DB-6. |
 | Translations | `translations` (`translatable_type`,`translatable_id`, locale, field) | optional multilingual `headline`/`summary`; the canonical text stays on the row, alternates in `translations`. |
 
-**Per-company grouping is NOT here.** A tenant's view of candidates (segments,
+**Per-workspace grouping is NOT here.** A tenant's view of candidates (segments,
 shortlists, talent pools) is **D9**: `pools` / `pool_groups` / `pool_candidates`
-(`pool_candidates(company_id, pool_id, user_id, …)`). That is the only place a
-`company_id` attaches to a candidate; the D6 profile remains global.
+(`pool_candidates(workspace_id, pool_id, user_id, …)`). That is the only place a
+`workspace_id` attaches to a candidate; the D6 profile remains global.
 
 ## Business Rules (schema-level invariants)
 
@@ -620,8 +620,8 @@ shortlists, talent pools) is **D9**: `pools` / `pool_groups` / `pool_candidates`
   table exists; capability comes from RBAC + the portal (see [19](../19-Candidate-Journey.md)).
 - **C-2.** `candidate_profiles` is strictly **1:1** with `users`
   (`UNIQUE(user_id)`); a user has zero or one CV profile.
-- **C-3.** All D6 CV data is **global** (no `company_id`) except the `skills`
-  catalog, which is system + tenant-scoped. Per-company candidate grouping is D9.
+- **C-3.** All D6 CV data is **global** (no `workspace_id`) except the `skills`
+  catalog, which is system + tenant-scoped. Per-workspace candidate grouping is D9.
 - **C-4 (DB-4).** No hard-coded ENUMs: skill category/level, language proficiency,
   social platform, document type, availability, salary period, employment type,
   education level, gender are all `lookup_values`.
@@ -646,14 +646,14 @@ shortlists, talent pools) is **D9**: `pools` / `pool_groups` / `pool_candidates`
   `experiences`/`educations` (app-enforced; both columns kept for query clarity).
 - **Lifetime certificate.** `does_not_expire = 1` ⟺ `expiry_date IS NULL`.
 - **Duplicate skills across scopes.** The system "PHP" and a tenant's "PHP" can
-  both exist (different `company_id` namespaces); matching reconciles via `slug`,
+  both exist (different `workspace_id` namespaces); matching reconciles via `slug`,
   and a tenant skill may be promoted to system later.
 - **One primary per document type.** Enforced at the app layer (MySQL lacks
   partial unique indexes); flipping a new CV to primary clears the previous one.
-- **Shared candidate, private notes.** Two companies can each note/tag the same
-  global user; isolation is the note/tag's own `company_id` (D0), never a fork of
+- **Shared candidate, private notes.** Two workspaces can each note/tag the same
+  global user; isolation is the note/tag's own `workspace_id` (D0), never a fork of
   the profile.
-- **Deleting a tenant.** Custom `skills` (`company_id` set) cascade away; system
+- **Deleting a tenant.** Custom `skills` (`workspace_id` set) cascade away; system
   skills (NULL) and the global candidate profile/CV survive untouched.
 - **GDPR / data-subject erasure.** Soft delete on profile + CV tables enables an
   anonymization path; aligned with the audit system (open question in
@@ -676,7 +676,7 @@ shortlists, talent pools) is **D9**: `pools` / `pool_groups` / `pool_candidates`
 
 ## Validation
 
-- DB-level: `UNIQUE(user_id)` on profiles; `UNIQUE(company_id, slug)` on skills;
+- DB-level: `UNIQUE(user_id)` on profiles; `UNIQUE(workspace_id, slug)` on skills;
   `PK(user_id, skill_id)` / `PK(user_id, language_id)` on pivots;
   `UNIQUE(user_id, platform_id)` on social links; FK existence on every reference;
   FULLTEXT on profile text.

@@ -9,11 +9,11 @@ with multi-language templates, per-user preferences, a send queue, and delivery
 logs).
 
 The defining rule of the AI half is that **HalaOps stores NO AI keys of its
-own** — every company supplies and pays for its own provider credentials
+own** — every workspace supplies and pays for its own provider credentials
 (`tenant_ai_keys`, BUILT as `ai_credentials`); there is no platform fallback
 key. The defining rule of the AI append tables (`ai_requests`, `ai_responses`,
 `ai_logs`, `ai_errors`) is **scale**: they reach billions of rows, so they are
-partitioned by `created_at`, kept FK-light (indexed `company_id` + `created_at`
+partitioned by `created_at`, kept FK-light (indexed `workspace_id` + `created_at`
 instead of hard foreign keys), narrow on the hot path with large payloads pushed
 to `LONGTEXT`/`JSON` fetched only on detail, and they omit `uuid`.
 
@@ -26,7 +26,7 @@ table below and §7 of the [00-Database-Bible](00-Database-Bible.md).
 - [00-Database-Bible](00-Database-Bible.md) — the standard this domain follows (conventions, config-driven rule, scale/partitioning §7, FK policy §4).
 - [01-Lookups-Reference](01-Lookups-Reference.md) — `lookup_categories`/`lookup_values` (notification **type** lookup, AI request **type**), `languages`/`locale`, `translations`, `currencies`.
 - [02-RBAC-Membership](02-RBAC-Membership.md) — `users` (recipient/actor), the `ai.view`/`ai.manage` and `notifications.view` permissions.
-- [03-Companies-Settings](03-Companies-Settings.md) — `companies` (the tenant FK), `company_ai_settings` (non-secret AI knobs), `mail_settings` (email channel transport).
+- [03-Workspaces-Settings](03-Workspaces-Settings.md) — `workspaces` (the tenant FK), `workspace_ai_settings` (non-secret AI knobs), `mail_settings` (email channel transport).
 - [05-Subscriptions-Billing](05-Subscriptions-Billing.md) — `usage_records`/`usage_limits` consume `ai_usage` for plan metering; `currencies` for cost money columns.
 - [08-Applications-Interviews](08-Applications-Interviews.md) — the AI interview engine, primary consumer of the AI layer; emits interview notification events.
 - [10-HR-Talent](10-HR-Talent.md) — offers/approvals emit notification events.
@@ -43,7 +43,7 @@ table below and §7 of the [00-Database-Bible](00-Database-Bible.md).
 | 3 | `tenant_ai_keys` | **BUILT** (`ai_credentials`) | Tenant | No | Per-tenant encrypted provider credentials — platform holds none. |
 | 4 | `ai_requests` | BLUEPRINT | Tenant | No | Every AI call's request (billions; partitioned; FK-light; no uuid). |
 | 5 | `ai_responses` | BLUEPRINT | Tenant | No | Provider responses paired to requests (billions; partitioned; FK-light). |
-| 6 | `ai_usage` | BLUEPRINT | Tenant | No | Daily rollup per company/model (tokens, cost) for metering. |
+| 6 | `ai_usage` | BLUEPRINT | Tenant | No | Daily rollup per workspace/model (tokens, cost) for metering. |
 | 7 | `ai_costs` | BLUEPRINT | Global | No | Historical cost snapshots per model (audit trail of price changes). |
 | 8 | `ai_logs` | BLUEPRINT | Tenant | No | Operational trace of AI activity (billions; partitioned; FK-light). |
 | 9 | `ai_errors` | BLUEPRINT | Tenant | No | Normalized AI failures (billions; partitioned; FK-light). |
@@ -65,11 +65,11 @@ billions-scale append tables, not FKs — see each table's Notes).
 
 ```mermaid
 erDiagram
-    companies ||--o{ tenant_ai_keys : "owns"
-    companies ||--o{ ai_requests : "scopes (FK-light)"
-    companies ||--o{ ai_usage : "scopes"
-    companies ||--o{ ai_cache : "scopes"
-    companies ||--o{ notifications : "scopes (NULL=platform)"
+    workspaces ||--o{ tenant_ai_keys : "owns"
+    workspaces ||--o{ ai_requests : "scopes (FK-light)"
+    workspaces ||--o{ ai_usage : "scopes"
+    workspaces ||--o{ ai_cache : "scopes"
+    workspaces ||--o{ notifications : "scopes (NULL=platform)"
     users ||--o{ notifications : "receives"
     users ||--o{ notification_preferences : "sets"
 
@@ -107,14 +107,14 @@ erDiagram
     }
     tenant_ai_keys {
         bigint id PK
-        bigint company_id FK
+        bigint workspace_id FK
         bigint provider_id FK
         text credentials
         tinyint is_default
     }
     ai_requests {
         bigint id PK
-        bigint company_id "indexed, FK-light"
+        bigint workspace_id "indexed, FK-light"
         bigint model_id "indexed, FK-light"
         datetime created_at "partition key"
     }
@@ -126,7 +126,7 @@ erDiagram
     }
     ai_usage {
         bigint id PK
-        bigint company_id FK
+        bigint workspace_id FK
         bigint model_id FK
         date usage_date
         bigint total_tokens
@@ -139,24 +139,24 @@ erDiagram
     }
     ai_logs {
         bigint id PK
-        bigint company_id "indexed, FK-light"
+        bigint workspace_id "indexed, FK-light"
         datetime created_at "partition key"
     }
     ai_errors {
         bigint id PK
-        bigint company_id "indexed, FK-light"
+        bigint workspace_id "indexed, FK-light"
         datetime created_at "partition key"
     }
     ai_cache {
         bigint id PK
-        bigint company_id FK
+        bigint workspace_id FK
         char cache_key UK
         datetime expires_at
     }
     notifications {
         bigint id PK
         char uuid UK
-        bigint company_id FK "NULL=platform"
+        bigint workspace_id FK "NULL=platform"
         bigint user_id FK
         bigint type_id FK
         bigint channel_id FK
@@ -247,7 +247,7 @@ None (root catalog).
 - `ai_providers` 1—* `tenant_ai_keys` (one configuration per tenant per provider).
 
 ### Notes
-Global reference data, not company-scoped (Bible §2 "reference data"). The
+Global reference data, not workspace-scoped (Bible §2 "reference data"). The
 `capabilities` JSON keeps the catalog open-ended (new capabilities need no
 schema change). The platform stores no keys here — only metadata about which
 vendors exist.
@@ -256,7 +256,7 @@ vendors exist.
 
 ## 2. `ai_models`
 
-- **BLUEPRINT** · Per-provider model catalog with pricing and context window. · **Not** tenant-scoped (global, seeded; tenants pick a default model in `company_ai_settings`/`tenant_ai_keys.meta`). · Soft-delete: **yes** (retired models hidden, references survive).
+- **BLUEPRINT** · Per-provider model catalog with pricing and context window. · **Not** tenant-scoped (global, seeded; tenants pick a default model in `workspace_ai_settings`/`tenant_ai_keys.meta`). · Soft-delete: **yes** (retired models hidden, references survive).
 
 Multi-engine future: each provider exposes many models (e.g. `gpt-4o`,
 `claude-3-7-sonnet`, `gemini-1.5-pro`, `deepseek-chat`). Pricing is **per 1k
@@ -323,9 +323,9 @@ price that was in force (Bible §3NF — no recomputation loss). Multi-currency 
 
 ## 3. `tenant_ai_keys`  *(BUILT as `ai_credentials`)*
 
-- **BUILT** (migration `0011_create_ai_credentials_table.php`, current table name `ai_credentials`; the blueprint target name is `tenant_ai_keys`). · Per-tenant AI provider credentials. · **Tenant-scoped** (`company_id`). · Soft-delete: **no** (deactivate via `is_active`).
+- **BUILT** (migration `0011_create_ai_credentials_table.php`, current table name `ai_credentials`; the blueprint target name is `tenant_ai_keys`). · Per-tenant AI provider credentials. · **Tenant-scoped** (`workspace_id`). · Soft-delete: **no** (deactivate via `is_active`).
 
-**The platform stores NO keys of its own.** Every company brings its own
+**The platform stores NO keys of its own.** Every workspace brings its own
 provider key (OpenAI/Anthropic/Gemini/DeepSeek/Azure/HeyGen); the `credentials`
 column is an **AES-256-GCM encrypted** JSON blob, never plaintext. There is no
 system fallback key and no env var holding a provider key (see
@@ -336,7 +336,7 @@ system fallback key and no env var holding a provider key (see
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INC | PK. |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → `companies(id)`; the tenant binding. |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → `workspaces(id)`; the tenant binding. |
 | `provider_id` | BIGINT UNSIGNED | NO | — | **Blueprint:** FK → `ai_providers(id)`. *(Built table currently stores a `provider` VARCHAR(40) registry key; the blueprint normalizes it to `provider_id` — a migration task, see Notes.)* |
 | `label` | VARCHAR(120) | YES | NULL | Tenant-friendly name. |
 | `credentials` | TEXT | NO | — | AES-256-GCM ciphertext of `{api_key, base_url?, deployment?, …}`. |
@@ -348,27 +348,27 @@ system fallback key and no env var holding a provider key (see
 | `updated_at` | TIMESTAMP | YES | NULL | |
 
 ### Keys
-- **PK**: `id`. **Unique**: `(company_id, provider_id)` *(built: `(company_id, provider)`)*.
+- **PK**: `id`. **Unique**: `(workspace_id, provider_id)` *(built: `(workspace_id, provider)`)*.
 - **UUID**: none in the built table; the blueprint **may add `uuid`** for API consistency (low-volume table, optional — flagged Open Question).
 
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
-| `ai_credentials_company_provider_unique` | `company_id`, `provider_id` | unique (composite) |
-| `tenant_ai_keys_company_id_index` | `company_id` | index (FK) |
+| `ai_credentials_workspace_provider_unique` | `workspace_id`, `provider_id` | unique (composite) |
+| `tenant_ai_keys_workspace_id_index` | `workspace_id` | index (FK) |
 | `tenant_ai_keys_provider_id_index` | `provider_id` | index (FK; blueprint) |
-| `tenant_ai_keys_active_default_index` | `company_id`, `is_active`, `is_default` | composite (resolution path) |
+| `tenant_ai_keys_active_default_index` | `workspace_id`, `is_active`, `is_default` | composite (resolution path) |
 
 ### Foreign keys
 | Column | Ref | On delete | On update |
 |--------|-----|-----------|-----------|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `provider_id` | `ai_providers(id)` | RESTRICT | CASCADE *(blueprint; built table has no provider FK because it stores a string key)* |
 
 ### Relationships + cardinality
-- `companies` 1—* `tenant_ai_keys`.
+- `workspaces` 1—* `tenant_ai_keys`.
 - `ai_providers` 1—* `tenant_ai_keys`.
-- One row per `(company_id, provider_id)` — enforced by the unique key; exactly one `is_default` per capability family per tenant (app-enforced in a transaction).
+- One row per `(workspace_id, provider_id)` — enforced by the unique key; exactly one `is_default` per capability family per tenant (app-enforced in a transaction).
 
 ### Notes
 - **Migration delta (built → blueprint):** the shipped table keys provider by
@@ -378,22 +378,22 @@ system fallback key and no env var holding a provider key (see
   new table (Bible inventory note).
 - **Security:** encryption at rest (AES-256-GCM), decrypted in-memory only for
   the duration of a call, never returned to the client (only masked). No
-  plaintext key is ever persisted or logged. Tenant isolation via `company_id`;
+  plaintext key is ever persisted or logged. Tenant isolation via `workspace_id`;
   fail-closed if no active tenant.
 - Future expansion ([../16] §13): relax the unique key to
-  `(company_id, provider_id, label)` to allow multiple keys per provider
+  `(workspace_id, provider_id, label)` to allow multiple keys per provider
   (dev/prod) with weighted routing.
 
 ---
 
 ## 4. `ai_requests`
 
-- **BLUEPRINT** · One row per AI call made through the provider layer (the request side). · **Tenant-scoped** via indexed `company_id` (FK-light). · Soft-delete: **no** (append-only; archived/dropped by partition). · **No `uuid`** (write-throughput).
+- **BLUEPRINT** · One row per AI call made through the provider layer (the request side). · **Tenant-scoped** via indexed `workspace_id` (FK-light). · Soft-delete: **no** (append-only; archived/dropped by partition). · **No `uuid`** (write-throughput).
 
 **Scale: billions of rows.** This is the canonical example of the Bible §4/§7
 extreme-volume append table. Design choices:
 - **Partition by `RANGE(created_at)` (monthly)**; old partitions archived/dropped.
-- **FK-light:** no hard FKs. `company_id`, `model_id`, `provider_id`,
+- **FK-light:** no hard FKs. `workspace_id`, `model_id`, `provider_id`,
   `tenant_ai_key_id`, and the optional subject (`subject_type`,`subject_id`,
   e.g. an interview session) are stored as **indexed plain BIGINTs**; integrity
   is enforced at the application layer (Bible §4 exception).
@@ -406,7 +406,7 @@ extreme-volume append table. Design choices:
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INC | PK (part of partitioned key with `created_at`). |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant scope (indexed, **no FK**). |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant scope (indexed, **no FK**). |
 | `tenant_ai_key_id` | BIGINT UNSIGNED | YES | NULL | Which credential resolved (indexed, no FK). |
 | `provider_id` | BIGINT UNSIGNED | YES | NULL | Resolved provider (denormalized, indexed). |
 | `model_id` | BIGINT UNSIGNED | YES | NULL | Selected model (denormalized, indexed). |
@@ -430,21 +430,21 @@ extreme-volume append table. Design choices:
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
-| `ai_requests_company_created_index` | `company_id`, `created_at` | composite (primary access path) |
+| `ai_requests_workspace_created_index` | `workspace_id`, `created_at` | composite (primary access path) |
 | `ai_requests_model_created_index` | `model_id`, `created_at` | composite |
 | `ai_requests_status_created_index` | `status`, `created_at` | composite |
 | `ai_requests_subject_index` | `subject_type`, `subject_id` | composite (polymorphic) |
 | `ai_requests_request_hash_index` | `request_hash` | index (cache correlation) |
-| `ai_requests_idempotency_index` | `company_id`, `idempotency_key` | composite |
+| `ai_requests_idempotency_index` | `workspace_id`, `idempotency_key` | composite |
 
 ### Foreign keys
-**None — FK-light by design.** `company_id`/`model_id`/`provider_id`/
+**None — FK-light by design.** `workspace_id`/`model_id`/`provider_id`/
 `tenant_ai_key_id`/`user_id` are indexed BIGINTs validated at the app layer
 (Bible §4 extreme-volume exception). This is required to sustain billions of
 inserts without InnoDB FK-check overhead.
 
 ### Relationships + cardinality
-- `companies` 1—* `ai_requests` (logical; indexed, not FK-enforced).
+- `workspaces` 1—* `ai_requests` (logical; indexed, not FK-enforced).
 - `ai_models` 1—* `ai_requests` (logical, denormalized id).
 - `ai_requests` 1—0..1 `ai_responses` (a request may have one response; failures may have none + an `ai_errors` row).
 - `ai_requests` 1—* `ai_logs` / `ai_errors` (logical via `request_id`).
@@ -452,14 +452,14 @@ inserts without InnoDB FK-check overhead.
 ### Notes
 Explicit scale strategy: monthly `RANGE(created_at)` partitions, narrow hot
 columns + isolated `LONGTEXT` payload, FK-light, no `uuid`. Rolled up daily into
-`ai_usage`. Detail/forensic reads hit a single partition by `(company_id,
+`ai_usage`. Detail/forensic reads hit a single partition by `(workspace_id,
 created_at)`.
 
 ---
 
 ## 5. `ai_responses`
 
-- **BLUEPRINT** · The provider's response paired to an `ai_requests` row. · **Tenant-scoped** via indexed `company_id` (FK-light). · Soft-delete: **no** (append-only, partitioned). · **No `uuid`**.
+- **BLUEPRINT** · The provider's response paired to an `ai_requests` row. · **Tenant-scoped** via indexed `workspace_id` (FK-light). · Soft-delete: **no** (append-only, partitioned). · **No `uuid`**.
 
 **Scale: billions of rows** — same regime as `ai_requests`: partition by
 `created_at`, FK-light, narrow row + **big response body in `content`
@@ -471,7 +471,7 @@ LONGTEXT/JSON fetched on detail only**.
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INC | PK (with `created_at`). |
 | `request_id` | BIGINT UNSIGNED | NO | — | The originating `ai_requests.id` (indexed, **no FK**). |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant scope (denormalized for partition-local joins; indexed, no FK). |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant scope (denormalized for partition-local joins; indexed, no FK). |
 | `model_id` | BIGINT UNSIGNED | YES | NULL | Echoed model (denormalized). |
 | `finish_reason` | VARCHAR(40) | YES | NULL | Vendor stop reason (`stop`/`length`/`content_filter`). |
 | `prompt_tokens` | INT UNSIGNED | YES | NULL | Tokens charged for input. |
@@ -491,11 +491,11 @@ LONGTEXT/JSON fetched on detail only**.
 | Name | Columns | Type |
 |------|---------|------|
 | `ai_responses_request_id_index` | `request_id` | index (pairing) |
-| `ai_responses_company_created_index` | `company_id`, `created_at` | composite (access path) |
+| `ai_responses_workspace_created_index` | `workspace_id`, `created_at` | composite (access path) |
 | `ai_responses_model_created_index` | `model_id`, `created_at` | composite |
 
 ### Foreign keys
-**None — FK-light by design** (Bible §4). `request_id`/`company_id`/`model_id`
+**None — FK-light by design** (Bible §4). `request_id`/`workspace_id`/`model_id`
 are indexed BIGINTs; pairing integrity is app-enforced.
 
 ### Relationships + cardinality
@@ -511,11 +511,11 @@ as `ai_requests`.
 
 ## 6. `ai_usage`
 
-- **BLUEPRINT** · Pre-aggregated **daily rollup** of AI consumption per company and model. · **Tenant-scoped** (`company_id`). · Soft-delete: **no** (derived aggregate; recomputable).
+- **BLUEPRINT** · Pre-aggregated **daily rollup** of AI consumption per workspace and model. · **Tenant-scoped** (`workspace_id`). · Soft-delete: **no** (derived aggregate; recomputable).
 
 A compact, queryable rollup so billing/metering and the tenant's AI usage panel
 never scan billions of `ai_requests`/`ai_responses` rows. One row per
-`(company_id, model_id, usage_date)`; consumed by `usage_records`/`usage_limits`
+`(workspace_id, model_id, usage_date)`; consumed by `usage_records`/`usage_limits`
 in [05-Subscriptions-Billing](05-Subscriptions-Billing.md).
 
 ### Columns
@@ -524,7 +524,7 @@ in [05-Subscriptions-Billing](05-Subscriptions-Billing.md).
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INC | PK. |
 | `uuid` | CHAR(36) | NO | — | Public id; UNIQUE (low-volume aggregate keeps `uuid`). |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → `companies(id)`. |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → `workspaces(id)`. |
 | `provider_id` | BIGINT UNSIGNED | YES | NULL | FK → `ai_providers(id)` (denormalized for grouping). |
 | `model_id` | BIGINT UNSIGNED | YES | NULL | FK → `ai_models(id)`. |
 | `usage_date` | DATE | NO | — | The rolled-up day. |
@@ -541,14 +541,14 @@ in [05-Subscriptions-Billing](05-Subscriptions-Billing.md).
 | `updated_at` | TIMESTAMP | YES | NULL | |
 
 ### Keys
-- **PK**: `id`. **UUID**: `uuid` UNIQUE. **Unique**: `(company_id, model_id, usage_date, capability)`.
+- **PK**: `id`. **UUID**: `uuid` UNIQUE. **Unique**: `(workspace_id, model_id, usage_date, capability)`.
 
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
 | `ai_usage_uuid_unique` | `uuid` | unique |
-| `ai_usage_company_model_date_unique` | `company_id`, `model_id`, `usage_date`, `capability` | unique (composite) |
-| `ai_usage_company_date_index` | `company_id`, `usage_date` | composite (panel/metering) |
+| `ai_usage_workspace_model_date_unique` | `workspace_id`, `model_id`, `usage_date`, `capability` | unique (composite) |
+| `ai_usage_workspace_date_index` | `workspace_id`, `usage_date` | composite (panel/metering) |
 | `ai_usage_provider_id_index` | `provider_id` | index (FK) |
 | `ai_usage_model_id_index` | `model_id` | index (FK) |
 | `ai_usage_currency_id_index` | `currency_id` | index (FK) |
@@ -556,20 +556,20 @@ in [05-Subscriptions-Billing](05-Subscriptions-Billing.md).
 ### Foreign keys
 | Column | Ref | On delete | On update |
 |--------|-----|-----------|-----------|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `provider_id` | `ai_providers(id)` | RESTRICT | CASCADE |
 | `model_id` | `ai_models(id)` | RESTRICT | CASCADE |
 | `currency_id` | `currencies(id)` | RESTRICT | CASCADE |
 
 ### Relationships + cardinality
-- `companies` 1—* `ai_usage`.
+- `workspaces` 1—* `ai_usage`.
 - `ai_models` 1—* `ai_usage`.
 - Drives `usage_records`/`usage_limits` (D4) for plan AI metering.
 
 ### Notes
 A rollup table is the §7 prescription for keeping billions-scale data queryable.
 Unlike the FK-light append tables, this is low-volume (one row per
-company×model×day) so it **keeps `uuid` and hard FKs**. Distinct from the BI
+workspace×model×day) so it **keeps `uuid` and hard FKs**. Distinct from the BI
 `ai_analytics` in D10 (analytics/reporting); `ai_usage` is the operational
 metering source of truth.
 
@@ -631,7 +631,7 @@ ranges) so costing is reproducible. Low volume; hard FKs and `uuid` retained.
 
 ## 8. `ai_logs`
 
-- **BLUEPRINT** · Operational trace of AI-layer activity (resolution, guard, rate-limit, retries — not just errors). · **Tenant-scoped** via indexed `company_id` (FK-light). · Soft-delete: **no** (append-only, partitioned). · **No `uuid`**.
+- **BLUEPRINT** · Operational trace of AI-layer activity (resolution, guard, rate-limit, retries — not just errors). · **Tenant-scoped** via indexed `workspace_id` (FK-light). · Soft-delete: **no** (append-only, partitioned). · **No `uuid`**.
 
 **Scale: billions of rows** — Bible §4/§7 append table: partition by
 `created_at`, FK-light, narrow row + big context in JSON detail-only.
@@ -641,7 +641,7 @@ ranges) so costing is reproducible. Low volume; hard FKs and `uuid` retained.
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INC | PK (with `created_at`). |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant scope (indexed, **no FK**). |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant scope (indexed, **no FK**). |
 | `request_id` | BIGINT UNSIGNED | YES | NULL | Correlated `ai_requests.id` (indexed, no FK). |
 | `level` | VARCHAR(20) | NO | `'info'` | `debug`/`info`/`warning`/`error` (config-keyed scalar). |
 | `event` | VARCHAR(60) | NO | — | What happened (`resolve`, `rate_limited`, `retry`, `call_start`, `call_end`). |
@@ -657,17 +657,17 @@ ranges) so costing is reproducible. Low volume; hard FKs and `uuid` retained.
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
-| `ai_logs_company_created_index` | `company_id`, `created_at` | composite (access path) |
+| `ai_logs_workspace_created_index` | `workspace_id`, `created_at` | composite (access path) |
 | `ai_logs_request_id_index` | `request_id` | index |
 | `ai_logs_level_created_index` | `level`, `created_at` | composite |
 | `ai_logs_event_created_index` | `event`, `created_at` | composite |
 
 ### Foreign keys
-**None — FK-light by design** (Bible §4). `company_id`/`request_id`/`provider_id`/
+**None — FK-light by design** (Bible §4). `workspace_id`/`request_id`/`provider_id`/
 `model_id` indexed; integrity app-enforced.
 
 ### Relationships + cardinality
-- `companies` 1—* `ai_logs` (logical).
+- `workspaces` 1—* `ai_logs` (logical).
 - `ai_requests` 1—* `ai_logs` (logical via `request_id`).
 
 ### Notes
@@ -678,7 +678,7 @@ logged (Bible/AI security rule). Monthly partitions; older partitions pruned.
 
 ## 9. `ai_errors`
 
-- **BLUEPRINT** · Normalized AI failures (typed: auth/rate-limit/timeout/transport/unsupported). · **Tenant-scoped** via indexed `company_id` (FK-light). · Soft-delete: **no** (append-only, partitioned). · **No `uuid`**.
+- **BLUEPRINT** · Normalized AI failures (typed: auth/rate-limit/timeout/transport/unsupported). · **Tenant-scoped** via indexed `workspace_id` (FK-light). · Soft-delete: **no** (append-only, partitioned). · **No `uuid`**.
 
 **Scale: billions (potentially) of rows** — Bible §4/§7 append table; same
 regime as `ai_logs`. Separated from `ai_logs` so error dashboards/alerting query
@@ -689,7 +689,7 @@ a small, error-only table.
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INC | PK (with `created_at`). |
-| `company_id` | BIGINT UNSIGNED | NO | — | Tenant scope (indexed, **no FK**). |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | Tenant scope (indexed, **no FK**). |
 | `request_id` | BIGINT UNSIGNED | YES | NULL | The failed `ai_requests.id` (indexed, no FK). |
 | `provider_id` | BIGINT UNSIGNED | YES | NULL | Denormalized (indexed). |
 | `model_id` | BIGINT UNSIGNED | YES | NULL | Denormalized (indexed). |
@@ -707,17 +707,17 @@ a small, error-only table.
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
-| `ai_errors_company_created_index` | `company_id`, `created_at` | composite (access path) |
+| `ai_errors_workspace_created_index` | `workspace_id`, `created_at` | composite (access path) |
 | `ai_errors_request_id_index` | `request_id` | index |
 | `ai_errors_type_created_index` | `error_type`, `created_at` | composite (alerting) |
 | `ai_errors_provider_created_index` | `provider_id`, `created_at` | composite |
 
 ### Foreign keys
-**None — FK-light by design** (Bible §4). Indexed `company_id`/`request_id`/
+**None — FK-light by design** (Bible §4). Indexed `workspace_id`/`request_id`/
 `provider_id`/`model_id`; integrity app-enforced.
 
 ### Relationships + cardinality
-- `companies` 1—* `ai_errors` (logical).
+- `workspaces` 1—* `ai_errors` (logical).
 - `ai_requests` 1—* `ai_errors` (logical via `request_id`).
 - Feeds `error_count` in `ai_usage` and may trigger notifications (invalid key → notify `ai.manage` users).
 
@@ -729,14 +729,14 @@ keys/secrets in `message`/`detail`.
 
 ## 10. `ai_cache`
 
-- **BLUEPRINT** · Prompt→response cache keyed by a content hash with TTL, to avoid re-billing identical AI calls. · **Tenant-scoped** (`company_id`) — cache never crosses tenants. · Soft-delete: **no** (expired/evicted by `expires_at`).
+- **BLUEPRINT** · Prompt→response cache keyed by a content hash with TTL, to avoid re-billing identical AI calls. · **Tenant-scoped** (`workspace_id`) — cache never crosses tenants. · Soft-delete: **no** (expired/evicted by `expires_at`).
 
 ### Columns
 
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INC | PK. |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → `companies(id)`; cache is tenant-isolated. |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → `workspaces(id)`; cache is tenant-isolated. |
 | `cache_key` | CHAR(64) | NO | — | SHA-256 hash of `(model, normalized prompt, params)`. |
 | `model_id` | BIGINT UNSIGNED | YES | NULL | FK → `ai_models(id)` (which model produced it). |
 | `capability` | VARCHAR(30) | YES | NULL | `chat`/`embeddings`/… |
@@ -749,24 +749,24 @@ keys/secrets in `message`/`detail`.
 | `updated_at` | TIMESTAMP | YES | NULL | |
 
 ### Keys
-- **PK**: `id`. **Unique**: `(company_id, cache_key)` — one cached entry per tenant per hash. (No `uuid`: internal cache, not a public resource — documented omission.)
+- **PK**: `id`. **Unique**: `(workspace_id, cache_key)` — one cached entry per tenant per hash. (No `uuid`: internal cache, not a public resource — documented omission.)
 
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
-| `ai_cache_company_key_unique` | `company_id`, `cache_key` | unique (composite) |
-| `ai_cache_company_id_index` | `company_id` | index (FK) |
+| `ai_cache_workspace_key_unique` | `workspace_id`, `cache_key` | unique (composite) |
+| `ai_cache_workspace_id_index` | `workspace_id` | index (FK) |
 | `ai_cache_model_id_index` | `model_id` | index (FK) |
 | `ai_cache_expires_at_index` | `expires_at` | index (eviction sweep) |
 
 ### Foreign keys
 | Column | Ref | On delete | On update |
 |--------|-----|-----------|-----------|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `model_id` | `ai_models(id)` | SET NULL | CASCADE |
 
 ### Relationships + cardinality
-- `companies` 1—* `ai_cache`.
+- `workspaces` 1—* `ai_cache`.
 - `ai_models` 1—* `ai_cache` (optional model ref).
 - Correlates to `ai_requests.request_hash` (same hashing scheme).
 
@@ -779,10 +779,10 @@ never leak across tenants). A scheduled job sweeps `expires_at`. Moderate volume
 
 ## 11. `notifications`
 
-- **BLUEPRINT** · Per-user notification record (in-app inbox row and/or delivery record). · **Tenant-scoped with `company_id` NULL allowed** (NULL = platform-wide broadcast). · Soft-delete: **no** (high volume; pruned by retention job / partition).
+- **BLUEPRINT** · Per-user notification record (in-app inbox row and/or delivery record). · **Tenant-scoped with `workspace_id` NULL allowed** (NULL = platform-wide broadcast). · Soft-delete: **no** (high volume; pruned by retention job / partition).
 
 **High volume → partition by `created_at`** (Bible §7). Keyed primarily by
-`user_id` (a person may receive across the companies they belong to, plus
+`user_id` (a person may receive across the workspaces they belong to, plus
 platform broadcasts). `type_id` → `lookup_values` (config-driven, not an ENUM);
 `channel_id` → `notification_channels`.
 
@@ -792,7 +792,7 @@ platform broadcasts). `type_id` → `lookup_values` (config-driven, not an ENUM)
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INC | PK (with `created_at`). |
 | `uuid` | CHAR(36) | NO | — | Public id; UNIQUE (user-facing resource → keeps `uuid`). |
-| `company_id` | BIGINT UNSIGNED | YES | NULL | FK → `companies(id)`; **NULL = platform-wide**. |
+| `workspace_id` | BIGINT UNSIGNED | YES | NULL | FK → `workspaces(id)`; **NULL = platform-wide**. |
 | `user_id` | BIGINT UNSIGNED | NO | — | FK → `users(id)`; the recipient. |
 | `type_id` | BIGINT UNSIGNED | NO | — | FK → `lookup_values(id)` (category `notification_type`), the event key. |
 | `channel_id` | BIGINT UNSIGNED | NO | — | FK → `notification_channels(id)` the row was delivered/destined on. |
@@ -816,7 +816,7 @@ platform broadcasts). `type_id` → `lookup_values` (config-driven, not an ENUM)
 | `notifications_uuid_unique` | `uuid` | unique |
 | `notifications_user_read_index` | `user_id`, `read_at` | composite (**inbox + unread count**) |
 | `notifications_user_created_index` | `user_id`, `created_at` | composite (inbox newest-first) |
-| `notifications_company_created_index` | `company_id`, `created_at` | composite |
+| `notifications_workspace_created_index` | `workspace_id`, `created_at` | composite |
 | `notifications_type_id_index` | `type_id` | index (FK) |
 | `notifications_channel_id_index` | `channel_id` | index (FK) |
 | `notifications_subject_index` | `subject_type`, `subject_id` | composite (polymorphic) |
@@ -824,7 +824,7 @@ platform broadcasts). `type_id` → `lookup_values` (config-driven, not an ENUM)
 ### Foreign keys
 | Column | Ref | On delete | On update |
 |--------|-----|-----------|-----------|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `user_id` | `users(id)` | CASCADE | CASCADE |
 | `type_id` | `lookup_values(id)` | RESTRICT | CASCADE |
 | `channel_id` | `notification_channels(id)` | RESTRICT | CASCADE |
@@ -837,21 +837,21 @@ platform broadcasts). `type_id` → `lookup_values` (config-driven, not an ENUM)
 
 ### Relationships + cardinality
 - `users` 1—* `notifications` (recipient).
-- `companies` 1—* `notifications` (or NULL for platform-wide).
+- `workspaces` 1—* `notifications` (or NULL for platform-wide).
 - `notification_channels` 1—* `notifications`.
 - `lookup_values` (notification_type) 1—* `notifications`.
 - A `notifications` row is enqueued as `notification_queue` and recorded in `notification_logs`.
 
 ### Notes
 Access is always filtered by `user_id = auth()->id()` (the isolation a candidate
-needs across companies). `data` is treated as untrusted on render (escape — XSS).
+needs across workspaces). `data` is treated as untrusted on render (escape — XSS).
 High volume → monthly partitions + retention pruning of old read rows.
 
 ---
 
 ## 12. `notification_templates`
 
-- **BLUEPRINT** · Renderable template per **type + locale + channel** (subject/body with variables). · **Tenant-scoped with `company_id` NULL allowed** (NULL = system default; non-null = tenant override). · Soft-delete: **yes** (versioned content entity).
+- **BLUEPRINT** · Renderable template per **type + locale + channel** (subject/body with variables). · **Tenant-scoped with `workspace_id` NULL allowed** (NULL = system default; non-null = tenant override). · Soft-delete: **yes** (versioned content entity).
 
 **Multi-language** (Bible §8): one row per `(type, locale, channel)` so AR/EN
 (and future locales) each have their own subject/body; templates interpolate
@@ -863,7 +863,7 @@ named variables from `notifications.data`.
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | AUTO_INC | PK. |
 | `uuid` | CHAR(36) | NO | — | Public id; UNIQUE. |
-| `company_id` | BIGINT UNSIGNED | YES | NULL | FK → `companies(id)`; **NULL = system default**, else tenant override. |
+| `workspace_id` | BIGINT UNSIGNED | YES | NULL | FK → `workspaces(id)`; **NULL = system default**, else tenant override. |
 | `type_id` | BIGINT UNSIGNED | NO | — | FK → `lookup_values(id)` (notification_type). |
 | `channel_id` | BIGINT UNSIGNED | NO | — | FK → `notification_channels(id)`. |
 | `locale` | VARCHAR(10) | NO | — | Language/locale (`ar`, `en`). |
@@ -877,32 +877,32 @@ named variables from `notifications.data`.
 | `deleted_at` | TIMESTAMP | YES | NULL | Soft delete. |
 
 ### Keys
-- **PK**: `id`. **UUID**: `uuid` UNIQUE. **Unique**: `(company_id, type_id, channel_id, locale)`.
+- **PK**: `id`. **UUID**: `uuid` UNIQUE. **Unique**: `(workspace_id, type_id, channel_id, locale)`.
 
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
 | `notification_templates_uuid_unique` | `uuid` | unique |
-| `notification_templates_combo_unique` | `company_id`, `type_id`, `channel_id`, `locale` | unique (composite) |
+| `notification_templates_combo_unique` | `workspace_id`, `type_id`, `channel_id`, `locale` | unique (composite) |
 | `notification_templates_type_id_index` | `type_id` | index (FK) |
 | `notification_templates_channel_id_index` | `channel_id` | index (FK) |
-| `notification_templates_company_id_index` | `company_id` | index (FK) |
+| `notification_templates_workspace_id_index` | `workspace_id` | index (FK) |
 
 ### Foreign keys
 | Column | Ref | On delete | On update |
 |--------|-----|-----------|-----------|
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `type_id` | `lookup_values(id)` | RESTRICT | CASCADE |
 | `channel_id` | `notification_channels(id)` | RESTRICT | CASCADE |
 
 ### Relationships + cardinality
 - `lookup_values` (notification_type) 1—* `notification_templates`.
 - `notification_channels` 1—* `notification_templates`.
-- `companies` 1—* `notification_templates` (overrides); NULL rows are shared defaults.
+- `workspaces` 1—* `notification_templates` (overrides); NULL rows are shared defaults.
 - Consumed by `notification_queue` rendering.
 
 ### Notes
-The `company_id` NULL-vs-set pattern mirrors the config-driven status/lookup
+The `workspace_id` NULL-vs-set pattern mirrors the config-driven status/lookup
 convention (Bible §2): tenants override system templates without losing the
 defaults. Resolution prefers the tenant row, falls back to the system default,
 then English (Bible §8 / [../26] §9 locale fallback).
@@ -954,16 +954,16 @@ None (root catalog).
 ### Notes
 Global catalog (like `ai_providers`). Channel transport config that is
 tenant-specific (e.g. a tenant's WhatsApp/SMS provider key) lives in
-`company_integrations`/`mail_settings` (D2), not here — this table is the channel
+`workspace_integrations`/`mail_settings` (D2), not here — this table is the channel
 *definition*, not tenant secrets.
 
 ---
 
 ## 14. `notification_preferences`
 
-- **BLUEPRINT** · Per-user toggle of which notification **type** reaches them on which **channel**. · **Tenant-scoped with `company_id` NULL allowed** (NULL = the user's global default; set = per-tenant override). · Soft-delete: **no** (pure preference toggle).
+- **BLUEPRINT** · Per-user toggle of which notification **type** reaches them on which **channel**. · **Tenant-scoped with `workspace_id` NULL allowed** (NULL = the user's global default; set = per-tenant override). · Soft-delete: **no** (pure preference toggle).
 
-One explicit row per `(user, company, type, channel)`; absence of a row means
+One explicit row per `(user, workspace, type, channel)`; absence of a row means
 "use the event's default" ([../26] §5).
 
 ### Columns
@@ -973,7 +973,7 @@ One explicit row per `(user, company, type, channel)`; absence of a row means
 | `id` | BIGINT UNSIGNED | NO | AUTO_INC | PK. |
 | `uuid` | CHAR(36) | NO | — | Public id; UNIQUE. |
 | `user_id` | BIGINT UNSIGNED | NO | — | FK → `users(id)`. |
-| `company_id` | BIGINT UNSIGNED | YES | NULL | FK → `companies(id)`; **NULL = global default for the user**. |
+| `workspace_id` | BIGINT UNSIGNED | YES | NULL | FK → `workspaces(id)`; **NULL = global default for the user**. |
 | `type_id` | BIGINT UNSIGNED | NO | — | FK → `lookup_values(id)` (notification_type). |
 | `channel_id` | BIGINT UNSIGNED | NO | — | FK → `notification_channels(id)`. |
 | `enabled` | TINYINT(1) | NO | 1 | Whether to deliver this type on this channel. |
@@ -982,13 +982,13 @@ One explicit row per `(user, company, type, channel)`; absence of a row means
 | `updated_at` | TIMESTAMP | YES | NULL | |
 
 ### Keys
-- **PK**: `id`. **UUID**: `uuid` UNIQUE. **Unique**: `(user_id, company_id, type_id, channel_id)`.
+- **PK**: `id`. **UUID**: `uuid` UNIQUE. **Unique**: `(user_id, workspace_id, type_id, channel_id)`.
 
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
 | `notification_preferences_uuid_unique` | `uuid` | unique |
-| `notification_preferences_combo_unique` | `user_id`, `company_id`, `type_id`, `channel_id` | unique (composite) |
+| `notification_preferences_combo_unique` | `user_id`, `workspace_id`, `type_id`, `channel_id` | unique (composite) |
 | `notification_preferences_user_id_index` | `user_id` | index (FK; resolver) |
 | `notification_preferences_type_id_index` | `type_id` | index (FK) |
 | `notification_preferences_channel_id_index` | `channel_id` | index (FK) |
@@ -997,7 +997,7 @@ One explicit row per `(user, company, type, channel)`; absence of a row means
 | Column | Ref | On delete | On update |
 |--------|-----|-----------|-----------|
 | `user_id` | `users(id)` | CASCADE | CASCADE |
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `type_id` | `lookup_values(id)` | RESTRICT | CASCADE |
 | `channel_id` | `notification_channels(id)` | RESTRICT | CASCADE |
 
@@ -1007,7 +1007,7 @@ One explicit row per `(user, company, type, channel)`; absence of a row means
 - `lookup_values` (notification_type) 1—* `notification_preferences`.
 
 ### Notes
-The NULL-`company_id` global default + per-tenant override mirrors the
+The NULL-`workspace_id` global default + per-tenant override mirrors the
 config-driven convention. A user may only edit their own rows (ownership gate,
 [../26] §7).
 
@@ -1015,7 +1015,7 @@ config-driven convention. A user may only edit their own rows (ownership gate,
 
 ## 15. `notification_queue`
 
-- **BLUEPRINT** · Pending/scheduled sends awaiting a delivery worker. · **Tenant-scoped with `company_id` NULL allowed** (mirrors `notifications`). · Soft-delete: **no** (transient work item; deleted/archived after terminal state). · High volume.
+- **BLUEPRINT** · Pending/scheduled sends awaiting a delivery worker. · **Tenant-scoped with `workspace_id` NULL allowed** (mirrors `notifications`). · Soft-delete: **no** (transient work item; deleted/archived after terminal state). · High volume.
 
 Per-channel delivery jobs the dispatcher enqueues; the worker reserves and
 processes them (immediate or scheduled/digest), writing the outcome to
@@ -1028,7 +1028,7 @@ processes them (immediate or scheduled/digest), writing the outcome to
 | `id` | BIGINT UNSIGNED | NO | AUTO_INC | PK. |
 | `uuid` | CHAR(36) | NO | — | Public id; UNIQUE. |
 | `notification_id` | BIGINT UNSIGNED | YES | NULL | FK → `notifications(id)` (the in-app record this delivers; NULL for email-only/digest aggregates). |
-| `company_id` | BIGINT UNSIGNED | YES | NULL | FK → `companies(id)`; NULL = platform-wide. |
+| `workspace_id` | BIGINT UNSIGNED | YES | NULL | FK → `workspaces(id)`; NULL = platform-wide. |
 | `user_id` | BIGINT UNSIGNED | NO | — | FK → `users(id)`; recipient. |
 | `channel_id` | BIGINT UNSIGNED | NO | — | FK → `notification_channels(id)`; target channel. |
 | `template_id` | BIGINT UNSIGNED | YES | NULL | FK → `notification_templates(id)`; template to render. |
@@ -1066,7 +1066,7 @@ processes them (immediate or scheduled/digest), writing the outcome to
 | Column | Ref | On delete | On update |
 |--------|-----|-----------|-----------|
 | `notification_id` | `notifications(id)` | CASCADE | CASCADE |
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 | `user_id` | `users(id)` | CASCADE | CASCADE |
 | `channel_id` | `notification_channels(id)` | RESTRICT | CASCADE |
 | `template_id` | `notification_templates(id)` | SET NULL | CASCADE |
@@ -1092,7 +1092,7 @@ digest, priority); the generic worker infrastructure still lives in
 
 ## 16. `notification_logs`
 
-- **BLUEPRINT** · Per-attempt delivery outcome and provider response. · **Tenant-scoped with `company_id` NULL allowed** (mirrors `notifications`). · Soft-delete: **no** (append-only, partitioned). · **No `uuid`** (high-volume append). · High volume.
+- **BLUEPRINT** · Per-attempt delivery outcome and provider response. · **Tenant-scoped with `workspace_id` NULL allowed** (mirrors `notifications`). · Soft-delete: **no** (append-only, partitioned). · **No `uuid`** (high-volume append). · High volume.
 
 **High volume → partition by `created_at`** and **FK-light** (Bible §4/§7): one
 row per delivery attempt across all channels and tenants.
@@ -1104,7 +1104,7 @@ row per delivery attempt across all channels and tenants.
 | `id` | BIGINT UNSIGNED | NO | AUTO_INC | PK (with `created_at`). |
 | `notification_id` | BIGINT UNSIGNED | YES | NULL | The `notifications.id` delivered (indexed, **no FK**). |
 | `queue_id` | BIGINT UNSIGNED | YES | NULL | The `notification_queue.id` attempt (indexed, no FK). |
-| `company_id` | BIGINT UNSIGNED | YES | NULL | Tenant scope (indexed, no FK); NULL = platform-wide. |
+| `workspace_id` | BIGINT UNSIGNED | YES | NULL | Tenant scope (indexed, no FK); NULL = platform-wide. |
 | `user_id` | BIGINT UNSIGNED | YES | NULL | Recipient (indexed, no FK). |
 | `channel_id` | BIGINT UNSIGNED | NO | — | Channel attempted (indexed). |
 | `status` | VARCHAR(20) | NO | — | `sent`/`failed`/`bounced`/`delivered`/`skipped` (config-keyed scalar). |
@@ -1124,13 +1124,13 @@ row per delivery attempt across all channels and tenants.
 |------|---------|------|
 | `notification_logs_notification_id_index` | `notification_id` | index |
 | `notification_logs_queue_id_index` | `queue_id` | index |
-| `notification_logs_company_created_index` | `company_id`, `created_at` | composite (access path) |
+| `notification_logs_workspace_created_index` | `workspace_id`, `created_at` | composite (access path) |
 | `notification_logs_channel_status_index` | `channel_id`, `status`, `created_at` | composite (delivery dashboards) |
 | `notification_logs_provider_message_index` | `provider_message_id` | index (webhook correlation) |
 
 ### Foreign keys
 **None — FK-light by design** (Bible §4/§7). `notification_id`/`queue_id`/
-`company_id`/`user_id`/`channel_id` are indexed BIGINTs; integrity app-enforced.
+`workspace_id`/`user_id`/`channel_id` are indexed BIGINTs; integrity app-enforced.
 
 ### Relationships + cardinality
 - `notifications` 1—* `notification_logs` (logical, one per attempt).
@@ -1164,7 +1164,7 @@ crashes, not per-channel delivery outcomes.
   normalizes to `provider_id` → `ai_providers` and renames the table; whether to
   add `uuid` to this low-volume table is flagged for sign-off (the rest of the
   blueprint gives every table a `uuid`).
-- **Open — multi-key per provider:** the unique key `(company_id, provider_id)`
+- **Open — multi-key per provider:** the unique key `(workspace_id, provider_id)`
   permits one credential per provider per tenant; [../16] §13 anticipates
   relaxing it to include `label` for dev/prod keys. Deferred.
 - **Open — partition granularity:** monthly `RANGE(created_at)` assumed for the

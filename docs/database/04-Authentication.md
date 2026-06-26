@@ -9,11 +9,11 @@ throttling, multi-factor authentication, and API tokens.
 These tables reference the **global** `users` table (one identity for the whole
 platform — see [00-Database-Bible](00-Database-Bible.md), business rule DB-1).
 Authentication is a **user-level** concern, not a tenant concern: a single login
-authenticates the person, who then selects an active company (tenant) for the
+authenticates the person, who then selects an active workspace (tenant) for the
 request. Therefore **most tables in this domain are NOT tenant-scoped** and carry
-no `company_id`. The one exception is `personal_access_tokens`, which MAY be
-scoped to a single company (a token minted for one tenant's API surface) via a
-**nullable** `company_id`; a NULL `company_id` is a user-global token.
+no `workspace_id`. The one exception is `personal_access_tokens`, which MAY be
+scoped to a single workspace (a token minted for one tenant's API surface) via a
+**nullable** `workspace_id`; a NULL `workspace_id` is a user-global token.
 
 > Status: 1 table BUILT (`password_resets`, migration 0012), 8 tables BLUEPRINT.
 > The BUILT `users` table already carries a single `remember_token VARCHAR(100)`
@@ -29,7 +29,7 @@ scoped to a single company (a token minted for one tenant's API surface) via a
 - [99-ERD-Blueprint](99-ERD-Blueprint.md) — the complete cross-domain ERD
 - [98-Validation-Report](98-Validation-Report.md) — external-architect review and fixes
 - [02-RBAC-Membership](02-RBAC-Membership.md) — D1: roles/permissions/memberships that authorize the authenticated user
-- [03-Companies-Settings](03-Companies-Settings.md) — D2: companies (tenant), `company_invitations`, `user_settings`
+- [03-Workspaces-Settings](03-Workspaces-Settings.md) — D2: workspaces (tenant), `workspace_invitations`, `user_settings`
 - [01-Lookups-Reference](01-Lookups-Reference.md) — D0: `countries`, `lookup_values`, polymorphic `activity_logs`/`status_histories`
 - [11-Files-Queue-Analytics-Logs](11-Files-Queue-Analytics-Logs.md) — D10: `security_logs`, `api_logs` (security/audit event streams that complement this domain)
 - Up-stream specs: [../07-RBAC](../07-RBAC.md), [../08-Multi-Tenant](../08-Multi-Tenant.md), [../47-Enterprise-Architecture-Standards](../47-Enterprise-Architecture-Standards.md)
@@ -70,7 +70,7 @@ Already present in `config/auth.php` and honored by this design:
 | `max_login_attempts` | 5 | `failed_login_attempts.attempts` threshold |
 | `lockout_seconds` | 900 | `failed_login_attempts` window / lockout |
 | `session_key` | `auth_user_id` | `sessions.payload` (authenticated user id) |
-| `tenant_key` | `active_company_id` | `sessions.payload` (selected tenant) |
+| `tenant_key` | `active_workspace_id` | `sessions.payload` (selected tenant) |
 
 MFA method types (`totp`/`email`/`sms`), device types, and login-failure reasons
 are **configurable lookups** (D0 `lookup_values`), referenced by FK — not ENUMs.
@@ -95,7 +95,7 @@ erDiagram
 
     mfa_methods ||--o{ mfa_recovery_codes : "backs up"
 
-    companies ||--o{ personal_access_tokens : "optionally scopes"
+    workspaces ||--o{ personal_access_tokens : "optionally scopes"
 
     password_resets {
         string email PK "BUILT"
@@ -157,7 +157,7 @@ erDiagram
     personal_access_tokens {
         bigint id PK
         bigint user_id FK
-        bigint company_id FK "nullable"
+        bigint workspace_id FK "nullable"
         string token_hash UK
         json abilities
         timestamp expires_at
@@ -190,7 +190,7 @@ keyed by the opaque session id the client holds in a cookie.
 | `user_agent` | VARCHAR(512) | yes | NULL | Raw UA string for the active-sessions display and forensics. |
 | `device_label` | VARCHAR(190) | yes | NULL | Human-friendly device/browser summary for the UI (denormalized from UA at write time; the FK to `devices` is the source of truth). |
 | `last_activity` | INT UNSIGNED | no | — | Unix timestamp of last request on this session. Drives idle-timeout and the "active now" list. **Indexed.** |
-| `payload` | LONGTEXT | no | — | Serialized session bag (includes `auth_user_id`, `active_company_id`, CSRF token, flash). Large; excluded from list queries. |
+| `payload` | LONGTEXT | no | — | Serialized session bag (includes `auth_user_id`, `active_workspace_id`, CSRF token, flash). Large; excluded from list queries. |
 
 **Keys** — PK: `id` (the session id string). No `uuid` (the session id is itself
 the opaque public handle; this is an ephemeral append table, Bible §1 exemption).
@@ -219,7 +219,7 @@ the opaque public handle; this is an ephemeral append table, Bible §1 exemption
 
 **Notes** — Single source for "currently logged-in everywhere"; revoking a
 session = deleting the row. The selected tenant is carried **inside** `payload`
-(key `active_company_id`), so the same session can switch companies without a new
+(key `active_workspace_id`), so the same session can switch workspaces without a new
 row — consistent with one global identity (DB-1). Hot reads are by PK (`id`); the
 `(user_id, last_activity)` composite serves the per-user active-sessions list. As
 session volume scales, prune by `last_activity`; the table is FK-light-friendly
@@ -650,11 +650,11 @@ factor/identity they protect.
 
 Long-lived API tokens a user mints for programmatic access (CLI, integrations).
 The only table in this domain that **MAY** be tenant-scoped: a token can be
-bound to a single company via a **nullable** `company_id` (NULL = a user-global
+bound to a single workspace via a **nullable** `workspace_id` (NULL = a user-global
 token spanning the user's memberships). The token itself is stored **hashed**;
 scopes are a JSON ability list.
 
-- **Tenant-scoped?** Optional — nullable `company_id`. **Soft-delete?** No —
+- **Tenant-scoped?** Optional — nullable `workspace_id`. **Soft-delete?** No —
   tokens are revoked by hard delete; `expires_at` ages them out.
 
 **Columns**
@@ -664,7 +664,7 @@ scopes are a JSON ability list.
 | `id` | BIGINT UNSIGNED | no | AUTO_INCREMENT | PRIMARY KEY. |
 | `uuid` | CHAR(36) | no | — | UNIQUE public id (the "API tokens" UI). |
 | `user_id` | BIGINT UNSIGNED | no | — | FK → `users.id`. The owner/principal the token acts as. |
-| `company_id` | BIGINT UNSIGNED | yes | NULL | FK → `companies.id`. **NULL** = user-global token; non-NULL = token scoped to that single tenant's API surface. |
+| `workspace_id` | BIGINT UNSIGNED | yes | NULL | FK → `workspaces.id`. **NULL** = user-global token; non-NULL = token scoped to that single tenant's API surface. |
 | `name` | VARCHAR(190) | no | — | User-given token name (display only). |
 | `token_hash` | VARCHAR(64) | no | — | **UNIQUE** SHA-256 hash of the random token (raw value shown once at creation, never stored). Lookups resolve by this hash. |
 | `abilities` | JSON | yes | NULL | Granted scopes/abilities (e.g. `["jobs:read","interviews:read"]`); `["*"]` = all. App-enforced against RBAC. |
@@ -684,8 +684,8 @@ scopes are a JSON ability list.
 | `personal_access_tokens_uuid_unique` | `uuid` | unique |
 | `personal_access_tokens_token_hash_unique` | `token_hash` | unique — primary auth lookup |
 | `personal_access_tokens_user_id_index` | `user_id` | index (FK) |
-| `personal_access_tokens_company_id_index` | `company_id` | index (FK) |
-| `personal_access_tokens_user_company_index` | `user_id`, `company_id` | composite — "this user's tokens for a company" |
+| `personal_access_tokens_workspace_id_index` | `workspace_id` | index (FK) |
+| `personal_access_tokens_user_workspace_index` | `user_id`, `workspace_id` | composite — "this user's tokens for a workspace" |
 | `personal_access_tokens_expires_at_index` | `expires_at` | index (pruning) |
 
 **Foreign keys**
@@ -693,20 +693,20 @@ scopes are a JSON ability list.
 | column | → ref | on delete | on update |
 |--------|-------|-----------|-----------|
 | `user_id` | `users(id)` | CASCADE | CASCADE |
-| `company_id` | `companies(id)` | CASCADE | CASCADE |
+| `workspace_id` | `workspaces(id)` | CASCADE | CASCADE |
 
 **Relationships + cardinality**
 
 - `users` 1—* `personal_access_tokens`.
-- `companies` 1—* `personal_access_tokens` (optional scope; many tokens may target
-  one company, or none when `company_id` is NULL).
+- `workspaces` 1—* `personal_access_tokens` (optional scope; many tokens may target
+  one workspace, or none when `workspace_id` is NULL).
 
 **Notes** — Token stored **hashed**, `token_hash` is **UNIQUE** so a presented
 token maps to at most one row (per the brief). `abilities` is JSON to keep scopes
 flexible without schema changes; effective permission is the **intersection** of
-`abilities` and the user's RBAC/membership rights in the target company (D1/D2).
-Because `company_id` is the only tenant pointer in this domain, deleting a company
-CASCADEs its scoped tokens; user-global tokens (`company_id` NULL) are unaffected.
+`abilities` and the user's RBAC/membership rights in the target workspace (D1/D2).
+Because `workspace_id` is the only tenant pointer in this domain, deleting a workspace
+CASCADEs its scoped tokens; user-global tokens (`workspace_id` NULL) are unaffected.
 
 ---
 
@@ -714,9 +714,9 @@ CASCADEs its scoped tokens; user-global tokens (`company_id` NULL) are unaffecte
 
 - **Why mostly non-tenant-scoped.** Authentication establishes *who the person
   is*; authorization within a tenant happens afterward via D1 (RBAC) and D2
-  (memberships). Putting `company_id` on `sessions`/`devices`/etc. would
+  (memberships). Putting `workspace_id` on `sessions`/`devices`/etc. would
   contradict one-global-identity (DB-1) and the single-login-multi-tenant model.
-  Only `personal_access_tokens` carries an (optional) `company_id`, because an API
+  Only `personal_access_tokens` carries an (optional) `workspace_id`, because an API
   token can legitimately be issued for one tenant's surface.
 - **No soft deletes here.** Per Bible §5, sessions/logs/append and ephemeral
   credential rows are hard-deleted/expired, not soft-deleted — so **none** of

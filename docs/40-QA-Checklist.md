@@ -169,7 +169,7 @@ graph LR
 - [ ] Widgets/metrics are tenant-scoped and load (empty state when the tenant has no data yet).
 - [ ] No widget shows another company's figures after switching companies.
 
-### Company management ([12 — Company Management](12-Company-Management.md))
+### Company management ([12 — Company Management](12-Workspace-Management.md))
 - [ ] Create company: provisions company + owner membership + default roles + trial subscription atomically.
 - [ ] Company select/switch: lists only the user's **active** memberships; switching updates the active tenant.
 - [ ] A user with an `invited`/`suspended` membership cannot switch into that company.

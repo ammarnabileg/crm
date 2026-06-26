@@ -6,7 +6,7 @@ The authoritative, enumerated catalogue of every cross-cutting business rule tha
 
 - [07-RBAC](07-RBAC.md)
 - [08-Multi-Tenant](08-Multi-Tenant.md)
-- [12-Company-Management](12-Company-Management.md)
+- [12-Workspace-Management](12-Workspace-Management.md)
 - [13-Subscription-System](13-Subscription-System.md)
 - [24-Job-Lifecycle](24-Job-Lifecycle.md)
 - [25-Application-Lifecycle](25-Application-Lifecycle.md)

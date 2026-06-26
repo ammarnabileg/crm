@@ -6,7 +6,7 @@ configurable scorecards and evaluations, the offer lifecycle, a **generic
 configurable approval workflow** reused across the platform, and the **talent
 pool** for sourcing. **DESIGN ONLY — no migrations, no code.** Every table here
 is **BLUEPRINT** (none ship in migrations 0001–0016) and every tenant table
-carries an indexed `company_id` FK → `companies`.
+carries an indexed `workspace_id` FK → `workspaces`.
 
 This document follows [00-Database-Bible](00-Database-Bible.md) and the
 authoritative `DB_DESIGN_CONTEXT` exactly: base columns on every table
@@ -21,7 +21,7 @@ are **referenced, never re-created** here.
 | # | Table | Purpose | Tenant | Soft-delete |
 |---|-------|---------|--------|-------------|
 | 1 | `departments` | Org units (self-referencing hierarchy); referenced by D5 `jobs` | yes | yes |
-| 2 | `teams` | Named groups of users within a company | yes | yes |
+| 2 | `teams` | Named groups of users within a workspace | yes | yes |
 | 3 | `team_members` | User ↔ team membership (role via lookup) | yes | no (pivot) |
 | 4 | `interview_panels` | A panel of interviewers for an interview (→ D7) | yes | yes |
 | 5 | `panel_members` | Interviewer ↔ panel membership (role via lookup) | yes | no (pivot) |
@@ -37,7 +37,7 @@ are **referenced, never re-created** here.
 | 15 | `offer_approvals` | Link of an offer to an approval workflow instance | yes | no (link) |
 | 16 | `approvals` | Generic polymorphic approval-workflow instance | yes | yes |
 | 17 | `approval_steps` | Ordered steps of an approval (approver, status) | yes | no (child) |
-| 18 | `pools` | Talent pool (company-scoped grouping for sourcing) | yes | yes |
+| 18 | `pools` | Talent pool (workspace-scoped grouping for sourcing) | yes | yes |
 | 19 | `pool_groups` | Sub-groups/segments inside a pool | yes | yes |
 | 20 | `pool_candidates` | Pool ↔ user (candidate) membership | yes | yes |
 
@@ -54,7 +54,7 @@ are **referenced, never re-created** here.
 
 | Anchor | Domain | Used by |
 |--------|--------|---------|
-| `companies.id` | tenant root | every table (`company_id`) |
+| `workspaces.id` | tenant root | every table (`workspace_id`) |
 | `users.id` | actor/candidate/interviewer | most tables (members, evaluators, approvers, candidates, `created_by`) |
 | `jobs.id` | D5 | `departments` is referenced **by** `jobs.department_id`; `offers` reference the application's job indirectly |
 | `applications.id` | D7 | `evaluations.application_id`, `offers.application_id` |
@@ -85,26 +85,26 @@ are **referenced, never re-created** here.
 
 ```mermaid
 erDiagram
-    companies ||--o{ departments : "has"
+    workspaces ||--o{ departments : "has"
     departments ||--o{ departments : "parent_of"
     departments ||--o{ teams : "owns (optional)"
-    companies ||--o{ teams : "has"
+    workspaces ||--o{ teams : "has"
     teams ||--o{ team_members : "has"
     users ||--o{ team_members : "joins"
 
     interviews ||--o| interview_panels : "assessed_by"
-    companies ||--o{ interview_panels : "has"
+    workspaces ||--o{ interview_panels : "has"
     interview_panels ||--o{ panel_members : "has"
     users ||--o{ panel_members : "serves_on"
 
-    companies ||--o{ schedules : "has"
+    workspaces ||--o{ schedules : "has"
     users ||--o{ schedules : "owns"
     schedules ||--o{ meetings : "contains"
     interviews ||--o| meetings : "scheduled_as"
     meetings ||--o{ meeting_participants : "has"
     users ||--o{ meeting_participants : "attends"
 
-    companies ||--o{ evaluation_forms : "defines"
+    workspaces ||--o{ evaluation_forms : "defines"
     evaluation_forms ||--o{ evaluation_form_fields : "has"
     evaluation_forms ||--o{ evaluations : "instantiated_as"
     applications ||--o{ evaluations : "scored"
@@ -113,18 +113,18 @@ erDiagram
     evaluations ||--o{ evaluation_scores : "has"
     evaluation_form_fields ||--o{ evaluation_scores : "scored_on"
 
-    companies ||--o{ offers : "issues"
+    workspaces ||--o{ offers : "issues"
     applications ||--o{ offers : "results_in"
     offer_statuses ||--o{ offers : "classifies"
     currencies ||--o{ offers : "priced_in"
     offers ||--o{ offer_approvals : "requires"
     approvals ||--o{ offer_approvals : "fulfills"
 
-    companies ||--o{ approvals : "runs"
+    workspaces ||--o{ approvals : "runs"
     approvals ||--o{ approval_steps : "has"
     users ||--o{ approval_steps : "approver"
 
-    companies ||--o{ pools : "owns"
+    workspaces ||--o{ pools : "owns"
     pools ||--o{ pool_groups : "segments"
     pools ||--o{ pool_candidates : "contains"
     pool_groups ||--o{ pool_candidates : "groups"
@@ -135,9 +135,9 @@ erDiagram
 
 ## 1. `departments`
 
-- **Status:** BLUEPRINT · **Purpose:** organizational units within a company,
+- **Status:** BLUEPRINT · **Purpose:** organizational units within a workspace,
   self-referencing for an arbitrary-depth hierarchy; referenced by D5 `jobs`
-  (`jobs.department_id`). · **Tenant-scoped:** yes (`company_id`). ·
+  (`jobs.department_id`). · **Tenant-scoped:** yes (`workspace_id`). ·
   **Soft-delete:** yes.
 
 ### Columns
@@ -146,11 +146,11 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | public id, UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `parent_id` | BIGINT UNSIGNED | YES | NULL | self-FK → departments (hierarchy root = NULL) |
 | `head_user_id` | BIGINT UNSIGNED | YES | NULL | FK → users (department head/manager) |
 | `name` | VARCHAR(150) | NO | — | display name |
-| `slug` | VARCHAR(160) | NO | — | URL-safe, unique per company |
+| `slug` | VARCHAR(160) | NO | — | URL-safe, unique per workspace |
 | `code` | VARCHAR(40) | YES | NULL | optional short code (e.g. `ENG`) |
 | `description` | TEXT | YES | NULL | free text |
 | `path` | VARCHAR(255) | YES | NULL | materialized ancestor path (e.g. `/1/4/`) for subtree queries |
@@ -163,32 +163,32 @@ erDiagram
 | `deleted_at` | TIMESTAMP | YES | NULL | soft delete |
 
 ### Keys
-- **PK:** `id` · **UUID:** UNIQUE(`uuid`) · **Unique:** UNIQUE(`company_id`,`slug`).
+- **PK:** `id` · **UUID:** UNIQUE(`uuid`) · **Unique:** UNIQUE(`workspace_id`,`slug`).
 
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
 | `pk_departments` | `id` | primary |
 | `uq_departments_uuid` | `uuid` | unique |
-| `uq_departments_company_slug` | `company_id`,`slug` | unique |
-| `ix_departments_company` | `company_id` | index (FK) |
+| `uq_departments_workspace_slug` | `workspace_id`,`slug` | unique |
+| `ix_departments_workspace` | `workspace_id` | index (FK) |
 | `ix_departments_parent` | `parent_id` | index (FK) |
 | `ix_departments_head_user` | `head_user_id` | index (FK) |
 | `ix_departments_created_by` | `created_by` | index (FK) |
-| `ix_departments_company_parent` | `company_id`,`parent_id` | composite (tree fetch) |
-| `ix_departments_company_active` | `company_id`,`is_active` | composite |
+| `ix_departments_workspace_parent` | `workspace_id`,`parent_id` | composite (tree fetch) |
+| `ix_departments_workspace_active` | `workspace_id`,`is_active` | composite |
 | `ix_departments_path` | `path` | index (subtree prefix) |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `parent_id` | departments(id) | SET NULL | CASCADE |
 | `head_user_id` | users(id) | SET NULL | CASCADE |
 | `created_by` | users(id) | SET NULL | CASCADE |
 
 ### Relationships + cardinality
-- company **1—\*** departments.
+- workspace **1—\*** departments.
 - department **1—\*** departments (self, parent→children).
 - department **1—\*** jobs (D5; `jobs.department_id` → here, **referenced by D5**).
 - department **0..1—\*** teams (a team may belong to a department).
@@ -206,7 +206,7 @@ erDiagram
 ## 2. `teams`
 
 - **Status:** BLUEPRINT · **Purpose:** a named group of users (e.g. a hiring
-  squad) within a company, optionally tied to a department. · **Tenant-scoped:**
+  squad) within a workspace, optionally tied to a department. · **Tenant-scoped:**
   yes. · **Soft-delete:** yes.
 
 ### Columns
@@ -215,11 +215,11 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `department_id` | BIGINT UNSIGNED | YES | NULL | FK → departments (optional owner) |
 | `lead_user_id` | BIGINT UNSIGNED | YES | NULL | FK → users (team lead) |
 | `name` | VARCHAR(150) | NO | — | display name |
-| `slug` | VARCHAR(160) | NO | — | unique per company |
+| `slug` | VARCHAR(160) | NO | — | unique per workspace |
 | `description` | TEXT | YES | NULL | |
 | `is_active` | TINYINT(1) | NO | 1 | |
 | `created_by` | BIGINT UNSIGNED | YES | NULL | FK → users (SET NULL) |
@@ -228,30 +228,30 @@ erDiagram
 | `deleted_at` | TIMESTAMP | YES | NULL | |
 
 ### Keys
-- **PK:** `id` · **UUID:** UNIQUE(`uuid`) · **Unique:** UNIQUE(`company_id`,`slug`).
+- **PK:** `id` · **UUID:** UNIQUE(`uuid`) · **Unique:** UNIQUE(`workspace_id`,`slug`).
 
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
 | `pk_teams` | `id` | primary |
 | `uq_teams_uuid` | `uuid` | unique |
-| `uq_teams_company_slug` | `company_id`,`slug` | unique |
-| `ix_teams_company` | `company_id` | index (FK) |
+| `uq_teams_workspace_slug` | `workspace_id`,`slug` | unique |
+| `ix_teams_workspace` | `workspace_id` | index (FK) |
 | `ix_teams_department` | `department_id` | index (FK) |
 | `ix_teams_lead_user` | `lead_user_id` | index (FK) |
 | `ix_teams_created_by` | `created_by` | index (FK) |
-| `ix_teams_company_active` | `company_id`,`is_active` | composite |
+| `ix_teams_workspace_active` | `workspace_id`,`is_active` | composite |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `department_id` | departments(id) | SET NULL | CASCADE |
 | `lead_user_id` | users(id) | SET NULL | CASCADE |
 | `created_by` | users(id) | SET NULL | CASCADE |
 
 ### Relationships + cardinality
-- company **1—\*** teams.
+- workspace **1—\*** teams.
 - department **0..1—\*** teams.
 - team **\*—\*** users (via `team_members`).
 
@@ -264,7 +264,7 @@ erDiagram
 ## 3. `team_members`
 
 - **Status:** BLUEPRINT · **Purpose:** pivot linking users to teams with a
-  configurable role. · **Tenant-scoped:** yes (denormalized `company_id` for
+  configurable role. · **Tenant-scoped:** yes (denormalized `workspace_id` for
   tenant-isolated queries). · **Soft-delete:** no (pure pivot — hard-deleted).
 
 ### Columns
@@ -273,7 +273,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies (tenant scope) |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces (tenant scope) |
 | `team_id` | BIGINT UNSIGNED | NO | — | FK → teams |
 | `user_id` | BIGINT UNSIGNED | NO | — | FK → users |
 | `role_id` | BIGINT UNSIGNED | YES | NULL | FK → lookup_values (team role: lead/member/observer…) |
@@ -292,7 +292,7 @@ erDiagram
 | `pk_team_members` | `id` | primary |
 | `uq_team_members_uuid` | `uuid` | unique |
 | `uq_team_members_team_user` | `team_id`,`user_id` | unique |
-| `ix_team_members_company` | `company_id` | index (FK) |
+| `ix_team_members_workspace` | `workspace_id` | index (FK) |
 | `ix_team_members_team` | `team_id` | index (FK) |
 | `ix_team_members_user` | `user_id` | index (FK) |
 | `ix_team_members_role` | `role_id` | index (FK) |
@@ -301,7 +301,7 @@ erDiagram
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `team_id` | teams(id) | CASCADE | CASCADE |
 | `user_id` | users(id) | CASCADE | CASCADE |
 | `role_id` | lookup_values(id) | RESTRICT | CASCADE |
@@ -330,7 +330,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `interview_id` | BIGINT UNSIGNED | YES | NULL | FK → interviews (D7); NULL = reusable template panel |
 | `name` | VARCHAR(150) | NO | — | panel label |
 | `chair_user_id` | BIGINT UNSIGNED | YES | NULL | FK → users (panel chair) |
@@ -352,16 +352,16 @@ erDiagram
 |------|---------|------|
 | `pk_interview_panels` | `id` | primary |
 | `uq_interview_panels_uuid` | `uuid` | unique |
-| `ix_interview_panels_company` | `company_id` | index (FK) |
+| `ix_interview_panels_workspace` | `workspace_id` | index (FK) |
 | `ix_interview_panels_interview` | `interview_id` | index (FK) |
 | `ix_interview_panels_chair` | `chair_user_id` | index (FK) |
 | `ix_interview_panels_created_by` | `created_by` | index (FK) |
-| `ix_interview_panels_company_template` | `company_id`,`is_template` | composite |
+| `ix_interview_panels_workspace_template` | `workspace_id`,`is_template` | composite |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `interview_id` | interviews(id) | CASCADE | CASCADE |
 | `chair_user_id` | users(id) | SET NULL | CASCADE |
 | `created_by` | users(id) | SET NULL | CASCADE |
@@ -369,7 +369,7 @@ erDiagram
 ### Relationships + cardinality
 - interview (D7) **1—0..1** interview_panels (a given interview has one panel).
 - interview_panel **1—\*** panel_members.
-- company **1—\*** interview_panels.
+- workspace **1—\*** interview_panels.
 
 ### Notes
 - `interview_id` CASCADE: deleting the interview removes its panel. Template
@@ -390,7 +390,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `panel_id` | BIGINT UNSIGNED | NO | — | FK → interview_panels |
 | `user_id` | BIGINT UNSIGNED | NO | — | FK → users (interviewer) |
 | `role_id` | BIGINT UNSIGNED | YES | NULL | FK → lookup_values (panel role: chair/interviewer/shadow…) |
@@ -408,7 +408,7 @@ erDiagram
 | `pk_panel_members` | `id` | primary |
 | `uq_panel_members_uuid` | `uuid` | unique |
 | `uq_panel_members_panel_user` | `panel_id`,`user_id` | unique |
-| `ix_panel_members_company` | `company_id` | index (FK) |
+| `ix_panel_members_workspace` | `workspace_id` | index (FK) |
 | `ix_panel_members_panel` | `panel_id` | index (FK) |
 | `ix_panel_members_user` | `user_id` | index (FK) |
 | `ix_panel_members_role` | `role_id` | index (FK) |
@@ -416,7 +416,7 @@ erDiagram
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `panel_id` | interview_panels(id) | CASCADE | CASCADE |
 | `user_id` | users(id) | CASCADE | CASCADE |
 | `role_id` | lookup_values(id) | RESTRICT | CASCADE |
@@ -444,13 +444,13 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `owner_user_id` | BIGINT UNSIGNED | YES | NULL | FK → users (calendar owner) |
 | `team_id` | BIGINT UNSIGNED | YES | NULL | FK → teams (shared team calendar) |
 | `name` | VARCHAR(150) | NO | — | calendar name |
 | `timezone_id` | BIGINT UNSIGNED | YES | NULL | FK → timezones (D0 reference) |
 | `color` | VARCHAR(20) | YES | NULL | UI color |
-| `visibility_id` | BIGINT UNSIGNED | YES | NULL | FK → lookup_values (private/team/company) |
+| `visibility_id` | BIGINT UNSIGNED | YES | NULL | FK → lookup_values (private/team/workspace) |
 | `is_default` | TINYINT(1) | NO | 0 | owner's primary calendar |
 | `created_by` | BIGINT UNSIGNED | YES | NULL | FK → users (SET NULL) |
 | `created_at` | TIMESTAMP | YES | NULL | |
@@ -465,18 +465,18 @@ erDiagram
 |------|---------|------|
 | `pk_schedules` | `id` | primary |
 | `uq_schedules_uuid` | `uuid` | unique |
-| `ix_schedules_company` | `company_id` | index (FK) |
+| `ix_schedules_workspace` | `workspace_id` | index (FK) |
 | `ix_schedules_owner_user` | `owner_user_id` | index (FK) |
 | `ix_schedules_team` | `team_id` | index (FK) |
 | `ix_schedules_timezone` | `timezone_id` | index (FK) |
 | `ix_schedules_visibility` | `visibility_id` | index (FK) |
 | `ix_schedules_created_by` | `created_by` | index (FK) |
-| `ix_schedules_company_owner` | `company_id`,`owner_user_id` | composite |
+| `ix_schedules_workspace_owner` | `workspace_id`,`owner_user_id` | composite |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `owner_user_id` | users(id) | SET NULL | CASCADE |
 | `team_id` | teams(id) | SET NULL | CASCADE |
 | `timezone_id` | timezones(id) | RESTRICT | CASCADE |
@@ -484,13 +484,13 @@ erDiagram
 | `created_by` | users(id) | SET NULL | CASCADE |
 
 ### Relationships + cardinality
-- company **1—\*** schedules; user **1—\*** schedules (owner).
+- workspace **1—\*** schedules; user **1—\*** schedules (owner).
 - schedule **1—\*** meetings.
 
 ### Notes
 - `timezone_id` references the global `timezones` reference table (multi-timezone,
   Bible §8). `visibility_id` config-driven. Owner/team are both optional so a
-  company-wide schedule is possible.
+  workspace-wide schedule is possible.
 
 ---
 
@@ -507,7 +507,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `schedule_id` | BIGINT UNSIGNED | YES | NULL | FK → schedules (calendar) |
 | `interview_id` | BIGINT UNSIGNED | YES | NULL | FK → interviews (D7); meeting backing an interview |
 | `organizer_user_id` | BIGINT UNSIGNED | YES | NULL | FK → users (host) |
@@ -536,7 +536,7 @@ erDiagram
 |------|---------|------|
 | `pk_meetings` | `id` | primary |
 | `uq_meetings_uuid` | `uuid` | unique |
-| `ix_meetings_company` | `company_id` | index (FK) |
+| `ix_meetings_workspace` | `workspace_id` | index (FK) |
 | `ix_meetings_schedule` | `schedule_id` | index (FK) |
 | `ix_meetings_interview` | `interview_id` | index (FK) |
 | `ix_meetings_organizer` | `organizer_user_id` | index (FK) |
@@ -546,13 +546,13 @@ erDiagram
 | `ix_meetings_provider` | `meeting_provider_id` | index (FK) |
 | `ix_meetings_timezone` | `timezone_id` | index (FK) |
 | `ix_meetings_created_by` | `created_by` | index (FK) |
-| `ix_meetings_company_starts` | `company_id`,`starts_at` | composite (calendar range) |
-| `ix_meetings_company_status` | `company_id`,`status_id` | composite |
+| `ix_meetings_workspace_starts` | `workspace_id`,`starts_at` | composite (calendar range) |
+| `ix_meetings_workspace_status` | `workspace_id`,`status_id` | composite |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `schedule_id` | schedules(id) | SET NULL | CASCADE |
 | `interview_id` | interviews(id) | CASCADE | CASCADE |
 | `organizer_user_id` | users(id) | SET NULL | CASCADE |
@@ -564,7 +564,7 @@ erDiagram
 | `created_by` | users(id) | SET NULL | CASCADE |
 
 ### Relationships + cardinality
-- schedule **1—\*** meetings; company **1—\*** meetings.
+- schedule **1—\*** meetings; workspace **1—\*** meetings.
 - interview (D7) **1—0..1** meetings (a meeting can back one interview).
 - meeting **1—\*** meeting_participants.
 
@@ -591,7 +591,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `meeting_id` | BIGINT UNSIGNED | NO | — | FK → meetings |
 | `user_id` | BIGINT UNSIGNED | NO | — | FK → users (participant) |
 | `role_id` | BIGINT UNSIGNED | YES | NULL | FK → lookup_values (organizer/required/optional/candidate) |
@@ -610,7 +610,7 @@ erDiagram
 | `pk_meeting_participants` | `id` | primary |
 | `uq_meeting_participants_uuid` | `uuid` | unique |
 | `uq_meeting_participants_meeting_user` | `meeting_id`,`user_id` | unique |
-| `ix_meeting_participants_company` | `company_id` | index (FK) |
+| `ix_meeting_participants_workspace` | `workspace_id` | index (FK) |
 | `ix_meeting_participants_meeting` | `meeting_id` | index (FK) |
 | `ix_meeting_participants_user` | `user_id` | index (FK) |
 | `ix_meeting_participants_role` | `role_id` | index (FK) |
@@ -620,7 +620,7 @@ erDiagram
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `meeting_id` | meetings(id) | CASCADE | CASCADE |
 | `user_id` | users(id) | CASCADE | CASCADE |
 | `role_id` | lookup_values(id) | RESTRICT | CASCADE |
@@ -650,9 +650,9 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `name` | VARCHAR(150) | NO | — | scorecard name |
-| `slug` | VARCHAR(160) | NO | — | unique per company |
+| `slug` | VARCHAR(160) | NO | — | unique per workspace |
 | `description` | TEXT | YES | NULL | |
 | `scope_id` | BIGINT UNSIGNED | YES | NULL | FK → lookup_values (application/interview/general) |
 | `scoring_type_id` | BIGINT UNSIGNED | YES | NULL | FK → lookup_values (numeric/stars/weighted) |
@@ -660,37 +660,37 @@ erDiagram
 | `pass_threshold` | DECIMAL(6,2) | YES | NULL | advisory pass mark |
 | `version` | INT UNSIGNED | NO | 1 | template version |
 | `is_active` | TINYINT(1) | NO | 1 | |
-| `is_default` | TINYINT(1) | NO | 0 | default scorecard for the company |
+| `is_default` | TINYINT(1) | NO | 0 | default scorecard for the workspace |
 | `created_by` | BIGINT UNSIGNED | YES | NULL | FK → users (SET NULL) |
 | `created_at` | TIMESTAMP | YES | NULL | |
 | `updated_at` | TIMESTAMP | YES | NULL | |
 | `deleted_at` | TIMESTAMP | YES | NULL | |
 
 ### Keys
-- **PK:** `id` · **UUID:** UNIQUE(`uuid`) · **Unique:** UNIQUE(`company_id`,`slug`).
+- **PK:** `id` · **UUID:** UNIQUE(`uuid`) · **Unique:** UNIQUE(`workspace_id`,`slug`).
 
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
 | `pk_evaluation_forms` | `id` | primary |
 | `uq_evaluation_forms_uuid` | `uuid` | unique |
-| `uq_evaluation_forms_company_slug` | `company_id`,`slug` | unique |
-| `ix_evaluation_forms_company` | `company_id` | index (FK) |
+| `uq_evaluation_forms_workspace_slug` | `workspace_id`,`slug` | unique |
+| `ix_evaluation_forms_workspace` | `workspace_id` | index (FK) |
 | `ix_evaluation_forms_scope` | `scope_id` | index (FK) |
 | `ix_evaluation_forms_scoring_type` | `scoring_type_id` | index (FK) |
 | `ix_evaluation_forms_created_by` | `created_by` | index (FK) |
-| `ix_evaluation_forms_company_active` | `company_id`,`is_active` | composite |
+| `ix_evaluation_forms_workspace_active` | `workspace_id`,`is_active` | composite |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `scope_id` | lookup_values(id) | RESTRICT | CASCADE |
 | `scoring_type_id` | lookup_values(id) | RESTRICT | CASCADE |
 | `created_by` | users(id) | SET NULL | CASCADE |
 
 ### Relationships + cardinality
-- company **1—\*** evaluation_forms.
+- workspace **1—\*** evaluation_forms.
 - evaluation_form **1—\*** evaluation_form_fields.
 - evaluation_form **1—\*** evaluations (instantiations).
 
@@ -715,7 +715,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `form_id` | BIGINT UNSIGNED | NO | — | FK → evaluation_forms |
 | `label` | VARCHAR(200) | NO | — | criterion text (e.g. "Communication") |
 | `key` | VARCHAR(60) | NO | — | stable key, unique per form |
@@ -741,7 +741,7 @@ erDiagram
 | `pk_evaluation_form_fields` | `id` | primary |
 | `uq_evaluation_form_fields_uuid` | `uuid` | unique |
 | `uq_evaluation_form_fields_form_key` | `form_id`,`key` | unique |
-| `ix_evaluation_form_fields_company` | `company_id` | index (FK) |
+| `ix_evaluation_form_fields_workspace` | `workspace_id` | index (FK) |
 | `ix_evaluation_form_fields_form` | `form_id` | index (FK) |
 | `ix_evaluation_form_fields_field_type` | `field_type_id` | index (FK) |
 | `ix_evaluation_form_fields_category` | `category_id` | index (FK) |
@@ -750,7 +750,7 @@ erDiagram
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `form_id` | evaluation_forms(id) | CASCADE | CASCADE |
 | `field_type_id` | lookup_values(id) | RESTRICT | CASCADE |
 | `category_id` | lookup_values(id) | RESTRICT | CASCADE |
@@ -780,7 +780,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `application_id` | BIGINT UNSIGNED | NO | — | FK → applications (D7) |
 | `interview_id` | BIGINT UNSIGNED | YES | NULL | FK → interviews (D7); NULL = general/application-level |
 | `form_id` | BIGINT UNSIGNED | YES | NULL | FK → evaluation_forms (template used) |
@@ -808,19 +808,19 @@ erDiagram
 | `pk_evaluations` | `id` | primary |
 | `uq_evaluations_uuid` | `uuid` | unique |
 | `uq_evaluations_app_int_eval_form` | `application_id`,`interview_id`,`evaluator_id`,`form_id` | unique |
-| `ix_evaluations_company` | `company_id` | index (FK) |
+| `ix_evaluations_workspace` | `workspace_id` | index (FK) |
 | `ix_evaluations_application` | `application_id` | index (FK) |
 | `ix_evaluations_interview` | `interview_id` | index (FK) |
 | `ix_evaluations_form` | `form_id` | index (FK) |
 | `ix_evaluations_evaluator` | `evaluator_id` | index (FK) |
 | `ix_evaluations_recommendation` | `recommendation_id` | index (FK) |
 | `ix_evaluations_created_by` | `created_by` | index (FK) |
-| `ix_evaluations_company_application` | `company_id`,`application_id` | composite (scorecards per candidate) |
+| `ix_evaluations_workspace_application` | `workspace_id`,`application_id` | composite (scorecards per candidate) |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `application_id` | applications(id) | CASCADE | CASCADE |
 | `interview_id` | interviews(id) | SET NULL | CASCADE |
 | `form_id` | evaluation_forms(id) | RESTRICT | CASCADE |
@@ -860,7 +860,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `evaluation_id` | BIGINT UNSIGNED | NO | — | FK → evaluations |
 | `field_id` | BIGINT UNSIGNED | NO | — | FK → evaluation_form_fields |
 | `value_numeric` | DECIMAL(8,3) | YES | NULL | numeric/rating value |
@@ -882,7 +882,7 @@ erDiagram
 | `pk_evaluation_scores` | `id` | primary |
 | `uq_evaluation_scores_uuid` | `uuid` | unique |
 | `uq_evaluation_scores_eval_field` | `evaluation_id`,`field_id` | unique |
-| `ix_evaluation_scores_company` | `company_id` | index (FK) |
+| `ix_evaluation_scores_workspace` | `workspace_id` | index (FK) |
 | `ix_evaluation_scores_evaluation` | `evaluation_id` | index (FK) |
 | `ix_evaluation_scores_field` | `field_id` | index (FK) |
 | `ix_evaluation_scores_option` | `value_option_id` | index (FK) |
@@ -890,7 +890,7 @@ erDiagram
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `evaluation_id` | evaluations(id) | CASCADE | CASCADE |
 | `field_id` | evaluation_form_fields(id) | RESTRICT | CASCADE |
 | `value_option_id` | lookup_values(id) | RESTRICT | CASCADE |
@@ -920,7 +920,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `application_id` | BIGINT UNSIGNED | NO | — | FK → applications (D7) |
 | `offer_status_id` | BIGINT UNSIGNED | NO | — | FK → offer_statuses |
 | `candidate_user_id` | BIGINT UNSIGNED | YES | NULL | FK → users (denormalized recipient for fast lookup) |
@@ -952,7 +952,7 @@ erDiagram
 |------|---------|------|
 | `pk_offers` | `id` | primary |
 | `uq_offers_uuid` | `uuid` | unique |
-| `ix_offers_company` | `company_id` | index (FK) |
+| `ix_offers_workspace` | `workspace_id` | index (FK) |
 | `ix_offers_application` | `application_id` | index (FK) |
 | `ix_offers_status` | `offer_status_id` | index (FK) |
 | `ix_offers_candidate_user` | `candidate_user_id` | index (FK) |
@@ -960,13 +960,13 @@ erDiagram
 | `ix_offers_currency` | `currency_id` | index (FK) |
 | `ix_offers_salary_period` | `salary_period_id` | index (FK) |
 | `ix_offers_created_by` | `created_by` | index (FK) |
-| `ix_offers_company_status` | `company_id`,`offer_status_id` | composite (pipeline) |
-| `ix_offers_company_expires` | `company_id`,`expires_at` | composite (expiry sweep) |
+| `ix_offers_workspace_status` | `workspace_id`,`offer_status_id` | composite (pipeline) |
+| `ix_offers_workspace_expires` | `workspace_id`,`expires_at` | composite (expiry sweep) |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `application_id` | applications(id) | CASCADE | CASCADE |
 | `offer_status_id` | offer_statuses(id) | RESTRICT | CASCADE |
 | `candidate_user_id` | users(id) | SET NULL | CASCADE |
@@ -994,7 +994,7 @@ erDiagram
 
 - **Status:** BLUEPRINT · **Purpose:** the configurable status catalog for the
   offer workflow (per Bible §Config per-entity status tables). ·
-  **Tenant-scoped:** yes (`company_id` NULL = system default, non-null = tenant
+  **Tenant-scoped:** yes (`workspace_id` NULL = system default, non-null = tenant
   override/custom). · **Soft-delete:** no (config table).
 
 ### Columns
@@ -1003,7 +1003,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | YES | NULL | FK → companies; NULL = system default |
+| `workspace_id` | BIGINT UNSIGNED | YES | NULL | FK → workspaces; NULL = system default |
 | `key` | VARCHAR(60) | NO | — | stable key (`draft`,`pending_approval`,`approved`,`sent`,`accepted`,`declined`,`rescinded`,`expired`) |
 | `label` | VARCHAR(120) | NO | — | display label |
 | `color` | VARCHAR(20) | YES | NULL | UI color |
@@ -1016,30 +1016,30 @@ erDiagram
 | `updated_at` | TIMESTAMP | YES | NULL | |
 
 ### Keys
-- **PK:** `id` · **UUID:** UNIQUE(`uuid`) · **Unique:** UNIQUE(`company_id`,`key`)
-  (a key is unique within a tenant; NULL company = system row).
+- **PK:** `id` · **UUID:** UNIQUE(`uuid`) · **Unique:** UNIQUE(`workspace_id`,`key`)
+  (a key is unique within a tenant; NULL workspace = system row).
 
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
 | `pk_offer_statuses` | `id` | primary |
 | `uq_offer_statuses_uuid` | `uuid` | unique |
-| `uq_offer_statuses_company_key` | `company_id`,`key` | unique |
-| `ix_offer_statuses_company` | `company_id` | index (FK) |
-| `ix_offer_statuses_company_sort` | `company_id`,`sort_order` | composite |
+| `uq_offer_statuses_workspace_key` | `workspace_id`,`key` | unique |
+| `ix_offer_statuses_workspace` | `workspace_id` | index (FK) |
+| `ix_offer_statuses_workspace_sort` | `workspace_id`,`sort_order` | composite |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 
 ### Relationships + cardinality
 - offer_status **1—\*** offers.
-- company **1—\*** offer_statuses (custom statuses); system rows have NULL company.
+- workspace **1—\*** offer_statuses (custom statuses); system rows have NULL workspace.
 
 ### Notes
 - Standard per-entity status shape exactly as Bible §Config/§2. System defaults
-  (NULL `company_id`, `is_system=1`) are shared; a tenant may add custom statuses
+  (NULL `workspace_id`, `is_system=1`) are shared; a tenant may add custom statuses
   or override ordering/labels. Referenced by `offers.offer_status_id` with
   RESTRICT so a status in use cannot be deleted.
 
@@ -1058,7 +1058,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `offer_id` | BIGINT UNSIGNED | NO | — | FK → offers |
 | `approval_id` | BIGINT UNSIGNED | NO | — | FK → approvals (the workflow instance) |
 | `is_current` | TINYINT(1) | NO | 1 | the active approval round for this offer |
@@ -1074,7 +1074,7 @@ erDiagram
 | `pk_offer_approvals` | `id` | primary |
 | `uq_offer_approvals_uuid` | `uuid` | unique |
 | `uq_offer_approvals_offer_approval` | `offer_id`,`approval_id` | unique |
-| `ix_offer_approvals_company` | `company_id` | index (FK) |
+| `ix_offer_approvals_workspace` | `workspace_id` | index (FK) |
 | `ix_offer_approvals_offer` | `offer_id` | index (FK) |
 | `ix_offer_approvals_approval` | `approval_id` | index (FK) |
 | `ix_offer_approvals_offer_current` | `offer_id`,`is_current` | composite |
@@ -1082,7 +1082,7 @@ erDiagram
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `offer_id` | offers(id) | CASCADE | CASCADE |
 | `approval_id` | approvals(id) | CASCADE | CASCADE |
 
@@ -1113,7 +1113,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `approvable_type` | VARCHAR(60) | NO | — | polymorphic target type (`offer`,`job`,…) |
 | `approvable_id` | BIGINT UNSIGNED | NO | — | polymorphic target id |
 | `title` | VARCHAR(200) | YES | NULL | human label of the request |
@@ -1135,17 +1135,17 @@ erDiagram
 |------|---------|------|
 | `pk_approvals` | `id` | primary |
 | `uq_approvals_uuid` | `uuid` | unique |
-| `ix_approvals_company` | `company_id` | index (FK) |
+| `ix_approvals_workspace` | `workspace_id` | index (FK) |
 | `ix_approvals_status` | `status_id` | index (FK) |
 | `ix_approvals_mode` | `mode_id` | index (FK) |
 | `ix_approvals_requested_by` | `requested_by` | index (FK) |
 | `ix_approvals_approvable` | `approvable_type`,`approvable_id` | composite (polymorphic) |
-| `ix_approvals_company_status` | `company_id`,`status_id` | composite |
+| `ix_approvals_workspace_status` | `workspace_id`,`status_id` | composite |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `status_id` | lookup_values(id) | RESTRICT | CASCADE |
 | `mode_id` | lookup_values(id) | RESTRICT | CASCADE |
 | `requested_by` | users(id) | SET NULL | CASCADE |
@@ -1155,7 +1155,7 @@ erDiagram
 - approval **\*—1** *(polymorphic)* any approvable entity via
   (`approvable_type`,`approvable_id`) — e.g. an `offer` (also surfaced via
   `offer_approvals`).
-- company **1—\*** approvals.
+- workspace **1—\*** approvals.
 
 ### Notes
 - **Polymorphic by design** (Bible §6 / DB-4): one approval engine, not
@@ -1179,7 +1179,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `approval_id` | BIGINT UNSIGNED | NO | — | FK → approvals |
 | `step_order` | INT UNSIGNED | NO | 1 | sequence position |
 | `approver_id` | BIGINT UNSIGNED | YES | NULL | FK → users (assigned approver) |
@@ -1200,7 +1200,7 @@ erDiagram
 | `pk_approval_steps` | `id` | primary |
 | `uq_approval_steps_uuid` | `uuid` | unique |
 | `uq_approval_steps_approval_order` | `approval_id`,`step_order` | unique |
-| `ix_approval_steps_company` | `company_id` | index (FK) |
+| `ix_approval_steps_workspace` | `workspace_id` | index (FK) |
 | `ix_approval_steps_approval` | `approval_id` | index (FK) |
 | `ix_approval_steps_approver` | `approver_id` | index (FK) |
 | `ix_approval_steps_approver_role` | `approver_role_id` | index (FK) |
@@ -1210,7 +1210,7 @@ erDiagram
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `approval_id` | approvals(id) | CASCADE | CASCADE |
 | `approver_id` | users(id) | SET NULL | CASCADE |
 | `approver_role_id` | lookup_values(id) | RESTRICT | CASCADE |
@@ -1232,7 +1232,7 @@ erDiagram
 
 ## 18. `pools`
 
-- **Status:** BLUEPRINT · **Purpose:** a **talent pool** — a company-scoped
+- **Status:** BLUEPRINT · **Purpose:** a **talent pool** — a workspace-scoped
   collection of candidates/users for sourcing and future outreach. ·
   **Tenant-scoped:** yes. · **Soft-delete:** yes.
 
@@ -1242,14 +1242,14 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `name` | VARCHAR(150) | NO | — | pool name (e.g. "Senior Backend — EMEA") |
-| `slug` | VARCHAR(160) | NO | — | unique per company |
+| `slug` | VARCHAR(160) | NO | — | unique per workspace |
 | `description` | TEXT | YES | NULL | |
 | `type_id` | BIGINT UNSIGNED | YES | NULL | FK → lookup_values (silver-medalist/sourced/talent-community…) |
 | `owner_user_id` | BIGINT UNSIGNED | YES | NULL | FK → users (pool owner) |
 | `department_id` | BIGINT UNSIGNED | YES | NULL | FK → departments (optional focus) |
-| `is_shared` | TINYINT(1) | NO | 0 | shared across the company vs owner-private |
+| `is_shared` | TINYINT(1) | NO | 0 | shared across the workspace vs owner-private |
 | `candidate_count` | INT UNSIGNED | NO | 0 | cached membership count |
 | `created_by` | BIGINT UNSIGNED | YES | NULL | FK → users (SET NULL) |
 | `created_at` | TIMESTAMP | YES | NULL | |
@@ -1257,32 +1257,32 @@ erDiagram
 | `deleted_at` | TIMESTAMP | YES | NULL | |
 
 ### Keys
-- **PK:** `id` · **UUID:** UNIQUE(`uuid`) · **Unique:** UNIQUE(`company_id`,`slug`).
+- **PK:** `id` · **UUID:** UNIQUE(`uuid`) · **Unique:** UNIQUE(`workspace_id`,`slug`).
 
 ### Indexes
 | Name | Columns | Type |
 |------|---------|------|
 | `pk_pools` | `id` | primary |
 | `uq_pools_uuid` | `uuid` | unique |
-| `uq_pools_company_slug` | `company_id`,`slug` | unique |
-| `ix_pools_company` | `company_id` | index (FK) |
+| `uq_pools_workspace_slug` | `workspace_id`,`slug` | unique |
+| `ix_pools_workspace` | `workspace_id` | index (FK) |
 | `ix_pools_type` | `type_id` | index (FK) |
 | `ix_pools_owner_user` | `owner_user_id` | index (FK) |
 | `ix_pools_department` | `department_id` | index (FK) |
 | `ix_pools_created_by` | `created_by` | index (FK) |
-| `ix_pools_company_type` | `company_id`,`type_id` | composite |
+| `ix_pools_workspace_type` | `workspace_id`,`type_id` | composite |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `type_id` | lookup_values(id) | RESTRICT | CASCADE |
 | `owner_user_id` | users(id) | SET NULL | CASCADE |
 | `department_id` | departments(id) | SET NULL | CASCADE |
 | `created_by` | users(id) | SET NULL | CASCADE |
 
 ### Relationships + cardinality
-- company **1—\*** pools.
+- workspace **1—\*** pools.
 - pool **1—\*** pool_groups.
 - pool **\*—\*** users (candidates) via `pool_candidates`.
 
@@ -1305,7 +1305,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `pool_id` | BIGINT UNSIGNED | NO | — | FK → pools |
 | `name` | VARCHAR(150) | NO | — | group/segment name |
 | `slug` | VARCHAR(160) | NO | — | unique per pool |
@@ -1326,7 +1326,7 @@ erDiagram
 | `pk_pool_groups` | `id` | primary |
 | `uq_pool_groups_uuid` | `uuid` | unique |
 | `uq_pool_groups_pool_slug` | `pool_id`,`slug` | unique |
-| `ix_pool_groups_company` | `company_id` | index (FK) |
+| `ix_pool_groups_workspace` | `workspace_id` | index (FK) |
 | `ix_pool_groups_pool` | `pool_id` | index (FK) |
 | `ix_pool_groups_created_by` | `created_by` | index (FK) |
 | `ix_pool_groups_pool_sort` | `pool_id`,`sort_order` | composite |
@@ -1334,7 +1334,7 @@ erDiagram
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `pool_id` | pools(id) | CASCADE | CASCADE |
 | `created_by` | users(id) | SET NULL | CASCADE |
 
@@ -1361,7 +1361,7 @@ erDiagram
 |--------|------|------|---------|-------|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | FK → companies |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | FK → workspaces |
 | `pool_id` | BIGINT UNSIGNED | NO | — | FK → pools |
 | `pool_group_id` | BIGINT UNSIGNED | YES | NULL | FK → pool_groups (optional segment) |
 | `user_id` | BIGINT UNSIGNED | NO | — | FK → users (the candidate) |
@@ -1384,19 +1384,19 @@ erDiagram
 | `pk_pool_candidates` | `id` | primary |
 | `uq_pool_candidates_uuid` | `uuid` | unique |
 | `uq_pool_candidates_pool_user` | `pool_id`,`user_id` | unique |
-| `ix_pool_candidates_company` | `company_id` | index (FK) |
+| `ix_pool_candidates_workspace` | `workspace_id` | index (FK) |
 | `ix_pool_candidates_pool` | `pool_id` | index (FK) |
 | `ix_pool_candidates_pool_group` | `pool_group_id` | index (FK) |
 | `ix_pool_candidates_user` | `user_id` | index (FK) |
 | `ix_pool_candidates_source` | `source_id` | index (FK) |
 | `ix_pool_candidates_stage` | `stage_id` | index (FK) |
 | `ix_pool_candidates_added_by` | `added_by` | index (FK) |
-| `ix_pool_candidates_company_pool` | `company_id`,`pool_id` | composite (pool roster) |
+| `ix_pool_candidates_workspace_pool` | `workspace_id`,`pool_id` | composite (pool roster) |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |--------|-----------|-----------|-----------|
-| `company_id` | companies(id) | CASCADE | CASCADE |
+| `workspace_id` | workspaces(id) | CASCADE | CASCADE |
 | `pool_id` | pools(id) | CASCADE | CASCADE |
 | `pool_group_id` | pool_groups(id) | SET NULL | CASCADE |
 | `user_id` | users(id) | CASCADE | CASCADE |
@@ -1449,9 +1449,9 @@ erDiagram
   pivots and step/score children are hard-deleted with their parent. All
   important mutations are written to the polymorphic `activity_logs`; status
   changes to `status_histories` (offers, approvals).
-- **Scale / tenancy (DB-2):** every row carries an indexed `company_id` (shard-
-  ready). Hot read paths have composites (`company_id,status_id`,
-  `company_id,starts_at`, `company_id,application_id`,
+- **Scale / tenancy (DB-2):** every row carries an indexed `workspace_id` (shard-
+  ready). Hot read paths have composites (`workspace_id,status_id`,
+  `workspace_id,starts_at`, `workspace_id,application_id`,
   `approver_id,status_id`, `user_id,is_active`). None of these are billions-scale
   append tables, so all keep hard FKs and `uuid` public ids (no FK-light
   exceptions needed in D9).

@@ -177,7 +177,7 @@ before the relevant module ships:
 1. **Member invitation acceptance flow.** The schema has `memberships.status =
    invited` and `invited_by`, but the invite→email→accept→activate flow needs an
    explicit spec section (token, expiry, existing-vs-new user). *Recommend: add to
-   [12-Company-Management](12-Company-Management.md).*
+   [12-Workspace-Management](12-Workspace-Management.md).*
 2. **Email verification flow.** `users.email_verified_at` exists; the
    verification email/journey is not detailed. *Recommend: add to
    [09-Authentication](09-Authentication.md).*
@@ -188,7 +188,7 @@ before the relevant module ships:
    [22-SuperAdmin-Journey](22-SuperAdmin-Journey.md); because it crosses tenant
    boundaries it needs an explicit, audited, time-boxed design before build.
 5. **Ownership transfer** and **company deletion/retention**: noted in
-   [12](12-Company-Management.md); make the irreversible steps and audit events
+   [12](12-Workspace-Management.md); make the irreversible steps and audit events
    concrete.
 
 ## Edge Cases (Limits of This Audit)

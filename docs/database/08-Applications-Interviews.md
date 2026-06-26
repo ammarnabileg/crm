@@ -10,7 +10,7 @@ access tokens, and the high-volume audit log.
 All tables below are **BLUEPRINT** (none ship in migrations 0001–0016). The
 design obeys the [00 — Database Bible](00-Database-Bible.md): every table carries
 `id` + `uuid` (except documented FK-light very-high-volume append tables which
-omit `uuid`), tenant rows carry an indexed `company_id`, statuses/types are
+omit `uuid`), tenant rows carry an indexed `workspace_id`, statuses/types are
 configuration-driven (per-entity status tables + `lookup_values`, never ENUMs),
 every relationship is a foreign key (except the two documented billions-scale
 append tables), important entities are soft-deleted and audited, and the schema
@@ -43,7 +43,7 @@ Polymorphic](01-Lookups-Reference.md).
 
 ```mermaid
 erDiagram
-    companies   ||--o{ applications : "tenant (CASCADE)"
+    workspaces   ||--o{ applications : "tenant (CASCADE)"
     jobs        ||--o{ applications : "job (CASCADE)"
     users       ||--o{ applications : "candidate (CASCADE)"
     pipeline_stages ||--o{ applications : "current_stage (SET NULL)"
@@ -99,7 +99,7 @@ erDiagram
 
 ### 1. `applications` — BLUEPRINT
 
-One candidate's application to one job within a company — the central object
+One candidate's application to one job within a workspace — the central object
 recruiters work on. **Tenant-scoped. Soft-deletable.**
 
 **Columns**
@@ -108,7 +108,7 @@ recruiters work on. **Tenant-scoped. Soft-deletable.**
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK, AUTO_INCREMENT |
 | `uuid` | CHAR(36) | NO | — | public identifier (URLs/APIs); UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `workspaces` |
 | `job_id` | BIGINT UNSIGNED | NO | — | FK → `jobs` |
 | `user_id` | BIGINT UNSIGNED | NO | — | the candidate; FK → `users` |
 | `current_stage_id` | BIGINT UNSIGNED | YES | NULL | fine-grained pipeline position; FK → `pipeline_stages` |
@@ -123,22 +123,22 @@ recruiters work on. **Tenant-scoped. Soft-deletable.**
 | `updated_at` | TIMESTAMP | YES | NULL | |
 | `deleted_at` | TIMESTAMP | YES | NULL | soft delete |
 
-**Keys**: PK(`id`); UNIQUE(`uuid`); **UNIQUE(`company_id`,`job_id`,`user_id`)** (one application per candidate per job — de-dup).
+**Keys**: PK(`id`); UNIQUE(`uuid`); **UNIQUE(`workspace_id`,`job_id`,`user_id`)** (one application per candidate per job — de-dup).
 
 **Indexes**
 - `uq_applications_uuid` → (`uuid`) — unique
-- `uq_applications_company_job_user` → (`company_id`,`job_id`,`user_id`) — unique (de-dup)
-- `ix_applications_company_status_stage` → (`company_id`,`application_status_id`,`current_stage_id`) — composite (Kanban board + stage counts)
+- `uq_applications_workspace_job_user` → (`workspace_id`,`job_id`,`user_id`) — unique (de-dup)
+- `ix_applications_workspace_status_stage` → (`workspace_id`,`application_status_id`,`current_stage_id`) — composite (Kanban board + stage counts)
 - `ix_applications_job` → (`job_id`) — FK
 - `ix_applications_user` → (`user_id`) — FK (a candidate's applications)
 - `ix_applications_current_stage` → (`current_stage_id`) — FK
 - `ix_applications_status` → (`application_status_id`) — FK
 - `ix_applications_source` → (`source_id`) — FK
 - `ix_applications_resume_file` → (`resume_file_id`) — FK
-- `ix_applications_company_applied_at` → (`company_id`,`applied_at`) — composite (time-ordered lists/reporting)
+- `ix_applications_workspace_applied_at` → (`workspace_id`,`applied_at`) — composite (time-ordered lists/reporting)
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `job_id` → `jobs(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `user_id` → `users(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `current_stage_id` → `pipeline_stages(id)` — ON DELETE SET NULL, ON UPDATE CASCADE
@@ -147,7 +147,7 @@ recruiters work on. **Tenant-scoped. Soft-deletable.**
 - `resume_file_id` → `files(id)` — ON DELETE SET NULL, ON UPDATE CASCADE
 
 **Relationships + cardinality**
-- company 1—* applications; job 1—* applications; user (candidate) 1—* applications.
+- workspace 1—* applications; job 1—* applications; user (candidate) 1—* applications.
 - application *—1 pipeline_stage (current); application *—1 application_status.
 - application 1—* interviews; 1—* application_decisions; 1—0..1 application_ai_results.
 - Attachments/notes/timeline via polymorphic `attachments`/`notes`/`activity_logs` (`*_type='application'`).
@@ -173,7 +173,7 @@ soft-deletable** (lifecycle managed by `is_system`/`sort_order`).
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | YES | NULL | NULL = system default; non-null = tenant custom/override; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | YES | NULL | NULL = system default; non-null = tenant custom/override; FK → `workspaces` |
 | `key` | VARCHAR(60) | NO | — | stable machine key (e.g. `interviewing`) |
 | `label` | VARCHAR(120) | NO | — | display label |
 | `color` | VARCHAR(20) | YES | NULL | UI hex/token |
@@ -185,22 +185,22 @@ soft-deletable** (lifecycle managed by `is_system`/`sort_order`).
 | `created_at` | TIMESTAMP | YES | NULL | |
 | `updated_at` | TIMESTAMP | YES | NULL | |
 
-**Keys**: PK(`id`); UNIQUE(`uuid`); **UNIQUE(`company_id`,`key`)**.
+**Keys**: PK(`id`); UNIQUE(`uuid`); **UNIQUE(`workspace_id`,`key`)**.
 
 **Indexes**
 - `uq_application_statuses_uuid` → (`uuid`) — unique
-- `uq_application_statuses_company_key` → (`company_id`,`key`) — unique
-- `ix_application_statuses_company_sort` → (`company_id`,`sort_order`) — composite (ordered fetch)
+- `uq_application_statuses_workspace_key` → (`workspace_id`,`key`) — unique
+- `ix_application_statuses_workspace_sort` → (`workspace_id`,`sort_order`) — composite (ordered fetch)
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE (tenant rows; NULL system rows unaffected)
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE (tenant rows; NULL system rows unaffected)
 
 **Relationships + cardinality**
-- application_status 1—* applications. company 1—* application_statuses (custom only).
+- application_status 1—* applications. workspace 1—* application_statuses (custom only).
 
 **Notes**
 - Standard per-entity status shape from Bible §2(1). `applications.application_status_id` → here with ON DELETE RESTRICT (a status in use cannot vanish).
-- A tenant overrides a system status by inserting a row with the same `key` and its own `company_id`; resolution prefers the tenant row.
+- A tenant overrides a system status by inserting a row with the same `key` and its own `workspace_id`; resolution prefers the tenant row.
 
 ---
 
@@ -217,7 +217,7 @@ history; corrections are new rows).
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `workspaces` |
 | `application_id` | BIGINT UNSIGNED | NO | — | FK → `applications` |
 | `decision_id` | BIGINT UNSIGNED | NO | — | the decision value (advance/reject/hire/withdraw/reopen…); FK → `lookup_values` |
 | `from_status_id` | BIGINT UNSIGNED | YES | NULL | status before; FK → `application_statuses` |
@@ -234,14 +234,14 @@ history; corrections are new rows).
 **Indexes**
 - `uq_application_decisions_uuid` → (`uuid`) — unique
 - `ix_application_decisions_application` → (`application_id`) — FK (decision history, newest-first)
-- `ix_application_decisions_company` → (`company_id`) — FK
+- `ix_application_decisions_workspace` → (`workspace_id`) — FK
 - `ix_application_decisions_decision` → (`decision_id`) — FK
 - `ix_application_decisions_decided_by` → (`decided_by`) — FK
 - `ix_application_decisions_from_status` → (`from_status_id`) — FK
 - `ix_application_decisions_to_status` → (`to_status_id`) — FK
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `application_id` → `applications(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `decision_id` → `lookup_values(id)` — ON DELETE RESTRICT, ON UPDATE CASCADE
 - `from_status_id` → `application_statuses(id)` — ON DELETE RESTRICT, ON UPDATE CASCADE
@@ -270,7 +270,7 @@ One current result per application (reruns overwrite or are versioned via
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `workspaces` |
 | `application_id` | BIGINT UNSIGNED | NO | — | FK → `applications` |
 | `overall_score` | DECIMAL(5,2) | YES | NULL | AI match/fit score 0–100 (advisory) |
 | `scores` | JSON | YES | NULL | per-dimension scores (skills/experience/education match…) |
@@ -287,13 +287,13 @@ One current result per application (reruns overwrite or are versioned via
 **Indexes**
 - `uq_application_ai_results_uuid` → (`uuid`) — unique
 - `uq_application_ai_results_application` → (`application_id`) — unique
-- `ix_application_ai_results_company` → (`company_id`) — FK
+- `ix_application_ai_results_workspace` → (`workspace_id`) — FK
 - `ix_application_ai_results_provider` → (`provider_id`) — FK
 - `ix_application_ai_results_model` → (`model_id`) — FK
-- `ix_application_ai_results_company_score` → (`company_id`,`overall_score`) — composite (rank candidates by AI score)
+- `ix_application_ai_results_workspace_score` → (`workspace_id`,`overall_score`) — composite (rank candidates by AI score)
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `application_id` → `applications(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `provider_id` → `ai_providers(id)` — ON DELETE SET NULL, ON UPDATE CASCADE
 - `model_id` → `ai_models(id)` — ON DELETE SET NULL, ON UPDATE CASCADE
@@ -320,7 +320,7 @@ Soft-deletable.**
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE (also used in candidate links via `interview_tokens`) |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `workspaces` |
 | `application_id` | BIGINT UNSIGNED | NO | — | FK → `applications` |
 | `job_id` | BIGINT UNSIGNED | NO | — | denormalized parent for job-scoped queries; FK → `jobs` |
 | `type_id` | BIGINT UNSIGNED | NO | — | ai / human / panel; FK → `lookup_values` |
@@ -343,7 +343,7 @@ Soft-deletable.**
 
 **Indexes**
 - `uq_interviews_uuid` → (`uuid`) — unique
-- `ix_interviews_company_application_status` → (`company_id`,`application_id`,`interview_status_id`) — composite ("interviews for this candidate", "today's interviews")
+- `ix_interviews_workspace_application_status` → (`workspace_id`,`application_id`,`interview_status_id`) — composite ("interviews for this candidate", "today's interviews")
 - `ix_interviews_application` → (`application_id`) — FK
 - `ix_interviews_job` → (`job_id`) — FK
 - `ix_interviews_status` → (`interview_status_id`) — FK
@@ -351,10 +351,10 @@ Soft-deletable.**
 - `ix_interviews_mode` → (`mode_id`) — FK
 - `ix_interviews_timezone` → (`timezone_id`) — FK
 - `ix_interviews_created_by` → (`created_by`) — FK
-- `ix_interviews_company_scheduled_at` → (`company_id`,`scheduled_at`) — composite (calendar/upcoming)
+- `ix_interviews_workspace_scheduled_at` → (`workspace_id`,`scheduled_at`) — composite (calendar/upcoming)
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `application_id` → `applications(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `job_id` → `jobs(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `type_id` → `lookup_values(id)` — ON DELETE RESTRICT, ON UPDATE CASCADE
@@ -387,7 +387,7 @@ per-tenant custom. **Tenant-scoped (nullable). Not soft-deletable.**
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | YES | NULL | NULL = system default; non-null = tenant custom; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | YES | NULL | NULL = system default; non-null = tenant custom; FK → `workspaces` |
 | `key` | VARCHAR(60) | NO | — | machine key |
 | `label` | VARCHAR(120) | NO | — | display label |
 | `color` | VARCHAR(20) | YES | NULL | UI token |
@@ -399,18 +399,18 @@ per-tenant custom. **Tenant-scoped (nullable). Not soft-deletable.**
 | `created_at` | TIMESTAMP | YES | NULL | |
 | `updated_at` | TIMESTAMP | YES | NULL | |
 
-**Keys**: PK(`id`); UNIQUE(`uuid`); **UNIQUE(`company_id`,`key`)**.
+**Keys**: PK(`id`); UNIQUE(`uuid`); **UNIQUE(`workspace_id`,`key`)**.
 
 **Indexes**
 - `uq_interview_statuses_uuid` → (`uuid`) — unique
-- `uq_interview_statuses_company_key` → (`company_id`,`key`) — unique
-- `ix_interview_statuses_company_sort` → (`company_id`,`sort_order`) — composite
+- `uq_interview_statuses_workspace_key` → (`workspace_id`,`key`) — unique
+- `ix_interview_statuses_workspace_sort` → (`workspace_id`,`sort_order`) — composite
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 
 **Relationships + cardinality**
-- interview_status 1—* interviews. company 1—* interview_statuses (custom only).
+- interview_status 1—* interviews. workspace 1—* interview_statuses (custom only).
 
 **Notes**
 - Same per-entity status shape as `application_statuses` (Bible §2(1)); `interviews.interview_status_id` → here with ON DELETE RESTRICT.
@@ -431,7 +431,7 @@ soft-deletable** (a run is a fact; superseded runs stay for comparison).
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `workspaces` |
 | `interview_id` | BIGINT UNSIGNED | NO | — | FK → `interviews` |
 | `session_status_id` | BIGINT UNSIGNED | YES | NULL | pending/running/completed/failed (run-level); FK → `lookup_values` |
 | `attempt` | SMALLINT UNSIGNED | NO | 1 | 1-based run number for this interview |
@@ -449,13 +449,13 @@ soft-deletable** (a run is a fact; superseded runs stay for comparison).
 **Indexes**
 - `uq_interview_sessions_uuid` → (`uuid`) — unique
 - `uq_interview_sessions_interview_attempt` → (`interview_id`,`attempt`) — unique
-- `ix_interview_sessions_company` → (`company_id`) — FK
+- `ix_interview_sessions_workspace` → (`workspace_id`) — FK
 - `ix_interview_sessions_status` → (`session_status_id`) — FK
 - `ix_interview_sessions_started_by` → (`started_by`) — FK
-- `ix_interview_sessions_company_started_at` → (`company_id`,`started_at`) — composite
+- `ix_interview_sessions_workspace_started_at` → (`workspace_id`,`started_at`) — composite
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `interview_id` → `interviews(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `session_status_id` → `lookup_values(id)` — ON DELETE RESTRICT, ON UPDATE CASCADE
 - `started_by` → `users(id)` — ON DELETE SET NULL, ON UPDATE CASCADE
@@ -483,7 +483,7 @@ candidate answers as chat, system events). At 100M+ interviews this is a
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK (composite with `created_at` for partitioning — see Notes) |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant filter (indexed, **no hard FK** — scale rule) |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant filter (indexed, **no hard FK** — scale rule) |
 | `interview_id` | BIGINT UNSIGNED | NO | — | owning interview (indexed, **no hard FK**) |
 | `session_id` | BIGINT UNSIGNED | NO | — | owning run (indexed, **no hard FK**) |
 | `sender_type` | TINYINT UNSIGNED | NO | — | small code: 1=ai, 2=candidate, 3=interviewer, 4=system (no lookup join on the hot path) |
@@ -498,10 +498,10 @@ candidate answers as chat, system events). At 100M+ interviews this is a
 **Indexes**
 - `ix_interview_messages_session_seq` → (`session_id`,`seq`) — composite (render a session in order)
 - `ix_interview_messages_interview` → (`interview_id`) — index
-- `ix_interview_messages_company_created` → (`company_id`,`created_at`) — composite (tenant + time scans)
+- `ix_interview_messages_workspace_created` → (`workspace_id`,`created_at`) — composite (tenant + time scans)
 
 **Foreign keys**
-- **None** (FK-light by design — Bible §4 scale exception). Referential integrity (`company_id`, `interview_id`, `session_id`, `sender_user_id`) is enforced at the application layer.
+- **None** (FK-light by design — Bible §4 scale exception). Referential integrity (`workspace_id`, `interview_id`, `session_id`, `sender_user_id`) is enforced at the application layer.
 
 **Relationships + cardinality**
 - interview_session 1—* interview_messages (logically); not enforced by DB FK.
@@ -510,7 +510,7 @@ candidate answers as chat, system events). At 100M+ interviews this is a
 - **PARTITION BY RANGE on `created_at`** (monthly partitions, e.g. `pYYYYMM`), with a forward `MAXVALUE` catch-all. Old partitions are archived/dropped on the retention schedule; recent partitions stay hot. The composite PK `(id, created_at)` is required because every UNIQUE/PRIMARY key must include the partitioning column.
 - **Narrow rows**: only `body`/`meta` are large; `meta` JSON holds anything heavy and is excluded from list reads.
 - **FK-light**: no InnoDB foreign keys (avoids cross-partition FK cost at billions of rows); integrity is an app-layer invariant.
-- Shard-ready: every row carries `company_id`; the table can additionally be sharded by tenant if needed (Bible §7).
+- Shard-ready: every row carries `workspace_id`; the table can additionally be sharded by tenant if needed (Bible §7).
 - This is the per-turn store; the whole-session text also exists as `interview_sessions.transcript` for convenience/export.
 
 ---
@@ -528,7 +528,7 @@ separate audio/video tables** (single polymorphic-by-type table — DRY).
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `workspaces` |
 | `interview_id` | BIGINT UNSIGNED | NO | — | FK → `interviews` |
 | `session_id` | BIGINT UNSIGNED | YES | NULL | the run it belongs to; FK → `interview_sessions` |
 | `question_id` | BIGINT UNSIGNED | YES | NULL | the question this media answers; FK → `interview_questions` |
@@ -547,12 +547,12 @@ separate audio/video tables** (single polymorphic-by-type table — DRY).
 - `ix_interview_media_interview` → (`interview_id`) — FK
 - `ix_interview_media_session` → (`session_id`) — FK
 - `ix_interview_media_question` → (`question_id`) — FK
-- `ix_interview_media_company` → (`company_id`) — FK
+- `ix_interview_media_workspace` → (`workspace_id`) — FK
 - `ix_interview_media_type` → (`type_id`) — FK
 - `ix_interview_media_file` → (`file_id`) — FK
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `interview_id` → `interviews(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `session_id` → `interview_sessions(id)` — ON DELETE SET NULL, ON UPDATE CASCADE
 - `question_id` → `interview_questions(id)` — ON DELETE SET NULL, ON UPDATE CASCADE
@@ -571,7 +571,7 @@ separate audio/video tables** (single polymorphic-by-type table — DRY).
 ### 10. `interview_questions` — BLUEPRINT
 
 Questions asked in an interview, or reusable **templates** when `interview_id IS
-NULL` (company/job question banks, AI-generated sets). **Tenant-scoped.
+NULL` (workspace/job question banks, AI-generated sets). **Tenant-scoped.
 Soft-deletable.**
 
 **Columns**
@@ -580,7 +580,7 @@ Soft-deletable.**
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `workspaces` |
 | `interview_id` | BIGINT UNSIGNED | YES | NULL | owning interview; **NULL = template** (reusable); FK → `interviews` |
 | `job_id` | BIGINT UNSIGNED | YES | NULL | template scoping to a job (when `interview_id` NULL); FK → `jobs` |
 | `type_id` | BIGINT UNSIGNED | NO | — | text / video / mcq / coding (config-driven); FK → `lookup_values` |
@@ -599,13 +599,13 @@ Soft-deletable.**
 **Indexes**
 - `uq_interview_questions_uuid` → (`uuid`) — unique
 - `ix_interview_questions_interview_sort` → (`interview_id`,`sort_order`) — composite (ordered question set)
-- `ix_interview_questions_company` → (`company_id`) — FK
+- `ix_interview_questions_workspace` → (`workspace_id`) — FK
 - `ix_interview_questions_job` → (`job_id`) — FK
 - `ix_interview_questions_type` → (`type_id`) — FK
 - `ix_interview_questions_criterion` → (`criterion_id`) — FK
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `interview_id` → `interviews(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `job_id` → `jobs(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `type_id` → `lookup_values(id)` — ON DELETE RESTRICT, ON UPDATE CASCADE
@@ -634,7 +634,7 @@ Soft-deletable.**
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `workspaces` |
 | `interview_id` | BIGINT UNSIGNED | NO | — | denormalized owning interview; FK → `interviews` |
 | `session_id` | BIGINT UNSIGNED | YES | NULL | the run; FK → `interview_sessions` |
 | `question_id` | BIGINT UNSIGNED | NO | — | FK → `interview_questions` |
@@ -658,12 +658,12 @@ Soft-deletable.**
 - `ix_interview_answers_interview` → (`interview_id`) — FK
 - `ix_interview_answers_question` → (`question_id`) — FK
 - `ix_interview_answers_user` → (`user_id`) — FK
-- `ix_interview_answers_company` → (`company_id`) — FK
+- `ix_interview_answers_workspace` → (`workspace_id`) — FK
 - `ix_interview_answers_media` → (`media_id`) — FK
 - `ix_interview_answers_answer_file` → (`answer_file_id`) — FK
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `interview_id` → `interviews(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `session_id` → `interview_sessions(id)` — ON DELETE SET NULL, ON UPDATE CASCADE
 - `question_id` → `interview_questions(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
@@ -692,7 +692,7 @@ rubric line (human- or AI-sourced). **Tenant-scoped. Not soft-deletable**
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `workspaces` |
 | `interview_id` | BIGINT UNSIGNED | NO | — | FK → `interviews` |
 | `session_id` | BIGINT UNSIGNED | YES | NULL | the run that produced it; FK → `interview_sessions` |
 | `criterion_id` | BIGINT UNSIGNED | NO | — | rubric line scored; FK → `job_criteria` |
@@ -715,10 +715,10 @@ rubric line (human- or AI-sourced). **Tenant-scoped. Not soft-deletable**
 - `ix_interview_scores_session` → (`session_id`) — FK
 - `ix_interview_scores_criterion` → (`criterion_id`) — FK
 - `ix_interview_scores_scored_by` → (`scored_by`) — FK
-- `ix_interview_scores_company` → (`company_id`) — FK
+- `ix_interview_scores_workspace` → (`workspace_id`) — FK
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `interview_id` → `interviews(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `session_id` → `interview_sessions(id)` — ON DELETE SET NULL, ON UPDATE CASCADE
 - `criterion_id` → `job_criteria(id)` — ON DELETE RESTRICT, ON UPDATE CASCADE
@@ -745,7 +745,7 @@ Not soft-deletable** (regenerated; reruns add rows).
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `workspaces` |
 | `interview_id` | BIGINT UNSIGNED | NO | — | FK → `interviews` |
 | `session_id` | BIGINT UNSIGNED | YES | NULL | the analyzed run; FK → `interview_sessions` |
 | `provider_id` | BIGINT UNSIGNED | YES | NULL | AI provider; FK → `ai_providers` |
@@ -767,10 +767,10 @@ Not soft-deletable** (regenerated; reruns add rows).
 - `ix_interview_ai_analyses_session` → (`session_id`) — FK
 - `ix_interview_ai_analyses_provider` → (`provider_id`) — FK
 - `ix_interview_ai_analyses_model` → (`model_id`) — FK
-- `ix_interview_ai_analyses_company` → (`company_id`) — FK
+- `ix_interview_ai_analyses_workspace` → (`workspace_id`) — FK
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `interview_id` → `interviews(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `session_id` → `interview_sessions(id)` — ON DELETE SET NULL, ON UPDATE CASCADE
 - `provider_id` → `ai_providers(id)` — ON DELETE SET NULL, ON UPDATE CASCADE
@@ -798,7 +798,7 @@ Hard-deleted/expired (no soft delete).**
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `workspaces` |
 | `interview_id` | BIGINT UNSIGNED | NO | — | FK → `interviews` |
 | `user_id` | BIGINT UNSIGNED | NO | — | the candidate the link is for; FK → `users` |
 | `token_hash` | CHAR(64) | NO | — | SHA-256 of the secret (raw token never stored); UNIQUE |
@@ -816,11 +816,11 @@ Hard-deleted/expired (no soft delete).**
 - `uq_interview_tokens_token_hash` → (`token_hash`) — unique (lookup on presentation)
 - `ix_interview_tokens_interview` → (`interview_id`) — FK
 - `ix_interview_tokens_user` → (`user_id`) — FK
-- `ix_interview_tokens_company` → (`company_id`) — FK
+- `ix_interview_tokens_workspace` → (`workspace_id`) — FK
 - `ix_interview_tokens_expires_at` → (`expires_at`) — index (expiry sweeps)
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `interview_id` → `interviews(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `user_id` → `users(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 
@@ -845,7 +845,7 @@ by time, narrow, FK-light. **Tenant-scoped by column. Hard-deleted/expired.**
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK (composite with `created_at` — see Notes) |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant filter (indexed, **no hard FK**) |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant filter (indexed, **no hard FK**) |
 | `interview_id` | BIGINT UNSIGNED | NO | — | owning interview (indexed, **no hard FK**) |
 | `session_id` | BIGINT UNSIGNED | YES | NULL | run, when applicable (no hard FK) |
 | `event_code` | SMALLINT UNSIGNED | NO | — | compact event code (no lookup join on the hot path) |
@@ -860,7 +860,7 @@ by time, narrow, FK-light. **Tenant-scoped by column. Hard-deleted/expired.**
 
 **Indexes**
 - `ix_interview_logs_interview_created` → (`interview_id`,`created_at`) — composite (an interview's timeline)
-- `ix_interview_logs_company_created` → (`company_id`,`created_at`) — composite (tenant + time)
+- `ix_interview_logs_workspace_created` → (`workspace_id`,`created_at`) — composite (tenant + time)
 - `ix_interview_logs_event` → (`event_code`) — index (filter by event/error class)
 
 **Foreign keys**
@@ -872,7 +872,7 @@ by time, narrow, FK-light. **Tenant-scoped by column. Hard-deleted/expired.**
 **Notes — partitioning / scale**
 - **PARTITION BY RANGE on `created_at`** (monthly), with a `MAXVALUE` tail; old partitions archived/dropped on the retention policy. Composite PK `(id, created_at)` satisfies the partition-key-in-PK requirement.
 - **FK-light + narrow**: `context` JSON carries heavy payloads and is excluded from list reads; no InnoDB FKs to avoid cross-partition cost at billions of rows.
-- Shard-ready by `company_id` (Bible §7). For business-meaningful, cross-domain audit (who decided/exported) the polymorphic `activity_logs` (D10) is used instead — `interview_logs` is the high-volume operational/diagnostic stream.
+- Shard-ready by `workspace_id` (Bible §7). For business-meaningful, cross-domain audit (who decided/exported) the polymorphic `activity_logs` (D10) is used instead — `interview_logs` is the high-volume operational/diagnostic stream.
 
 ---
 
@@ -888,7 +888,7 @@ hard-removed when a participant is dropped).
 |---|---|---|---|---|
 | `id` | BIGINT UNSIGNED | NO | auto | PK |
 | `uuid` | CHAR(36) | NO | — | UNIQUE |
-| `company_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `companies` |
+| `workspace_id` | BIGINT UNSIGNED | NO | — | tenant; FK → `workspaces` |
 | `interview_id` | BIGINT UNSIGNED | NO | — | FK → `interviews` |
 | `user_id` | BIGINT UNSIGNED | NO | — | the participant; FK → `users` |
 | `role_id` | BIGINT UNSIGNED | NO | — | interviewer / observer / candidate (config-driven); FK → `lookup_values` |
@@ -904,12 +904,12 @@ hard-removed when a participant is dropped).
 - `uq_interview_participants_uuid` → (`uuid`) — unique
 - `uq_interview_participants_interview_user` → (`interview_id`,`user_id`) — unique
 - `ix_interview_participants_user` → (`user_id`) — FK (a user's interviews)
-- `ix_interview_participants_company` → (`company_id`) — FK
+- `ix_interview_participants_workspace` → (`workspace_id`) — FK
 - `ix_interview_participants_role` → (`role_id`) — FK
 - `ix_interview_participants_response` → (`response_id`) — FK
 
 **Foreign keys**
-- `company_id` → `companies(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
+- `workspace_id` → `workspaces(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `interview_id` → `interviews(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `user_id` → `users(id)` — ON DELETE CASCADE, ON UPDATE CASCADE
 - `role_id` → `lookup_values(id)` — ON DELETE RESTRICT, ON UPDATE CASCADE
@@ -935,7 +935,7 @@ timeline tables. Instead it references the shared polymorphic tables in D0:
 - **`activity_logs`** (D10) — the human-readable audit timeline / "who did what" for the application and interview lifecycle (schedule, cancel, decision, export).
 - **`tags`/`taggables`** — labeling candidates/applications for filtering.
 
-Genuine relational links (`company_id`, `user_id`, `job_id`, `pipeline_stages`,
+Genuine relational links (`workspace_id`, `user_id`, `job_id`, `pipeline_stages`,
 `job_criteria`, `files`, `ai_providers`/`ai_models`) remain hard FKs as specified
 above.
 
@@ -943,10 +943,10 @@ above.
 
 ## Domain notes (normalization · config-driven · scale)
 
-- **No ENUMs.** Every status/type/role/source is a `*_statuses` table or a `lookup_values` row (application status, interview status, interview type/mode, participant role/response, media type, question type, decision, source). Tenant custom values coexist with system defaults via nullable `company_id` (Bible §2, DB-4).
+- **No ENUMs.** Every status/type/role/source is a `*_statuses` table or a `lookup_values` row (application status, interview status, interview type/mode, participant role/response, media type, question type, decision, source). Tenant custom values coexist with system defaults via nullable `workspace_id` (Bible §2, DB-4).
 - **One person = one user.** The candidate is a `users` row throughout (`applications.user_id`, `interview_participants` role=candidate, `interview_tokens.user_id`); there is no candidate table (DB-1).
 - **Two-axis application state.** Coarse `application_status_id` + fine `current_stage_id` (→ `pipeline_stages`) are derived together, never independently (matches [../25-Application-Lifecycle](../25-Application-Lifecycle.md)).
 - **AI is advisory and separated.** Machine output (`application_ai_results`, `interview_answers.ai_score`/`ai_feedback`, `interview_ai_analyses`, AI rows in `interview_scores`) is structurally distinct from human judgement (`interview_scores` human rows, `evaluations` in D9) and never auto-decides (canonical §9). Provider/model are FKs into D8 (multi-AI ready).
-- **Scale.** `interview_messages` and `interview_logs` are the two billions-row tables: RANGE-partitioned by `created_at` (monthly), narrow rows, heavy payloads in JSON, **FK-light** (app-layer integrity), `uuid` omitted, composite PK `(id, created_at)`, shard-ready by `company_id` (Bible §4/§7). `interview_sessions.transcript` (LONGTEXT) and all `analysis`/`scores`/`context` JSON columns are detail-only and excluded from list queries.
+- **Scale.** `interview_messages` and `interview_logs` are the two billions-row tables: RANGE-partitioned by `created_at` (monthly), narrow rows, heavy payloads in JSON, **FK-light** (app-layer integrity), `uuid` omitted, composite PK `(id, created_at)`, shard-ready by `workspace_id` (Bible §4/§7). `interview_sessions.transcript` (LONGTEXT) and all `analysis`/`scores`/`context` JSON columns are detail-only and excluded from list queries.
 - **Soft delete.** Applied to true business entities (`applications`, `interviews`, `interview_media`, `interview_questions`, `interview_answers`). Status catalogs, decision/score/AI ledgers, sessions, participants (pivot), tokens, and the two high-volume logs are not soft-deleted (factual history / pivots / append-expire).
 - **Owned cascades.** Deleting an application cascades to its interviews and their children; deleting a job cascades to its applications (matches [../25-Application-Lifecycle](../25-Application-Lifecycle.md) §6). Catalog/status/criterion/lookup refs are RESTRICT; optional actor refs (`created_by`, `decided_by`, `scored_by`, `started_by`) are SET NULL.

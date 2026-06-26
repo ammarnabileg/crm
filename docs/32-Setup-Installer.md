@@ -128,7 +128,7 @@ sequenceDiagram
 - **BR-INSTALL-5 — No half-finalized state.** `finalize()` throws if any of `database, migrate, seed, admin` is incomplete, so the lock is never placed over an unusable install.
 - **BR-INSTALL-6 — Production defaults.** `finalize()` always writes `APP_ENV=production` and `APP_DEBUG=false`; debug is never on after a fresh install.
 - **BR-INSTALL-7 — Secrets are transient.** DB credentials live in `install_state.json` only between steps and are erased when `finalize()` unlinks the state file; the durable copy lives only in `.env`, which is web-inaccessible.
-- **BR-INSTALL-8 — First user is super-admin.** The `admin` step creates exactly the platform super-admin (global role, `company_id` NULL); it does not create a tenant. Companies are created later by users per [12-Company-Management].
+- **BR-INSTALL-8 — First user is super-admin.** The `admin` step creates exactly the platform super-admin (global role, `company_id` NULL); it does not create a tenant. Companies are created later by users per [12-Workspace-Management].
 
 ## Database Relations
 

@@ -7,7 +7,7 @@ End-to-end experience of a **user acting in the platform Super Admin role**: pro
 ## Related Documents
 
 - [33 — System Diagnostics](33-System-Diagnostics.md) — health checks and environment reports the Super Admin runs.
-- [12 — Company Management](12-Company-Management.md) — company provisioning/lifecycle the Super Admin drives platform-wide.
+- [12 — Company Management](12-Workspace-Management.md) — company provisioning/lifecycle the Super Admin drives platform-wide.
 - [13 — Subscription System](13-Subscription-System.md) — plans the Super Admin manages.
 - [11 — Permissions Matrix](11-Permissions-Matrix.md) — the `platform.*` permissions.
 - [08 — Multi-Tenant](08-Multi-Tenant.md) — the isolation model and the `withoutTenantScope()` escape hatch.

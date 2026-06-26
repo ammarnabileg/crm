@@ -30,7 +30,7 @@ them from the transactional domains (D1–D9):
 > [00-Database-Bible](00-Database-Bible.md): `id` BIGINT UNSIGNED PK AI, `uuid`
 > CHAR(36) UNIQUE public id (omitted on extreme-volume append tables for write
 > throughput — noted per table), `created_at`/`updated_at`, `deleted_at` only on
-> soft-deletable entities, indexed `company_id` FK on tenant tables, InnoDB /
+> soft-deletable entities, indexed `workspace_id` FK on tenant tables, InnoDB /
 > utf8mb4_unicode_ci. **BUILT** = present in migrations 0001–0016; everything
 > else is **BLUEPRINT** (the target the implementation migrates toward).
 
@@ -44,9 +44,9 @@ them from the transactional domains (D1–D9):
   trail conceptually belongs to the cross-cutting set but is **owned and defined
   here** (D10) because it is the highest-volume of them and shares the
   partitioning/FK-light profile of the other log tables.
-- [03-Companies-Settings](03-Companies-Settings.md) — `company_storage` /
-  `company_settings` hold the per-tenant storage selection and quota that point
-  at this domain's `storage_providers`; `companies.id` is the tenant anchor.
+- [03-Workspaces-Settings](03-Workspaces-Settings.md) — `workspace_storage` /
+  `workspace_settings` hold the per-tenant storage selection and quota that point
+  at this domain's `storage_providers`; `workspaces.id` is the tenant anchor.
 - [04-Authentication](04-Authentication.md) — `devices`, `sessions`,
   `failed_login_attempts` feed `security_logs`; `personal_access_tokens` are the
   principals recorded in `api_logs`.
@@ -71,22 +71,22 @@ them from the transactional domains (D1–D9):
 
 ```mermaid
 erDiagram
-    companies ||--o{ files : "owns (tenant)"
-    companies ||--o{ folders : "owns (tenant)"
-    companies ||--o{ storage_providers : "configures (NULL=system)"
-    companies ||--o{ file_versions : "owns (tenant)"
-    companies ||--o{ daily_analytics : "rollup per tenant"
-    companies ||--o{ monthly_analytics : "rollup per tenant"
-    companies ||--o{ usage_analytics : "rollup per tenant"
-    companies ||--o{ hiring_analytics : "rollup per tenant"
-    companies ||--o{ ai_analytics : "rollup per tenant"
-    companies ||--o{ interview_analytics : "rollup per tenant"
-    companies ||--o{ performance_analytics : "rollup per tenant"
-    companies ||--o{ activity_logs : "audit (NULL=platform)"
-    companies ||--o{ system_logs : "scoped (NULL=platform)"
-    companies ||--o{ security_logs : "scoped (NULL=platform)"
-    companies ||--o{ api_logs : "scoped (NULL=platform)"
-    companies ||--o{ billing_logs : "scoped"
+    workspaces ||--o{ files : "owns (tenant)"
+    workspaces ||--o{ folders : "owns (tenant)"
+    workspaces ||--o{ storage_providers : "configures (NULL=system)"
+    workspaces ||--o{ file_versions : "owns (tenant)"
+    workspaces ||--o{ daily_analytics : "rollup per tenant"
+    workspaces ||--o{ monthly_analytics : "rollup per tenant"
+    workspaces ||--o{ usage_analytics : "rollup per tenant"
+    workspaces ||--o{ hiring_analytics : "rollup per tenant"
+    workspaces ||--o{ ai_analytics : "rollup per tenant"
+    workspaces ||--o{ interview_analytics : "rollup per tenant"
+    workspaces ||--o{ performance_analytics : "rollup per tenant"
+    workspaces ||--o{ activity_logs : "audit (NULL=platform)"
+    workspaces ||--o{ system_logs : "scoped (NULL=platform)"
+    workspaces ||--o{ security_logs : "scoped (NULL=platform)"
+    workspaces ||--o{ api_logs : "scoped (NULL=platform)"
+    workspaces ||--o{ billing_logs : "scoped"
 
     users ||--o{ files : "uploads (SET NULL)"
     users ||--o{ file_versions : "creates (SET NULL)"
@@ -103,7 +103,7 @@ erDiagram
     files {
         bigint id PK
         char uuid UK
-        bigint company_id FK
+        bigint workspace_id FK
         bigint user_id FK
         bigint folder_id FK
         bigint storage_provider_id FK
@@ -119,7 +119,7 @@ erDiagram
     folders {
         bigint id PK
         char uuid UK
-        bigint company_id FK
+        bigint workspace_id FK
         bigint parent_id FK
         varchar name
         varchar path
@@ -128,7 +128,7 @@ erDiagram
     storage_providers {
         bigint id PK
         char uuid UK
-        bigint company_id FK
+        bigint workspace_id FK
         varchar driver
         json config
         tinyint is_default
@@ -138,7 +138,7 @@ erDiagram
         bigint id PK
         char uuid UK
         bigint file_id FK
-        bigint company_id FK
+        bigint workspace_id FK
         int version
         varchar path
         bigint size
@@ -175,14 +175,14 @@ erDiagram
 
     daily_analytics {
         bigint id PK
-        bigint company_id
+        bigint workspace_id
         date date
         bigint metric_id
         decimal value
     }
     monthly_analytics {
         bigint id PK
-        bigint company_id
+        bigint workspace_id
         smallint year
         tinyint month
         bigint metric_id
@@ -190,7 +190,7 @@ erDiagram
     }
     hiring_analytics {
         bigint id PK
-        bigint company_id
+        bigint workspace_id
         date period_date
         bigint job_id
         int applications_count
@@ -198,28 +198,28 @@ erDiagram
     }
     ai_analytics {
         bigint id PK
-        bigint company_id
+        bigint workspace_id
         date period_date
         bigint requests_count
         decimal total_cost
     }
     interview_analytics {
         bigint id PK
-        bigint company_id
+        bigint workspace_id
         date period_date
         int interviews_count
         decimal avg_score
     }
     performance_analytics {
         bigint id PK
-        bigint company_id
+        bigint workspace_id
         date period_date
         bigint subject_id
         decimal score_value
     }
     usage_analytics {
         bigint id PK
-        bigint company_id
+        bigint workspace_id
         date period_date
         bigint metric_id
         decimal value
@@ -227,7 +227,7 @@ erDiagram
 
     activity_logs {
         bigint id PK
-        bigint company_id
+        bigint workspace_id
         bigint user_id
         varchar action
         varchar subject_type
@@ -239,7 +239,7 @@ erDiagram
     }
     system_logs {
         bigint id PK
-        bigint company_id
+        bigint workspace_id
         varchar level
         varchar channel
         json context
@@ -247,7 +247,7 @@ erDiagram
     }
     security_logs {
         bigint id PK
-        bigint company_id
+        bigint workspace_id
         bigint user_id
         varchar event
         varchar ip
@@ -255,7 +255,7 @@ erDiagram
     }
     api_logs {
         bigint id PK
-        bigint company_id
+        bigint workspace_id
         varchar method
         varchar path
         smallint status
@@ -264,7 +264,7 @@ erDiagram
     }
     billing_logs {
         bigint id PK
-        bigint company_id
+        bigint workspace_id
         varchar event
         varchar subject_type
         bigint subject_id
@@ -290,7 +290,7 @@ define `job_attachments` / `interview_attachments` / … (Bible §6).
 
 - **Status**: BLUEPRINT. **Purpose**: metadata record for every stored
   file/blob — the File Manager's source of truth. **Tenant-scoped**: yes
-  (`company_id`). **Soft-delete**: yes (`deleted_at`) — deletion is reversible
+  (`workspace_id`). **Soft-delete**: yes (`deleted_at`) — deletion is reversible
   and audited; the blob is reclaimed by the cleanup job.
 
 ### Columns
@@ -299,17 +299,17 @@ define `job_attachments` / `interview_attachments` / … (Bible §6).
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
 | uuid | CHAR(36) | no | — | public id (used in `/files/{uuid}` routes/API) |
-| company_id | BIGINT UNSIGNED | no | — | owning tenant; FK → companies |
+| workspace_id | BIGINT UNSIGNED | no | — | owning tenant; FK → workspaces |
 | user_id | BIGINT UNSIGNED | yes | NULL | uploader; FK → users (SET NULL — file survives user deletion) |
 | folder_id | BIGINT UNSIGNED | yes | NULL | containing folder; FK → folders (NULL = tenant root) |
 | storage_provider_id | BIGINT UNSIGNED | no | — | backend that holds the bytes; FK → storage_providers |
 | disk | VARCHAR(40) | no | 'local' | resolved driver name snapshot (`local`/`s3`/`gcs`/`azure`); denormalized from the provider for fast serving |
-| path | VARCHAR(512) | no | — | tenant-scoped relative path (`tenants/{company_id}/{yyyy}/{mm}/{ulid}.{ext}`); built by StorageManager, never user input |
+| path | VARCHAR(512) | no | — | tenant-scoped relative path (`tenants/{workspace_id}/{yyyy}/{mm}/{ulid}.{ext}`); built by StorageManager, never user input |
 | original_name | VARCHAR(255) | no | — | display name only (escaped); on-disk name is a generated ULID |
 | mime | VARCHAR(150) | no | — | content-derived MIME (`finfo`), never the client header |
 | size | BIGINT UNSIGNED | no | 0 | bytes — drives per-tenant quota sums |
 | checksum | CHAR(64) | yes | NULL | SHA-256 of content — integrity + de-dup hint |
-| visibility_id | BIGINT UNSIGNED | no | — | access level; FK → lookup_values (category `file_visibility`: private/company/public) — config-driven per Bible §2 (replaces an ENUM) |
+| visibility_id | BIGINT UNSIGNED | no | — | access level; FK → lookup_values (category `file_visibility`: private/workspace/public) — config-driven per Bible §2 (replaces an ENUM) |
 | meta | JSON | yes | NULL | optional extras (width/height, duration, derived-thumbnail ref) |
 | created_at | TIMESTAMP | yes | NULL | |
 | updated_at | TIMESTAMP | yes | NULL | |
@@ -317,17 +317,17 @@ define `job_attachments` / `interview_attachments` / … (Bible §6).
 
 ### Keys
 - **PK**: `id`. **UUID**: UNIQUE(`uuid`).
-- **Unique**: UNIQUE(`company_id`,`disk`,`path`) — a stored path is unique per
+- **Unique**: UNIQUE(`workspace_id`,`disk`,`path`) — a stored path is unique per
   tenant+disk (prevents accidental double-registration of the same blob).
 
 ### Indexes
 | Name | Columns | Type |
 |---|---|---|
 | files_uuid_unique | uuid | unique |
-| files_company_path_unique | company_id, disk, path | unique |
-| files_company_folder_index | company_id, folder_id | composite (folder listings) |
-| files_company_user_index | company_id, user_id | composite ("my files" + quota sums) |
-| files_company_created_index | company_id, created_at | composite (recent-files lists) |
+| files_workspace_path_unique | workspace_id, disk, path | unique |
+| files_workspace_folder_index | workspace_id, folder_id | composite (folder listings) |
+| files_workspace_user_index | workspace_id, user_id | composite ("my files" + quota sums) |
+| files_workspace_created_index | workspace_id, created_at | composite (recent-files lists) |
 | files_storage_provider_index | storage_provider_id | index (FK) |
 | files_visibility_index | visibility_id | index (FK) |
 | files_checksum_index | checksum | index (de-dup lookups) |
@@ -336,28 +336,28 @@ define `job_attachments` / `interview_attachments` / … (Bible §6).
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| company_id | companies(id) | CASCADE | CASCADE |
+| workspace_id | workspaces(id) | CASCADE | CASCADE |
 | user_id | users(id) | SET NULL | CASCADE |
 | folder_id | folders(id) | SET NULL | CASCADE |
 | storage_provider_id | storage_providers(id) | RESTRICT | CASCADE |
 | visibility_id | lookup_values(id) | RESTRICT | CASCADE |
 
 ### Relationships + cardinality
-- company **1—\*** files; user **1—\*** files (uploader, optional).
+- workspace **1—\*** files; user **1—\*** files (uploader, optional).
 - folder **1—\*** files; storage_provider **1—\*** files.
 - files **1—\*** file_versions (version history).
 - files **1—\*** attachments (**D0**, polymorphic) — a file is linked to any
   number of business entities via `attachments(file_id, attachable_type,
   attachable_id)`; this is how résumés (`applications`), avatars (`users`),
-  logos (`companies`) and interview media attach. No per-entity attachment
+  logos (`workspaces`) and interview media attach. No per-entity attachment
   tables exist (Bible §6).
 
 ### Notes
 - **Config-driven visibility**: the upstream Storage doc models visibility as a
   3-value ENUM; the blueprint promotes it to `visibility_id` → `lookup_values`
   to satisfy Bible §2 (no hard-coded ENUMs) while keeping the same three values.
-- **Quota** is `SUM(size)` per `company_id` (cached), checked against the plan
-  limit (D4); the `(company_id,user_id)` index serves it without a scan.
+- **Quota** is `SUM(size)` per `workspace_id` (cached), checked against the plan
+  limit (D4); the `(workspace_id,user_id)` index serves it without a scan.
 - **Source-of-truth, not bytes**: callers reference `files.uuid`/`id`; the
   `disk`+`path` are an implementation detail owned by `StorageManager`. `disk`
   is denormalized from the provider so serving never needs a provider join.
@@ -373,7 +373,7 @@ define `job_attachments` / `interview_attachments` / … (Bible §6).
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | no | — | owning tenant; FK → companies |
+| workspace_id | BIGINT UNSIGNED | no | — | owning tenant; FK → workspaces |
 | parent_id | BIGINT UNSIGNED | yes | NULL | parent folder; self-FK (NULL = tenant root) |
 | name | VARCHAR(255) | no | — | display name within its parent |
 | path | VARCHAR(1024) | yes | NULL | materialized path (`/root/sub/…`) cache for breadcrumbs/subtree queries |
@@ -384,27 +384,27 @@ define `job_attachments` / `interview_attachments` / … (Bible §6).
 
 ### Keys
 - **PK**: `id`. **UUID**: UNIQUE(`uuid`).
-- **Unique**: UNIQUE(`company_id`,`parent_id`,`name`) — sibling folder names are
+- **Unique**: UNIQUE(`workspace_id`,`parent_id`,`name`) — sibling folder names are
   unique within a parent per tenant.
 
 ### Indexes
 | Name | Columns | Type |
 |---|---|---|
 | folders_uuid_unique | uuid | unique |
-| folders_company_parent_name_unique | company_id, parent_id, name | unique |
-| folders_company_parent_index | company_id, parent_id | composite (children listing) |
+| folders_workspace_parent_name_unique | workspace_id, parent_id, name | unique |
+| folders_workspace_parent_index | workspace_id, parent_id | composite (children listing) |
 | folders_created_by_index | created_by | index (FK) |
 | folders_deleted_at_index | deleted_at | index |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| company_id | companies(id) | CASCADE | CASCADE |
+| workspace_id | workspaces(id) | CASCADE | CASCADE |
 | parent_id | folders(id) | CASCADE | CASCADE |
 | created_by | users(id) | SET NULL | CASCADE |
 
 ### Relationships + cardinality
-- company **1—\*** folders.
+- workspace **1—\*** folders.
 - folder **1—\*** folders (self-referential parent/child tree).
 - folder **1—\*** files.
 
@@ -419,7 +419,7 @@ define `job_attachments` / `interview_attachments` / … (Bible §6).
 - **Status**: BLUEPRINT. **Purpose**: the **multi-provider storage
   configuration catalog** — one row per configured backend
   (local/s3/gcs/azure) with its credentials/options. **Tenant-scoped**:
-  optionally (`company_id` NULL = system/platform-default provider; non-null =
+  optionally (`workspace_id` NULL = system/platform-default provider; non-null =
   a tenant's own bucket/account). **Soft-delete**: yes.
 
 ### Columns
@@ -428,7 +428,7 @@ define `job_attachments` / `interview_attachments` / … (Bible §6).
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | yes | NULL | owning tenant; **NULL = system/platform provider** shared by tenants without their own; FK → companies |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | owning tenant; **NULL = system/platform provider** shared by tenants without their own; FK → workspaces |
 | name | VARCHAR(120) | no | — | human label ("Default local", "Acme S3") |
 | driver | VARCHAR(40) | no | — | `local` / `s3` / `gcs` / `azure` (string, not ENUM — new drivers are data) |
 | config | JSON | yes | NULL | driver-specific settings (bucket, region, endpoint, root path, public base URL); **secret keys are encrypted at the app layer**, never plaintext |
@@ -440,24 +440,24 @@ define `job_attachments` / `interview_attachments` / … (Bible §6).
 
 ### Keys
 - **PK**: `id`. **UUID**: UNIQUE(`uuid`).
-- **Unique**: UNIQUE(`company_id`,`name`) — provider names unique per scope.
+- **Unique**: UNIQUE(`workspace_id`,`name`) — provider names unique per scope.
 
 ### Indexes
 | Name | Columns | Type |
 |---|---|---|
 | storage_providers_uuid_unique | uuid | unique |
-| storage_providers_company_name_unique | company_id, name | unique |
-| storage_providers_company_default_index | company_id, is_default | composite (resolve active provider) |
+| storage_providers_company_name_unique | workspace_id, name | unique |
+| storage_providers_workspace_default_index | workspace_id, is_default | composite (resolve active provider) |
 | storage_providers_driver_index | driver | index |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
-| company_id | companies(id) | CASCADE | CASCADE |
+| workspace_id | workspaces(id) | CASCADE | CASCADE |
 
 ### Relationships + cardinality
-- company **1—\*** storage_providers (a tenant may have several configured
-  backends); system providers have `company_id` NULL.
+- workspace **1—\*** storage_providers (a tenant may have several configured
+  backends); system providers have `workspace_id` NULL.
 - storage_provider **1—\*** files (RESTRICT — a provider with files cannot be
   hard-deleted; soft-delete + migrate first).
 
@@ -466,16 +466,16 @@ define `job_attachments` / `interview_attachments` / … (Bible §6).
   adding a backend is a new row + a registered driver class, **not** a schema
   change. Exactly one `is_default=1` per scope is enforced at the app layer
   (partial unique indexes are not portable on MySQL). The system-default
-  (`company_id` NULL, `local`) is what shared-hosting buyers run with no
+  (`workspace_id` NULL, `local`) is what shared-hosting buyers run with no
   object-store account, matching the no-CLI/local-first constraint.
 - The per-tenant **selection** of which provider/quota applies lives in
-  `company_storage` (D2); this table is the **catalog of providers** themselves.
+  `workspace_storage` (D2); this table is the **catalog of providers** themselves.
 
 ## A.4 `file_versions`
 
 - **Status**: BLUEPRINT. **Purpose**: immutable version history for a `files`
   row — each replace/upload keeps the prior blob so changes are recoverable.
-  **Tenant-scoped**: yes (carries `company_id` for shard locality, denormalized
+  **Tenant-scoped**: yes (carries `workspace_id` for shard locality, denormalized
   from the parent file). **Soft-delete**: no — versions are append-only and
   pruned by retention, not user-deleted.
 
@@ -486,7 +486,7 @@ define `job_attachments` / `interview_attachments` / … (Bible §6).
 | id | BIGINT UNSIGNED AI | no | — | PK |
 | uuid | CHAR(36) | no | — | public id |
 | file_id | BIGINT UNSIGNED | no | — | parent file; FK → files |
-| company_id | BIGINT UNSIGNED | no | — | denormalized tenant (shard locality); FK → companies |
+| workspace_id | BIGINT UNSIGNED | no | — | denormalized tenant (shard locality); FK → workspaces |
 | version | INT UNSIGNED | no | 1 | sequential version number within the file (1,2,3…) |
 | disk | VARCHAR(40) | no | 'local' | backend holding this version's blob |
 | path | VARCHAR(512) | no | — | this version's stored path (distinct blob) |
@@ -504,14 +504,14 @@ define `job_attachments` / `interview_attachments` / … (Bible §6).
 |---|---|---|
 | file_versions_uuid_unique | uuid | unique |
 | file_versions_file_version_unique | file_id, version | unique |
-| file_versions_company_index | company_id | index (FK / shard) |
+| file_versions_workspace_index | workspace_id | index (FK / shard) |
 | file_versions_created_by_index | created_by | index (FK) |
 
 ### Foreign keys
 | Column | References | On delete | On update |
 |---|---|---|---|
 | file_id | files(id) | CASCADE | CASCADE |
-| company_id | companies(id) | CASCADE | CASCADE |
+| workspace_id | workspaces(id) | CASCADE | CASCADE |
 | created_by | users(id) | SET NULL | CASCADE |
 
 ### Relationships + cardinality
@@ -543,7 +543,7 @@ domain-specific `notification_queue` in D8 is a typed outbox for notifications;
 - **Status**: BLUEPRINT. **Purpose**: DB-backed FIFO/priority work queue for
   async jobs (AI scoring, email/notification dispatch, storage cleanup, exports).
   **Tenant-scoped**: no — a **global/system** table (jobs carry their tenant
-  inside the payload); `company_id` optional for fair-share/observability.
+  inside the payload); `workspace_id` optional for fair-share/observability.
   **Soft-delete**: no — rows are hard-deleted on success.
 
 ### Columns
@@ -552,7 +552,7 @@ domain-specific `notification_queue` in D8 is a typed outbox for notifications;
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
 | uuid | CHAR(36) | no | — | public job id (for status lookups / idempotency) |
-| company_id | BIGINT UNSIGNED | yes | NULL | optional owning tenant (fair-share, metrics); FK-light |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | optional owning tenant (fair-share, metrics); FK-light |
 | queue | VARCHAR(120) | no | 'default' | logical queue/lane name (`default`, `ai`, `mail`, `exports`) |
 | payload | LONGTEXT | no | — | serialized job class + args (JSON/PHP-serialized) |
 | attempts | TINYINT UNSIGNED | no | 0 | retry counter; max attempts enforced at app layer |
@@ -568,16 +568,16 @@ domain-specific `notification_queue` in D8 is a typed outbox for notifications;
 |---|---|---|
 | queued_jobs_uuid_unique | uuid | unique |
 | queued_jobs_reserve_index | queue, reserved_at, available_at | composite — the reservation query (`WHERE queue=? AND reserved_at IS NULL AND available_at<=?`) |
-| queued_jobs_company_index | company_id | index (fair-share / metrics) |
+| queued_jobs_workspace_index | workspace_id | index (fair-share / metrics) |
 
 ### Foreign keys
-- **None (FK-light).** This is a high-churn operational table; `company_id` is
+- **None (FK-light).** This is a high-churn operational table; `workspace_id` is
   an indexed soft reference only. Integrity is irrelevant once a job completes
   (the row is deleted).
 
 ### Relationships + cardinality
 - Logically owned by the platform; a job *references* a tenant via its payload
-  (and optional `company_id`) but holds no hard FK.
+  (and optional `workspace_id`) but holds no hard FK.
 
 ### Notes
 - Unix-integer timestamps (`reserved_at`/`available_at`/`created_at`) mirror the
@@ -602,7 +602,7 @@ domain-specific `notification_queue` in D8 is a typed outbox for notifications;
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
 | uuid | CHAR(36) | no | — | the original job uuid (correlate to `queued_jobs`); UNIQUE |
-| company_id | BIGINT UNSIGNED | yes | NULL | optional owning tenant (from the job); FK-light |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | optional owning tenant (from the job); FK-light |
 | queue | VARCHAR(120) | no | 'default' | originating queue |
 | payload | LONGTEXT | no | — | the failed job's serialized payload (for re-dispatch) |
 | exception | LONGTEXT | no | — | exception class + message + stack trace (no secrets/PII) |
@@ -616,10 +616,10 @@ domain-specific `notification_queue` in D8 is a typed outbox for notifications;
 |---|---|---|
 | failed_jobs_uuid_unique | uuid | unique |
 | failed_jobs_failed_at_index | failed_at | index (recent failures / pruning) |
-| failed_jobs_company_index | company_id | index (per-tenant failures) |
+| failed_jobs_workspace_index | workspace_id | index (per-tenant failures) |
 
 ### Foreign keys
-- **None (FK-light)** — operational/diagnostic store; `company_id` is a soft ref.
+- **None (FK-light)** — operational/diagnostic store; `workspace_id` is a soft ref.
 
 ### Relationships + cardinality
 - One row per terminally-failed job; correlated to `queued_jobs` by `uuid`
@@ -695,7 +695,7 @@ per table:
 - **Partitioned by period.** Tables are RANGE-partitioned by their period column
   (`date`/`period_date`, or `(year,month)` for monthly) so old periods are
   pruned/archived by dropping partitions — cheap retention at the §scale targets.
-- **FK-light (Bible §4/§7).** Only `company_id` (and occasionally a dimension id
+- **FK-light (Bible §4/§7).** Only `workspace_id` (and occasionally a dimension id
   like `job_id`) is kept as an **indexed soft reference**; no hard FKs, so a
   rebuild/backfill never fights constraints and writes stay fast. Integrity is
   guaranteed by the rollup job (it reads valid source rows).
@@ -709,13 +709,13 @@ per table:
   for the few well-known metrics of their area (faster typed dashboards).
 
 > **Upsert key**: every analytics table has a UNIQUE business key over
-> (`company_id`, period, [dimension, metric_id]) so the rollup job can
+> (`workspace_id`, period, [dimension, metric_id]) so the rollup job can
 > `INSERT … ON DUPLICATE KEY UPDATE` idempotently (re-running a day is safe).
 
 ## C.1 `daily_analytics`
 
 - **Status**: BLUEPRINT. **Purpose**: per-tenant daily KPI rollup (long form:
-  one row per metric per day). **Tenant-scoped**: yes (soft `company_id`).
+  one row per metric per day). **Tenant-scoped**: yes (soft `workspace_id`).
   **Soft-delete**: no. **Partition**: RANGE(`date`), monthly.
 
 ### Columns
@@ -723,7 +723,7 @@ per table:
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
-| company_id | BIGINT UNSIGNED | no | — | tenant (indexed soft ref, no FK) |
+| workspace_id | BIGINT UNSIGNED | no | — | tenant (indexed soft ref, no FK) |
 | date | DATE | no | — | the day bucket (partition key) |
 | metric_id | BIGINT UNSIGNED | no | — | metric from the metric catalog (`lookup_values`, soft ref) |
 | value | DECIMAL(20,4) | no | 0 | aggregated measure |
@@ -732,15 +732,15 @@ per table:
 | updated_at | TIMESTAMP | yes | NULL | last recomputed |
 
 ### Keys / Indexes
-- **PK**: `id`. **Unique (upsert)**: UNIQUE(`company_id`,`date`,`metric_id`).
-- Index `daily_company_date_index` (`company_id`,`date`) — dashboard range scans.
+- **PK**: `id`. **Unique (upsert)**: UNIQUE(`workspace_id`,`date`,`metric_id`).
+- Index `daily_workspace_date_index` (`workspace_id`,`date`) — dashboard range scans.
 - Index `daily_metric_index` (`metric_id`) — cross-tenant metric reports.
 
 ### Foreign keys
-- **None (FK-light).** `company_id`/`metric_id` are indexed soft references.
+- **None (FK-light).** `workspace_id`/`metric_id` are indexed soft references.
 
 ### Relationships + cardinality
-- company **1—\*** daily_analytics; one row per (company, day, metric).
+- workspace **1—\*** daily_analytics; one row per (workspace, day, metric).
 
 ### Notes
 - Long form keeps the table narrow and lets new KPIs be added as catalog rows
@@ -759,7 +759,7 @@ per table:
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
-| company_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
+| workspace_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
 | year | SMALLINT UNSIGNED | no | — | bucket year (partition key) |
 | month | TINYINT UNSIGNED | no | — | bucket month 1–12 |
 | metric_id | BIGINT UNSIGNED | no | — | metric catalog ref (soft) |
@@ -769,15 +769,15 @@ per table:
 | updated_at | TIMESTAMP | yes | NULL | |
 
 ### Keys / Indexes
-- **PK**: `id`. **Unique (upsert)**: UNIQUE(`company_id`,`year`,`month`,`metric_id`).
-- Index `monthly_company_period_index` (`company_id`,`year`,`month`).
+- **PK**: `id`. **Unique (upsert)**: UNIQUE(`workspace_id`,`year`,`month`,`metric_id`).
+- Index `monthly_workspace_period_index` (`workspace_id`,`year`,`month`).
 - Index `monthly_metric_index` (`metric_id`).
 
 ### Foreign keys
 - **None (FK-light).**
 
 ### Relationships + cardinality
-- company **1—\*** monthly_analytics; one row per (company, year, month, metric).
+- workspace **1—\*** monthly_analytics; one row per (workspace, year, month, metric).
 
 ### Notes
 - Typically rolled up *from* `daily_analytics` (a roll-of-a-roll) for long-range
@@ -795,7 +795,7 @@ per table:
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
-| company_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
+| workspace_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
 | period_date | DATE | no | — | period bucket (partition key) |
 | period_type | VARCHAR(10) | no | 'day' | granularity (`day`/`month`) |
 | metric_id | BIGINT UNSIGNED | no | — | usage metric catalog ref (soft) |
@@ -806,8 +806,8 @@ per table:
 
 ### Keys / Indexes
 - **PK**: `id`. **Unique (upsert)**:
-  UNIQUE(`company_id`,`period_date`,`period_type`,`metric_id`).
-- Index `usage_company_period_index` (`company_id`,`period_date`).
+  UNIQUE(`workspace_id`,`period_date`,`period_type`,`metric_id`).
+- Index `usage_workspace_period_index` (`workspace_id`,`period_date`).
 - Index `usage_metric_index` (`metric_id`).
 
 ### Foreign keys
@@ -816,7 +816,7 @@ per table:
   whereas D4 `usage_records` is the metered detail for billing.
 
 ### Relationships + cardinality
-- company **1—\*** usage_analytics; one row per (company, period, metric).
+- workspace **1—\*** usage_analytics; one row per (workspace, period, metric).
 
 ### Notes
 - Snapshotting `limit_value` lets the usage dashboard render "X of Y used"
@@ -834,7 +834,7 @@ per table:
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
-| company_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
+| workspace_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
 | period_date | DATE | no | — | period bucket (partition key) |
 | job_id | BIGINT UNSIGNED | yes | NULL | optional dimension — per-job funnel; NULL = all jobs (soft ref to D5 jobs) |
 | applications_count | INT UNSIGNED | no | 0 | applications received |
@@ -848,16 +848,16 @@ per table:
 | updated_at | TIMESTAMP | yes | NULL | |
 
 ### Keys / Indexes
-- **PK**: `id`. **Unique (upsert)**: UNIQUE(`company_id`,`period_date`,`job_id`).
-- Index `hiring_company_period_index` (`company_id`,`period_date`).
+- **PK**: `id`. **Unique (upsert)**: UNIQUE(`workspace_id`,`period_date`,`job_id`).
+- Index `hiring_workspace_period_index` (`workspace_id`,`period_date`).
 - Index `hiring_job_index` (`job_id`).
 
 ### Foreign keys
-- **None (FK-light).** `company_id`/`job_id` are indexed soft references to keep
+- **None (FK-light).** `workspace_id`/`job_id` are indexed soft references to keep
   rebuilds fast and survive job deletion.
 
 ### Relationships + cardinality
-- company **1—\*** hiring_analytics; optionally job **1—\*** hiring_analytics
+- workspace **1—\*** hiring_analytics; optionally job **1—\*** hiring_analytics
   (per-job + an aggregate `job_id` NULL row per period).
 
 ### Notes
@@ -876,7 +876,7 @@ per table:
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
-| company_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
+| workspace_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
 | period_date | DATE | no | — | period bucket (partition key) |
 | provider_id | BIGINT UNSIGNED | yes | NULL | optional dimension — per provider (soft ref to D8 ai_providers); NULL = all |
 | model_id | BIGINT UNSIGNED | yes | NULL | optional dimension — per model (soft ref to D8 ai_models) |
@@ -891,8 +891,8 @@ per table:
 
 ### Keys / Indexes
 - **PK**: `id`. **Unique (upsert)**:
-  UNIQUE(`company_id`,`period_date`,`provider_id`,`model_id`).
-- Index `ai_company_period_index` (`company_id`,`period_date`).
+  UNIQUE(`workspace_id`,`period_date`,`provider_id`,`model_id`).
+- Index `ai_workspace_period_index` (`workspace_id`,`period_date`).
 - Index `ai_provider_model_index` (`provider_id`,`model_id`).
 
 ### Foreign keys
@@ -900,7 +900,7 @@ per table:
   and FK-light; this aggregate inherits that.
 
 ### Relationships + cardinality
-- company **1—\*** ai_analytics; optional provider/model dimensions per period.
+- workspace **1—\*** ai_analytics; optional provider/model dimensions per period.
 
 ### Notes
 - This is what tenant/admin AI dashboards and cost alerts read; the raw
@@ -918,7 +918,7 @@ per table:
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
-| company_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
+| workspace_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
 | period_date | DATE | no | — | period bucket (partition key) |
 | job_id | BIGINT UNSIGNED | yes | NULL | optional dimension (soft ref to D5 jobs); NULL = all |
 | interviews_count | INT UNSIGNED | no | 0 | interviews held |
@@ -930,15 +930,15 @@ per table:
 | updated_at | TIMESTAMP | yes | NULL | |
 
 ### Keys / Indexes
-- **PK**: `id`. **Unique (upsert)**: UNIQUE(`company_id`,`period_date`,`job_id`).
-- Index `interview_company_period_index` (`company_id`,`period_date`).
+- **PK**: `id`. **Unique (upsert)**: UNIQUE(`workspace_id`,`period_date`,`job_id`).
+- Index `interview_workspace_period_index` (`workspace_id`,`period_date`).
 - Index `interview_job_index` (`job_id`).
 
 ### Foreign keys
 - **None (FK-light).**
 
 ### Relationships + cardinality
-- company **1—\*** interview_analytics; optional per-job rows + aggregate.
+- workspace **1—\*** interview_analytics; optional per-job rows + aggregate.
 
 ### Notes
 - Aggregated from D7 (`interviews`, `interview_scores`); the high-volume
@@ -958,7 +958,7 @@ per table:
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
-| company_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
+| workspace_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
 | period_date | DATE | no | — | period bucket (partition key) |
 | subject_type | VARCHAR(60) | no | — | polymorphic dimension type (`user`/`team`/`department`/`system`) |
 | subject_id | BIGINT UNSIGNED | yes | NULL | subject id (NULL for `system`-wide) |
@@ -970,17 +970,17 @@ per table:
 
 ### Keys / Indexes
 - **PK**: `id`. **Unique (upsert)**:
-  UNIQUE(`company_id`,`period_date`,`subject_type`,`subject_id`,`metric_id`).
-- Index `perf_company_period_index` (`company_id`,`period_date`).
+  UNIQUE(`workspace_id`,`period_date`,`subject_type`,`subject_id`,`metric_id`).
+- Index `perf_workspace_period_index` (`workspace_id`,`period_date`).
 - Index `perf_subject_index` (`subject_type`,`subject_id`) — polymorphic lookup.
 
 ### Foreign keys
 - **None (FK-light)** — `subject_type`/`subject_id` is a polymorphic dimension
-  (no DB FK, integrity at app layer per Bible §6), and `company_id`/`metric_id`
+  (no DB FK, integrity at app layer per Bible §6), and `workspace_id`/`metric_id`
   are soft refs.
 
 ### Relationships + cardinality
-- company **1—\*** performance_analytics; one row per (company, period, subject,
+- workspace **1—\*** performance_analytics; one row per (workspace, period, subject,
   metric).
 
 ### Notes
@@ -1005,8 +1005,8 @@ table):
   id, to maximise insert throughput. (`activity_logs` is BUILT without a uuid,
   consistent with this.)
 - **Partitioned by `created_at`** (RANGE, monthly) and shard-ready by
-  `company_id` — old months are dropped/archived cheaply (Bible §7).
-- **FK-light** — `company_id` (and `user_id` on the audit trail) are kept as
+  `workspace_id` — old months are dropped/archived cheaply (Bible §7).
+- **FK-light** — `workspace_id` (and `user_id` on the audit trail) are kept as
   indexed references; subjects are recorded **polymorphically**
   (`subject_type`/`subject_id`) with **no hard FK** so an entry survives the
   subject's (and even the actor's) deletion. The only retained relational FKs
@@ -1023,7 +1023,7 @@ table):
   **Purpose**: the **polymorphic business/security audit trail** — who did what,
   to which subject, when, from where, with before/after state. Written through
   one API (`App\Models\ActivityLog::record()`). **Tenant-scoped**: yes, but
-  `company_id` is **NULLABLE** (NULL = platform-level event). **Soft-delete**:
+  `workspace_id` is **NULLABLE** (NULL = platform-level event). **Soft-delete**:
   no — entries are immutable/append-only.
 
 ### Columns
@@ -1031,7 +1031,7 @@ table):
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
-| company_id | BIGINT UNSIGNED | yes | NULL | tenant scope; **NULL = platform event** |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | tenant scope; **NULL = platform event** |
 | user_id | BIGINT UNSIGNED | yes | NULL | actor; NULL for system/anonymous (e.g. failed login on unknown email) |
 | action | VARCHAR(120) | no | — | dotted event key (`auth.login`, `roles.assign`, `applications.reject`) |
 | subject_type | VARCHAR(120) | yes | NULL | polymorphic — class of the affected entity |
@@ -1051,17 +1051,17 @@ table):
 ### Indexes
 | Name | Columns | Type | Status |
 |---|---|---|---|
-| activity_log_company_id_index | company_id | index | BUILT |
+| activity_log_workspace_id_index | workspace_id | index | BUILT |
 | activity_log_user_id_index | user_id | index | BUILT |
 | activity_log_action_index | action | index | BUILT |
-| activity_logs_company_user_action_index | company_id, user_id, action | composite | BLUEPRINT (the audit-viewer filter, per [../38-Audit-System](../38-Audit-System.md)) |
+| activity_logs_workspace_user_action_index | workspace_id, user_id, action | composite | BLUEPRINT (the audit-viewer filter, per [../38-Audit-System](../38-Audit-System.md)) |
 | activity_logs_subject_index | subject_type, subject_id | composite (poly) | BLUEPRINT (subject timelines) |
-| activity_logs_company_created_index | company_id, created_at | composite | BLUEPRINT (tenant feed + partition pruning) |
+| activity_logs_workspace_created_index | workspace_id, created_at | composite | BLUEPRINT (tenant feed + partition pruning) |
 
 ### Foreign keys
 | Column | References | On delete | On update | Status |
 |---|---|---|---|---|
-| company_id | companies(id) | CASCADE | CASCADE | BUILT |
+| workspace_id | workspaces(id) | CASCADE | CASCADE | BUILT |
 | user_id | users(id) | SET NULL | CASCADE | BUILT |
 
 - Subjects are **polymorphic** (`subject_type`/`subject_id`) — **no FK** — so an
@@ -1071,7 +1071,7 @@ table):
   record of their actions.
 
 ### Relationships + cardinality
-- company **1—\*** activity_logs (NULL = platform); user **1—\*** activity_logs
+- workspace **1—\*** activity_logs (NULL = platform); user **1—\*** activity_logs
   (actor). Subject is any entity via the polymorphic pair.
 
 ### Notes
@@ -1089,7 +1089,7 @@ table):
 - **Status**: BLUEPRINT. **Purpose**: durable, queryable **operational** event
   sink for super-admin diagnostics (worker/migration/scheduler outcomes, boot
   warnings, integration errors) — the DB-backed complement to the transient file
-  log. **Tenant-scoped**: optional (`company_id` NULL = platform event).
+  log. **Tenant-scoped**: optional (`workspace_id` NULL = platform event).
   **Soft-delete**: no — append-only, pruned by retention.
 
 ### Columns
@@ -1097,7 +1097,7 @@ table):
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
-| company_id | BIGINT UNSIGNED | yes | NULL | tenant scope; NULL = platform |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | tenant scope; NULL = platform |
 | level | VARCHAR(20) | no | — | severity (`emergency`/`error`/`warning`/`info`/`debug`) — string, not ENUM |
 | channel | VARCHAR(60) | yes | NULL | source subsystem (`queue`,`scheduler`,`storage`,`migration`) |
 | message | VARCHAR(255) | no | — | short summary (no PII/secrets) |
@@ -1113,14 +1113,14 @@ table):
 |---|---|---|
 | system_logs_created_index | created_at | index (recent + partition pruning) |
 | system_logs_level_created_index | level, created_at | composite (error feeds) |
-| system_logs_company_created_index | company_id, created_at | composite (per-tenant ops) |
+| system_logs_workspace_created_index | workspace_id, created_at | composite (per-tenant ops) |
 | system_logs_correlation_index | correlation_id | index (trace a request/job) |
 
 ### Foreign keys
-- **None (FK-light)** — `company_id` is an indexed soft reference (Bible §4/§7).
+- **None (FK-light)** — `workspace_id` is an indexed soft reference (Bible §4/§7).
 
 ### Relationships + cardinality
-- Logically: company **1—\*** system_logs (or platform when NULL).
+- Logically: workspace **1—\*** system_logs (or platform when NULL).
 
 ### Notes
 - Mirrors the file logger's levels/redaction so the same discipline applies; this
@@ -1140,7 +1140,7 @@ table):
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
-| company_id | BIGINT UNSIGNED | yes | NULL | tenant scope; NULL = platform |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | tenant scope; NULL = platform |
 | user_id | BIGINT UNSIGNED | yes | NULL | subject/actor (NULL on unknown-account attempts — anti-enumeration) |
 | event | VARCHAR(80) | no | — | security event key (`auth.login_failed`, `mfa.enabled`, `access.denied`) |
 | severity | VARCHAR(20) | yes | NULL | `info`/`warning`/`critical` |
@@ -1157,15 +1157,15 @@ table):
 |---|---|---|
 | security_logs_created_index | created_at | index |
 | security_logs_event_created_index | event, created_at | composite (event feeds/alerts) |
-| security_logs_company_created_index | company_id, created_at | composite (tenant security view) |
+| security_logs_workspace_created_index | workspace_id, created_at | composite (tenant security view) |
 | security_logs_ip_index | ip | index (IP-based investigation / brute-force) |
 
 ### Foreign keys
-- **None (FK-light)** — `company_id`/`user_id` indexed soft references; an
+- **None (FK-light)** — `workspace_id`/`user_id` indexed soft references; an
   unknown-email failed login records `user_id` NULL without revealing existence.
 
 ### Relationships + cardinality
-- Logically: company **1—\*** security_logs (or platform); user **1—\***
+- Logically: workspace **1—\*** security_logs (or platform); user **1—\***
   security_logs.
 
 ### Notes
@@ -1187,7 +1187,7 @@ table):
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
-| company_id | BIGINT UNSIGNED | yes | NULL | tenant of the calling token; NULL if none |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | tenant of the calling token; NULL if none |
 | token_id | BIGINT UNSIGNED | yes | NULL | calling API token (soft ref to D3 personal_access_tokens) |
 | user_id | BIGINT UNSIGNED | yes | NULL | acting user, if any (soft ref) |
 | method | VARCHAR(10) | no | — | HTTP verb |
@@ -1206,16 +1206,16 @@ table):
 | Name | Columns | Type |
 |---|---|---|
 | api_logs_created_index | created_at | index |
-| api_logs_company_created_index | company_id, created_at | composite (per-tenant API usage) |
+| api_logs_workspace_created_index | workspace_id, created_at | composite (per-tenant API usage) |
 | api_logs_token_created_index | token_id, created_at | composite (per-token rate/usage) |
 | api_logs_status_created_index | status, created_at | composite (error-rate dashboards) |
 
 ### Foreign keys
-- **None (FK-light)** — all of `company_id`/`token_id`/`user_id` are indexed
+- **None (FK-light)** — all of `workspace_id`/`token_id`/`user_id` are indexed
   soft references; integrity enforced at the app layer (Bible §4/§7).
 
 ### Relationships + cardinality
-- Logically: company/token **1—\*** api_logs.
+- Logically: workspace/token **1—\*** api_logs.
 
 ### Notes
 - Rows are deliberately narrow; bodies are never stored (PII/secrets). Rolled up
@@ -1228,7 +1228,7 @@ table):
   trail (subscription changes, invoice issued/paid/voided, payment
   succeeded/failed/refunded, coupon redeemed, gateway webhook processed) for
   finance review, dispute resolution and reconciliation — retained longer than
-  routine logs. **Tenant-scoped**: yes (`company_id`). **Soft-delete**: no —
+  routine logs. **Tenant-scoped**: yes (`workspace_id`). **Soft-delete**: no —
   append-only/immutable.
 
 ### Columns
@@ -1236,7 +1236,7 @@ table):
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED AI | no | — | PK |
-| company_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
+| workspace_id | BIGINT UNSIGNED | no | — | tenant (soft ref) |
 | user_id | BIGINT UNSIGNED | yes | NULL | actor (admin/system); soft ref |
 | event | VARCHAR(80) | no | — | billing event key (`invoice.paid`, `payment.failed`, `subscription.cancel`) |
 | subject_type | VARCHAR(120) | yes | NULL | polymorphic subject class (`invoice`/`payment`/`subscription`) |
@@ -1253,18 +1253,18 @@ table):
 ### Indexes
 | Name | Columns | Type |
 |---|---|---|
-| billing_logs_company_created_index | company_id, created_at | composite (tenant billing history) |
+| billing_logs_workspace_created_index | workspace_id, created_at | composite (tenant billing history) |
 | billing_logs_event_created_index | event, created_at | composite (event feeds) |
 | billing_logs_subject_index | subject_type, subject_id | composite (poly — invoice/payment timeline) |
 | billing_logs_created_index | created_at | index (pruning/partition) |
 
 ### Foreign keys
-- **None (FK-light)** — `company_id`/`user_id`/`currency_id` and the polymorphic
+- **None (FK-light)** — `workspace_id`/`user_id`/`currency_id` and the polymorphic
   subject are indexed soft references so a financial entry survives deletion of
   the underlying invoice/payment (the trail must outlive its subject).
 
 ### Relationships + cardinality
-- company **1—\*** billing_logs; subject (invoice/payment/subscription) **1—\***
+- workspace **1—\*** billing_logs; subject (invoice/payment/subscription) **1—\***
   billing_logs via the polymorphic pair.
 
 ### Notes
@@ -1285,8 +1285,8 @@ table):
   aggregated dashboard view.
 - **FK-light is deliberate and documented** (Bible §4/§7): every analytics table
   and every log except `activity_logs` keeps only indexed soft references
-  (`company_id`, dimensions) and enforces integrity in the rollup/writer code.
-  `activity_logs` keeps its two BUILT relational FKs (company CASCADE, user SET
+  (`workspace_id`, dimensions) and enforces integrity in the rollup/writer code.
+  `activity_logs` keeps its two BUILT relational FKs (workspace CASCADE, user SET
   NULL) for the audit viewer.
 - **Partitioning**: analytics by their period column, logs by `created_at`
   (monthly RANGE) — retention is a partition drop, not a `DELETE`.

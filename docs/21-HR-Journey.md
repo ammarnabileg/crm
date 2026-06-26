@@ -7,7 +7,7 @@ End-to-end experience of a **user acting in the HR Manager role**: setting up th
 ## Related Documents
 
 - [24 — Job Lifecycle](24-Job-Lifecycle.md) — the jobs HR oversees across all recruiters.
-- [12 — Company Management](12-Company-Management.md) — company profile, settings, ownership.
+- [12 — Company Management](12-Workspace-Management.md) — company profile, settings, ownership.
 - [11 — Permissions Matrix](11-Permissions-Matrix.md) — the `members.*`, `roles.*`, `settings.*` permissions.
 - [07 — RBAC](07-RBAC.md) — roles, inheritance, and how HR edits them.
 - [13 — Subscription System](13-Subscription-System.md) — plan/trial state HR can view.

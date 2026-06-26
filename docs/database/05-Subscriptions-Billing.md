@@ -26,7 +26,7 @@ embedded `features`/`limits`/`price` JSON is normalized into the child tables
 - [98-Validation-Report](98-Validation-Report.md) — external-architect review & fixes
 - [01-Lookups-Reference](01-Lookups-Reference.md) — `currencies`, `lookup_values`, `attachments`, `notes`, `status_histories` (referenced here)
 - [02-RBAC-Membership](02-RBAC-Membership.md) — `memberships`, actor `users`
-- [03-Companies-Settings](03-Companies-Settings.md) — `companies` (tenant anchor), `company_billing`
+- [03-Workspaces-Settings](03-Workspaces-Settings.md) — `workspaces` (tenant anchor), `workspace_billing`
 - [04-Authentication](04-Authentication.md) — actors
 - [11-Files-Queue-Analytics-Logs](11-Files-Queue-Analytics-Logs.md) — `billing_logs`, `usage_analytics`, `files` (PDF invoices via `attachments`)
 
@@ -52,7 +52,7 @@ Design pillars (all from the Bible):
   USD, etc. Default ship price = 50.00 SAR, monthly.
 - **Config-driven statuses (NO enums).** `subscription_statuses`,
   `invoice_statuses`, and `payment_statuses` are status tables (Bible §2 shape)
-  with `company_id` NULL = system default / non-null = tenant override. Entities
+  with `workspace_id` NULL = system default / non-null = tenant override. Entities
   reference `*_status_id` FK (RESTRICT). The BUILT ENUM columns are replaced.
 - **Immutable ledger.** `transactions` is an append-only double-entry-style
   ledger: every money event (charge, capture, refund, chargeback, payout,
@@ -76,14 +76,14 @@ Design pillars (all from the Bible):
   (public id), `created_at`, `updated_at`. `deleted_at` only on soft-deletable
   business entities (plans, subscriptions, invoices, payment_methods, coupons,
   trials). Ledger/event/pivot/usage rows are append-only (no soft delete).
-- Tenant tables carry `company_id` BIGINT UNSIGNED NOT NULL, FK → companies,
+- Tenant tables carry `workspace_id` BIGINT UNSIGNED NOT NULL, FK → workspaces,
   indexed. `plans`, `plan_features`, `plan_prices`, the three `*_statuses`
   defaults, `payment_gateways`, and `coupons` (global) are **not** tenant-scoped
   (catalog / system rows); `coupons` is global with optional tenant scope.
 - `created_by` / `updated_by` BIGINT UNSIGNED NULL FK → users (SET NULL) on
   human-authored entities (coupons, manual invoices/payments, plan edits).
 - Every FK column is indexed; hot paths get composites
-  (`company_id,*_status_id`, `company_id,created_at`).
+  (`workspace_id,*_status_id`, `workspace_id,created_at`).
 - ON DELETE: CASCADE for owned children inside a tenant; RESTRICT for catalog
   refs (plans, currencies, statuses, gateways); SET NULL for optional actors.
   ON UPDATE CASCADE everywhere.
@@ -94,13 +94,13 @@ Design pillars (all from the Bible):
 
 ```mermaid
 erDiagram
-    companies   ||--o{ subscriptions          : "has"
-    companies   ||--o{ invoices               : "billed"
-    companies   ||--o{ payments               : "pays"
-    companies   ||--o{ transactions           : "ledger"
-    companies   ||--o{ payment_methods        : "stores"
-    companies   ||--o{ usage_records          : "consumes"
-    companies   ||--o{ coupon_redemptions     : "redeems"
+    workspaces   ||--o{ subscriptions          : "has"
+    workspaces   ||--o{ invoices               : "billed"
+    workspaces   ||--o{ payments               : "pays"
+    workspaces   ||--o{ transactions           : "ledger"
+    workspaces   ||--o{ payment_methods        : "stores"
+    workspaces   ||--o{ usage_records          : "consumes"
+    workspaces   ||--o{ coupon_redemptions     : "redeems"
 
     plans       ||--o{ plan_features          : "defines"
     plans       ||--o{ plan_prices            : "priced_by"
@@ -221,7 +221,7 @@ JSON). One row per feature key per plan. **Tenant-scoped?** No. **Soft delete?**
   `plan_features_plan_id_index` (index FK).
 - **Foreign keys:** `plan_id` → `plans(id)` ON DELETE CASCADE ON UPDATE CASCADE.
 - **Relationships:** plan 1—* plan_features.
-- **Notes:** Numeric *enforced* limits with per-company overrides live in
+- **Notes:** Numeric *enforced* limits with per-workspace overrides live in
   `usage_limits`; `plan_features` is the marketing/feature-flag surface. Keep
   both in sync at the app layer.
 
@@ -262,10 +262,10 @@ Multi-currency / multi-interval price book for plans (replaces `plans.price`,
 
 ### 4. `subscriptions` — BUILT (migration 0010, extended by 0016)
 
-A company's subscription to a plan; tracks lifecycle and the billing window.
+A workspace's subscription to a plan; tracks lifecycle and the billing window.
 **Tenant-scoped?** Yes. **Soft delete?** Yes (`deleted_at`, added 0016).
 
-> **BUILT vs BLUEPRINT.** Shipped: `id, company_id, plan_id, status ENUM, amount
+> **BUILT vs BLUEPRINT.** Shipped: `id, workspace_id, plan_id, status ENUM, amount
 > DECIMAL(10,2), currency VARCHAR(3), trial_ends_at, starts_at, ends_at,
 > canceled_at, created_at, updated_at`; `uuid`+`deleted_at` added by 0016. The
 > blueprint replaces `status` ENUM → `subscription_status_id` FK, `currency`
@@ -276,7 +276,7 @@ A company's subscription to a plan; tracks lifecycle and the billing window.
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id (added 0016) |
-| company_id | BIGINT UNSIGNED | no | — | FK → companies (tenant) |
+| workspace_id | BIGINT UNSIGNED | no | — | FK → workspaces (tenant) |
 | plan_id | BIGINT UNSIGNED | no | — | FK → plans |
 | plan_price_id | BIGINT UNSIGNED | yes | NULL | **(blueprint)** FK → plan_prices (chosen price) |
 | status | ENUM(...) | no | 'trialing' | **BUILT, deprecated** → `subscription_status_id` |
@@ -301,22 +301,22 @@ A company's subscription to a plan; tracks lifecycle and the billing window.
 
 - **Keys:** PK `id`; UNIQUE `uuid`. (A tenant may hold historical subscriptions;
   the *one active* rule is enforced at the app layer, optionally a partial/unique
-  index on (`company_id`) WHERE active.)
+  index on (`workspace_id`) WHERE active.)
 - **Indexes:** `subscriptions_uuid_unique` (unique),
-  `subscriptions_company_id_index`, `subscriptions_plan_id_index`,
+  `subscriptions_workspace_id_index`, `subscriptions_plan_id_index`,
   `subscriptions_plan_price_id_index`, `subscriptions_status_id_index`,
   `subscriptions_currency_id_index`, `subscriptions_payment_method_id_index`,
   `subscriptions_coupon_id_index` (FK indexes), `subscriptions_status_index`
   (BUILT, ENUM — dropped at cutover), `subscriptions_deleted_at_index`,
-  `subscriptions_company_status_index` (composite `company_id,subscription_status_id`),
+  `subscriptions_workspace_status_index` (composite `workspace_id,subscription_status_id`),
   `subscriptions_current_period_end_index` (renewal sweep).
-- **Foreign keys:** `company_id` → `companies(id)` **CASCADE** (BUILT); `plan_id`
+- **Foreign keys:** `workspace_id` → `workspaces(id)` **CASCADE** (BUILT); `plan_id`
   → `plans(id)` **RESTRICT** (BUILT); `plan_price_id` → `plan_prices(id)`
   RESTRICT; `subscription_status_id` → `subscription_statuses(id)` RESTRICT;
   `currency_id` → `currencies(id)` RESTRICT; `payment_method_id` →
   `payment_methods(id)` SET NULL; `coupon_id` → `coupons(id)` SET NULL.
   ON UPDATE CASCADE.
-- **Relationships:** company 1—* subscriptions; plan 1—* subscriptions;
+- **Relationships:** workspace 1—* subscriptions; plan 1—* subscriptions;
   subscription 1—* subscription_items; subscription 1—* invoices; subscription
   1—* subscription_renewals; subscription 1—1/—* trials; subscription 1—*
   usage_records; subscription 1—* usage_limits (overrides).
@@ -335,7 +335,7 @@ metered features). Supports multi-line/quantity billing. **Tenant-scoped?** Yes.
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | no | — | FK → companies (denormalized tenant) |
+| workspace_id | BIGINT UNSIGNED | no | — | FK → workspaces (denormalized tenant) |
 | subscription_id | BIGINT UNSIGNED | no | — | FK → subscriptions |
 | plan_price_id | BIGINT UNSIGNED | yes | NULL | FK → plan_prices |
 | feature_key | VARCHAR(80) | yes | NULL | matches plan_features (add-on/metered) |
@@ -349,9 +349,9 @@ metered features). Supports multi-line/quantity billing. **Tenant-scoped?** Yes.
 
 - **Keys:** PK `id`; UNIQUE `uuid`.
 - **Indexes:** `subscription_items_uuid_unique` (unique),
-  `subscription_items_company_id_index`, `subscription_items_subscription_id_index`,
+  `subscription_items_workspace_id_index`, `subscription_items_subscription_id_index`,
   `subscription_items_plan_price_id_index`, `subscription_items_currency_id_index`.
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE; `subscription_id` →
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE; `subscription_id` →
   `subscriptions(id)` CASCADE; `plan_price_id` → `plan_prices(id)` RESTRICT;
   `currency_id` → `currencies(id)` RESTRICT. ON UPDATE CASCADE.
 - **Relationships:** subscription 1—* subscription_items; plan_price 1—*
@@ -362,14 +362,14 @@ metered features). Supports multi-line/quantity billing. **Tenant-scoped?** Yes.
 ### 6. `subscription_statuses` — BLUEPRINT (config-driven status table)
 
 Lifecycle states for subscriptions (replaces the BUILT ENUM). Bible §2 shape.
-**Tenant-scoped?** Optional (`company_id` NULL = system default; non-null =
+**Tenant-scoped?** Optional (`workspace_id` NULL = system default; non-null =
 tenant custom). **Soft delete?** No.
 
 | column | type | null | default | notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | yes | NULL | NULL = system default, else tenant custom |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | NULL = system default, else tenant custom |
 | key | VARCHAR(60) | no | — | `trialing`,`active`,`past_due`,`canceled`,`expired`,`paused` |
 | label | VARCHAR(120) | no | — | display |
 | color | VARCHAR(20) | yes | NULL | UI badge |
@@ -381,11 +381,11 @@ tenant custom). **Soft delete?** No.
 | created_at | TIMESTAMP | yes | NULL | |
 | updated_at | TIMESTAMP | yes | NULL | |
 
-- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE (`company_id`,`key`).
+- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE (`workspace_id`,`key`).
 - **Indexes:** `subscription_statuses_uuid_unique` (unique),
-  `subscription_statuses_company_key_unique` (unique composite),
-  `subscription_statuses_company_id_index`.
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE ON UPDATE CASCADE.
+  `subscription_statuses_workspace_key_unique` (unique composite),
+  `subscription_statuses_workspace_id_index`.
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE ON UPDATE CASCADE.
 - **Relationships:** subscription_status 1—* subscriptions.
 - **Notes:** Seeded system rows mirror the BUILT ENUM values plus `paused`; no
   ENUM anywhere. `subscriptions.subscription_status_id` RESTRICTs against this.
@@ -399,7 +399,7 @@ History of each billing-cycle renewal/charge attempt for a subscription.
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | no | — | FK → companies |
+| workspace_id | BIGINT UNSIGNED | no | — | FK → workspaces |
 | subscription_id | BIGINT UNSIGNED | no | — | FK → subscriptions |
 | invoice_id | BIGINT UNSIGNED | yes | NULL | FK → invoices (generated) |
 | period_start | TIMESTAMP | no | — | renewed cycle start |
@@ -415,12 +415,12 @@ History of each billing-cycle renewal/charge attempt for a subscription.
 
 - **Keys:** PK `id`; UNIQUE `uuid`.
 - **Indexes:** `subscription_renewals_uuid_unique` (unique),
-  `subscription_renewals_company_id_index`,
+  `subscription_renewals_workspace_id_index`,
   `subscription_renewals_subscription_id_index`,
   `subscription_renewals_invoice_id_index`,
   `subscription_renewals_currency_id_index`,
-  `subscription_renewals_company_created_index` (composite `company_id,created_at`).
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE; `subscription_id` →
+  `subscription_renewals_workspace_created_index` (composite `workspace_id,created_at`).
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE; `subscription_id` →
   `subscriptions(id)` CASCADE; `invoice_id` → `invoices(id)` SET NULL;
   `currency_id` → `currencies(id)` RESTRICT. ON UPDATE CASCADE.
 - **Relationships:** subscription 1—* subscription_renewals; invoice 1—1/0
@@ -430,7 +430,7 @@ History of each billing-cycle renewal/charge attempt for a subscription.
 
 ### 8. `trials` — BLUEPRINT
 
-Trial periods granted to a company/subscription (explicit so trials are
+Trial periods granted to a workspace/subscription (explicit so trials are
 reportable and abuse-detectable beyond `subscriptions.trial_ends_at`).
 **Tenant-scoped?** Yes. **Soft delete?** Yes (`deleted_at`).
 
@@ -438,7 +438,7 @@ reportable and abuse-detectable beyond `subscriptions.trial_ends_at`).
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | no | — | FK → companies |
+| workspace_id | BIGINT UNSIGNED | no | — | FK → workspaces |
 | subscription_id | BIGINT UNSIGNED | yes | NULL | FK → subscriptions (null = pre-subscribe trial) |
 | plan_id | BIGINT UNSIGNED | yes | NULL | FK → plans (trialed plan) |
 | starts_at | TIMESTAMP | no | — | trial start |
@@ -452,19 +452,19 @@ reportable and abuse-detectable beyond `subscriptions.trial_ends_at`).
 | deleted_at | TIMESTAMP | yes | NULL | soft delete |
 
 - **Keys:** PK `id`; UNIQUE `uuid`.
-- **Indexes:** `trials_uuid_unique` (unique), `trials_company_id_index`,
+- **Indexes:** `trials_uuid_unique` (unique), `trials_workspace_id_index`,
   `trials_subscription_id_index`, `trials_plan_id_index`,
   `trials_ends_at_index` (expiry sweep), `trials_deleted_at_index`.
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE; `subscription_id` →
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE; `subscription_id` →
   `subscriptions(id)` SET NULL; `plan_id` → `plans(id)` RESTRICT;
   `converted_subscription_id` → `subscriptions(id)` SET NULL. ON UPDATE CASCADE.
-- **Relationships:** company 1—* trials; subscription 1—* trials.
-- **Notes:** One trial-per-company-per-plan policy enforced at app layer; this
+- **Relationships:** workspace 1—* trials; subscription 1—* trials.
+- **Notes:** One trial-per-workspace-per-plan policy enforced at app layer; this
   table is the audit trail of trial grants/conversions.
 
 ### 9. `invoices` — BLUEPRINT
 
-A billing document issued to a company (subscription charge, one-off, or manual).
+A billing document issued to a workspace (subscription charge, one-off, or manual).
 ZATCA/VAT-aware. **Tenant-scoped?** Yes. **Soft delete?** Yes (`deleted_at`;
 issued invoices are voided not deleted).
 
@@ -472,12 +472,12 @@ issued invoices are voided not deleted).
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | no | — | FK → companies |
+| workspace_id | BIGINT UNSIGNED | no | — | FK → workspaces |
 | subscription_id | BIGINT UNSIGNED | yes | NULL | FK → subscriptions (null = one-off) |
 | invoice_status_id | BIGINT UNSIGNED | no | — | FK → invoice_statuses |
 | currency_id | BIGINT UNSIGNED | no | — | FK → currencies |
 | coupon_id | BIGINT UNSIGNED | yes | NULL | FK → coupons (applied) |
-| number | VARCHAR(40) | no | — | human invoice no., UNIQUE per company |
+| number | VARCHAR(40) | no | — | human invoice no., UNIQUE per workspace |
 | subtotal_amount | DECIMAL(12,2) | no | 0.00 | sum of line nets (tax-exclusive) |
 | discount_amount | DECIMAL(12,2) | no | 0.00 | total discounts |
 | tax_amount | DECIMAL(12,2) | no | 0.00 | total VAT (KSA 15% default) |
@@ -498,20 +498,20 @@ issued invoices are voided not deleted).
 | updated_at | TIMESTAMP | yes | NULL | |
 | deleted_at | TIMESTAMP | yes | NULL | soft delete |
 
-- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE (`company_id`,`number`).
+- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE (`workspace_id`,`number`).
 - **Indexes:** `invoices_uuid_unique` (unique),
-  `invoices_company_number_unique` (unique composite),
-  `invoices_company_id_index`, `invoices_subscription_id_index`,
+  `invoices_workspace_number_unique` (unique composite),
+  `invoices_workspace_id_index`, `invoices_subscription_id_index`,
   `invoices_status_id_index`, `invoices_currency_id_index`,
   `invoices_coupon_id_index`, `invoices_deleted_at_index`,
-  `invoices_company_status_index` (composite `company_id,invoice_status_id`),
-  `invoices_company_issued_index` (composite `company_id,issued_at`),
+  `invoices_workspace_status_index` (composite `workspace_id,invoice_status_id`),
+  `invoices_workspace_issued_index` (composite `workspace_id,issued_at`),
   `invoices_due_at_index` (overdue sweep).
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE; `subscription_id` →
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE; `subscription_id` →
   `subscriptions(id)` SET NULL; `invoice_status_id` → `invoice_statuses(id)`
   RESTRICT; `currency_id` → `currencies(id)` RESTRICT; `coupon_id` →
   `coupons(id)` SET NULL. ON UPDATE CASCADE.
-- **Relationships:** company 1—* invoices; subscription 1—* invoices; invoice
+- **Relationships:** workspace 1—* invoices; subscription 1—* invoices; invoice
   1—* invoice_items; invoice 1—* payments; invoice 1—* coupon_redemptions.
 - **Notes:** Totals are *derived/cached* from `invoice_items` and recomputed on
   line change. PDF stored via polymorphic `attachments`
@@ -527,7 +527,7 @@ Line items of an invoice with explicit per-line VAT. **Tenant-scoped?** Yes.
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | no | — | FK → companies (denormalized) |
+| workspace_id | BIGINT UNSIGNED | no | — | FK → workspaces (denormalized) |
 | invoice_id | BIGINT UNSIGNED | no | — | FK → invoices |
 | subscription_item_id | BIGINT UNSIGNED | yes | NULL | FK → subscription_items (origin) |
 | plan_price_id | BIGINT UNSIGNED | yes | NULL | FK → plan_prices (origin) |
@@ -547,10 +547,10 @@ Line items of an invoice with explicit per-line VAT. **Tenant-scoped?** Yes.
 
 - **Keys:** PK `id`; UNIQUE `uuid`.
 - **Indexes:** `invoice_items_uuid_unique` (unique),
-  `invoice_items_company_id_index`, `invoice_items_invoice_id_index`,
+  `invoice_items_workspace_id_index`, `invoice_items_invoice_id_index`,
   `invoice_items_subscription_item_id_index`, `invoice_items_plan_price_id_index`,
   `invoice_items_currency_id_index`.
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE; `invoice_id` →
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE; `invoice_id` →
   `invoices(id)` CASCADE; `subscription_item_id` → `subscription_items(id)`
   SET NULL; `plan_price_id` → `plan_prices(id)` SET NULL; `currency_id` →
   `currencies(id)` RESTRICT. ON UPDATE CASCADE.
@@ -562,13 +562,13 @@ Line items of an invoice with explicit per-line VAT. **Tenant-scoped?** Yes.
 ### 11. `invoice_statuses` — BLUEPRINT (config-driven status table)
 
 Lifecycle states for invoices. Bible §2 shape. **Tenant-scoped?** Optional
-(`company_id` NULL = system default). **Soft delete?** No.
+(`workspace_id` NULL = system default). **Soft delete?** No.
 
 | column | type | null | default | notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | yes | NULL | NULL = system default, else tenant |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | NULL = system default, else tenant |
 | key | VARCHAR(60) | no | — | `draft`,`open`,`paid`,`partial`,`uncollectible`,`void`,`refunded` |
 | label | VARCHAR(120) | no | — | display |
 | color | VARCHAR(20) | yes | NULL | UI badge |
@@ -580,11 +580,11 @@ Lifecycle states for invoices. Bible §2 shape. **Tenant-scoped?** Optional
 | created_at | TIMESTAMP | yes | NULL | |
 | updated_at | TIMESTAMP | yes | NULL | |
 
-- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE (`company_id`,`key`).
+- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE (`workspace_id`,`key`).
 - **Indexes:** `invoice_statuses_uuid_unique` (unique),
-  `invoice_statuses_company_key_unique` (unique composite),
-  `invoice_statuses_company_id_index`.
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE ON UPDATE CASCADE.
+  `invoice_statuses_workspace_key_unique` (unique composite),
+  `invoice_statuses_workspace_id_index`.
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE ON UPDATE CASCADE.
 - **Relationships:** invoice_status 1—* invoices.
 - **Notes:** `invoices.invoice_status_id` RESTRICTs against this; no ENUM.
 
@@ -597,7 +597,7 @@ Yes. **Soft delete?** Yes (`deleted_at`; reconciliation rows are not hard-delete
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | no | — | FK → companies |
+| workspace_id | BIGINT UNSIGNED | no | — | FK → workspaces |
 | invoice_id | BIGINT UNSIGNED | yes | NULL | FK → invoices (null = unapplied/credit) |
 | subscription_id | BIGINT UNSIGNED | yes | NULL | FK → subscriptions |
 | payment_status_id | BIGINT UNSIGNED | no | — | FK → payment_statuses |
@@ -622,14 +622,14 @@ Yes. **Soft delete?** Yes (`deleted_at`; reconciliation rows are not hard-delete
   (`payment_gateway_id`,`gateway_payment_ref`) (idempotent capture).
 - **Indexes:** `payments_uuid_unique` (unique),
   `payments_gateway_ref_unique` (unique composite),
-  `payments_company_id_index`, `payments_invoice_id_index`,
+  `payments_workspace_id_index`, `payments_invoice_id_index`,
   `payments_subscription_id_index`, `payments_status_id_index`,
   `payments_gateway_id_index`, `payments_method_id_index`,
   `payments_currency_id_index`, `payments_created_by_index`,
   `payments_deleted_at_index`,
-  `payments_company_status_index` (composite `company_id,payment_status_id`),
-  `payments_company_created_index` (composite `company_id,created_at`).
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE; `invoice_id` →
+  `payments_workspace_status_index` (composite `workspace_id,payment_status_id`),
+  `payments_workspace_created_index` (composite `workspace_id,created_at`).
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE; `invoice_id` →
   `invoices(id)` SET NULL; `subscription_id` → `subscriptions(id)` SET NULL;
   `payment_status_id` → `payment_statuses(id)` RESTRICT; `payment_gateway_id` →
   `payment_gateways(id)` RESTRICT; `payment_method_id` → `payment_methods(id)`
@@ -644,13 +644,13 @@ Yes. **Soft delete?** Yes (`deleted_at`; reconciliation rows are not hard-delete
 ### 13. `payment_statuses` — BLUEPRINT (config-driven status table)
 
 Lifecycle states for payments. Bible §2 shape. **Tenant-scoped?** Optional
-(`company_id` NULL = system default). **Soft delete?** No.
+(`workspace_id` NULL = system default). **Soft delete?** No.
 
 | column | type | null | default | notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | yes | NULL | NULL = system default, else tenant |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | NULL = system default, else tenant |
 | key | VARCHAR(60) | no | — | `pending`,`authorized`,`paid`,`failed`,`refunded`,`partially_refunded`,`disputed` |
 | label | VARCHAR(120) | no | — | display |
 | color | VARCHAR(20) | yes | NULL | UI badge |
@@ -662,11 +662,11 @@ Lifecycle states for payments. Bible §2 shape. **Tenant-scoped?** Optional
 | created_at | TIMESTAMP | yes | NULL | |
 | updated_at | TIMESTAMP | yes | NULL | |
 
-- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE (`company_id`,`key`).
+- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE (`workspace_id`,`key`).
 - **Indexes:** `payment_statuses_uuid_unique` (unique),
-  `payment_statuses_company_key_unique` (unique composite),
-  `payment_statuses_company_id_index`.
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE ON UPDATE CASCADE.
+  `payment_statuses_workspace_key_unique` (unique composite),
+  `payment_statuses_workspace_id_index`.
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE ON UPDATE CASCADE.
 - **Relationships:** payment_status 1—* payments.
 - **Notes:** `payments.payment_status_id` RESTRICTs against this; no ENUM.
 
@@ -681,7 +681,7 @@ compensating rows.
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | no | — | FK → companies |
+| workspace_id | BIGINT UNSIGNED | no | — | FK → workspaces |
 | payment_id | BIGINT UNSIGNED | yes | NULL | FK → payments (originating) |
 | invoice_id | BIGINT UNSIGNED | yes | NULL | FK → invoices |
 | subscription_id | BIGINT UNSIGNED | yes | NULL | FK → subscriptions |
@@ -702,13 +702,13 @@ compensating rows.
   (`payment_gateway_id`,`gateway_txn_ref`) where ref present (idempotent ledger).
 - **Indexes:** `transactions_uuid_unique` (unique),
   `transactions_gateway_txn_unique` (unique composite),
-  `transactions_company_id_index`, `transactions_payment_id_index`,
+  `transactions_workspace_id_index`, `transactions_payment_id_index`,
   `transactions_invoice_id_index`, `transactions_subscription_id_index`,
   `transactions_gateway_id_index`, `transactions_currency_id_index`,
   `transactions_parent_id_index`,
-  `transactions_company_occurred_index` (composite `company_id,occurred_at`),
-  `transactions_company_type_index` (composite `company_id,type`).
-- **Foreign keys:** `company_id` → `companies(id)` **RESTRICT** (ledger must not
+  `transactions_workspace_occurred_index` (composite `workspace_id,occurred_at`),
+  `transactions_workspace_type_index` (composite `workspace_id,type`).
+- **Foreign keys:** `workspace_id` → `workspaces(id)` **RESTRICT** (ledger must not
   vanish with tenant — anonymize instead); `payment_id` → `payments(id)`
   SET NULL; `invoice_id` → `invoices(id)` SET NULL; `subscription_id` →
   `subscriptions(id)` SET NULL; `payment_gateway_id` → `payment_gateways(id)`
@@ -717,14 +717,14 @@ compensating rows.
 - **Relationships:** payment 1—* transactions; transaction 1—* transactions
   (self, refund chains).
 - **Notes:** **No `updated_at`/`deleted_at`** by design — immutability is the
-  contract. The sum of a company's transactions is its ledger balance and the
+  contract. The sum of a workspace's transactions is its ledger balance and the
   source of truth for finance/reconciliation; `payments`/`invoices` are
   derived/operational. High-volume → candidate for RANGE(`occurred_at`)
   partitioning (Bible §7) but keeps hard FKs (financial integrity).
 
 ### 15. `payment_methods` — BLUEPRINT
 
-Stored payment instruments (tokenized cards, mada, Apple Pay, bank) per company.
+Stored payment instruments (tokenized cards, mada, Apple Pay, bank) per workspace.
 **Tenant-scoped?** Yes. **Soft delete?** Yes (`deleted_at`; detached methods kept
 for audit).
 
@@ -732,7 +732,7 @@ for audit).
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | no | — | FK → companies |
+| workspace_id | BIGINT UNSIGNED | no | — | FK → workspaces |
 | payment_gateway_id | BIGINT UNSIGNED | no | — | FK → payment_gateways (issuer) |
 | type | VARCHAR(30) | no | 'card' | `card`,`mada`,`apple_pay`,`stc_pay`,`bank` (lookup) |
 | gateway_token | VARCHAR(191) | yes | NULL | tokenized ref (NEVER raw PAN) |
@@ -752,22 +752,22 @@ for audit).
   (`payment_gateway_id`,`gateway_token`) where token present.
 - **Indexes:** `payment_methods_uuid_unique` (unique),
   `payment_methods_gateway_token_unique` (unique composite),
-  `payment_methods_company_id_index`, `payment_methods_gateway_id_index`,
+  `payment_methods_workspace_id_index`, `payment_methods_gateway_id_index`,
   `payment_methods_created_by_index`, `payment_methods_deleted_at_index`,
-  `payment_methods_company_default_index` (composite `company_id,is_default`).
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE; `payment_gateway_id`
+  `payment_methods_workspace_default_index` (composite `workspace_id,is_default`).
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE; `payment_gateway_id`
   → `payment_gateways(id)` RESTRICT; `created_by` → `users(id)` SET NULL.
   ON UPDATE CASCADE.
-- **Relationships:** company 1—* payment_methods; payment_method 1—* payments;
+- **Relationships:** workspace 1—* payment_methods; payment_method 1—* payments;
   payment_method 1—* subscriptions (default).
 - **Notes:** **PCI:** only gateway tokens + display metadata are stored, never
-  full card numbers. One default per company enforced at app layer.
+  full card numbers. One default per workspace enforced at app layer.
 
 ### 16. `payment_gateways` — BLUEPRINT (multi-gateway catalog)
 
 Catalog of payment providers (Moyasar, Tap, HyperPay, Stripe, manual/offline).
 **Tenant-scoped?** No (global catalog; per-tenant credentials/toggles live in
-`company_billing`/`company_integrations`). **Soft delete?** No (deactivate via
+`workspace_billing`/`workspace_integrations`). **Soft delete?** No (deactivate via
 `is_active`).
 
 | column | type | null | default | notes |
@@ -794,8 +794,8 @@ Catalog of payment providers (Moyasar, Tap, HyperPay, Stripe, manual/offline).
 - **Relationships:** gateway 1—* payment_methods; gateway 1—* payments; gateway
   1—* transactions; gateway 1—* gateway_events.
 - **Notes:** Adding a provider = `INSERT` + a driver implementation. Live API
-  keys/secrets are NOT here (they live encrypted in `company_billing` /
-  `company_integrations` per tenant) — this is the public catalog/capabilities.
+  keys/secrets are NOT here (they live encrypted in `workspace_billing` /
+  `workspace_integrations` per tenant) — this is the public catalog/capabilities.
 
 ### 17. `gateway_events` — BLUEPRINT (idempotent webhooks)
 
@@ -808,7 +808,7 @@ results. **Tenant-scoped?** Optional (resolved from payload). **Soft delete?** N
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | yes | NULL | optional (high-volume append; see Bible §1) |
 | payment_gateway_id | BIGINT UNSIGNED | no | — | FK → payment_gateways |
-| company_id | BIGINT UNSIGNED | yes | NULL | FK → companies (resolved, nullable) |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | FK → workspaces (resolved, nullable) |
 | payment_id | BIGINT UNSIGNED | yes | NULL | FK → payments (matched) |
 | external_event_id | VARCHAR(191) | no | — | provider event id (idempotency key) |
 | event_type | VARCHAR(80) | no | — | `payment.succeeded`,`charge.refunded`, … |
@@ -823,12 +823,12 @@ results. **Tenant-scoped?** Optional (resolved from payload). **Soft delete?** N
 - **Keys:** PK `id`; UNIQUE (`payment_gateway_id`,`external_event_id`) —
   **idempotency**: a re-delivered webhook is ignored.
 - **Indexes:** `gateway_events_external_unique` (unique composite),
-  `gateway_events_gateway_id_index`, `gateway_events_company_id_index`,
+  `gateway_events_gateway_id_index`, `gateway_events_workspace_id_index`,
   `gateway_events_payment_id_index`, `gateway_events_event_type_index`,
   `gateway_events_processed_at_index` (pending-queue sweep),
   `gateway_events_received_at_index`.
 - **Foreign keys:** `payment_gateway_id` → `payment_gateways(id)` RESTRICT;
-  `company_id` → `companies(id)` SET NULL; `payment_id` → `payments(id)`
+  `workspace_id` → `workspaces(id)` SET NULL; `payment_id` → `payments(id)`
   SET NULL. ON UPDATE CASCADE. *(High-volume; FKs retained but this is a
   candidate for FK-light + RANGE(`received_at`) partitioning per Bible §4/§7.)*
 - **Relationships:** gateway 1—* gateway_events; payment 1—* gateway_events.
@@ -839,14 +839,14 @@ results. **Tenant-scoped?** Optional (resolved from payload). **Soft delete?** N
 ### 18. `coupons` — BLUEPRINT
 
 Discount/promo codes (percent or fixed amount), optionally tenant-scoped.
-**Tenant-scoped?** Optional (`company_id` NULL = global promo; non-null = tenant
+**Tenant-scoped?** Optional (`workspace_id` NULL = global promo; non-null = tenant
 private). **Soft delete?** Yes (`deleted_at`).
 
 | column | type | null | default | notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | yes | NULL | NULL = global, else tenant-scoped |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | NULL = global, else tenant-scoped |
 | code | VARCHAR(60) | no | — | redemption code |
 | name | VARCHAR(150) | yes | NULL | internal label |
 | discount_type | VARCHAR(20) | no | 'percent' | `percent`\|`fixed` (lookup) |
@@ -856,7 +856,7 @@ private). **Soft delete?** Yes (`deleted_at`).
 | duration | VARCHAR(20) | no | 'once' | `once`\|`repeating`\|`forever` |
 | duration_in_months | SMALLINT UNSIGNED | yes | NULL | when repeating |
 | max_redemptions | INT UNSIGNED | yes | NULL | global cap |
-| max_redemptions_per_company | INT UNSIGNED | yes | 1 | per-tenant cap |
+| max_redemptions_per_workspace | INT UNSIGNED | yes | 1 | per-tenant cap |
 | redeemed_count | INT UNSIGNED | no | 0 | usage counter (cached) |
 | applies_to_plan_id | BIGINT UNSIGNED | yes | NULL | FK → plans (restrict to plan) |
 | min_amount | DECIMAL(12,2) | yes | NULL | minimum invoice to qualify |
@@ -868,15 +868,15 @@ private). **Soft delete?** Yes (`deleted_at`).
 | updated_at | TIMESTAMP | yes | NULL | |
 | deleted_at | TIMESTAMP | yes | NULL | soft delete |
 
-- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE (`company_id`,`code`) (global vs
-  tenant codes coexist; NULL company_id = the global namespace).
+- **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE (`workspace_id`,`code`) (global vs
+  tenant codes coexist; NULL workspace_id = the global namespace).
 - **Indexes:** `coupons_uuid_unique` (unique),
-  `coupons_company_code_unique` (unique composite),
-  `coupons_company_id_index`, `coupons_currency_id_index`,
+  `coupons_workspace_code_unique` (unique composite),
+  `coupons_workspace_id_index`, `coupons_currency_id_index`,
   `coupons_applies_to_plan_id_index`, `coupons_created_by_index`,
   `coupons_is_active_index`, `coupons_expires_at_index`,
   `coupons_deleted_at_index`.
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE; `currency_id` →
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE; `currency_id` →
   `currencies(id)` RESTRICT; `applies_to_plan_id` → `plans(id)` SET NULL;
   `created_by` → `users(id)` SET NULL. ON UPDATE CASCADE.
 - **Relationships:** coupon 1—* coupon_redemptions; coupon *—1 plan (optional).
@@ -886,14 +886,14 @@ private). **Soft delete?** Yes (`deleted_at`).
 
 ### 19. `coupon_redemptions` — BLUEPRINT
 
-Records each application of a coupon by a company to a subscription/invoice.
+Records each application of a coupon by a workspace to a subscription/invoice.
 **Tenant-scoped?** Yes. **Soft delete?** No (append-only ledger of redemptions).
 
 | column | type | null | default | notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| company_id | BIGINT UNSIGNED | no | — | FK → companies |
+| workspace_id | BIGINT UNSIGNED | no | — | FK → workspaces |
 | coupon_id | BIGINT UNSIGNED | no | — | FK → coupons |
 | subscription_id | BIGINT UNSIGNED | yes | NULL | FK → subscriptions |
 | invoice_id | BIGINT UNSIGNED | yes | NULL | FK → invoices |
@@ -904,27 +904,27 @@ Records each application of a coupon by a company to a subscription/invoice.
 | created_at | TIMESTAMP | yes | NULL | |
 | updated_at | TIMESTAMP | yes | NULL | |
 
-- **Keys:** PK `id`; UNIQUE `uuid`. (Per-company cap enforced via
-  count(`coupon_id`,`company_id`) at app layer; optional UNIQUE
+- **Keys:** PK `id`; UNIQUE `uuid`. (Per-workspace cap enforced via
+  count(`coupon_id`,`workspace_id`) at app layer; optional UNIQUE
   (`coupon_id`,`invoice_id`) to prevent double-applying to one invoice.)
 - **Indexes:** `coupon_redemptions_uuid_unique` (unique),
-  `coupon_redemptions_company_id_index`, `coupon_redemptions_coupon_id_index`,
+  `coupon_redemptions_workspace_id_index`, `coupon_redemptions_coupon_id_index`,
   `coupon_redemptions_subscription_id_index`,
   `coupon_redemptions_invoice_id_index`, `coupon_redemptions_currency_id_index`,
   `coupon_redemptions_redeemed_by_index`,
-  `coupon_redemptions_coupon_company_index` (composite `coupon_id,company_id`).
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE; `coupon_id` →
+  `coupon_redemptions_coupon_workspace_index` (composite `coupon_id,workspace_id`).
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE; `coupon_id` →
   `coupons(id)` RESTRICT; `subscription_id` → `subscriptions(id)` SET NULL;
   `invoice_id` → `invoices(id)` SET NULL; `currency_id` → `currencies(id)`
   RESTRICT; `redeemed_by` → `users(id)` SET NULL. ON UPDATE CASCADE.
-- **Relationships:** coupon 1—* coupon_redemptions; company 1—*
+- **Relationships:** coupon 1—* coupon_redemptions; workspace 1—*
   coupon_redemptions.
 - **Notes:** `coupon_id` is RESTRICT so a redeemed coupon cannot be hard-deleted
   (soft-delete the coupon instead). Drives `coupons.redeemed_count`.
 
 ### 20. `usage_records` — BLUEPRINT (metered)
 
-Append-only metered consumption events per company/subscription (e.g. AI
+Append-only metered consumption events per workspace/subscription (e.g. AI
 interviews run, API calls) used for usage-based billing and limit enforcement.
 **Tenant-scoped?** Yes. **Soft delete?** No (append-only; high volume).
 
@@ -932,7 +932,7 @@ interviews run, API calls) used for usage-based billing and limit enforcement.
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | yes | NULL | optional (high-volume append; Bible §1) |
-| company_id | BIGINT UNSIGNED | no | — | FK → companies |
+| workspace_id | BIGINT UNSIGNED | no | — | FK → workspaces |
 | subscription_id | BIGINT UNSIGNED | yes | NULL | FK → subscriptions |
 | usage_limit_id | BIGINT UNSIGNED | yes | NULL | FK → usage_limits (the metric) |
 | metric_key | VARCHAR(80) | no | — | `ai_interviews`,`api_calls`,`storage_mb`, … |
@@ -947,38 +947,38 @@ interviews run, API calls) used for usage-based billing and limit enforcement.
 | created_at | TIMESTAMP | yes | NULL | |
 
 - **Keys:** PK `id`; UNIQUE `uuid` where present.
-- **Indexes:** `usage_records_company_id_index`,
+- **Indexes:** `usage_records_workspace_id_index`,
   `usage_records_subscription_id_index`, `usage_records_usage_limit_id_index`,
   `usage_records_currency_id_index`,
-  `usage_records_company_metric_period_index` (composite
-  `company_id,metric_key,period_key` — aggregation hot path),
+  `usage_records_workspace_metric_period_index` (composite
+  `workspace_id,metric_key,period_key` — aggregation hot path),
   `usage_records_recorded_at_index`,
   `usage_records_reference_index` (polymorphic composite
   `reference_type,reference_id`),
   `usage_records_invoiced_at_index` (unbilled sweep).
-- **Foreign keys:** `company_id` → `companies(id)` CASCADE; `subscription_id` →
+- **Foreign keys:** `workspace_id` → `workspaces(id)` CASCADE; `subscription_id` →
   `subscriptions(id)` SET NULL; `usage_limit_id` → `usage_limits(id)` SET NULL;
   `currency_id` → `currencies(id)` RESTRICT. ON UPDATE CASCADE.
   *(High-volume; FK-light + RANGE(`recorded_at`) partitioning is a valid Bible
   §4/§7 option; `reference_type/id` is polymorphic — integrity at app layer.)*
 - **Relationships:** subscription 1—* usage_records; usage_limit 1—*
   usage_records.
-- **Notes:** Aggregated by (`company_id`,`metric_key`,`period_key`) for billing
+- **Notes:** Aggregated by (`workspace_id`,`metric_key`,`period_key`) for billing
   and against `usage_limits` for enforcement. `uuid` MAY be omitted for
   throughput (Bible §1). Rollups feed `usage_analytics` (D10).
 
 ### 21. `usage_limits` — BLUEPRINT
 
 Effective consumption limits per metric: the **plan limit** and optional
-**per-company override**. **Tenant-scoped?** Optional (`company_id` NULL = the
-plan-level default; non-null = a company override). **Soft delete?** No.
+**per-workspace override**. **Tenant-scoped?** Optional (`workspace_id` NULL = the
+plan-level default; non-null = a workspace override). **Soft delete?** No.
 
 | column | type | null | default | notes |
 |---|---|---|---|---|
 | id | BIGINT UNSIGNED | no | AI | PK |
 | uuid | CHAR(36) | no | — | public id |
-| plan_id | BIGINT UNSIGNED | yes | NULL | FK → plans (NULL only for pure company override) |
-| company_id | BIGINT UNSIGNED | yes | NULL | NULL = plan default, else company override |
+| plan_id | BIGINT UNSIGNED | yes | NULL | FK → plans (NULL only for pure workspace override) |
+| workspace_id | BIGINT UNSIGNED | yes | NULL | NULL = plan default, else workspace override |
 | subscription_id | BIGINT UNSIGNED | yes | NULL | FK → subscriptions (scope override) |
 | metric_key | VARCHAR(80) | no | — | matches usage_records.metric_key |
 | limit_value | BIGINT | yes | NULL | max units per period; NULL = unlimited |
@@ -991,18 +991,18 @@ plan-level default; non-null = a company override). **Soft delete?** No.
 | updated_at | TIMESTAMP | yes | NULL | |
 
 - **Keys:** PK `id`; UNIQUE `uuid`; UNIQUE
-  (`plan_id`,`company_id`,`metric_key`,`period`) — one rule per scope+metric.
+  (`plan_id`,`workspace_id`,`metric_key`,`period`) — one rule per scope+metric.
 - **Indexes:** `usage_limits_uuid_unique` (unique),
   `usage_limits_scope_metric_unique` (unique composite),
-  `usage_limits_plan_id_index`, `usage_limits_company_id_index`,
+  `usage_limits_plan_id_index`, `usage_limits_workspace_id_index`,
   `usage_limits_subscription_id_index`, `usage_limits_currency_id_index`,
-  `usage_limits_company_metric_index` (composite `company_id,metric_key`).
-- **Foreign keys:** `plan_id` → `plans(id)` CASCADE; `company_id` →
-  `companies(id)` CASCADE; `subscription_id` → `subscriptions(id)` CASCADE;
+  `usage_limits_workspace_metric_index` (composite `workspace_id,metric_key`).
+- **Foreign keys:** `plan_id` → `plans(id)` CASCADE; `workspace_id` →
+  `workspaces(id)` CASCADE; `subscription_id` → `subscriptions(id)` CASCADE;
   `currency_id` → `currencies(id)` RESTRICT. ON UPDATE CASCADE.
-- **Relationships:** plan 1—* usage_limits; company 1—* usage_limits (overrides);
+- **Relationships:** plan 1—* usage_limits; workspace 1—* usage_limits (overrides);
   usage_limit 1—* usage_records.
-- **Notes:** **Resolution order** at runtime: company/subscription override →
+- **Notes:** **Resolution order** at runtime: workspace/subscription override →
   plan default. `limit_value` NULL = **unlimited** (matches the data-driven plan
   ethos). The plan ships effectively unlimited (no restrictive seed rows). Mirror
   of marketing flags in `plan_features`; this is the *enforced* limit.
@@ -1037,20 +1037,20 @@ plan-level default; non-null = a company override). **Soft delete?** No.
 - **Scale (Bible §7):** `gateway_events` and `usage_records` are append-mostly,
   may omit `uuid`, and are candidates for RANGE(`received_at`/`recorded_at`)
   partitioning; `transactions` can partition by `occurred_at` while keeping hard
-  FKs. All tenant rows carry `company_id` (shard-ready).
-- **Tenant isolation (DB-2):** every operational table carries `company_id`;
+  FKs. All tenant rows carry `workspace_id` (shard-ready).
+- **Tenant isolation (DB-2):** every operational table carries `workspace_id`;
   catalogs (`plans`, `plan_features`, `plan_prices`, `payment_gateways`) and
   system-default status rows are global by design.
 
 ## Assumptions & Open Questions
 
-- **A1.** Per-tenant gateway credentials/secrets live in `company_billing` /
-  `company_integrations` (D2), not in `payment_gateways` (public catalog). The
+- **A1.** Per-tenant gateway credentials/secrets live in `workspace_billing` /
+  `workspace_integrations` (D2), not in `payment_gateways` (public catalog). The
   D2 doc owns those columns.
 - **A2.** A `tax_rates` lookup (or `lookup_values` category) is assumed in D0 for
   configurable VAT; until then `invoices.tax_rate`/`invoice_items.tax_rate`
   columns hold the applied rate (default 15.00).
-- **A3.** "One active subscription per company" is enforced at the app layer
+- **A3.** "One active subscription per workspace" is enforced at the app layer
   (history rows allowed); a partial unique index is optional if MySQL/MariaDB
   version supports functional/partial indexes.
 - **A4.** `billing_logs` (operational billing audit) is owned by D10; this domain
