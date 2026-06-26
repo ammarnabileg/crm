@@ -27,11 +27,11 @@ return new class extends TestCase {
     {
         $owner = User::create([
             'name' => 'Owner P', 'email' => 'owner-' . uniqid() . '@test.local',
-            'password' => 'x', 'status' => 'active',
+            'password' => 'x', 'user_status_id' => lookup_id('user_status', 'active'),
         ]);
         $stranger = User::create([
             'name' => 'Stranger P', 'email' => 'stranger-' . uniqid() . '@test.local',
-            'password' => 'x', 'status' => 'active',
+            'password' => 'x', 'user_status_id' => lookup_id('user_status', 'active'),
         ]);
 
         $workspace = (new WorkspaceService())->create($owner, 'Policy Test Co');
@@ -55,7 +55,7 @@ return new class extends TestCase {
         // Build an owner + workspace, make the workspace the active tenant.
         $owner = User::create([
             'name' => 'Owner Q', 'email' => 'ownerq-' . uniqid() . '@test.local',
-            'password' => 'x', 'status' => 'active',
+            'password' => 'x', 'user_status_id' => lookup_id('user_status', 'active'),
         ]);
         $workspace = (new WorkspaceService())->create($owner, 'Gate Test Co');
         tenant()->setById((int) $workspace->getKey());

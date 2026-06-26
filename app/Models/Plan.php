@@ -17,7 +17,7 @@ final class Plan extends Model
     protected static bool $usesUuid = true;
 
     protected static array $fillable = [
-        'name', 'slug', 'description', 'price', 'currency', 'interval',
+        'name', 'slug', 'description', 'price', 'currency', 'interval_id',
         'trial_days', 'features', 'limits', 'is_active', 'is_public', 'sort_order',
     ];
 
@@ -59,5 +59,21 @@ final class Plan extends Model
     public function formattedPrice(): string
     {
         return number_format((float) $this->attributes['price'], 2) . ' ' . ($this->attributes['currency'] ?? 'SAR');
+    }
+
+    /**
+     * The billing interval's human label (config-driven via lookup_values),
+     * replacing the old hard-coded `interval` ENUM. Falls back to '' when unset.
+     */
+    public function intervalLabel(): string
+    {
+        $id = (int) ($this->attributes['interval_id'] ?? 0);
+        if ($id === 0) {
+            return '';
+        }
+
+        $row = static::db()->table('lookup_values')->where('id', '=', $id)->first();
+
+        return (string) ($row['label'] ?? '');
     }
 }

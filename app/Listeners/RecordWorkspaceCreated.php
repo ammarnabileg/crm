@@ -22,9 +22,9 @@ final class RecordWorkspaceCreated
         $workspace = $event->workspace;
 
         $this->audit->logChange('workspace.created', null, [
-            'name'   => $workspace->name,
-            'slug'   => $workspace->slug,
-            'status' => $workspace->status,
+            'name'              => $workspace->name,
+            'slug'              => $workspace->slug,
+            'workspace_status_id' => $workspace->getAttribute('workspace_status_id'),
         ], [
             'workspace_id'   => (int) $workspace->getKey(),
             'user_id'      => (int) $event->owner->getKey(),

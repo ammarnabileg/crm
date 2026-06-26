@@ -165,7 +165,7 @@ final class AccessControl
             $membershipId = $db->table('memberships')
                 ->where('user_id', '=', $user->getKey())
                 ->where('workspace_id', '=', $workspaceId)
-                ->where('status', '=', 'active')
+                ->where('membership_status_id', '=', lookup_id('membership_status', 'active'))
                 ->value('id');
 
             if ($membershipId !== null) {

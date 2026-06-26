@@ -374,6 +374,53 @@ if (! function_exists('abort_unless')) {
     }
 }
 
+if (! function_exists('status_id')) {
+    /**
+     * Resolve a per-entity status table's row id by key, at system scope
+     * (workspace_id IS NULL). The config-driven replacement for hard-coded status
+     * ENUMs. Cached per request; returns null if the status is absent.
+     */
+    function status_id(string $table, string $key): ?int
+    {
+        static $cache = [];
+        $ck = $table . '|' . $key;
+        if (! array_key_exists($ck, $cache)) {
+            $id = app('db')->scalar(
+                'SELECT id FROM `' . $table . '` WHERE workspace_id IS NULL AND `key` = ? LIMIT 1',
+                [$key]
+            );
+            $cache[$ck] = $id !== null ? (int) $id : null;
+        }
+
+        return $cache[$ck];
+    }
+}
+
+if (! function_exists('lookup_id')) {
+    /**
+     * Resolve a lookup_values row id by category key + value key, at system scope
+     * (both workspace_id IS NULL). The config-driven replacement for simple list
+     * ENUMs. Cached per request; returns null if absent.
+     */
+    function lookup_id(string $category, string $key): ?int
+    {
+        static $cache = [];
+        $ck = $category . '|' . $key;
+        if (! array_key_exists($ck, $cache)) {
+            $id = app('db')->scalar(
+                'SELECT lv.id FROM lookup_values lv
+                 JOIN lookup_categories lc ON lc.id = lv.category_id
+                 WHERE lc.`key` = ? AND lc.workspace_id IS NULL
+                   AND lv.`key` = ? AND lv.workspace_id IS NULL LIMIT 1',
+                [$category, $key]
+            );
+            $cache[$ck] = $id !== null ? (int) $id : null;
+        }
+
+        return $cache[$ck];
+    }
+}
+
 if (! function_exists('encrypt_value')) {
     function encrypt_value(string $value): string
     {

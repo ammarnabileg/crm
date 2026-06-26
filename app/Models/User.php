@@ -20,7 +20,7 @@ final class User extends Model
 
     protected static array $fillable = [
         'name', 'email', 'password', 'phone', 'avatar',
-        'locale', 'timezone', 'status', 'email_verified_at',
+        'locale', 'timezone', 'user_status_id', 'email_verified_at',
         'last_login_at', 'last_login_ip', 'remember_token',
     ];
 
@@ -28,7 +28,7 @@ final class User extends Model
 
     public function isActive(): bool
     {
-        return ($this->attributes['status'] ?? 'active') === 'active';
+        return (int) ($this->attributes['user_status_id'] ?? 0) === lookup_id('user_status', 'active');
     }
 
     /**
@@ -76,10 +76,11 @@ final class User extends Model
     public function workspaces(): array
     {
         return static::db()->table('workspaces')
-            ->select('workspaces.*', 'memberships.status AS membership_status')
+            ->select('workspaces.*', 'workspace_statuses.key AS status')
             ->join('memberships', 'memberships.workspace_id', '=', 'workspaces.id')
+            ->join('workspace_statuses', 'workspace_statuses.id', '=', 'workspaces.workspace_status_id')
             ->where('memberships.user_id', '=', $this->getKey())
-            ->where('memberships.status', '=', 'active')
+            ->where('memberships.membership_status_id', '=', lookup_id('membership_status', 'active'))
             ->orderBy('workspaces.created_at', 'desc')
             ->get();
     }

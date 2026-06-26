@@ -272,15 +272,21 @@ final class InstallManager
         }
 
         $now = now();
+        $userStatusId = $db->scalar(
+            'SELECT lv.id FROM lookup_values lv JOIN lookup_categories lc ON lc.id = lv.category_id
+             WHERE lc.`key` = ? AND lc.workspace_id IS NULL AND lv.`key` = ? AND lv.workspace_id IS NULL LIMIT 1',
+            ['user_status', 'active']
+        );
+        $userStatusId = $userStatusId !== null ? (int) $userStatusId : null;
         $existing = $db->table('users')->where('email', '=', $email)->first();
 
         if ($existing !== null) {
             $userId = (int) $existing['id'];
             $db->table('users')->where('id', '=', $userId)->update([
-                'name'       => $name,
-                'password'   => Hash::make($password),
-                'status'     => 'active',
-                'updated_at' => $now,
+                'name'           => $name,
+                'password'       => Hash::make($password),
+                'user_status_id' => $userStatusId,
+                'updated_at'     => $now,
             ]);
         } else {
             $userId = $db->table('users')->insertGetId([
@@ -288,7 +294,7 @@ final class InstallManager
                 'email'             => $email,
                 'password'          => Hash::make($password),
                 'locale'            => 'en',
-                'status'            => 'active',
+                'user_status_id'    => $userStatusId,
                 'email_verified_at' => $now,
                 'created_at'        => $now,
                 'updated_at'        => $now,

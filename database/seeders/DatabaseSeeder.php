@@ -16,6 +16,11 @@ use App\Services\Rbac\RbacManager;
 return new class {
     public function run(Database $db): void
     {
+        // Configuration-driven foundation first: global reference data and the
+        // lookup category registry every *_id → lookup_values FK targets.
+        (require __DIR__ . '/ReferenceDataSeeder.php')->run($db);
+        (require __DIR__ . '/LookupSeeder.php')->run($db);
+
         $rbac = new RbacManager($db);
         $rbac->syncPermissions();
         $rbac->ensureSuperAdminRole();
@@ -34,13 +39,18 @@ return new class {
         }
 
         $now = now();
+        $intervalId = $db->scalar(
+            'SELECT lv.id FROM lookup_values lv JOIN lookup_categories lc ON lc.id = lv.category_id
+             WHERE lc.`key` = ? AND lc.workspace_id IS NULL AND lv.`key` = ? AND lv.workspace_id IS NULL LIMIT 1',
+            ['billing_interval', 'monthly']
+        );
         $db->table('plans')->insert([
             'name'        => 'Standard',
             'slug'        => 'standard',
             'description' => 'Everything a growing team needs to run on HalaOps.',
             'price'       => 50.00,
             'currency'    => 'SAR',
-            'interval'    => 'monthly',
+            'interval_id' => $intervalId !== null ? (int) $intervalId : null,
             'trial_days'  => 14,
             'features'    => json_encode([
                 'ai_providers'   => true,

@@ -28,14 +28,17 @@ final class DashboardController extends Controller
                 'workspaceCount'  => app('db')->table('workspaces')->count(),
                 'userCount'     => app('db')->table('users')->count(),
                 'planCount'     => app('db')->table('plans')->where('is_active', '=', 1)->count(),
-                'recent'        => app('db')->table('workspaces')->orderBy('created_at', 'desc')->limit(5)->get(),
+                'recent'        => app('db')->table('workspaces')
+                    ->select('workspaces.*', 'workspace_statuses.key AS status')
+                    ->join('workspace_statuses', 'workspace_statuses.id', '=', 'workspaces.workspace_status_id')
+                    ->orderBy('workspaces.created_at', 'desc')->limit(5)->get(),
             ]);
         }
 
         $subscription = $workspace?->activeSubscription();
 
         $stats = [
-            'members' => Membership::query()->where('status', '=', 'active')->count(),
+            'members' => Membership::query()->where('membership_status_id', '=', lookup_id('membership_status', 'active'))->count(),
             'roles'   => Role::withoutTenantScope()->where('workspace_id', '=', tenant()->id())->count(),
             'plan'    => $subscription?->plan()?->name ?? 'No active plan',
         ];

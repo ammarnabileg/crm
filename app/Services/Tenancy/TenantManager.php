@@ -110,6 +110,7 @@ final class TenantManager
     {
         $membership = $user->membershipFor($workspaceId);
 
-        return $membership !== null && ($membership->status ?? '') === 'active';
+        return $membership !== null
+            && (int) ($membership->membership_status_id ?? 0) === lookup_id('membership_status', 'active');
     }
 }

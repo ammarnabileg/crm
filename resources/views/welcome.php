@@ -55,7 +55,7 @@
                     <div class="card-body text-center">
                         <h3 class="text-lg font-bold text-slate-900"><?= e($plan->name) ?></h3>
                         <p class="mt-2 text-4xl font-extrabold text-slate-900"><?= e($plan->formattedPrice()) ?>
-                            <span class="text-base font-medium text-slate-500">/ <?= e($plan->interval) ?></span>
+                            <span class="text-base font-medium text-slate-500">/ <?= e($plan->intervalLabel()) ?></span>
                         </p>
                         <p class="mt-3 text-sm text-slate-600"><?= e($plan->description) ?></p>
                         <a href="<?= e(url('register')) ?>" class="btn-primary mt-6 w-full">Start <?= (int) $plan->trial_days > 0 ? e($plan->trial_days) . '-day free trial' : 'now' ?></a>

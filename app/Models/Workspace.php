@@ -49,7 +49,7 @@ final class Workspace extends Model
     {
         return Membership::withoutTenantScope()
             ->where('workspace_id', '=', $this->getKey())
-            ->where('status', '=', 'active')
+            ->where('membership_status_id', '=', lookup_id('membership_status', 'active'))
             ->count();
     }
 

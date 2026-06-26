@@ -13,7 +13,7 @@ final class Subscription extends Model
     protected static bool $usesUuid = true;
 
     protected static array $fillable = [
-        'workspace_id', 'plan_id', 'status', 'amount', 'currency',
+        'workspace_id', 'plan_id', 'subscription_status_id', 'amount', 'currency',
         'trial_ends_at', 'starts_at', 'ends_at', 'canceled_at',
     ];
 
@@ -28,11 +28,31 @@ final class Subscription extends Model
 
     public function isActive(): bool
     {
-        return in_array($this->attributes['status'] ?? '', ['trialing', 'active'], true);
+        $statusId = (int) ($this->attributes['subscription_status_id'] ?? 0);
+
+        return in_array($statusId, [
+            (int) status_id('subscription_statuses', 'trialing'),
+            (int) status_id('subscription_statuses', 'active'),
+        ], true);
     }
 
     public function onTrial(): bool
     {
-        return ($this->attributes['status'] ?? '') === 'trialing';
+        return (int) ($this->attributes['subscription_status_id'] ?? 0) === status_id('subscription_statuses', 'trialing');
+    }
+
+    /**
+     * The current status key (e.g. `active`), resolved from the status table.
+     */
+    public function statusKey(): string
+    {
+        $id = (int) ($this->attributes['subscription_status_id'] ?? 0);
+        if ($id === 0) {
+            return '';
+        }
+
+        $row = static::db()->table('subscription_statuses')->where('id', '=', $id)->first();
+
+        return (string) ($row['key'] ?? '');
     }
 }

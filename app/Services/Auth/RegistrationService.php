@@ -38,7 +38,7 @@ final class RegistrationService
             'email'    => $data->email,
             'password' => Hash::make($data->password),
             'locale'   => $data->locale,
-            'status'   => 'active',
+            'user_status_id' => lookup_id('user_status', 'active'),
         ]);
         /** @var User $user */
 

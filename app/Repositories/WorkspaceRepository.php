@@ -29,7 +29,7 @@ final class WorkspaceRepository extends BaseRepository implements WorkspaceRepos
             ->select('workspaces.*')
             ->join('memberships', 'memberships.workspace_id', '=', 'workspaces.id')
             ->where('memberships.user_id', '=', $userId)
-            ->where('memberships.status', '=', 'active')
+            ->where('memberships.membership_status_id', '=', lookup_id('membership_status', 'active'))
             ->orderBy('workspaces.created_at', 'desc')
             ->get();
     }

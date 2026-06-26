@@ -116,7 +116,7 @@ return new class extends TestCase {
     {
         $owner = User::create([
             'name' => 'UUID Owner', 'email' => 'uuid-' . uniqid() . '@test.local',
-            'password' => 'x', 'status' => 'active',
+            'password' => 'x', 'user_status_id' => lookup_id('user_status', 'active'),
         ]);
         $workspace = (new WorkspaceService())->create($owner, 'UUID Co');
 
