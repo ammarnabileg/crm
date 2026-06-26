@@ -57,8 +57,11 @@ final class AccessControl
             return true;
         }
 
-        // Policy gates take precedence — they can express context-aware rules.
-        if (isset($this->gates[$ability])) {
+        // Policy gates take precedence ONLY when a concrete object is supplied —
+        // they express context-aware rules (ownership, "own record"). Without a
+        // context (e.g. a plain `permission:` middleware check), fall through to
+        // the permission lookup so the two usages never collide (docs/47).
+        if ($context !== null && isset($this->gates[$ability])) {
             return (bool) ($this->gates[$ability])($user, $context);
         }
 

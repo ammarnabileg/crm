@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Tenancy;
 
 use App\Core\Database;
-use App\Models\ActivityLog;
+use App\Core\Model;
+use App\Events\CompanyCreated;
 use App\Models\Company;
 use App\Models\User;
 use App\Services\Rbac\RbacManager;
@@ -39,11 +40,12 @@ final class CompanyService
     {
         $name = trim($name);
 
-        return $this->db->transaction(function (Database $db) use ($owner, $name): Company {
+        $company = $this->db->transaction(function (Database $db) use ($owner, $name): Company {
             $now = now();
             $ownerId = (int) $owner->getKey();
 
             $companyId = $db->table('companies')->insertGetId([
+                'uuid'       => Model::generateUuid(),
                 'name'       => $name,
                 'slug'       => Company::uniqueSlug($name),
                 'owner_id'   => $ownerId,
@@ -55,6 +57,7 @@ final class CompanyService
 
             // Owner membership.
             $membershipId = $db->table('memberships')->insertGetId([
+                'uuid'       => Model::generateUuid(),
                 'company_id' => $companyId,
                 'user_id'    => $ownerId,
                 'status'     => 'active',
@@ -73,19 +76,16 @@ final class CompanyService
 
             $this->startTrialSubscription($db, $companyId);
 
-            ActivityLog::record(
-                action: 'company.created',
-                companyId: $companyId,
-                userId: $ownerId,
-                description: "Created company \"{$name}\"",
-                subjectType: 'company',
-                subjectId: $companyId,
-            );
-
             return Company::hydrate(
                 $db->table('companies')->where('id', '=', $companyId)->first() ?? []
             );
         });
+
+        // Side effects (audit trail, future onboarding/search indexing) run as
+        // listeners once the company exists and is committed (docs/47 EAS-6).
+        event(new CompanyCreated($company, $owner));
+
+        return $company;
     }
 
     /**
@@ -106,6 +106,7 @@ final class CompanyService
         $trialDays = (int) ($plan['trial_days'] ?? 0);
 
         $db->table('subscriptions')->insert([
+            'uuid'          => Model::generateUuid(),
             'company_id'    => $companyId,
             'plan_id'       => (int) $plan['id'],
             'status'        => $trialDays > 0 ? 'trialing' : 'active',

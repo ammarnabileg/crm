@@ -7,7 +7,9 @@ namespace Tests\Feature;
 use App\Contracts\Repositories\CompanyRepositoryInterface;
 use App\Contracts\Repositories\UserRepositoryInterface;
 use App\Models\AiCredential;
+use App\Models\User;
 use App\Repositories\AiCredentialRepository;
+use App\Services\Tenancy\CompanyService;
 use Tests\TestCase;
 
 /**
@@ -108,6 +110,28 @@ return new class extends TestCase {
 
         $this->assertTrue($repo->forceDelete($id));
         $this->assertNull(AiCredential::withTrashed()->where('id', '=', $id)->first());
+    }
+
+    public function test_company_service_provisions_uuids_on_raw_inserts(): void
+    {
+        $owner = User::create([
+            'name' => 'UUID Owner', 'email' => 'uuid-' . uniqid() . '@test.local',
+            'password' => 'x', 'status' => 'active',
+        ]);
+        $company = (new CompanyService())->create($owner, 'UUID Co');
+
+        // Company, membership, role and subscription are created via raw inserts
+        // in the service — all must still carry a generated uuid (docs/47 EAS-8).
+        $this->assertSame(36, strlen((string) $company->uuid));
+
+        $membership = app('db')->table('memberships')->where('company_id', '=', $company->getKey())->first();
+        $this->assertNotNull($membership['uuid']);
+
+        $role = app('db')->table('roles')->where('company_id', '=', $company->getKey())->first();
+        $this->assertNotNull($role['uuid']);
+
+        $subscription = app('db')->table('subscriptions')->where('company_id', '=', $company->getKey())->first();
+        $this->assertNotNull($subscription['uuid']);
     }
 
     public function test_repository_is_tenant_scoped(): void

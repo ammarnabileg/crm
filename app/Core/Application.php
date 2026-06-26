@@ -48,7 +48,26 @@ final class Application
         date_default_timezone_set((string) config('app.timezone', 'UTC'));
         mb_internal_encoding('UTF-8');
 
+        $this->registerEventsAndPolicies();
+
         $this->booted = true;
+    }
+
+    /**
+     * Register domain event listeners and authorization policies. Listeners keep
+     * side effects (audit, etc.) out of the use-case code; policies add
+     * context-aware authorization on top of permissions (docs/47 EAS-6/EAS-11).
+     */
+    private function registerEventsAndPolicies(): void
+    {
+        $events = app('events');
+        $events->listen(\App\Events\UserRegistered::class, fn ($e) => app(\App\Listeners\RecordUserRegistered::class)($e));
+        $events->listen(\App\Events\CompanyCreated::class, fn ($e) => app(\App\Listeners\RecordCompanyCreated::class)($e));
+
+        $access = app('access');
+        $access->define('company.view', fn ($u, $c) => app(\App\Domain\Policies\CompanyPolicy::class)->view($u, $c));
+        $access->define('company.update', fn ($u, $c) => app(\App\Domain\Policies\CompanyPolicy::class)->update($u, $c));
+        $access->define('company.delete', fn ($u, $c) => app(\App\Domain\Policies\CompanyPolicy::class)->delete($u, $c));
     }
 
     private function registerPaths(): void
@@ -152,6 +171,12 @@ final class Application
         // --- Repositories (all persistence flows through these; EAS-3) -------
         $c->bind(\App\Contracts\Repositories\UserRepositoryInterface::class, \App\Repositories\UserRepository::class);
         $c->bind(\App\Contracts\Repositories\CompanyRepositoryInterface::class, \App\Repositories\CompanyRepository::class);
+
+        // --- Events + audit (side effects via listeners; EAS-6/EAS-7) -------
+        $c->singleton(\App\Contracts\Events\EventDispatcherInterface::class, \App\Infrastructure\Events\EventDispatcher::class);
+        $c->singleton('events', fn () => app(\App\Contracts\Events\EventDispatcherInterface::class));
+        $c->singleton(\App\Contracts\Audit\AuditLogger::class, \App\Services\Audit\DatabaseAuditLogger::class);
+        $c->singleton('audit', fn () => app(\App\Contracts\Audit\AuditLogger::class));
     }
 
     private function shareViewGlobals(View $view): void

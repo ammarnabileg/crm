@@ -24,9 +24,21 @@ for how the documentation set is organized and the documentation-first developme
   - **Security & reliability:** [34-Security](34-Security.md), [35-Performance](35-Performance.md), [36-Scalability](36-Scalability.md), [37-Logging](37-Logging.md), [38-Audit-System](38-Audit-System.md).
   - **Testing & standards:** [39-Testing-Strategy](39-Testing-Strategy.md), [40-QA-Checklist](40-QA-Checklist.md), [41-Coding-Standards](41-Coding-Standards.md), [42-Code-Review-Checklist](42-Code-Review-Checklist.md).
   - **Self-audit:** [46-Architecture-Review](46-Architecture-Review.md) — independent architecture review and verification report.
+  - **Enterprise standard:** [47-Enterprise-Architecture-Standards](47-Enterprise-Architecture-Standards.md) — binding layered architecture, SOLID, DI, Repository/Service/DTO, Events, Cache/Storage/Search/Queue/AI/Notification contracts, Settings, Feature Flags, Audit, Soft Delete, UUID, Policies.
+- **Enterprise architecture foundation (code)**, built in tested increments against doc 47 and non-breaking to the verified Phase 1–3 flows:
+  - **DI container** with reflection autowiring + interface→concrete binding; core services aliased by type.
+  - **Contracts** for swappable seams: `CacheStore`, `RepositoryInterface` (+ User/Company), `EventDispatcherInterface`, `AuditLogger`.
+  - **Cache layer** (`FileStore` default + `ArrayStore`); **Settings** system + **Feature flags** (per-tenant, cached, config defaults).
+  - **Repository pattern** (`BaseRepository`, tenant- and soft-delete-aware) + concrete repositories; immutable **DTOs**.
+  - **Soft deletes** + **RFC-4122 v4 UUIDs** on core entities (migration `0016`); audit gains `old_values`/`new_values`/`device`.
+  - **Domain enums**; **domain events** (`UserRegistered`, `CompanyCreated`) + **listeners** writing the audit trail; event-driven **AuditLogger**.
+  - **CompanyPolicy** + policy-aware `AccessControl` (permission + policy + tenant membership).
+  - Registration refactored to a thin controller → **RegistrationService** (DTO + repository + events).
+  - In-house **zero-dependency test runner** (`tests/`) with **52 passing tests** (116 assertions): container, cache, enums, settings/flags, repositories (CRUD/UUID/soft-delete/tenant scope), DTOs, events, audit (old/new), and the company policy.
 
 ### Fixed
 - Added the mandatory **Security** section (per the §15 template) to [35-Performance](35-Performance.md), [36-Scalability](36-Scalability.md), and [37-Logging](37-Logging.md), surfaced by the self-audit.
+- Company/membership/role/subscription rows created via service raw-inserts now generate UUIDs (previously NULL), keeping EAS-8 consistent across the Model and service write paths.
 
 ### Notes
 - Documentation describes both **built** areas (verified against `app/`, `database/migrations/`, `config/`, `routes/web.php`) and **planned** areas (specified as planned, consistent with the canonical schema).

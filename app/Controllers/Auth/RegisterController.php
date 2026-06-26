@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace App\Controllers\Auth;
 
 use App\Core\Controller;
-use App\Core\Hash;
 use App\Core\Request;
 use App\Core\Response;
-use App\Models\ActivityLog;
-use App\Models\User;
-use App\Services\Tenancy\CompanyService;
+use App\DTOs\RegisterUserData;
+use App\Services\Auth\RegistrationService;
 
 /**
  * The single registration flow. A new user may optionally name their company
@@ -25,7 +23,7 @@ final class RegisterController extends Controller
 
     public function register(Request $request): Response
     {
-        $data = $this->validate($request, [
+        $validated = $this->validate($request, [
             'name'         => 'required|min:2|max:150',
             'email'        => 'required|email|max:190|unique:users,email',
             'password'     => 'required|min:8|confirmed',
@@ -34,26 +32,18 @@ final class RegisterController extends Controller
             'email.unique' => 'An account with this email already exists.',
         ]);
 
-        $user = User::withoutTenantScope()->insertGetId([
-            'name'       => $data['name'],
-            'email'      => mb_strtolower($data['email']),
-            'password'   => Hash::make($data['password']),
-            'locale'     => locale(),
-            'status'     => 'active',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // Hand a typed DTO to the application-layer use-case; the controller
+        // stays thin (docs/47 EAS-1/EAS-4). User creation, the UserRegistered
+        // event, and optional company provisioning happen there.
+        $result = app(RegistrationService::class)->register(
+            RegisterUserData::fromArray(array_merge($validated, ['locale' => locale()]))
+        );
 
-        $user = User::find($user);
-        ActivityLog::record('user.registered', null, (int) $user->getKey(), 'Registered a new account');
+        auth()->login($result['user']);
 
-        auth()->login($user);
-
-        // If they named a company, provision it now and make it active.
-        if (! empty($data['company_name'])) {
-            $company = (new CompanyService())->create($user, $data['company_name']);
-            tenant()->setTenant($company);
-            $this->withSuccess('Welcome! Your workspace "' . $company->name . '" is ready.');
+        if ($result['company'] !== null) {
+            tenant()->setTenant($result['company']);
+            $this->withSuccess('Welcome! Your workspace "' . $result['company']->name . '" is ready.');
 
             return $this->redirect(url('dashboard'));
         }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Rbac;
 
 use App\Core\Database;
+use App\Core\Model;
 
 /**
  * Provisions and maintains the RBAC data defined in config/rbac.php.
@@ -74,6 +75,7 @@ final class RbacManager
 
         if ($role === null) {
             $roleId = $this->db->table('roles')->insertGetId([
+                'uuid'        => Model::generateUuid(),
                 'company_id'  => null,
                 'name'        => 'Super Admin',
                 'slug'        => $slug,
@@ -118,6 +120,7 @@ final class RbacManager
             }
 
             $roleId = $this->db->table('roles')->insertGetId([
+                'uuid'        => Model::generateUuid(),
                 'company_id'  => $companyId,
                 'parent_id'   => null,
                 'name'        => $definition['name'] ?? ucfirst($slug),

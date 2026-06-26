@@ -142,6 +142,23 @@ if (! function_exists('feature')) {
     }
 }
 
+if (! function_exists('audit')) {
+    function audit(): \App\Contracts\Audit\AuditLogger
+    {
+        return app('audit');
+    }
+}
+
+if (! function_exists('event')) {
+    /**
+     * Dispatch a domain event to its listeners and return it.
+     */
+    function event(object $event): object
+    {
+        return app('events')->dispatch($event);
+    }
+}
+
 if (! function_exists('can')) {
     /**
      * Check the current user against a permission (optionally for a model).
