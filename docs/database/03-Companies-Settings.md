@@ -55,7 +55,6 @@ erDiagram
     users ||--o{ companies : "owns (owner_id)"
     company_statuses ||--o{ companies : "classifies"
 
-    companies ||--o| company_settings_x : "(legend)"
     companies ||--o{ company_settings : "has key/value"
     companies ||--|| company_branding : "has 1"
     companies ||--|| company_billing : "has 1"
@@ -168,11 +167,13 @@ erDiagram
     }
 ```
 
-> Mermaid note: the `company_settings_x` node is a legend placeholder only to
-> keep the relationship lines readable; the real key/value table is
-> `company_settings`. The catalog tables `integrations`, `company_statuses`,
-> and the per-domain status tables (`integration_status`, `domain_status`) are
-> config-driven (see §Configuration notes), not ENUMs.
+> Mermaid note: relationships to D0/D4/D8/D10/D1 tables (`countries`,
+> `currencies`, `files`, `ai_providers`, `ai_models`, `tenant_ai_keys`,
+> `storage_providers`, `roles`, `memberships`, `users`) are cross-domain
+> anchors shown for context; those tables are defined in their owning domains.
+> The catalog table `integrations` and the per-entity status tables
+> (`company_statuses`, `integration_status`, `domain_status`,
+> `invitation_status`) are config-driven (see §Configuration notes), not ENUMs.
 
 ---
 
