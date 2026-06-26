@@ -11,15 +11,26 @@ for how the documentation set is organized and the documentation-first developme
 ## [Unreleased]
 
 ### Added
-- Official `/docs` specification set (the single source of truth), authored documentation-first per [00-README](00-README.md):
-  - [00-README](00-README.md) — documentation index, conventions, documentation-first rule, the table of all 47 documents, reading order, and the cross-reference map.
-  - [01-Project-Vision](01-Project-Vision.md) — vision, mission, target market, value proposition, product pillars, personas (Super Admin, Owner, Administrator, HR Manager, Recruiter, Hiring Manager, Interviewer, Member, Candidate), success metrics, and non-goals.
-  - [02-Business-Rules](02-Business-Rules.md) — the authoritative enumerated business rules across identity, tenancy, RBAC, companies, subscriptions, jobs, applications, interviews, AI, and billing, with stable `BR-xxx` identifiers other documents cite.
-  - [45-Future-Roadmap](45-Future-Roadmap.md) — phased roadmap (Phases 1–3 delivered; 4–6 next; 7–9 future) and a five-year scalability outlook.
-  - This CHANGELOG.
+- **Complete official `/docs` specification set** — the single source of truth, authored documentation-first per [00-README](00-README.md). 47 numbered documents (00–46) plus this CHANGELOG, ~13,000 lines, every file following the mandatory section template, fully cross-linked. Coverage:
+  - **Overview & business:** [00-README](00-README.md), [01-Project-Vision](01-Project-Vision.md), [02-Business-Rules](02-Business-Rules.md) (stable `BR-xxx` IDs), [45-Future-Roadmap](45-Future-Roadmap.md).
+  - **Architecture:** [03-System-Architecture](03-System-Architecture.md), [04-Folder-Structure](04-Folder-Structure.md), [29-API-Architecture](29-API-Architecture.md), [30-Frontend-Architecture](30-Frontend-Architecture.md), [31-Backend-Architecture](31-Backend-Architecture.md).
+  - **Data:** [05-Database-Architecture](05-Database-Architecture.md), [06-ERD](06-ERD.md) (all 36 tables, built + planned), [27-Storage-System](27-Storage-System.md), [28-Search-System](28-Search-System.md).
+  - **Identity & access:** [07-RBAC](07-RBAC.md), [08-Multi-Tenant](08-Multi-Tenant.md), [09-Authentication](09-Authentication.md), [10-Authorization](10-Authorization.md), [11-Permissions-Matrix](11-Permissions-Matrix.md).
+  - **Company & money:** [12-Company-Management](12-Company-Management.md), [13-Subscription-System](13-Subscription-System.md), [14-Billing-System](14-Billing-System.md), [15-Payment-Gateways](15-Payment-Gateways.md).
+  - **AI:** [16-AI-Architecture](16-AI-Architecture.md), [17-AI-Providers](17-AI-Providers.md), [18-AI-Interview-Engine](18-AI-Interview-Engine.md).
+  - **Journeys:** [19-Candidate-Journey](19-Candidate-Journey.md), [20-Recruiter-Journey](20-Recruiter-Journey.md), [21-HR-Journey](21-HR-Journey.md), [22-SuperAdmin-Journey](22-SuperAdmin-Journey.md).
+  - **Domain workflows:** [23-Interview-Workflow](23-Interview-Workflow.md), [24-Job-Lifecycle](24-Job-Lifecycle.md), [25-Application-Lifecycle](25-Application-Lifecycle.md), [26-Notification-System](26-Notification-System.md).
+  - **Setup & ops:** [32-Setup-Installer](32-Setup-Installer.md), [33-System-Diagnostics](33-System-Diagnostics.md), [43-Deployment](43-Deployment.md), [44-Production-Checklist](44-Production-Checklist.md).
+  - **Security & reliability:** [34-Security](34-Security.md), [35-Performance](35-Performance.md), [36-Scalability](36-Scalability.md), [37-Logging](37-Logging.md), [38-Audit-System](38-Audit-System.md).
+  - **Testing & standards:** [39-Testing-Strategy](39-Testing-Strategy.md), [40-QA-Checklist](40-QA-Checklist.md), [41-Coding-Standards](41-Coding-Standards.md), [42-Code-Review-Checklist](42-Code-Review-Checklist.md).
+  - **Self-audit:** [46-Architecture-Review](46-Architecture-Review.md) — independent architecture review and verification report.
+
+### Fixed
+- Added the mandatory **Security** section (per the §15 template) to [35-Performance](35-Performance.md), [36-Scalability](36-Scalability.md), and [37-Logging](37-Logging.md), surfaced by the self-audit.
 
 ### Notes
 - Documentation describes both **built** areas (verified against `app/`, `database/migrations/`, `config/`, `routes/web.php`) and **planned** areas (specified as planned, consistent with the canonical schema).
+- Self-audit verification ([46-Architecture-Review](46-Architecture-Review.md)): all numbered docs contain the 14 mandatory sections; **0 broken cross-references**; permission keys, role names, and state-machine enums are consistent across the whole set.
 
 ## [1.0.0] — 2026-06-26
 

@@ -121,6 +121,16 @@ If a database/searchable log store is ever required, it is added behind the same
 - **Sensitive data accidentally placed in a message** → caught by review and by the context redaction rule; the standing rule is "reference by id, never by content".
 - **Clock skew** between nodes → timestamps are local server time; correlation ids (not timestamps) are the primary join key for a request.
 
+## Security
+
+Logs are a high-value target and a common leak vector, so logging is treated as a security-sensitive subsystem:
+
+- **No secrets or PII in logs** — passwords, tokens, session ids, `APP_KEY`, decrypted `ai_credentials`, full payment data and raw request bodies are NEVER logged. The standing rule is "reference by id, never by content" (log `user_id=42`, not the email/password). A redaction allow-list governs what context keys may be written; everything else is dropped.
+- **Log-injection / forgery** — user-supplied values are written as structured context (JSON-encoded), and newlines/control chars are stripped, so an attacker cannot inject fake log lines or break the daily-file format. The `user_agent` is truncated (255 chars) as in `ActivityLog`.
+- **Access control on logs** — `storage/logs` lives outside the web root (and is hard-blocked by `.htaccess` if the docroot is the project root), so logs are never web-served. Reading logs/diagnostics requires `platform.diagnostics` (see [33 — System-Diagnostics](33-System-Diagnostics.md)); tenant-scoped audit data (`activity_log`) is filtered by `company_id` for non-super-admins.
+- **Tamper evidence** — application logs are append-only; the audit trail ([38 — Audit-System](38-Audit-System.md)) is the authoritative, integrity-focused record (immutable `created_at`, optional hash-chaining), and security-relevant events are written there as well as to the log.
+- **Retention & privacy compliance** — logs are rotated and pruned on a defined retention window so PDPL/GDPR "right to erasure" and data-minimisation obligations are met; security/audit events keep a longer window than debug logs. See [34 — Security](34-Security.md).
+
 ## Performance
 
 - **Append-only writes** are cheap; the logger does a single `file_put_contents(FILE_APPEND | LOCK_EX)` per entry.

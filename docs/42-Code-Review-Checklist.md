@@ -112,7 +112,7 @@ Each numbered group below is independent and actionable. A reviewer may approve 
 - [ ] No HTML is assembled from user input in PHP strings; markup lives in templates.
 - [ ] Every state-changing form includes `csrf_field()` and the route runs through the `csrf` middleware.
 - [ ] JSON responses set the correct content type and do not embed unescaped HTML.
-- [ ] User-supplied URLs/redirREADME targets are validated (no open redirect).
+- [ ] User-supplied URLs/redirect targets are validated (no open redirect).
 
 ### 6. SQL safety & performance (§7, § Performance) — CRITICAL
 - [ ] No string-concatenated SQL anywhere; all values are bound via QueryBuilder/Model or `whereRaw($sql, $bindings)` with separate bindings.

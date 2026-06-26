@@ -138,9 +138,11 @@ Mandatory section template for every doc (H2 headings, in order): Purpose, Why I
 | 43 | [43-Deployment](43-Deployment.md) | Shipping and installing the package |
 | 44 | [44-Production-Checklist](44-Production-Checklist.md) | Go-live readiness checklist |
 | 45 | [45-Future-Roadmap](45-Future-Roadmap.md) | Phased roadmap and 5-year scalability outlook |
+| 46 | [46-Architecture-Review](46-Architecture-Review.md) | Independent self-audit: verification results, strengths, weaknesses, gaps, risks, 5-year outlook |
 | — | [CHANGELOG](CHANGELOG.md) | Versioned record of changes (Keep a Changelog) |
 
-That is 46 numbered documents (00–45) plus the CHANGELOG = **47 documents** total.
+That is 47 numbered documents (00–46) plus the CHANGELOG. The set covers the
+originally specified 00–45 plus the architecture-review / self-audit report.
 
 ## Database Relations
 

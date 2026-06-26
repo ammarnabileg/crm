@@ -154,6 +154,16 @@ Sharding adds an operational **shard map** (tenant `company_id` → shard) maint
 - **Cross-tenant report at shard scale** — handled by fan-out aggregation, never a synchronous cross-shard JOIN in a request.
 - **Object-storage outage** — file reads degrade gracefully; uploads queue/retry; the disk abstraction can fail over to a secondary disk.
 
+## Security
+
+Scaling out must not weaken any guarantee that holds on a single node — isolation, secrecy, and rate limits all have to survive distribution:
+
+- **Tenant isolation across replicas/shards** — the `company_id` row-level scope (and its fail-closed behaviour in `Model::query()`) is enforced in application code, so it holds identically on a primary, a read replica, or a shard. The shard map is keyed by `company_id`; a query can never be routed to a shard for a different tenant. Cross-tenant aggregation is fan-out + aggregate, never a cross-tenant JOIN (see [08 — Multi-Tenant](08-Multi-Tenant.md)).
+- **Shared session/cache store** — when sessions and the rate limiter move off local disk (Stage 1→2) to a shared DB/Redis store, that store holds session ids and throttle counters and MUST be on a private network, authenticated, and TLS-encrypted; otherwise horizontal scaling would expose session material. A per-node rate limiter is *less* safe at scale (limits become N× looser), so the shared limiter is a security requirement, not just a correctness one.
+- **Secrets across nodes** — `APP_KEY` (which decrypts tenant `ai_credentials`) and DB credentials are distributed via the environment/secret manager, never baked into images or logs; all nodes share one key so encrypted data is portable, and key rotation is coordinated fleet-wide.
+- **Worker / internal endpoints** — the queue worker and the protected `/cron/run` URL authenticate with a secret token and are not exposed publicly; background jobs run with explicit tenant context, never an ambient one.
+- **TLS everywhere** — the load balancer terminates TLS and re-encrypts (or runs mTLS) to app nodes; `SESSION_SECURE` and HSTS are on in production (see [34 — Security](34-Security.md), [43 — Deployment](43-Deployment.md)).
+
 ## Performance
 
 Scalability and performance are complementary: scale only *after* a node is efficient.

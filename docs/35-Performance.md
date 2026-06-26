@@ -152,6 +152,17 @@ Performance-relevant input validation:
 - **Huge JSON columns** (`analysis`, `transcript LONGTEXT`) — never `SELECT *` these on list pages; fetch heavy columns only on detail views.
 - **COUNT(*) on millions of audit rows** — paginate with a cached/approximate total rather than an exact live count.
 
+## Security
+
+Performance and security intersect in several concrete ways; the platform treats availability as a security property:
+
+- **Resource-exhaustion / DoS** — every list endpoint is paginated with a hard `per_page` cap, so a client cannot request unbounded rows. Expensive endpoints (login, password reset, AI calls, search) are rate-limited via `App\Support\RateLimiter` and the `throttle:n,seconds` middleware. Heavy work (AI scoring, email) is pushed to `queued_jobs` so a request thread is never tied up.
+- **Query-cost as an attack surface** — all filtering/sorting goes through the parameterised `QueryBuilder`; user input never reaches raw SQL, and only allow-listed columns are sortable, preventing attacker-chosen full-table scans. Slow-query budgets (below) double as an abuse signal.
+- **ReDoS** — validation regexes (`Validator`) are kept linear and bounded; no user-supplied pattern is ever compiled.
+- **Cache isolation** — every cache key is namespaced by `company_id` so a faster cache path can never serve one tenant's data to another (see [08 — Multi-Tenant](08-Multi-Tenant.md)). Cache entries that derive from authorization decisions are keyed by `userId:companyId`, mirroring `AccessControl`'s per-request cache.
+- **Timing side-channels** — authentication compares secrets in constant time (`hash_equals`, `password_verify`) and equalises the "user not found" path, so response-time optimisation must never reintroduce a timing oracle (see [34 — Security](34-Security.md), [09 — Authentication](09-Authentication.md)).
+- **No information leak via errors** — with `APP_DEBUG=false`, slow/failed queries are logged server-side ([37 — Logging](37-Logging.md)) but never surfaced to the client; profiling output is dev-only.
+
 ## Performance
 
 (The whole document is about performance; this section summarises the hot-path checklist that reviewers apply per feature.)
