@@ -148,6 +148,10 @@ final class Application
         $c->singleton(\App\Services\Settings\FeatureFlags::class);
         $c->singleton('settings', fn () => app(\App\Services\Settings\SettingsManager::class));
         $c->singleton('features', fn () => app(\App\Services\Settings\FeatureFlags::class));
+
+        // --- Repositories (all persistence flows through these; EAS-3) -------
+        $c->bind(\App\Contracts\Repositories\UserRepositoryInterface::class, \App\Repositories\UserRepository::class);
+        $c->bind(\App\Contracts\Repositories\CompanyRepositoryInterface::class, \App\Repositories\CompanyRepository::class);
     }
 
     private function shareViewGlobals(View $view): void

@@ -16,6 +16,7 @@ final class Membership extends Model
 {
     protected static string $table = 'memberships';
     protected static bool $tenantScoped = true;
+    protected static bool $usesUuid = true;
 
     protected static array $fillable = [
         'company_id', 'user_id', 'status', 'title', 'invited_by', 'invited_at', 'joined_at',

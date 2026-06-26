@@ -10,6 +10,7 @@ final class Subscription extends Model
 {
     protected static string $table = 'subscriptions';
     protected static bool $tenantScoped = true;
+    protected static bool $usesUuid = true;
 
     protected static array $fillable = [
         'company_id', 'plan_id', 'status', 'amount', 'currency',

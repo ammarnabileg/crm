@@ -14,6 +14,7 @@ final class Company extends Model
 {
     protected static string $table = 'companies';
     protected static bool $tenantScoped = false;
+    protected static bool $usesUuid = true;
 
     protected static array $fillable = [
         'name', 'slug', 'owner_id', 'logo', 'locale', 'timezone', 'status', 'settings',

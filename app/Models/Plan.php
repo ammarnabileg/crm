@@ -14,6 +14,7 @@ final class Plan extends Model
 {
     protected static string $table = 'plans';
     protected static bool $tenantScoped = false;
+    protected static bool $usesUuid = true;
 
     protected static array $fillable = [
         'name', 'slug', 'description', 'price', 'currency', 'interval',

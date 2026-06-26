@@ -38,6 +38,17 @@ abstract class Model
     /** @var array<string, string> Attribute => cast type (int, bool, float, array, datetime). */
     protected static array $casts = [];
 
+    /**
+     * When true, deletes set `deleted_at` instead of removing the row, and
+     * default queries exclude trashed rows (docs/47 EAS-8).
+     */
+    protected static bool $softDeletes = false;
+    protected static string $deletedAtColumn = 'deleted_at';
+
+    /** When true, a public `uuid` is generated on insert (docs/47 EAS-8). */
+    protected static bool $usesUuid = false;
+    protected static string $uuidColumn = 'uuid';
+
     protected array $attributes = [];
     protected bool $exists = false;
 
@@ -62,10 +73,10 @@ abstract class Model
     }
 
     /**
-     * A query builder pre-scoped to the current tenant (unless the model is
-     * global or scoping is explicitly bypassed).
+     * Tenant-scoped query builder (no soft-delete filter). Internal base used by
+     * query()/withTrashed()/onlyTrashed().
      */
-    public static function query(): QueryBuilder
+    protected static function baseQuery(): QueryBuilder
     {
         $builder = static::db()->table(static::$table);
 
@@ -86,12 +97,51 @@ abstract class Model
     }
 
     /**
-     * Query builder WITHOUT the tenant constraint. Reserved for system-level
-     * operations (super admin, cross-tenant reporting, the installer).
+     * Default query: pre-scoped to the current tenant and excluding
+     * soft-deleted rows (when the model uses soft deletes).
+     */
+    public static function query(): QueryBuilder
+    {
+        $builder = static::baseQuery();
+
+        if (static::$softDeletes) {
+            $builder->whereNull(static::$deletedAtColumn);
+        }
+
+        return $builder;
+    }
+
+    /**
+     * Tenant-scoped query INCLUDING soft-deleted rows.
+     */
+    public static function withTrashed(): QueryBuilder
+    {
+        return static::baseQuery();
+    }
+
+    /**
+     * Tenant-scoped query of ONLY soft-deleted rows.
+     */
+    public static function onlyTrashed(): QueryBuilder
+    {
+        return static::baseQuery()->whereNotNull(static::$deletedAtColumn);
+    }
+
+    /**
+     * Query builder WITHOUT the tenant constraint (and without the soft-delete
+     * filter). Reserved for system-level operations (super admin, cross-tenant
+     * reporting, the installer).
      */
     public static function withoutTenantScope(): QueryBuilder
     {
         return static::db()->table(static::$table);
+    }
+
+    public static function findByUuid(string $uuid): ?static
+    {
+        $row = static::query()->where(static::$uuidColumn, '=', $uuid)->first();
+
+        return $row ? static::hydrate($row) : null;
     }
 
     public static function find(int|string $id): ?static
@@ -159,6 +209,10 @@ abstract class Model
             $attributes['updated_at'] ??= now();
         }
 
+        if (static::$usesUuid && empty($attributes[static::$uuidColumn])) {
+            $attributes[static::$uuidColumn] = static::generateUuid();
+        }
+
         $id = static::db()->table(static::$table)->insertGetId($attributes);
         $attributes[static::$primaryKey] = $id;
 
@@ -185,11 +239,55 @@ abstract class Model
             ->update($attributes) >= 0;
     }
 
+    /**
+     * Delete the model. Soft-delete models set deleted_at; others are removed.
+     */
     public function delete(): bool
     {
+        if (static::$softDeletes) {
+            $affected = static::query()
+                ->where(static::$primaryKey, '=', $this->getKey())
+                ->update([static::$deletedAtColumn => now()]);
+            $this->attributes[static::$deletedAtColumn] = now();
+
+            return $affected > 0;
+        }
+
         return static::query()
             ->where(static::$primaryKey, '=', $this->getKey())
             ->delete() > 0;
+    }
+
+    /**
+     * Permanently remove the row, even for soft-delete models.
+     */
+    public function forceDelete(): bool
+    {
+        return static::withTrashed()
+            ->where(static::$primaryKey, '=', $this->getKey())
+            ->delete() > 0;
+    }
+
+    /**
+     * Restore a soft-deleted model.
+     */
+    public function restore(): bool
+    {
+        if (! static::$softDeletes) {
+            return false;
+        }
+
+        $affected = static::withTrashed()
+            ->where(static::$primaryKey, '=', $this->getKey())
+            ->update([static::$deletedAtColumn => null, 'updated_at' => now()]);
+        $this->attributes[static::$deletedAtColumn] = null;
+
+        return $affected > 0;
+    }
+
+    public function trashed(): bool
+    {
+        return static::$softDeletes && ! empty($this->attributes[static::$deletedAtColumn]);
     }
 
     public function save(): bool
@@ -279,9 +377,27 @@ abstract class Model
             return $attributes;
         }
 
-        $allowed = array_merge(static::$fillable, [static::$tenantColumn, 'created_at', 'updated_at']);
+        $allowed = array_merge(static::$fillable, [
+            static::$tenantColumn,
+            static::$uuidColumn,
+            static::$deletedAtColumn,
+            'created_at',
+            'updated_at',
+        ]);
 
         return array_intersect_key($attributes, array_flip($allowed));
+    }
+
+    /**
+     * Generate an RFC-4122 version 4 UUID without any external dependency.
+     */
+    public static function generateUuid(): string
+    {
+        $data = random_bytes(16);
+        $data[6] = chr((ord($data[6]) & 0x0f) | 0x40); // version 4
+        $data[8] = chr((ord($data[8]) & 0x3f) | 0x80); // variant 10
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
     private static function shouldApplyTenantScope(): bool

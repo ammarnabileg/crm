@@ -15,6 +15,8 @@ final class AiCredential extends Model
 {
     protected static string $table = 'ai_credentials';
     protected static bool $tenantScoped = true;
+    protected static bool $usesUuid = true;
+    protected static bool $softDeletes = true;
 
     protected static array $fillable = [
         'company_id', 'provider', 'label', 'credentials', 'meta',

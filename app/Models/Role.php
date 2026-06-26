@@ -15,6 +15,7 @@ final class Role extends Model
 {
     protected static string $table = 'roles';
     protected static bool $tenantScoped = false;
+    protected static bool $usesUuid = true;
 
     protected static array $fillable = [
         'company_id', 'parent_id', 'name', 'slug', 'description', 'is_system', 'priority',

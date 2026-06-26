@@ -16,6 +16,7 @@ final class User extends Model
 {
     protected static string $table = 'users';
     protected static bool $tenantScoped = false;
+    protected static bool $usesUuid = true;
 
     protected static array $fillable = [
         'name', 'email', 'password', 'phone', 'avatar',
