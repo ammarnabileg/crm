@@ -1,0 +1,22 @@
+# Environment & secrets
+/.env
+
+# Install lock & transient state
+/storage/framework/installed
+/storage/framework/install_state.json
+
+# Runtime storage (keep the directories, ignore their contents)
+/storage/logs/*
+/storage/cache/*
+/storage/sessions/*
+/storage/app/*
+!/storage/**/.gitkeep
+
+# Dependencies / build
+/node_modules
+/vendor
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log

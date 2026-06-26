@@ -1,0 +1,27 @@
+# HalaOps — root .htaccess.
+#
+# Preferred deployment: set the web server's document root to /public.
+# If you cannot change the document root (typical on shared hosting), this file
+# forwards all traffic into /public and blocks access to application internals.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block direct access to sensitive paths.
+    RewriteRule ^(\.env|\.git|composer\.(json|lock)|README\.md) - [F,L]
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|storage)(/|$) - [F,L]
+
+    # Forward to /public, serving existing public files directly.
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f [OR]
+    RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -d
+    RewriteRule ^(.*)$ public/$1 [L]
+
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/index.php [L]
+</IfModule>
+
+# Hard block on dotfiles at any level.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>

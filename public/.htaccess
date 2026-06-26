@@ -1,0 +1,21 @@
+# HalaOps — front controller rewrite (Apache). Point your document root here.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    Options -MultiViews -Indexes
+
+    # Redirect trailing slashes if not a folder.
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Serve real files/directories as-is; route everything else to index.php.
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Never serve dotfiles (e.g. a stray .env copied into public).
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
