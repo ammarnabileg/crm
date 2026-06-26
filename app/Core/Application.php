@@ -123,6 +123,31 @@ final class Application
             fromName: (string) config('mail.from_name', 'HalaOps'),
             logPath: $base . '/storage/logs',
         ));
+
+        // --- Cache layer (swappable behind the CacheStore contract) ---------
+        $c->singleton(\App\Contracts\Cache\CacheStore::class, fn () => new \App\Infrastructure\Cache\FileStore($base . '/storage/cache'));
+        $c->singleton('cache', fn () => app(\App\Contracts\Cache\CacheStore::class));
+
+        // --- Class-name aliases so autowiring resolves core services by type.
+        // The kernel registers these under short keys; map the concrete types to
+        // them so constructor injection (docs/47 EAS-2) works everywhere.
+        $c->bind(Config::class, fn () => app('config'));
+        $c->bind(Logger::class, fn () => app('log'));
+        $c->bind(Encrypter::class, fn () => app('encrypter'));
+        $c->bind(Session::class, fn () => app('session'));
+        $c->bind(Translator::class, fn () => app('translator'));
+        $c->bind(Database::class, fn () => app('db'));
+        $c->bind(Router::class, fn () => app('router'));
+        $c->bind(Mailer::class, fn () => app('mailer'));
+        $c->bind(TenantManager::class, fn () => app('tenant'));
+        $c->bind(AuthManager::class, fn () => app('auth'));
+        $c->bind(AccessControl::class, fn () => app('access'));
+
+        // --- Settings + feature flags (autowired from the above) ------------
+        $c->singleton(\App\Services\Settings\SettingsManager::class);
+        $c->singleton(\App\Services\Settings\FeatureFlags::class);
+        $c->singleton('settings', fn () => app(\App\Services\Settings\SettingsManager::class));
+        $c->singleton('features', fn () => app(\App\Services\Settings\FeatureFlags::class));
     }
 
     private function shareViewGlobals(View $view): void

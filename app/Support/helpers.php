@@ -118,6 +118,30 @@ if (! function_exists('access')) {
     }
 }
 
+if (! function_exists('cache')) {
+    function cache(): \App\Contracts\Cache\CacheStore
+    {
+        return app('cache');
+    }
+}
+
+if (! function_exists('settings')) {
+    function settings(): \App\Services\Settings\SettingsManager
+    {
+        return app('settings');
+    }
+}
+
+if (! function_exists('feature')) {
+    /**
+     * Check whether a feature flag is enabled for the current tenant.
+     */
+    function feature(string $name): bool
+    {
+        return app('features')->enabled($name);
+    }
+}
+
 if (! function_exists('can')) {
     /**
      * Check the current user against a permission (optionally for a model).

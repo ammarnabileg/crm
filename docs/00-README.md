@@ -139,6 +139,7 @@ Mandatory section template for every doc (H2 headings, in order): Purpose, Why I
 | 44 | [44-Production-Checklist](44-Production-Checklist.md) | Go-live readiness checklist |
 | 45 | [45-Future-Roadmap](45-Future-Roadmap.md) | Phased roadmap and 5-year scalability outlook |
 | 46 | [46-Architecture-Review](46-Architecture-Review.md) | Independent self-audit: verification results, strengths, weaknesses, gaps, risks, 5-year outlook |
+| 47 | [47-Enterprise-Architecture-Standards](47-Enterprise-Architecture-Standards.md) | Binding standard: layers, SOLID, DI, Repository/Service/DTO, Events, Cache/Storage/Search/Queue/AI/Notification contracts, Settings, Feature Flags, Audit, Soft Delete, UUID, Policies |
 | — | [CHANGELOG](CHANGELOG.md) | Versioned record of changes (Keep a Changelog) |
 
 That is 47 numbered documents (00–46) plus the CHANGELOG. The set covers the

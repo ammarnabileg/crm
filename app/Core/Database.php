@@ -192,6 +192,11 @@ final class Database
         }
     }
 
+    public function inTransactionDepth(): int
+    {
+        return $this->transactionLevel;
+    }
+
     public function table(string $table): QueryBuilder
     {
         return new QueryBuilder($this, $table);
