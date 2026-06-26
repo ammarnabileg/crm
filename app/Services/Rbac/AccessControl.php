@@ -27,7 +27,7 @@ final class AccessControl
     /** @var array<string, Closure> ability => gate callback */
     private array $gates = [];
 
-    /** @var array<string, array<string, bool>> per-request permission cache: "userId:companyId" => [key => true] */
+    /** @var array<string, array<string, bool>> per-request permission cache: "userId:workspaceId" => [key => true] */
     private array $cache = [];
 
     public function __construct(
@@ -118,14 +118,14 @@ final class AccessControl
      */
     private function effectivePermissions(User $user): array
     {
-        $companyId = $this->tenant->id();
-        $cacheKey = $user->getKey() . ':' . ($companyId ?? '0');
+        $workspaceId = $this->tenant->id();
+        $cacheKey = $user->getKey() . ':' . ($workspaceId ?? '0');
 
         if (isset($this->cache[$cacheKey])) {
             return $this->cache[$cacheKey];
         }
 
-        $roleIds = $this->resolveRoleIds($user, $companyId);
+        $roleIds = $this->resolveRoleIds($user, $workspaceId);
         if ($roleIds === []) {
             return $this->cache[$cacheKey] = [];
         }
@@ -151,7 +151,7 @@ final class AccessControl
      *
      * @return int[]
      */
-    private function resolveRoleIds(User $user, ?int $companyId): array
+    private function resolveRoleIds(User $user, ?int $workspaceId): array
     {
         $db = app('db');
 
@@ -160,11 +160,11 @@ final class AccessControl
             ->where('user_id', '=', $user->getKey())
             ->pluck('role_id'));
 
-        // 2. Tenant roles via the user's membership in the active company.
-        if ($companyId !== null) {
+        // 2. Tenant roles via the user's membership in the active workspace.
+        if ($workspaceId !== null) {
             $membershipId = $db->table('memberships')
                 ->where('user_id', '=', $user->getKey())
-                ->where('company_id', '=', $companyId)
+                ->where('workspace_id', '=', $workspaceId)
                 ->where('status', '=', 'active')
                 ->value('id');
 

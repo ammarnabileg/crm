@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Enums;
 
 /**
- * Status of a user's membership within a company. Mirrors `memberships.status`.
+ * Status of a user's membership within a workspace. Mirrors `memberships.status`.
  */
 enum MembershipStatus: string
 {

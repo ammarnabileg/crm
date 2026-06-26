@@ -132,7 +132,7 @@ final class AuthManager
     public function logout(): void
     {
         $this->session->forget($this->sessionKey());
-        $this->session->forget((string) config('auth.tenant_key', 'active_company_id'));
+        $this->session->forget((string) config('auth.tenant_key', 'active_workspace_id'));
         $this->session->invalidate();
         $this->user = null;
         $this->resolved = true;

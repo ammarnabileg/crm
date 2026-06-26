@@ -62,12 +62,12 @@ final class Application
     {
         $events = app('events');
         $events->listen(\App\Events\UserRegistered::class, fn ($e) => app(\App\Listeners\RecordUserRegistered::class)($e));
-        $events->listen(\App\Events\CompanyCreated::class, fn ($e) => app(\App\Listeners\RecordCompanyCreated::class)($e));
+        $events->listen(\App\Events\WorkspaceCreated::class, fn ($e) => app(\App\Listeners\RecordWorkspaceCreated::class)($e));
 
         $access = app('access');
-        $access->define('company.view', fn ($u, $c) => app(\App\Domain\Policies\CompanyPolicy::class)->view($u, $c));
-        $access->define('company.update', fn ($u, $c) => app(\App\Domain\Policies\CompanyPolicy::class)->update($u, $c));
-        $access->define('company.delete', fn ($u, $c) => app(\App\Domain\Policies\CompanyPolicy::class)->delete($u, $c));
+        $access->define('workspace.view', fn ($u, $c) => app(\App\Domain\Policies\WorkspacePolicy::class)->view($u, $c));
+        $access->define('workspace.update', fn ($u, $c) => app(\App\Domain\Policies\WorkspacePolicy::class)->update($u, $c));
+        $access->define('workspace.delete', fn ($u, $c) => app(\App\Domain\Policies\WorkspacePolicy::class)->delete($u, $c));
     }
 
     private function registerPaths(): void
@@ -170,7 +170,7 @@ final class Application
 
         // --- Repositories (all persistence flows through these; EAS-3) -------
         $c->bind(\App\Contracts\Repositories\UserRepositoryInterface::class, \App\Repositories\UserRepository::class);
-        $c->bind(\App\Contracts\Repositories\CompanyRepositoryInterface::class, \App\Repositories\CompanyRepository::class);
+        $c->bind(\App\Contracts\Repositories\WorkspaceRepositoryInterface::class, \App\Repositories\WorkspaceRepository::class);
 
         // --- Events + audit (side effects via listeners; EAS-6/EAS-7) -------
         $c->singleton(\App\Contracts\Events\EventDispatcherInterface::class, \App\Infrastructure\Events\EventDispatcher::class);

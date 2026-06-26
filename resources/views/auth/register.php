@@ -22,8 +22,8 @@
                         <input class="input" id="email" name="email" type="email" value="<?= e(old('email')) ?>" required>
                     </div>
                     <div>
-                        <label class="label" for="company_name">Company name <span class="text-slate-400">(optional)</span></label>
-                        <input class="input" id="company_name" name="company_name" value="<?= e(old('company_name')) ?>" placeholder="You can create this later">
+                        <label class="label" for="workspace_name">Workspace name <span class="text-slate-400">(optional)</span></label>
+                        <input class="input" id="workspace_name" name="workspace_name" value="<?= e(old('workspace_name')) ?>" placeholder="You can create this later">
                     </div>
                     <div>
                         <label class="label" for="password">Password</label>

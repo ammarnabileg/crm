@@ -12,7 +12,7 @@ use App\Models\User;
 
 /**
  * The signed-in user's own profile (name, email, language, password). Available
- * to every authenticated user regardless of company context.
+ * to every authenticated user regardless of workspace context.
  */
 final class ProfileController extends Controller
 {

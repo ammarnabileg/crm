@@ -13,7 +13,7 @@ declare(strict_types=1);
  * @var \App\Core\Router $router
  */
 
-use App\Controllers\App\CompanyController;
+use App\Controllers\App\WorkspaceController;
 use App\Controllers\App\DashboardController;
 use App\Controllers\App\HomeController;
 use App\Controllers\App\ProfileController;
@@ -57,11 +57,11 @@ $router->group(['middleware' => ['security', 'csrf']], function ($router): void 
     $router->group(['middleware' => ['auth']], function ($router): void {
         $router->post('logout', [LoginController::class, 'logout'])->name('logout');
 
-        // Company selection / creation (no active tenant required yet).
-        $router->get('companies/create', [CompanyController::class, 'create'])->name('companies.create');
-        $router->post('companies', [CompanyController::class, 'store'])->name('companies.store');
-        $router->get('companies/select', [CompanyController::class, 'select'])->name('companies.select');
-        $router->post('companies/switch', [CompanyController::class, 'switch'])->name('companies.switch');
+        // Workspace selection / creation (no active tenant required yet).
+        $router->get('workspaces/create', [WorkspaceController::class, 'create'])->name('workspaces.create');
+        $router->post('workspaces', [WorkspaceController::class, 'store'])->name('workspaces.store');
+        $router->get('workspaces/select', [WorkspaceController::class, 'select'])->name('workspaces.select');
+        $router->post('workspaces/switch', [WorkspaceController::class, 'switch'])->name('workspaces.switch');
 
         // Profile.
         $router->get('profile', [ProfileController::class, 'show'])->name('profile.show');

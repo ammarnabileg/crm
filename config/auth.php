@@ -6,8 +6,8 @@ return [
     // Session key under which the authenticated user id is stored.
     'session_key' => 'auth_user_id',
 
-    // Session key under which the active tenant (company) id is stored.
-    'tenant_key' => 'active_company_id',
+    // Session key under which the active tenant (workspace) id is stored.
+    'tenant_key' => 'active_workspace_id',
 
     // Password reset token lifetime (minutes).
     'reset_token_ttl' => 60,

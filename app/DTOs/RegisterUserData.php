@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\DTOs;
 
 /**
- * Validated input for registering a user (and optionally naming their company).
+ * Validated input for registering a user (and optionally naming their workspace).
  * Built from a validated request; the service trusts only this object.
  */
 final class RegisterUserData extends DataTransferObject
@@ -14,7 +14,7 @@ final class RegisterUserData extends DataTransferObject
         public readonly string $name,
         public readonly string $email,
         public readonly string $password,
-        public readonly ?string $companyName = null,
+        public readonly ?string $workspaceName = null,
         public readonly string $locale = 'en',
     ) {
     }
@@ -24,13 +24,13 @@ final class RegisterUserData extends DataTransferObject
      */
     public static function fromArray(array $data): self
     {
-        $company = isset($data['company_name']) ? trim((string) $data['company_name']) : '';
+        $workspace = isset($data['workspace_name']) ? trim((string) $data['workspace_name']) : '';
 
         return new self(
             name: trim((string) ($data['name'] ?? '')),
             email: mb_strtolower(trim((string) ($data['email'] ?? ''))),
             password: (string) ($data['password'] ?? ''),
-            companyName: $company !== '' ? $company : null,
+            workspaceName: $workspace !== '' ? $workspace : null,
             locale: (string) ($data['locale'] ?? 'en'),
         );
     }

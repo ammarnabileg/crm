@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Domain\Enums;
 
 /**
- * Lifecycle status for a company (tenant). Mirrors `companies.status`.
+ * Lifecycle status for a workspace (tenant). Mirrors `workspaces.status`.
  */
-enum CompanyStatus: string
+enum WorkspaceStatus: string
 {
     case Trial = 'trial';
     case Active = 'active';

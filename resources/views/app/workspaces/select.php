@@ -4,15 +4,15 @@
     <div class="w-full max-w-md">
         <div class="mb-6 text-center">
             <span class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-xl font-bold text-white shadow-lg">H</span>
-            <h1 class="mt-4 text-2xl font-bold text-slate-900">Choose a company</h1>
+            <h1 class="mt-4 text-2xl font-bold text-slate-900">Choose a workspace</h1>
             <p class="mt-1 text-slate-600">Select which workspace to enter.</p>
         </div>
         <div class="card">
             <div class="card-body space-y-2">
-                <?php foreach ($companies as $c): ?>
-                    <form method="POST" action="<?= e(url('companies/switch')) ?>">
+                <?php foreach ($workspaces as $c): ?>
+                    <form method="POST" action="<?= e(url('workspaces/switch')) ?>">
                         <?= csrf_field() ?>
-                        <input type="hidden" name="company_id" value="<?= e($c['id']) ?>">
+                        <input type="hidden" name="workspace_id" value="<?= e($c['id']) ?>">
                         <button class="flex w-full items-center gap-3 rounded-lg p-3 text-start ring-1 ring-slate-200 hover:bg-slate-50">
                             <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-100 font-semibold text-brand-700"><?= e(mb_substr($c['name'], 0, 1)) ?></span>
                             <span>
@@ -22,7 +22,7 @@
                         </button>
                     </form>
                 <?php endforeach; ?>
-                <a href="<?= e(url('companies/create')) ?>" class="mt-2 block rounded-lg border border-dashed border-slate-300 p-3 text-center text-sm font-medium text-brand-600 hover:bg-slate-50">+ Create a new company</a>
+                <a href="<?= e(url('workspaces/create')) ?>" class="mt-2 block rounded-lg border border-dashed border-slate-300 p-3 text-center text-sm font-medium text-brand-600 hover:bg-slate-50">+ Create a new workspace</a>
             </div>
         </div>
         <form method="POST" action="<?= e(url('logout')) ?>" class="mt-6 text-center">

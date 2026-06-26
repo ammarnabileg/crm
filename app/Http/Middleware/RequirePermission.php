@@ -12,7 +12,7 @@ use Closure;
 
 /**
  * Authorises the current user against one or more permissions. Used as
- * 'permission:companies.manage' or 'permission:users.view,users.update'
+ * 'permission:workspaces.manage' or 'permission:users.view,users.update'
  * (any-of semantics). Authentication is assumed to run before this.
  */
 final class RequirePermission implements MiddlewareInterface

@@ -6,7 +6,7 @@ namespace App\Services\Settings;
 
 /**
  * Feature flags layered on top of per-tenant settings. A feature can be toggled
- * for a company without a code change (docs/47 EAS-9); the default comes from
+ * for a workspace without a code change (docs/47 EAS-9); the default comes from
  * config/features.php. Flags are stored under the `feature.<name>` settings key.
  */
 final class FeatureFlags

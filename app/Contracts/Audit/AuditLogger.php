@@ -10,7 +10,7 @@ namespace App\Contracts\Audit;
  * docs/38-Audit-System).
  *
  * @phpstan-type AuditContext array{
- *   company_id?: int|null, user_id?: int|null, description?: string,
+ *   workspace_id?: int|null, user_id?: int|null, description?: string,
  *   subject_type?: string|null, subject_id?: int|null, properties?: array
  * }
  */

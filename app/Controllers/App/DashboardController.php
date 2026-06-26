@@ -12,43 +12,43 @@ use App\Models\Membership;
 use App\Models\Role;
 
 /**
- * The main dashboard. Shows a company overview for tenant users and a platform
- * overview for a super admin who has not selected a company.
+ * The main dashboard. Shows a workspace overview for tenant users and a platform
+ * overview for a super admin who has not selected a workspace.
  */
 final class DashboardController extends Controller
 {
     public function index(Request $request): Response
     {
         $user = auth()->user();
-        $company = tenant()->company();
+        $workspace = tenant()->workspace();
 
-        if ($company === null && $user->isSuperAdmin()) {
+        if ($workspace === null && $user->isSuperAdmin()) {
             return $this->view('app.dashboard-platform', [
                 'title'         => 'Platform overview',
-                'companyCount'  => app('db')->table('companies')->count(),
+                'workspaceCount'  => app('db')->table('workspaces')->count(),
                 'userCount'     => app('db')->table('users')->count(),
                 'planCount'     => app('db')->table('plans')->where('is_active', '=', 1)->count(),
-                'recent'        => app('db')->table('companies')->orderBy('created_at', 'desc')->limit(5)->get(),
+                'recent'        => app('db')->table('workspaces')->orderBy('created_at', 'desc')->limit(5)->get(),
             ]);
         }
 
-        $subscription = $company?->activeSubscription();
+        $subscription = $workspace?->activeSubscription();
 
         $stats = [
             'members' => Membership::query()->where('status', '=', 'active')->count(),
-            'roles'   => Role::withoutTenantScope()->where('company_id', '=', tenant()->id())->count(),
+            'roles'   => Role::withoutTenantScope()->where('workspace_id', '=', tenant()->id())->count(),
             'plan'    => $subscription?->plan()?->name ?? 'No active plan',
         ];
 
         $recent = ActivityLog::withoutTenantScope()
-            ->where('company_id', '=', tenant()->id())
+            ->where('workspace_id', '=', tenant()->id())
             ->orderBy('created_at', 'desc')
             ->limit(8)
             ->get();
 
         return $this->view('app.dashboard', [
             'title'        => 'Dashboard',
-            'company'      => $company,
+            'workspace'      => $workspace,
             'stats'        => $stats,
             'subscription' => $subscription,
             'recent'       => $recent,

@@ -7,8 +7,8 @@
 
 <div class="grid gap-4 sm:grid-cols-3">
     <div class="card"><div class="card-body">
-        <p class="text-sm font-medium text-slate-500">Companies</p>
-        <p class="mt-1 text-3xl font-bold text-slate-900"><?= e($companyCount) ?></p>
+        <p class="text-sm font-medium text-slate-500">Workspaces</p>
+        <p class="mt-1 text-3xl font-bold text-slate-900"><?= e($workspaceCount) ?></p>
     </div></div>
     <div class="card"><div class="card-body">
         <p class="text-sm font-medium text-slate-500">Users</p>
@@ -22,18 +22,18 @@
 
 <div class="mt-6 card">
     <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-        <h2 class="font-semibold text-slate-900">Newest companies</h2>
-        <a href="<?= e(url('admin/companies')) ?>" class="text-sm font-medium text-brand-600 hover:text-brand-700">View all</a>
+        <h2 class="font-semibold text-slate-900">Newest workspaces</h2>
+        <a href="<?= e(url('admin/workspaces')) ?>" class="text-sm font-medium text-brand-600 hover:text-brand-700">View all</a>
     </div>
     <div class="card-body">
         <?php if (empty($recent)): ?>
             <div class="py-10 text-center text-slate-500">
-                <p class="text-sm">No companies yet.</p>
-                <a href="<?= e(url('companies/create')) ?>" class="btn-primary mt-4">Create the first company</a>
+                <p class="text-sm">No workspaces yet.</p>
+                <a href="<?= e(url('workspaces/create')) ?>" class="btn-primary mt-4">Create the first workspace</a>
             </div>
         <?php else: ?>
             <table class="table-base">
-                <thead><tr><th>Company</th><th>Status</th><th>Created</th></tr></thead>
+                <thead><tr><th>Workspace</th><th>Status</th><th>Created</th></tr></thead>
                 <tbody>
                     <?php foreach ($recent as $c): ?>
                         <tr>

@@ -14,7 +14,7 @@ final class Setting extends Model
     protected static string $table = 'settings';
     protected static bool $tenantScoped = true;
 
-    protected static array $fillable = ['company_id', 'key', 'value'];
+    protected static array $fillable = ['workspace_id', 'key', 'value'];
 
     public static function get(string $key, mixed $default = null): mixed
     {

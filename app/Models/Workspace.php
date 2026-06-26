@@ -7,12 +7,12 @@ namespace App\Models;
 use App\Core\Model;
 
 /**
- * A tenant. Companies are stored in a global table (they cannot scope to
+ * A tenant. Workspaces are stored in a global table (they cannot scope to
  * themselves) but access is always mediated through memberships and roles.
  */
-final class Company extends Model
+final class Workspace extends Model
 {
-    protected static string $table = 'companies';
+    protected static string $table = 'workspaces';
     protected static bool $tenantScoped = false;
     protected static bool $usesUuid = true;
 
@@ -37,7 +37,7 @@ final class Company extends Model
     public function activeSubscription(): ?Subscription
     {
         $row = Subscription::withoutTenantScope()
-            ->where('company_id', '=', $this->getKey())
+            ->where('workspace_id', '=', $this->getKey())
             ->whereIn('status', ['trialing', 'active'])
             ->latest('created_at')
             ->first();
@@ -48,7 +48,7 @@ final class Company extends Model
     public function membersCount(): int
     {
         return Membership::withoutTenantScope()
-            ->where('company_id', '=', $this->getKey())
+            ->where('workspace_id', '=', $this->getKey())
             ->where('status', '=', 'active')
             ->count();
     }

@@ -20,7 +20,7 @@ final class RecordUserRegistered
     public function __invoke(UserRegistered $event): void
     {
         $this->audit->log('user.registered', [
-            'company_id'   => null,
+            'workspace_id'   => null,
             'user_id'      => (int) $event->user->getKey(),
             'subject_type' => 'user',
             'subject_id'   => (int) $event->user->getKey(),

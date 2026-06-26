@@ -7,7 +7,7 @@ namespace App\Models;
 use App\Core\Model;
 
 /**
- * An RBAC role. Not auto tenant-scoped because global roles (company_id NULL)
+ * An RBAC role. Not auto tenant-scoped because global roles (workspace_id NULL)
  * and tenant roles coexist in this table; scoping is applied explicitly by the
  * services that read roles so global role templates remain reachable.
  */
@@ -18,7 +18,7 @@ final class Role extends Model
     protected static bool $usesUuid = true;
 
     protected static array $fillable = [
-        'company_id', 'parent_id', 'name', 'slug', 'description', 'is_system', 'priority',
+        'workspace_id', 'parent_id', 'name', 'slug', 'description', 'is_system', 'priority',
     ];
 
     protected static array $casts = [
@@ -28,7 +28,7 @@ final class Role extends Model
 
     public function isGlobal(): bool
     {
-        return ($this->attributes['company_id'] ?? null) === null;
+        return ($this->attributes['workspace_id'] ?? null) === null;
     }
 
     /**
@@ -56,10 +56,10 @@ final class Role extends Model
         }
     }
 
-    public static function findBySlug(string $slug, ?int $companyId): ?self
+    public static function findBySlug(string $slug, ?int $workspaceId): ?self
     {
         $query = static::withoutTenantScope()->where('slug', '=', $slug);
-        $companyId === null ? $query->whereNull('company_id') : $query->where('company_id', '=', $companyId);
+        $workspaceId === null ? $query->whereNull('workspace_id') : $query->where('workspace_id', '=', $workspaceId);
 
         $row = $query->first();
 

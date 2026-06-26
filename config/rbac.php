@@ -24,15 +24,15 @@ return [
         // Dashboard
         ['dashboard.view', 'View dashboard', 'Dashboard', 'Access the main dashboard.'],
 
-        // Company profile
-        ['company.view', 'View company', 'Company', 'View the current company profile.'],
-        ['company.update', 'Edit company', 'Company', 'Edit the current company profile and settings.'],
+        // Workspace profile
+        ['workspace.view', 'View workspace', 'Workspace', 'View the current workspace profile.'],
+        ['workspace.update', 'Edit workspace', 'Workspace', 'Edit the current workspace profile and settings.'],
 
         // Members
-        ['members.view', 'View members', 'Members', 'See the people in the company.'],
-        ['members.invite', 'Invite members', 'Members', 'Invite new people to the company.'],
+        ['members.view', 'View members', 'Members', 'See the people in the workspace.'],
+        ['members.invite', 'Invite members', 'Members', 'Invite new people to the workspace.'],
         ['members.update', 'Edit members', 'Members', 'Change member roles and details.'],
-        ['members.remove', 'Remove members', 'Members', 'Remove people from the company.'],
+        ['members.remove', 'Remove members', 'Members', 'Remove people from the workspace.'],
 
         // Roles
         ['roles.view', 'View roles', 'Roles & Permissions', 'View roles and their permissions.'],
@@ -47,12 +47,12 @@ return [
         ['ai.manage', 'Manage AI settings', 'AI', 'Add or update AI provider keys.'],
 
         // Settings
-        ['settings.view', 'View settings', 'Settings', 'View company settings.'],
-        ['settings.manage', 'Manage settings', 'Settings', 'Change company settings.'],
+        ['settings.view', 'View settings', 'Settings', 'View workspace settings.'],
+        ['settings.manage', 'Manage settings', 'Settings', 'Change workspace settings.'],
     ],
 
     /*
-     * Default roles created for every NEW company. The key '*' grants every
+     * Default roles created for every NEW workspace. The key '*' grants every
      * tenant permission (used for Owner). Roles may declare a `parent` slug for
      * inheritance. Adding HR/Recruiter/Candidate roles later is just data here,
      * once their domain permissions exist.
@@ -60,18 +60,18 @@ return [
     'tenant_roles' => [
         'owner' => [
             'name'        => 'Owner',
-            'description' => 'Full control of the company, including billing and ownership.',
+            'description' => 'Full control of the workspace, including billing and ownership.',
             'is_system'   => true,
             'priority'    => 100,
             'permissions' => '*',
         ],
         'admin' => [
             'name'        => 'Administrator',
-            'description' => 'Manages the company day to day (no billing changes).',
+            'description' => 'Manages the workspace day to day (no billing changes).',
             'is_system'   => true,
             'priority'    => 80,
             'permissions' => [
-                'dashboard.view', 'company.view', 'company.update',
+                'dashboard.view', 'workspace.view', 'workspace.update',
                 'members.view', 'members.invite', 'members.update', 'members.remove',
                 'roles.view', 'roles.manage', 'billing.view',
                 'ai.view', 'ai.manage', 'settings.view', 'settings.manage',
@@ -79,11 +79,11 @@ return [
         ],
         'member' => [
             'name'        => 'Member',
-            'description' => 'A standard member of the company.',
+            'description' => 'A standard member of the workspace.',
             'is_system'   => true,
             'priority'    => 10,
             'permissions' => [
-                'dashboard.view', 'company.view', 'members.view', 'ai.view', 'settings.view',
+                'dashboard.view', 'workspace.view', 'members.view', 'ai.view', 'settings.view',
             ],
         ],
     ],

@@ -16,9 +16,9 @@ return new class extends TestCase {
 
     public function setUp(): void
     {
-        // Use the first company as the active tenant for these tests.
-        $companyId = (int) app('db')->table('companies')->orderBy('id')->value('id');
-        tenant()->setById($companyId);
+        // Use the first workspace as the active tenant for these tests.
+        $workspaceId = (int) app('db')->table('workspaces')->orderBy('id')->value('id');
+        tenant()->setById($workspaceId);
         app('cache')->flush();
     }
 

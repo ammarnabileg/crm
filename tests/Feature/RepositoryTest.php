@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Contracts\Repositories\CompanyRepositoryInterface;
+use App\Contracts\Repositories\WorkspaceRepositoryInterface;
 use App\Contracts\Repositories\UserRepositoryInterface;
 use App\Models\AiCredential;
 use App\Models\User;
 use App\Repositories\AiCredentialRepository;
-use App\Services\Tenancy\CompanyService;
+use App\Services\Tenancy\WorkspaceService;
 use Tests\TestCase;
 
 /**
@@ -21,8 +21,8 @@ return new class extends TestCase {
 
     public function setUp(): void
     {
-        $companyId = (int) app('db')->table('companies')->orderBy('id')->value('id');
-        tenant()->setById($companyId);
+        $workspaceId = (int) app('db')->table('workspaces')->orderBy('id')->value('id');
+        tenant()->setById($workspaceId);
     }
 
     public function test_user_repository_resolves_via_interface(): void
@@ -43,17 +43,17 @@ return new class extends TestCase {
         $this->assertFalse($repo->emailExists('definitely-not-here@example.com'));
     }
 
-    public function test_company_repository_find_by_slug_and_for_user(): void
+    public function test_workspace_repository_find_by_slug_and_for_user(): void
     {
-        $repo = app(CompanyRepositoryInterface::class);
-        $company = app('db')->table('companies')->orderBy('id')->first();
+        $repo = app(WorkspaceRepositoryInterface::class);
+        $workspace = app('db')->table('workspaces')->orderBy('id')->first();
 
-        $found = $repo->findBySlug((string) $company['slug']);
+        $found = $repo->findBySlug((string) $workspace['slug']);
         $this->assertNotNull($found);
-        $this->assertSame((int) $company['id'], (int) $found->id);
+        $this->assertSame((int) $workspace['id'], (int) $found->id);
 
-        $companies = $repo->forUser((int) $company['owner_id']);
-        $this->assertTrue(count($companies) >= 1);
+        $workspaces = $repo->forUser((int) $workspace['owner_id']);
+        $this->assertTrue(count($workspaces) >= 1);
     }
 
     public function test_create_generates_uuid(): void
@@ -112,38 +112,38 @@ return new class extends TestCase {
         $this->assertNull(AiCredential::withTrashed()->where('id', '=', $id)->first());
     }
 
-    public function test_company_service_provisions_uuids_on_raw_inserts(): void
+    public function test_workspace_service_provisions_uuids_on_raw_inserts(): void
     {
         $owner = User::create([
             'name' => 'UUID Owner', 'email' => 'uuid-' . uniqid() . '@test.local',
             'password' => 'x', 'status' => 'active',
         ]);
-        $company = (new CompanyService())->create($owner, 'UUID Co');
+        $workspace = (new WorkspaceService())->create($owner, 'UUID Co');
 
-        // Company, membership, role and subscription are created via raw inserts
+        // Workspace, membership, role and subscription are created via raw inserts
         // in the service — all must still carry a generated uuid (docs/47 EAS-8).
-        $this->assertSame(36, strlen((string) $company->uuid));
+        $this->assertSame(36, strlen((string) $workspace->uuid));
 
-        $membership = app('db')->table('memberships')->where('company_id', '=', $company->getKey())->first();
+        $membership = app('db')->table('memberships')->where('workspace_id', '=', $workspace->getKey())->first();
         $this->assertNotNull($membership['uuid']);
 
-        $role = app('db')->table('roles')->where('company_id', '=', $company->getKey())->first();
+        $role = app('db')->table('roles')->where('workspace_id', '=', $workspace->getKey())->first();
         $this->assertNotNull($role['uuid']);
 
-        $subscription = app('db')->table('subscriptions')->where('company_id', '=', $company->getKey())->first();
+        $subscription = app('db')->table('subscriptions')->where('workspace_id', '=', $workspace->getKey())->first();
         $this->assertNotNull($subscription['uuid']);
     }
 
     public function test_repository_is_tenant_scoped(): void
     {
         $repo = new AiCredentialRepository();
-        $companies = app('db')->table('companies')->orderBy('id')->limit(2)->get();
-        if (count($companies) < 2) {
+        $workspaces = app('db')->table('workspaces')->orderBy('id')->limit(2)->get();
+        if (count($workspaces) < 2) {
             return; // need two tenants for this assertion
         }
 
-        // Create under company A.
-        tenant()->setById((int) $companies[0]['id']);
+        // Create under workspace A.
+        tenant()->setById((int) $workspaces[0]['id']);
         $cred = $repo->create([
             'provider'    => 'deepseek',
             'credentials' => AiCredential::encryptSecrets(['api_key' => 'd']),
@@ -152,8 +152,8 @@ return new class extends TestCase {
         $id = (int) $cred->id;
         $this->assertNotNull($repo->find($id));
 
-        // Switch to company B — the row must be invisible.
-        tenant()->setById((int) $companies[1]['id']);
+        // Switch to workspace B — the row must be invisible.
+        tenant()->setById((int) $workspaces[1]['id']);
         $this->assertNull($repo->find($id));
     }
 };

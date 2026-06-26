@@ -1,7 +1,7 @@
 <?php
 /** Authenticated application shell: sidebar + topbar. */
 $user = auth()->user();
-$company = tenant()->company();
+$workspace = tenant()->workspace();
 $current = request()->path();
 // Navigation registry. Each entry: [path, label, permission, built?]. Only
 // shipped features are rendered, so there are never dead links in the UI;
@@ -12,7 +12,7 @@ $nav = [
     ['roles',     'Roles & Permissions', 'roles.view',  false],
     ['ai',        'AI Settings',        'ai.view',      false],
     ['billing',   'Billing',            'billing.view', false],
-    ['settings',  'Company Settings',   'settings.view', false],
+    ['settings',  'Workspace Settings',   'settings.view', false],
 ];
 $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || str_starts_with($current, '/' . trim($path, '/') . '/');
 ?>
@@ -50,25 +50,25 @@ $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || st
     <div class="flex min-w-0 flex-1 flex-col">
         <header class="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
             <div class="min-w-0">
-                <?php if ($company): ?>
+                <?php if ($workspace): ?>
                     <details class="relative">
                         <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-100">
-                            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-100 text-sm font-semibold text-brand-700"><?= e(mb_substr($company->name, 0, 1)) ?></span>
-                            <span class="truncate font-semibold text-slate-800"><?= e($company->name) ?></span>
+                            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-100 text-sm font-semibold text-brand-700"><?= e(mb_substr($workspace->name, 0, 1)) ?></span>
+                            <span class="truncate font-semibold text-slate-800"><?= e($workspace->name) ?></span>
                             <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </summary>
                         <div class="absolute z-20 mt-2 w-64 rounded-xl bg-white p-2 shadow-lg ring-1 ring-slate-200">
-                            <?php foreach (($user?->companies() ?? []) as $c): ?>
-                                <form method="POST" action="<?= e(url('companies/switch')) ?>">
+                            <?php foreach (($user?->workspaces() ?? []) as $c): ?>
+                                <form method="POST" action="<?= e(url('workspaces/switch')) ?>">
                                     <?= csrf_field() ?>
-                                    <input type="hidden" name="company_id" value="<?= e($c['id']) ?>">
+                                    <input type="hidden" name="workspace_id" value="<?= e($c['id']) ?>">
                                     <button class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-start text-sm hover:bg-slate-50 <?= (int) $c['id'] === tenant()->id() ? 'font-semibold text-brand-700' : 'text-slate-700' ?>">
                                         <span class="flex h-6 w-6 items-center justify-center rounded bg-slate-100 text-xs"><?= e(mb_substr($c['name'], 0, 1)) ?></span>
                                         <?= e($c['name']) ?>
                                     </button>
                                 </form>
                             <?php endforeach; ?>
-                            <a href="<?= e(url('companies/create')) ?>" class="mt-1 flex items-center gap-2 rounded-lg border-t border-slate-100 px-2 py-2 text-sm text-brand-600 hover:bg-slate-50">+ New company</a>
+                            <a href="<?= e(url('workspaces/create')) ?>" class="mt-1 flex items-center gap-2 rounded-lg border-t border-slate-100 px-2 py-2 text-sm text-brand-600 hover:bg-slate-50">+ New workspace</a>
                         </div>
                     </details>
                 <?php else: ?>

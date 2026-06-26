@@ -15,8 +15,8 @@ return new class extends TestCase {
 
     public function setUp(): void
     {
-        $companyId = (int) app('db')->table('companies')->orderBy('id')->value('id');
-        tenant()->setById($companyId);
+        $workspaceId = (int) app('db')->table('workspaces')->orderBy('id')->value('id');
+        tenant()->setById($workspaceId);
     }
 
     public function test_log_writes_an_entry(): void
@@ -64,7 +64,7 @@ return new class extends TestCase {
             ->orderBy('id', 'desc')
             ->first();
 
-        $this->assertSame((int) tenant()->id(), (int) $row['company_id']);
+        $this->assertSame((int) tenant()->id(), (int) $row['workspace_id']);
         $this->assertSame($userId, (int) $row['user_id']);
     }
 };

@@ -12,7 +12,7 @@ use RuntimeException;
 /**
  * Per-tenant settings store with config-backed defaults and a cache layer.
  *
- * Resolution order for a key: the company's stored value → the default in
+ * Resolution order for a key: the workspace's stored value → the default in
  * config/settings.php → the caller's default. Writes upsert the tenant row and
  * bust the cache. This is the mechanism that keeps tenant-configurable values
  * (branding, locale, currency, hiring defaults, ...) out of hard-coded logic
@@ -29,15 +29,15 @@ final class SettingsManager
 
     public function get(string $key, mixed $default = null): mixed
     {
-        $companyId = $this->requireTenant();
-        $cacheKey = $this->cacheKey($companyId, $key);
+        $workspaceId = $this->requireTenant();
+        $cacheKey = $this->cacheKey($workspaceId, $key);
 
         $value = $this->cache->remember(
             $cacheKey,
             (int) config('settings.cache_ttl', 300),
-            function () use ($companyId, $key): array {
+            function () use ($workspaceId, $key): array {
                 $row = $this->db->table('settings')
-                    ->where('company_id', '=', $companyId)
+                    ->where('workspace_id', '=', $workspaceId)
                     ->where('key', '=', $key)
                     ->first();
 
@@ -56,23 +56,23 @@ final class SettingsManager
 
     public function set(string $key, mixed $value): void
     {
-        $companyId = $this->requireTenant();
+        $workspaceId = $this->requireTenant();
         $encoded = $this->encode($value);
         $now = now();
 
         $exists = $this->db->table('settings')
-            ->where('company_id', '=', $companyId)
+            ->where('workspace_id', '=', $workspaceId)
             ->where('key', '=', $key)
             ->exists();
 
         if ($exists) {
             $this->db->table('settings')
-                ->where('company_id', '=', $companyId)
+                ->where('workspace_id', '=', $workspaceId)
                 ->where('key', '=', $key)
                 ->update(['value' => $encoded, 'updated_at' => $now]);
         } else {
             $this->db->table('settings')->insert([
-                'company_id' => $companyId,
+                'workspace_id' => $workspaceId,
                 'key'        => $key,
                 'value'      => $encoded,
                 'created_at' => $now,
@@ -80,27 +80,27 @@ final class SettingsManager
             ]);
         }
 
-        $this->cache->forget($this->cacheKey($companyId, $key));
+        $this->cache->forget($this->cacheKey($workspaceId, $key));
     }
 
     public function has(string $key): bool
     {
-        $companyId = $this->requireTenant();
+        $workspaceId = $this->requireTenant();
 
         return $this->db->table('settings')
-            ->where('company_id', '=', $companyId)
+            ->where('workspace_id', '=', $workspaceId)
             ->where('key', '=', $key)
             ->exists();
     }
 
     public function forget(string $key): void
     {
-        $companyId = $this->requireTenant();
+        $workspaceId = $this->requireTenant();
         $this->db->table('settings')
-            ->where('company_id', '=', $companyId)
+            ->where('workspace_id', '=', $workspaceId)
             ->where('key', '=', $key)
             ->delete();
-        $this->cache->forget($this->cacheKey($companyId, $key));
+        $this->cache->forget($this->cacheKey($workspaceId, $key));
     }
 
     /**
@@ -111,10 +111,10 @@ final class SettingsManager
      */
     public function all(): array
     {
-        $companyId = $this->requireTenant();
+        $workspaceId = $this->requireTenant();
         $effective = (array) config('settings.defaults', []);
 
-        foreach ($this->db->table('settings')->where('company_id', '=', $companyId)->get() as $row) {
+        foreach ($this->db->table('settings')->where('workspace_id', '=', $workspaceId)->get() as $row) {
             $effective[$row['key']] = $this->decode((string) $row['value']);
         }
 
@@ -138,9 +138,9 @@ final class SettingsManager
         return $id;
     }
 
-    private function cacheKey(int $companyId, string $key): string
+    private function cacheKey(int $workspaceId, string $key): string
     {
-        return "settings:{$companyId}:{$key}";
+        return "settings:{$workspaceId}:{$key}";
     }
 
     private function encode(mixed $value): string

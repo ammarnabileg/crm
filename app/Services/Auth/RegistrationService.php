@@ -9,27 +9,27 @@ use App\Contracts\Repositories\UserRepositoryInterface;
 use App\Core\Hash;
 use App\DTOs\RegisterUserData;
 use App\Events\UserRegistered;
-use App\Models\Company;
+use App\Models\Workspace;
 use App\Models\User;
-use App\Services\Tenancy\CompanyService;
+use App\Services\Tenancy\WorkspaceService;
 
 /**
  * Application-layer use-case for registration. Orchestrates the domain via a
  * repository and a DTO, fires the UserRegistered event (audit/notifications are
- * listeners), and optionally provisions the registrant's first company. Holds no
+ * listeners), and optionally provisions the registrant's first workspace. Holds no
  * SQL and no HTTP concern (docs/47 EAS-1..EAS-6).
  */
 final class RegistrationService
 {
     public function __construct(
         private readonly UserRepositoryInterface $users,
-        private readonly CompanyService $companies,
+        private readonly WorkspaceService $workspaces,
         private readonly EventDispatcherInterface $events,
     ) {
     }
 
     /**
-     * @return array{user: User, company: ?Company}
+     * @return array{user: User, workspace: ?Workspace}
      */
     public function register(RegisterUserData $data): array
     {
@@ -44,11 +44,11 @@ final class RegistrationService
 
         $this->events->dispatch(new UserRegistered($user));
 
-        $company = null;
-        if ($data->companyName !== null) {
-            $company = $this->companies->create($user, $data->companyName);
+        $workspace = null;
+        if ($data->workspaceName !== null) {
+            $workspace = $this->workspaces->create($user, $data->workspaceName);
         }
 
-        return ['user' => $user, 'company' => $company];
+        return ['user' => $user, 'workspace' => $workspace];
     }
 }

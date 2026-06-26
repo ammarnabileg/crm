@@ -7,7 +7,7 @@ namespace App\Models;
 use App\Core\Model;
 
 /**
- * Audit trail entry. Written explicitly with a company_id (nullable for
+ * Audit trail entry. Written explicitly with a workspace_id (nullable for
  * platform events), so it is not auto tenant-scoped.
  */
 final class ActivityLog extends Model
@@ -17,7 +17,7 @@ final class ActivityLog extends Model
     protected static bool $timestamps = false;
 
     protected static array $fillable = [
-        'company_id', 'user_id', 'action', 'subject_type', 'subject_id',
+        'workspace_id', 'user_id', 'action', 'subject_type', 'subject_id',
         'description', 'properties', 'ip', 'user_agent', 'created_at',
     ];
 
@@ -25,7 +25,7 @@ final class ActivityLog extends Model
 
     public static function record(
         string $action,
-        ?int $companyId = null,
+        ?int $workspaceId = null,
         ?int $userId = null,
         string $description = '',
         array $properties = [],
@@ -35,7 +35,7 @@ final class ActivityLog extends Model
         $request = app()->has('request') ? request() : null;
 
         static::withoutTenantScope()->insert([
-            'company_id'   => $companyId,
+            'workspace_id'   => $workspaceId,
             'user_id'      => $userId,
             'action'       => $action,
             'subject_type' => $subjectType,

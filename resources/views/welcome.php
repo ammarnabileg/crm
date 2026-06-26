@@ -15,10 +15,10 @@
     <section class="mx-auto max-w-6xl px-4 pt-16 pb-20 text-center">
         <span class="badge-brand mb-4">Multi-tenant SaaS • Bilingual AR/EN</span>
         <h1 class="mx-auto max-w-3xl text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-            Run your whole company on one intelligent platform
+            Run your whole workspace on one intelligent platform
         </h1>
         <p class="mx-auto mt-5 max-w-2xl text-lg text-slate-600">
-            <?= e(config('app.name')) ?> brings teams, roles, permissions, and AI-powered tooling together — securely isolated per company, ready out of the box.
+            <?= e(config('app.name')) ?> brings teams, roles, permissions, and AI-powered tooling together — securely isolated per workspace, ready out of the box.
         </p>
         <div class="mt-8 flex items-center justify-center gap-3">
             <a href="<?= e(url('register')) ?>" class="btn-primary px-6 py-3 text-base">Create your workspace</a>
@@ -31,8 +31,8 @@
             <?php
             $features = [
                 ['Real RBAC', 'Roles, permissions, inheritance and policies — never hard-coded user types.'],
-                ['True multi-tenancy', 'Every query is scoped to your company. Zero data leakage by design.'],
-                ['Bring your own AI', 'Each company plugs in its own OpenAI, Anthropic, Gemini or DeepSeek keys.'],
+                ['True multi-tenancy', 'Every query is scoped to your workspace. Zero data leakage by design.'],
+                ['Bring your own AI', 'Each workspace plugs in its own OpenAI, Anthropic, Gemini or DeepSeek keys.'],
             ];
             foreach ($features as [$title, $desc]):
             ?>

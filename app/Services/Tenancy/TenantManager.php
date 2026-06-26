@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Tenancy;
 
-use App\Models\Company;
+use App\Models\Workspace;
 use App\Models\User;
 
 /**
- * Holds the active tenant (company) for the current request and is the single
+ * Holds the active tenant (workspace) for the current request and is the single
  * authority the Model layer consults to scope every tenant-bound query.
  *
  * Isolation guarantee: a tenant-scoped model can only ever read/write rows for
@@ -19,7 +19,7 @@ use App\Models\User;
 final class TenantManager
 {
     private ?int $id = null;
-    private ?Company $company = null;
+    private ?Workspace $workspace = null;
     private bool $booted = false;
 
     public function id(): ?int
@@ -27,13 +27,13 @@ final class TenantManager
         return $this->id;
     }
 
-    public function company(): ?Company
+    public function workspace(): ?Workspace
     {
-        if ($this->company === null && $this->id !== null) {
-            $this->company = Company::find($this->id);
+        if ($this->workspace === null && $this->id !== null) {
+            $this->workspace = Workspace::find($this->id);
         }
 
-        return $this->company;
+        return $this->workspace;
     }
 
     public function hasTenant(): bool
@@ -50,21 +50,21 @@ final class TenantManager
         return true;
     }
 
-    public function setTenant(Company $company): void
+    public function setTenant(Workspace $workspace): void
     {
-        $this->id = (int) $company->getKey();
-        $this->company = $company;
-        session()->put((string) config('auth.tenant_key', 'active_company_id'), $this->id);
+        $this->id = (int) $workspace->getKey();
+        $this->workspace = $workspace;
+        session()->put((string) config('auth.tenant_key', 'active_workspace_id'), $this->id);
     }
 
-    public function setById(int $companyId): bool
+    public function setById(int $workspaceId): bool
     {
-        $company = Company::find($companyId);
-        if ($company === null) {
+        $workspace = Workspace::find($workspaceId);
+        if ($workspace === null) {
             return false;
         }
 
-        $this->setTenant($company);
+        $this->setTenant($workspace);
 
         return true;
     }
@@ -72,16 +72,16 @@ final class TenantManager
     public function clear(): void
     {
         $this->id = null;
-        $this->company = null;
-        session()->forget((string) config('auth.tenant_key', 'active_company_id'));
+        $this->workspace = null;
+        session()->forget((string) config('auth.tenant_key', 'active_workspace_id'));
     }
 
     /**
      * Establish the active tenant for an authenticated user.
      *
-     * Preference order: the company stored in the session (if the user still
-     * has an active membership there) -> the user's most recent company. A user
-     * with no companies (e.g. a fresh super admin) simply has no active tenant
+     * Preference order: the workspace stored in the session (if the user still
+     * has an active membership there) -> the user's most recent workspace. A user
+     * with no workspaces (e.g. a fresh super admin) simply has no active tenant
      * and operates platform-wide via global roles.
      */
     public function bootFor(User $user): void
@@ -91,7 +91,7 @@ final class TenantManager
         }
         $this->booted = true;
 
-        $sessionKey = (string) config('auth.tenant_key', 'active_company_id');
+        $sessionKey = (string) config('auth.tenant_key', 'active_workspace_id');
         $stored = session()->get($sessionKey);
 
         if (is_numeric($stored) && $this->userBelongsTo($user, (int) $stored)) {
@@ -100,15 +100,15 @@ final class TenantManager
             return;
         }
 
-        $companies = $user->companies();
-        if ($companies !== []) {
-            $this->setById((int) $companies[0]['id']);
+        $workspaces = $user->workspaces();
+        if ($workspaces !== []) {
+            $this->setById((int) $workspaces[0]['id']);
         }
     }
 
-    public function userBelongsTo(User $user, int $companyId): bool
+    public function userBelongsTo(User $user, int $workspaceId): bool
     {
-        $membership = $user->membershipFor($companyId);
+        $membership = $user->membershipFor($workspaceId);
 
         return $membership !== null && ($membership->status ?? '') === 'active';
     }

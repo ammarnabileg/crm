@@ -10,8 +10,8 @@ use App\Core\Response;
 use Closure;
 
 /**
- * Guarantees an active tenant (company) context for tenant-scoped areas of the
- * app. A user with no active company is sent to the company-chooser/creation
+ * Guarantees an active tenant (workspace) context for tenant-scoped areas of the
+ * app. A user with no active workspace is sent to the workspace-chooser/creation
  * flow; super admins operating platform-wide are allowed through.
  */
 final class EnsureTenant implements MiddlewareInterface
@@ -23,9 +23,9 @@ final class EnsureTenant implements MiddlewareInterface
         }
 
         if ($request->wantsJson()) {
-            return Response::json(['message' => 'No active company selected.'], 409);
+            return Response::json(['message' => 'No active workspace selected.'], 409);
         }
 
-        return Response::redirect(url('companies/select'));
+        return Response::redirect(url('workspaces/select'));
     }
 }

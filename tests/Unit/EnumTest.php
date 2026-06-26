@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Domain\Enums\CompanyStatus;
+use App\Domain\Enums\WorkspaceStatus;
 use App\Domain\Enums\SubscriptionStatus;
 use App\Domain\Enums\UserStatus;
 use Tests\TestCase;
@@ -19,12 +19,12 @@ return new class extends TestCase {
         $this->assertSame(['active', 'suspended', 'pending'], UserStatus::values());
     }
 
-    public function test_company_status_operational(): void
+    public function test_workspace_status_operational(): void
     {
-        $this->assertTrue(CompanyStatus::Trial->isOperational());
-        $this->assertTrue(CompanyStatus::Active->isOperational());
-        $this->assertFalse(CompanyStatus::Suspended->isOperational());
-        $this->assertFalse(CompanyStatus::Canceled->isOperational());
+        $this->assertTrue(WorkspaceStatus::Trial->isOperational());
+        $this->assertTrue(WorkspaceStatus::Active->isOperational());
+        $this->assertFalse(WorkspaceStatus::Suspended->isOperational());
+        $this->assertFalse(WorkspaceStatus::Canceled->isOperational());
     }
 
     public function test_subscription_status_active(): void
@@ -43,6 +43,6 @@ return new class extends TestCase {
     public function test_labels_are_human_readable(): void
     {
         $this->assertSame('Past due', SubscriptionStatus::PastDue->label());
-        $this->assertSame('Trial', CompanyStatus::Trial->label());
+        $this->assertSame('Trial', WorkspaceStatus::Trial->label());
     }
 };

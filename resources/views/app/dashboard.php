@@ -2,7 +2,7 @@
 <?php $this->section('content'); ?>
 <div class="mb-6">
     <h1 class="text-2xl font-bold text-slate-900">Welcome back, <?= e(explode(' ', auth()->user()->name)[0]) ?> 👋</h1>
-    <p class="mt-1 text-slate-600">Here's what's happening at <?= e($company->name ?? config('app.name')) ?>.</p>
+    <p class="mt-1 text-slate-600">Here's what's happening at <?= e($workspace->name ?? config('app.name')) ?>.</p>
 </div>
 
 <div class="grid gap-4 sm:grid-cols-3">
@@ -60,7 +60,7 @@
             </div>
             <div class="card-body space-y-2">
                 <a href="<?= e(url('profile')) ?>" class="btn-secondary w-full justify-start">Edit your profile</a>
-                <a href="<?= e(url('companies/create')) ?>" class="btn-secondary w-full justify-start">Create another company</a>
+                <a href="<?= e(url('workspaces/create')) ?>" class="btn-secondary w-full justify-start">Create another workspace</a>
             </div>
         </div>
     </div>

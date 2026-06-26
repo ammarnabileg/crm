@@ -24,10 +24,10 @@ abstract class Model
 
     /**
      * When true, the model belongs to a tenant and every read/write is scoped
-     * to the active company via the tenant column below.
+     * to the active workspace via the tenant column below.
      */
     protected static bool $tenantScoped = false;
-    protected static string $tenantColumn = 'company_id';
+    protected static string $tenantColumn = 'workspace_id';
 
     /** @var string[] Attributes that may be mass-assigned. */
     protected static array $fillable = [];

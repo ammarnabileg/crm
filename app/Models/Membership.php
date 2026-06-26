@@ -7,9 +7,9 @@ namespace App\Models;
 use App\Core\Model;
 
 /**
- * A user's membership within a company, carrying the roles that user holds in
+ * A user's membership within a workspace, carrying the roles that user holds in
  * that specific tenant. Tenant-scoped, so listing "the members of the current
- * company" is automatically isolated; cross-company lookups use
+ * workspace" is automatically isolated; cross-workspace lookups use
  * withoutTenantScope().
  */
 final class Membership extends Model
@@ -19,7 +19,7 @@ final class Membership extends Model
     protected static bool $usesUuid = true;
 
     protected static array $fillable = [
-        'company_id', 'user_id', 'status', 'title', 'invited_by', 'invited_at', 'joined_at',
+        'workspace_id', 'user_id', 'status', 'title', 'invited_by', 'invited_at', 'joined_at',
     ];
 
     public function user(): ?User

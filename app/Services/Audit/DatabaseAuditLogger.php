@@ -13,7 +13,7 @@ use App\Services\Tenancy\TenantManager;
  * Writes the audit trail to the `activity_log` table. Captures the actor (from
  * auth or context), tenant, IP, user-agent, and a coarse device classification;
  * change records also store old/new value JSON. Inserts are unscoped (the log is
- * written for whatever company the action targeted), mirroring docs/38.
+ * written for whatever workspace the action targeted), mirroring docs/38.
  */
 final class DatabaseAuditLogger implements AuditLogger
 {
@@ -49,7 +49,7 @@ final class DatabaseAuditLogger implements AuditLogger
         $request = app()->has('request') ? request() : null;
 
         $this->db->table('activity_log')->insert([
-            'company_id'   => $context['company_id'] ?? $this->tenant->id(),
+            'workspace_id'   => $context['workspace_id'] ?? $this->tenant->id(),
             'user_id'      => $context['user_id'] ?? $this->auth->id(),
             'action'       => $action,
             'subject_type' => $context['subject_type'] ?? null,

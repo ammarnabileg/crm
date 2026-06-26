@@ -4,25 +4,25 @@
     <div class="w-full max-w-md">
         <div class="mb-6 text-center">
             <span class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-xl font-bold text-white shadow-lg">H</span>
-            <h1 class="mt-4 text-2xl font-bold text-slate-900">Create your company</h1>
+            <h1 class="mt-4 text-2xl font-bold text-slate-900">Create your workspace</h1>
             <p class="mt-1 text-slate-600">You'll be the owner with full control.</p>
         </div>
         <div class="card">
             <div class="card-body">
                 <?php $this->include('partials.alerts'); ?>
-                <form method="POST" action="<?= e(url('companies')) ?>" class="space-y-4">
+                <form method="POST" action="<?= e(url('workspaces')) ?>" class="space-y-4">
                     <?= csrf_field() ?>
                     <div>
-                        <label class="label" for="name">Company name</label>
+                        <label class="label" for="name">Workspace name</label>
                         <input class="input" id="name" name="name" value="<?= e(old('name')) ?>" autofocus required>
                     </div>
-                    <button type="submit" class="btn-primary w-full">Create company</button>
+                    <button type="submit" class="btn-primary w-full">Create workspace</button>
                 </form>
             </div>
         </div>
-        <?php if (! empty(auth()->user()->companies())): ?>
+        <?php if (! empty(auth()->user()->workspaces())): ?>
             <p class="mt-6 text-center text-sm text-slate-600">
-                <a href="<?= e(url('companies/select')) ?>" class="font-semibold text-brand-600 hover:text-brand-700">Or switch to an existing company</a>
+                <a href="<?= e(url('workspaces/select')) ?>" class="font-semibold text-brand-600 hover:text-brand-700">Or switch to an existing workspace</a>
             </p>
         <?php endif; ?>
     </div>

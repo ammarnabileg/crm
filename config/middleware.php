@@ -13,7 +13,7 @@ use App\Http\Middleware\ThrottleRequests;
 /**
  * Route middleware aliases. Referenced by name in routes/web.php (e.g.
  * ->middleware('auth')) and resolved by the Router. The "alias:arg" form is
- * supported, e.g. 'permission:companies.manage' or 'throttle:5,60'.
+ * supported, e.g. 'permission:workspaces.manage' or 'throttle:5,60'.
  */
 return [
     'security'   => SecurityHeaders::class,

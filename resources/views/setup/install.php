@@ -80,7 +80,7 @@
                             </div>
                             <div class="col-span-2">
                                 <label class="label" for="admin_email">Email</label>
-                                <input class="input" id="admin_email" name="admin_email" type="email" placeholder="admin@company.com" required>
+                                <input class="input" id="admin_email" name="admin_email" type="email" placeholder="admin@workspace.com" required>
                             </div>
                             <div class="col-span-2">
                                 <label class="label" for="admin_password">Password <span class="text-slate-400">(min 8 characters)</span></label>

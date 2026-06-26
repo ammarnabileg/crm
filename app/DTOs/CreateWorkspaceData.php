@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\DTOs;
 
 /**
- * Validated input for provisioning a company. The owner id is set by the
+ * Validated input for provisioning a workspace. The owner id is set by the
  * service from the authenticated user, never trusted from the client.
  */
-final class CreateCompanyData extends DataTransferObject
+final class CreateWorkspaceData extends DataTransferObject
 {
     public function __construct(
         public readonly string $name,

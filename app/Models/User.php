@@ -33,7 +33,7 @@ final class User extends Model
 
     /**
      * True when the user holds the platform-level super-admin role (a global
-     * role with no company_id). Super admins bypass tenant scoping.
+     * role with no workspace_id). Super admins bypass tenant scoping.
      */
     public function isSuperAdmin(): bool
     {
@@ -43,7 +43,7 @@ final class User extends Model
             ->join('roles', 'roles.id', '=', 'user_role.role_id')
             ->where('user_role.user_id', '=', $this->getKey())
             ->where('roles.slug', '=', $superSlug)
-            ->whereNull('roles.company_id')
+            ->whereNull('roles.workspace_id')
             ->exists();
     }
 
@@ -58,36 +58,36 @@ final class User extends Model
         );
     }
 
-    public function membershipFor(int $companyId): ?Membership
+    public function membershipFor(int $workspaceId): ?Membership
     {
         $row = Membership::withoutTenantScope()
             ->where('user_id', '=', $this->getKey())
-            ->where('company_id', '=', $companyId)
+            ->where('workspace_id', '=', $workspaceId)
             ->first();
 
         return $row ? Membership::hydrate($row) : null;
     }
 
     /**
-     * Companies this user can access (active memberships), most-recent first.
+     * Workspaces this user can access (active memberships), most-recent first.
      *
      * @return array<int, array<string, mixed>>
      */
-    public function companies(): array
+    public function workspaces(): array
     {
-        return static::db()->table('companies')
-            ->select('companies.*', 'memberships.status AS membership_status')
-            ->join('memberships', 'memberships.company_id', '=', 'companies.id')
+        return static::db()->table('workspaces')
+            ->select('workspaces.*', 'memberships.status AS membership_status')
+            ->join('memberships', 'memberships.workspace_id', '=', 'workspaces.id')
             ->where('memberships.user_id', '=', $this->getKey())
             ->where('memberships.status', '=', 'active')
-            ->orderBy('companies.created_at', 'desc')
+            ->orderBy('workspaces.created_at', 'desc')
             ->get();
     }
 
-    public function ownsCompany(int $companyId): bool
+    public function ownsWorkspace(int $workspaceId): bool
     {
-        return static::db()->table('companies')
-            ->where('id', '=', $companyId)
+        return static::db()->table('workspaces')
+            ->where('id', '=', $workspaceId)
             ->where('owner_id', '=', $this->getKey())
             ->exists();
     }

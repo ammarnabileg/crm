@@ -7,9 +7,9 @@ namespace App\Models;
 use App\Core\Model;
 
 /**
- * Tracks a user's progress through a named onboarding flow within a company
+ * Tracks a user's progress through a named onboarding flow within a workspace
  * context. Not auto tenant-scoped (it is keyed by user first); reads are
- * filtered explicitly by user + company.
+ * filtered explicitly by user + workspace.
  */
 final class OnboardingProgress extends Model
 {
@@ -17,7 +17,7 @@ final class OnboardingProgress extends Model
     protected static bool $tenantScoped = false;
 
     protected static array $fillable = [
-        'user_id', 'company_id', 'flow', 'current_step',
+        'user_id', 'workspace_id', 'flow', 'current_step',
         'completed_steps', 'is_completed', 'completed_at',
     ];
 
@@ -27,13 +27,13 @@ final class OnboardingProgress extends Model
         'current_step'    => 'int',
     ];
 
-    public static function forUser(int $userId, ?int $companyId, string $flow): ?self
+    public static function forUser(int $userId, ?int $workspaceId, string $flow): ?self
     {
         $query = static::withoutTenantScope()
             ->where('user_id', '=', $userId)
             ->where('flow', '=', $flow);
 
-        $companyId === null ? $query->whereNull('company_id') : $query->where('company_id', '=', $companyId);
+        $workspaceId === null ? $query->whereNull('workspace_id') : $query->where('workspace_id', '=', $workspaceId);
 
         $row = $query->first();
 

@@ -12,7 +12,7 @@ use App\Core\Model;
  *
  * This is intentionally model-free and takes an explicit Database, so the SAME
  * code path runs during installation (against the installer's connection, before
- * any .env exists) and at runtime (when a new company is created). One source of
+ * any .env exists) and at runtime (when a new workspace is created). One source of
  * truth for "what roles/permissions exist", used everywhere.
  */
 final class RbacManager
@@ -70,13 +70,13 @@ final class RbacManager
 
         $role = $this->db->table('roles')
             ->where('slug', '=', $slug)
-            ->whereNull('company_id')
+            ->whereNull('workspace_id')
             ->first();
 
         if ($role === null) {
             $roleId = $this->db->table('roles')->insertGetId([
                 'uuid'        => Model::generateUuid(),
-                'company_id'  => null,
+                'workspace_id'  => null,
                 'name'        => 'Super Admin',
                 'slug'        => $slug,
                 'description' => 'Platform-wide administrator with unrestricted access.',
@@ -97,11 +97,11 @@ final class RbacManager
     }
 
     /**
-     * Create the default tenant roles for a newly provisioned company.
+     * Create the default tenant roles for a newly provisioned workspace.
      *
      * @return array<string, int> role slug => id
      */
-    public function provisionCompanyRoles(int $companyId): array
+    public function provisionWorkspaceRoles(int $workspaceId): array
     {
         $now = now();
         $permissionMap = $this->permissionKeyToId();
@@ -111,7 +111,7 @@ final class RbacManager
         foreach ((array) config('rbac.tenant_roles', []) as $slug => $definition) {
             $existing = $this->db->table('roles')
                 ->where('slug', '=', $slug)
-                ->where('company_id', '=', $companyId)
+                ->where('workspace_id', '=', $workspaceId)
                 ->first();
 
             if ($existing !== null) {
@@ -121,7 +121,7 @@ final class RbacManager
 
             $roleId = $this->db->table('roles')->insertGetId([
                 'uuid'        => Model::generateUuid(),
-                'company_id'  => $companyId,
+                'workspace_id'  => $workspaceId,
                 'parent_id'   => null,
                 'name'        => $definition['name'] ?? ucfirst($slug),
                 'slug'        => $slug,
@@ -144,7 +144,7 @@ final class RbacManager
             $slugToId[$slug] = (int) $roleId;
         }
 
-        // Resolve parent inheritance once all roles for the company exist.
+        // Resolve parent inheritance once all roles for the workspace exist.
         foreach ((array) config('rbac.tenant_roles', []) as $slug => $definition) {
             if (! empty($definition['parent']) && isset($slugToId[$slug], $slugToId[$definition['parent']])) {
                 $this->db->table('roles')->where('id', '=', $slugToId[$slug])

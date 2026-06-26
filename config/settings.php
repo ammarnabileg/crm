@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Default values for per-tenant settings. A company overrides any of these from
+ * Default values for per-tenant settings. A workspace overrides any of these from
  * its Settings screen; the stored value wins, otherwise these defaults apply.
  * Nothing the platform exposes as configurable is hard-coded in logic
  * (docs/47 EAS-9).
