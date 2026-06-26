@@ -13,7 +13,7 @@ use App\Core\Model;
  */
 final class AiCredential extends Model
 {
-    protected static string $table = 'ai_credentials';
+    protected static string $table = 'tenant_ai_keys';
     protected static bool $tenantScoped = true;
     protected static bool $usesUuid = true;
     protected static bool $softDeletes = true;

@@ -12,7 +12,7 @@ use App\Core\Model;
  */
 final class ActivityLog extends Model
 {
-    protected static string $table = 'activity_log';
+    protected static string $table = 'activity_logs';
     protected static bool $tenantScoped = false;
     protected static bool $timestamps = false;
 

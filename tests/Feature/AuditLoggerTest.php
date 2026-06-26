@@ -21,14 +21,14 @@ return new class extends TestCase {
 
     public function test_log_writes_an_entry(): void
     {
-        $before = app('db')->table('activity_log')->where('action', '=', 'test.audited')->count();
+        $before = app('db')->table('activity_logs')->where('action', '=', 'test.audited')->count();
         audit()->log('test.audited', [
             'user_id'     => 1,
             'description' => 'A test action',
             'subject_type' => 'thing',
             'subject_id'  => 99,
         ]);
-        $after = app('db')->table('activity_log')->where('action', '=', 'test.audited')->count();
+        $after = app('db')->table('activity_logs')->where('action', '=', 'test.audited')->count();
 
         $this->assertSame($before + 1, $after);
     }
@@ -42,7 +42,7 @@ return new class extends TestCase {
             ['user_id' => 1]
         );
 
-        $row = app('db')->table('activity_log')
+        $row = app('db')->table('activity_logs')
             ->where('action', '=', 'test.changed')
             ->orderBy('id', 'desc')
             ->first();
@@ -59,7 +59,7 @@ return new class extends TestCase {
     {
         $userId = (int) app('db')->table('users')->orderBy('id')->value('id');
         audit()->log('test.context', ['user_id' => $userId]);
-        $row = app('db')->table('activity_log')
+        $row = app('db')->table('activity_logs')
             ->where('action', '=', 'test.context')
             ->orderBy('id', 'desc')
             ->first();

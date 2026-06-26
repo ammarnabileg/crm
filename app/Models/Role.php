@@ -36,7 +36,7 @@ final class Role extends Model
      */
     public function permissionIds(): array
     {
-        return array_map('intval', static::db()->table('permission_role')
+        return array_map('intval', static::db()->table('role_permissions')
             ->where('role_id', '=', $this->getKey())
             ->pluck('permission_id'));
     }
@@ -46,10 +46,10 @@ final class Role extends Model
      */
     public function syncPermissions(array $permissionIds): void
     {
-        static::db()->table('permission_role')->where('role_id', '=', $this->getKey())->delete();
+        static::db()->table('role_permissions')->where('role_id', '=', $this->getKey())->delete();
 
         foreach (array_unique($permissionIds) as $permissionId) {
-            static::db()->table('permission_role')->insert([
+            static::db()->table('role_permissions')->insert([
                 'role_id'       => $this->getKey(),
                 'permission_id' => $permissionId,
             ]);

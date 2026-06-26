@@ -190,15 +190,15 @@ final class RbacManager
 
     public function assignGlobalRole(int $userId, int $roleId): void
     {
-        if (! $this->db->table('user_role')->where('user_id', '=', $userId)->where('role_id', '=', $roleId)->exists()) {
-            $this->db->table('user_role')->insert(['user_id' => $userId, 'role_id' => $roleId]);
+        if (! $this->db->table('user_roles')->where('user_id', '=', $userId)->where('role_id', '=', $roleId)->exists()) {
+            $this->db->table('user_roles')->insert(['user_id' => $userId, 'role_id' => $roleId]);
         }
     }
 
     public function assignMembershipRole(int $membershipId, int $roleId): void
     {
-        if (! $this->db->table('membership_role')->where('membership_id', '=', $membershipId)->where('role_id', '=', $roleId)->exists()) {
-            $this->db->table('membership_role')->insert(['membership_id' => $membershipId, 'role_id' => $roleId]);
+        if (! $this->db->table('membership_roles')->where('membership_id', '=', $membershipId)->where('role_id', '=', $roleId)->exists()) {
+            $this->db->table('membership_roles')->insert(['membership_id' => $membershipId, 'role_id' => $roleId]);
         }
     }
 
@@ -207,9 +207,9 @@ final class RbacManager
      */
     public function syncRolePermissions(int $roleId, array $permissionIds): void
     {
-        $this->db->table('permission_role')->where('role_id', '=', $roleId)->delete();
+        $this->db->table('role_permissions')->where('role_id', '=', $roleId)->delete();
         foreach (array_unique($permissionIds) as $permissionId) {
-            $this->db->table('permission_role')->insert([
+            $this->db->table('role_permissions')->insert([
                 'role_id'       => $roleId,
                 'permission_id' => $permissionId,
             ]);

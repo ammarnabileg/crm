@@ -39,9 +39,9 @@ final class User extends Model
     {
         $superSlug = (string) config('auth.super_admin_role', 'super-admin');
 
-        return static::db()->table('user_role')
-            ->join('roles', 'roles.id', '=', 'user_role.role_id')
-            ->where('user_role.user_id', '=', $this->getKey())
+        return static::db()->table('user_roles')
+            ->join('roles', 'roles.id', '=', 'user_roles.role_id')
+            ->where('user_roles.user_id', '=', $this->getKey())
             ->where('roles.slug', '=', $superSlug)
             ->whereNull('roles.workspace_id')
             ->exists();

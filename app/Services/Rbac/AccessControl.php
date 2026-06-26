@@ -132,8 +132,8 @@ final class AccessControl
 
         $keys = app('db')->table('permissions')
             ->select('permissions.key')
-            ->join('permission_role', 'permission_role.permission_id', '=', 'permissions.id')
-            ->whereIn('permission_role.role_id', $roleIds)
+            ->join('role_permissions', 'role_permissions.permission_id', '=', 'permissions.id')
+            ->whereIn('role_permissions.role_id', $roleIds)
             ->distinct()
             ->pluck('key');
 
@@ -156,7 +156,7 @@ final class AccessControl
         $db = app('db');
 
         // 1. Global roles assigned directly to the user.
-        $directIds = array_map('intval', $db->table('user_role')
+        $directIds = array_map('intval', $db->table('user_roles')
             ->where('user_id', '=', $user->getKey())
             ->pluck('role_id'));
 
@@ -169,7 +169,7 @@ final class AccessControl
                 ->value('id');
 
             if ($membershipId !== null) {
-                $tenantRoleIds = array_map('intval', $db->table('membership_role')
+                $tenantRoleIds = array_map('intval', $db->table('membership_roles')
                     ->where('membership_id', '=', (int) $membershipId)
                     ->pluck('role_id'));
                 $directIds = array_merge($directIds, $tenantRoleIds);

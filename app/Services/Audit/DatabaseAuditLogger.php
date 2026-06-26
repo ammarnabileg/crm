@@ -48,7 +48,7 @@ final class DatabaseAuditLogger implements AuditLogger
     {
         $request = app()->has('request') ? request() : null;
 
-        $this->db->table('activity_log')->insert([
+        $this->db->table('activity_logs')->insert([
             'workspace_id'   => $context['workspace_id'] ?? $this->tenant->id(),
             'user_id'      => $context['user_id'] ?? $this->auth->id(),
             'action'       => $action,

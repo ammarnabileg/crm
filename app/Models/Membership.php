@@ -36,8 +36,8 @@ final class Membership extends Model
     {
         $rows = static::db()->table('roles')
             ->select('roles.*')
-            ->join('membership_role', 'membership_role.role_id', '=', 'roles.id')
-            ->where('membership_role.membership_id', '=', $this->getKey())
+            ->join('membership_roles', 'membership_roles.role_id', '=', 'roles.id')
+            ->where('membership_roles.membership_id', '=', $this->getKey())
             ->get();
 
         return array_map([Role::class, 'hydrate'], $rows);
@@ -48,10 +48,10 @@ final class Membership extends Model
      */
     public function syncRoles(array $roleIds): void
     {
-        static::db()->table('membership_role')->where('membership_id', '=', $this->getKey())->delete();
+        static::db()->table('membership_roles')->where('membership_id', '=', $this->getKey())->delete();
 
         foreach (array_unique($roleIds) as $roleId) {
-            static::db()->table('membership_role')->insert([
+            static::db()->table('membership_roles')->insert([
                 'membership_id' => $this->getKey(),
                 'role_id'       => $roleId,
             ]);
