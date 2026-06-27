@@ -186,6 +186,43 @@ if (! function_exists('render')) {
     }
 }
 
+if (! function_exists('component')) {
+    /**
+     * Render a Design System component partial (resources/views/components/<name>.php)
+     * and return its HTML. Components are self-contained PHP partials that read their
+     * $props with sane defaults — the single, reusable source of UI truth (docs/30).
+     * Echo it in a template: <?= component('button', ['label' => 'Save']) ?>.
+     */
+    function component(string $name, array $props = []): string
+    {
+        return app('view')->render('components.' . $name, $props);
+    }
+}
+
+if (! function_exists('attrs')) {
+    /**
+     * Build an escaped HTML attribute string from a map. null/false drop the
+     * attribute; true renders it valueless (e.g. ['disabled' => true] -> " disabled").
+     * Used by components to forward arbitrary, caller-supplied attributes safely.
+     */
+    function attrs(array $attributes): string
+    {
+        $html = [];
+        foreach ($attributes as $key => $value) {
+            if ($value === null || $value === false) {
+                continue;
+            }
+            if ($value === true) {
+                $html[] = e($key);
+                continue;
+            }
+            $html[] = e($key) . '="' . e($value) . '"';
+        }
+
+        return $html === [] ? '' : ' ' . implode(' ', $html);
+    }
+}
+
 if (! function_exists('redirect')) {
     function redirect(string $url, int $status = 302): Response
     {

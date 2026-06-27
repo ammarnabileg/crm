@@ -91,22 +91,69 @@ $nav = [
 ];
 ```
 
-### Components & partials
+### The Design System & component library
 
-Reusable UI fragments live in `resources/views/partials/`. Today `partials/alerts.php` renders flashed `status`/`error`/validation messages and is `include`d by the app layout's `<main>`. As the UI grows, shared elements (form fields, buttons, modals, empty/loading states, pagination controls) are added as partials and pulled in with `$this->include('partials.xxx', [...])` — the component model is "PHP partial + Tailwind classes", not a JS component framework.
+HalaOps ships **one unified Design System** (docs/30): design tokens, a reusable
+component library, light/dark theming, and standard states — so every screen looks
+and behaves consistently and nothing is hand-rolled twice.
+
+**Design tokens.** Semantic roles (`primary`/`success`/`warning`/`danger`/`info`,
+plus the legacy `brand` alias) with full 50–950 scales, radius, z-index layers
+(`dropdown`→`toast`), transitions and animations live in `tailwind.config.js`, and
+the key roles are mirrored as CSS variables in `resources/css/app.css` (`:root`).
+Templates reference tokens (`bg-brand-600`, `text-success-700`, `z-modal`), never
+raw hex.
+
+**Component library.** Reusable UI lives in `resources/views/components/*.php` —
+each a self-contained PHP partial with a `Purpose / Props / States / Usage`
+docblock that reads its `$props` with sane defaults and escapes every dynamic value
+with `e()`. Render one with the `component()` helper, which returns HTML so it
+composes:
+
+```php
+<?= component('button', ['label' => 'Save', 'type' => 'submit']) ?>
+<?= component('field', [
+    'label' => 'Title', 'for' => 'title', 'name' => 'title',
+    'control' => component('input', ['name' => 'title', 'id' => 'title']),
+]) ?>
+```
+
+The shipped set (29 components): **forms** — `button`, `input`, `textarea`,
+`select`, `checkbox`, `radio`, `switch`, `field`; **display** — `avatar`, `badge`,
+`chip`, `card`, `stat`, `table`, `accordion`, `breadcrumb`, `pagination`,
+`page-header`, `tabs`; **feedback** — `alert`, `toast`, `progress`, `skeleton`,
+`spinner`, `tooltip`; **overlays** — `modal`, `drawer`, `dropdown`; and `state`
+(the unified Empty / Error / Permission-denied / Offline / Loading screen). The
+`attrs()` helper forwards arbitrary, escaped attributes from a component's
+`attributes` prop (`true` → valueless, `null`/`false` → dropped).
+
+The component model is **"PHP partial + Tailwind classes"**, not a JS framework.
+`resources/views/partials/` still holds page-level fragments (e.g.
+`partials/alerts.php`); the difference is that `components/` are parameterised,
+reusable primitives.
+
+**Living catalog.** `GET /design` (`DesignSystemController` → `app/design.php`,
+gated by `dashboard.view`) renders every component with its variants and states
+inside the real app shell — the canonical, always-current style guide for
+reviewing light/dark, RTL/LTR and accessibility in one place.
 
 ### Styling — compiled Tailwind
 
-- **Source:** `resources/css/app.css` (Tailwind directives + custom component classes like `.nav-link`, `.btn-ghost`, the `brand` palette).
-- **Compiled output:** `public/assets/css/app.css`, committed to the repo and shipped as-is. **No build runs on the buyer's server.**
+- **Source:** `resources/css/app.css` (Tailwind directives + the `@layer components` Design System classes — `.btn-*`, `.input`, `.card`, `.badge-*`, `.alert-*`, `.tab`, `.modal-panel`, `.drawer-panel`, `.state`, …) and `tailwind.config.js` (tokens).
+- **Compiled output:** `public/assets/css/app.css`, committed to the repo and shipped as-is. **No build runs on the buyer's server** (`npm run build:css` is a dev-only step).
 - **Linked once** in each layout: `<link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">`.
-- Custom utility classes referenced in templates (`nav-link`, `nav-link-active`, `btn-ghost`, `bg-brand-600`, `text-brand-700`) are defined in the source and present in the compiled bundle.
+- **Design tokens** (semantic colour scales, radius, z-index, transitions, keyframes) are defined once in `tailwind.config.js` and consumed via utilities/component classes — no hard-coded values in templates.
+- **Dark mode** is class-driven (`darkMode: 'class'`): a no-flash `<head>` script applies the saved/system theme to `<html>` before first paint, the topbar `data-theme-toggle` flips it (persisted in `localStorage`), and every component carries `dark:` variants — **one component set, two themes** (no duplicate dark templates).
 
 ### JavaScript — vanilla progressive enhancement
 
-`public/assets/js/app.js` is a single IIFE, loaded with `defer`. It is **enhancement, not infrastructure** — every page works without it. It currently:
-- closes any open `<details>` dropdown on outside-click and on `Escape` (the workspace switcher and user menu are pure-HTML `<details>` disclosures);
-- intercepts form submits carrying `data-confirm` to show a native confirm dialog before destructive actions.
+`public/assets/js/app.js` is a single IIFE, loaded with `defer`. It is **enhancement, not infrastructure** — every page works without it. All wiring is **data-attribute driven and delegated**, so server-rendered *and* dynamically-injected markup behave identically. It provides:
+- **Overlays** — `data-modal-open`/`data-drawer-open` open a dialog by id; `×`, backdrop or `Escape` close it; focus moves into the panel and is restored on close; body scroll is locked while any overlay is open.
+- **Tabs** — `data-tab-target` switches panels with full WAI-ARIA arrow-key navigation (RTL-aware).
+- **Switch** — `data-switch` toggles `aria-checked` and syncs the hidden input so the state submits; operable with Space/Enter.
+- **Toasts** — `window.HalaToast(message, {variant, title, timeout})` mounts an auto-dismissing notification into `#toast-region`; message text is set via `textContent` (never `innerHTML`), and `data-toast-demo` offers a no-inline-JS trigger.
+- **Dark mode** — `data-theme-toggle` flips `.dark` on `<html>` and persists the choice.
+- **Dismissals** — `data-alert-dismiss` / `data-chip-remove` / `data-toast-dismiss`; plus the original `<details>` close-on-outside-click/`Escape` and `data-confirm` submit guard.
 
 There is no bundler, no framework, no inline event handlers. New behaviour is added as small, delegated listeners in the same file.
 
@@ -239,6 +286,7 @@ The frontend has no direct DB access — it renders data handed to it by control
 
 ## Testing
 
+- **Design System tests:** `tests/Feature/ComponentTest.php` renders each component and asserts its contract — classes, ARIA roles (`dialog`/`tablist`/`switch`/`progressbar`/`alert`), data-hooks (`data-modal-open`, `data-tab-target`), escaping, and the `/design` catalog rendering 200 through the app shell with the dark-mode toggle, no-flash script and toast region present.
 - **Rendering unit tests:** `View` layout inheritance (child `content` flows into layout), explicit vs implicit `content` section, nested `include` isolation, `yield` defaults, missing-view error.
 - **Bilingual tests:** rendering with locale `ar` yields `<html lang="ar" dir="rtl">` and `en` yields `dir="ltr"`; `?lang=ar` persists across requests; flow-relative classes present (no raw `left:`/`right:`).
 - **Permission-visibility tests:** sidebar shows only links the user `can()` see and that are `built`; unauthorized/unbuilt links absent.
@@ -249,7 +297,7 @@ The frontend has no direct DB access — it renders data handed to it by control
 
 ## Future Expansion
 
-- **Component partials library**: extract recurring UI (form field, button, modal, table, empty/loading state, pagination) into `resources/views/partials/components/` with a consistent prop convention via `$this->include(..., $data)`.
+- **Component partials library** — ✅ *shipped*: 29 parameterised components in `resources/views/components/` rendered via `component()`, documented live at `/design`. Future growth adds more primitives (DatePicker, Autocomplete, Calendar, DataGrid) to the same library, never bespoke per-page UI.
 - **Optional richer interactivity**: drop in a tiny, no-build library (e.g. Alpine.js via a local file) for client state on heavy screens (kanban application pipeline, live AI interview) — still no bundler, still progressive.
 - **API-backed widgets**: dashboards can fetch JSON from the planned `/api/v1` ([29](29-API-Architecture.md)) using `fetch` + the `<meta name="csrf-token">`, keeping the page server-rendered with islands of dynamism.
 - **Theming per tenant**: workspace-level branding (logo, brand color) driven by `workspaces.settings`, applied as CSS variables in the layout.

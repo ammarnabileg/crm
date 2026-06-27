@@ -15,6 +15,7 @@ declare(strict_types=1);
 
 use App\Controllers\App\WorkspaceController;
 use App\Controllers\App\DashboardController;
+use App\Controllers\App\DesignSystemController;
 use App\Controllers\Ats\ApplicationController;
 use App\Controllers\Ats\BoardController;
 use App\Controllers\Ats\JobController;
@@ -114,6 +115,11 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
             $router->get('dashboard', [DashboardController::class, 'index'])
                 ->middleware('permission:dashboard.view')
                 ->name('dashboard');
+
+            // Design System catalog (docs/30) — living component reference.
+            $router->get('design', [DesignSystemController::class, 'index'])
+                ->middleware('permission:dashboard.view')
+                ->name('design');
 
             // Recruitment / ATS (docs/53). Reads: recruitment.view; writes: recruitment.manage.
             $router->get('recruiter', [RecruiterDashboardController::class, 'index'])->middleware('permission:recruitment.view')->name('recruiter.dashboard');
