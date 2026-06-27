@@ -21,6 +21,9 @@ return new class extends TestCase {
     {
         $db = app('db');
         tenant()->setById((int) $db->table('workspaces')->orderBy('id')->value('id'));
+        // Bind a request: components that default a URL fall back to request()->path(),
+        // exactly as they do under a real HTTP request.
+        app()->instance('request', new Request([], [], ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/design'], [], []));
     }
 
     /**
@@ -190,6 +193,86 @@ return new class extends TestCase {
         $this->assertTrue(str_contains($html, 'aria-valuenow="100"'));
     }
 
+    public function test_autocomplete_is_a_combobox(): void
+    {
+        $html = component('autocomplete', ['name' => 'skill', 'options' => ['PHP', 'MySQL']]);
+        $this->assertTrue(str_contains($html, 'role="combobox"'));
+        $this->assertTrue(str_contains($html, 'role="listbox"'));
+        $this->assertTrue(str_contains($html, 'data-autocomplete'));
+        $this->assertTrue(str_contains($html, 'data-value="PHP"'));
+    }
+
+    public function test_datepicker_is_native_date(): void
+    {
+        $html = component('datepicker', ['name' => 'start', 'min' => '2026-01-01']);
+        $this->assertTrue(str_contains($html, 'type="date"'));
+        $this->assertTrue(str_contains($html, 'min="2026-01-01"'));
+    }
+
+    public function test_popover_uses_details(): void
+    {
+        $html = component('popover', ['label' => 'Info', 'slot' => '<p>hi</p>']);
+        $this->assertTrue(str_contains($html, 'data-popover'));
+        $this->assertTrue(str_contains($html, '<p>hi</p>'));
+    }
+
+    public function test_timeline_renders_items(): void
+    {
+        $html = component('timeline', ['items' => [['title' => 'Applied', 'time' => '2d'], ['title' => 'Hired']]]);
+        $this->assertTrue(str_contains($html, '<ol'));
+        $this->assertTrue(str_contains($html, 'Applied'));
+        $this->assertTrue(str_contains($html, 'Hired'));
+    }
+
+    public function test_calendar_renders_month_grid(): void
+    {
+        $html = component('calendar', ['year' => 2026, 'month' => 6, 'events' => ['2026-06-15' => 'Interview'], 'base' => '/design']);
+        $this->assertTrue(str_contains($html, 'June 2026'));
+        $this->assertTrue(str_contains($html, 'grid-cols-7'));
+        $this->assertTrue(str_contains($html, 'month=7')); // next-month link
+    }
+
+    public function test_file_upload_is_a_dropzone(): void
+    {
+        $html = component('file-upload', ['name' => 'cv', 'accept' => '.pdf', 'multiple' => true]);
+        $this->assertTrue(str_contains($html, 'data-dropzone'));
+        $this->assertTrue(str_contains($html, 'type="file"'));
+        $this->assertTrue(str_contains($html, 'accept=".pdf"'));
+        $this->assertTrue(str_contains($html, 'multiple'));
+    }
+
+    public function test_data_grid_sortable_selectable_and_empty(): void
+    {
+        $html = component('data-grid', [
+            'columns' => [['label' => 'Name', 'sort' => 'name'], ['label' => 'Stage']],
+            'rows' => [[e('Sara'), e('Offer')]], 'sort' => 'name', 'dir' => 'asc', 'base' => '/jobs', 'selectable' => true,
+        ]);
+        $this->assertTrue(str_contains($html, 'aria-sort="ascending"'));
+        $this->assertTrue(str_contains($html, 'sort=name&amp;dir=desc')); // & escaped by e(); toggles asc -> desc
+        $this->assertTrue(str_contains($html, 'data-grid-select-all'));
+
+        $empty = component('data-grid', ['columns' => [['label' => 'Name']], 'rows' => [], 'empty' => 'Nothing']);
+        $this->assertTrue(str_contains($empty, 'Nothing'));
+    }
+
+    public function test_notification_center_shows_unread_badge(): void
+    {
+        $html = component('notification-center', ['items' => [
+            ['title' => 'A', 'read' => false], ['title' => 'B', 'read' => true],
+        ]]);
+        $this->assertTrue(str_contains($html, 'data-popover'));
+        $this->assertTrue(str_contains($html, 'Notifications'));
+        $this->assertTrue(str_contains($html, '>1<')); // one unread
+    }
+
+    public function test_search_is_a_search_form(): void
+    {
+        $html = component('search', ['action' => '/jobs', 'placeholder' => 'Find']);
+        $this->assertTrue(str_contains($html, 'role="search"'));
+        $this->assertTrue(str_contains($html, 'type="search"'));
+        $this->assertTrue(str_contains($html, 'action="/jobs"'));
+    }
+
     // --- The /design catalog page (controller → view → layout) -------------
 
     public function test_design_catalog_renders(): void
@@ -203,6 +286,11 @@ return new class extends TestCase {
         $this->assertTrue(str_contains($content, 'role="tablist"'));
         $this->assertTrue(str_contains($content, 'data-modal-open="ds-modal"'));
         $this->assertTrue(str_contains($content, 'id="ds-modal"'));
+        // Newer library components also appear on the catalog.
+        $this->assertTrue(str_contains($content, 'data-autocomplete'));
+        $this->assertTrue(str_contains($content, 'data-dropzone'));
+        $this->assertTrue(str_contains($content, 'data-grid-select-all'));
+        $this->assertTrue(str_contains($content, 'Search &amp; alerts'));
     }
 
     public function test_layout_ships_dark_mode_and_toast_region(): void

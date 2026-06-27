@@ -27,7 +27,8 @@ $brandScale = [
 
 $sections = [
     'foundations' => 'Foundations', 'buttons' => 'Buttons', 'forms' => 'Forms',
-    'data' => 'Data display', 'feedback' => 'Feedback', 'overlays' => 'Overlays', 'states' => 'States',
+    'data' => 'Data display', 'feedback' => 'Feedback', 'overlays' => 'Overlays',
+    'search-alerts' => 'Search & alerts', 'states' => 'States',
 ];
 ?>
 
@@ -154,6 +155,20 @@ $sections = [
             <?= component('switch', ['name' => 'ds-notify', 'label' => 'Email notifications', 'on' => true]) ?>
             <?= component('switch', ['name' => 'ds-beta', 'label' => 'Join beta']) ?>
         </div>
+        <?= component('field', [
+            'label' => 'Start date', 'for' => 'ds-date',
+            'control' => component('datepicker', ['name' => 'ds-date', 'id' => 'ds-date']),
+        ]) ?>
+        <?= component('field', [
+            'label' => 'Skill (autocomplete)', 'for' => 'ds-skill', 'hint' => 'Type to filter',
+            'control' => component('autocomplete', ['name' => 'ds-skill', 'id' => 'ds-skill', 'placeholder' => 'e.g. PHP', 'options' => ['PHP', 'MySQL', 'Tailwind CSS', 'JavaScript', 'Docker', 'Kubernetes']]),
+        ]) ?>
+        <div class="sm:col-span-2">
+            <?= component('field', [
+                'label' => 'Résumé', 'for' => 'ds-cv',
+                'control' => component('file-upload', ['name' => 'ds-cv', 'id' => 'ds-cv', 'accept' => '.pdf', 'hint' => 'PDF up to 5MB']),
+            ]) ?>
+        </div>
     </div>
 </section>
 
@@ -219,6 +234,34 @@ $sections = [
                 <?= component('pagination', ['current' => 3, 'last' => 8, 'base' => url('design')]) ?>
             </div>
         </div>
+        <div class="space-y-2">
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Timeline</p>
+            <?= component('timeline', ['items' => [
+                ['title' => 'Application submitted', 'time' => '3d ago', 'variant' => 'brand', 'description' => '<p>Applied via the careers page.</p>'],
+                ['title' => 'Moved to AI Screening', 'time' => '2d ago', 'variant' => 'slate'],
+                ['title' => 'Interview passed', 'time' => '1d ago', 'variant' => 'green', 'description' => '<p>Score 86/100.</p>'],
+            ]]) ?>
+        </div>
+        <div class="grid gap-6 lg:grid-cols-2">
+            <div class="space-y-2">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Calendar</p>
+                <?= component('calendar', ['events' => [date('Y-m-d') => 'Today'], 'base' => url('design')]) ?>
+            </div>
+            <div class="space-y-2">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-400">DataGrid (sortable + selectable)</p>
+                <?= component('data-grid', [
+                    'columns' => [['label' => 'Candidate', 'sort' => 'name'], ['label' => 'Stage'], ['label' => 'Score', 'sort' => 'score', 'align' => 'end']],
+                    'sort' => 'name', 'dir' => 'asc', 'base' => url('design'), 'selectable' => true,
+                    'toolbar' => component('search', ['action' => url('design'), 'placeholder' => 'Search…', 'class' => 'w-full sm:w-56'])
+                        . component('button', ['label' => 'Export', 'variant' => 'secondary', 'size' => 'sm']),
+                    'rows' => [
+                        [e('Sara Ali'), component('badge', ['label' => 'Interview', 'variant' => 'brand']), '<span class="font-semibold">86</span>'],
+                        [e('Omar Nabil'), component('badge', ['label' => 'Offer', 'variant' => 'green']), '<span class="font-semibold">92</span>'],
+                    ],
+                    'footer' => component('pagination', ['current' => 1, 'last' => 4, 'base' => url('design')]),
+                ]) ?>
+            </div>
+        </div>
     </div>
 </section>
 
@@ -267,6 +310,25 @@ $sections = [
                 ['divider' => true],
                 ['label' => 'Delete', 'href' => '#', 'danger' => true],
             ]])
+            . component('popover', ['label' => 'Popover', 'slot' => '<p class="font-medium text-slate-800 dark:text-slate-100">Popover title</p><p class="mt-1">Arbitrary rich content in a floating panel.</p>'])
+        ) ?>
+    </div>
+</section>
+
+<!-- ========================= SEARCH & ALERTS ========================== -->
+<section id="search-alerts" class="mb-10 scroll-mt-6">
+    <h2 class="mb-3 text-lg font-bold text-slate-900 dark:text-white">Search &amp; alerts</h2>
+    <div class="card card-body space-y-6">
+        <div class="space-y-2">
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Global search</p>
+            <?= component('search', ['action' => url('jobs'), 'placeholder' => 'Search jobs, candidates…', 'class' => 'max-w-md']) ?>
+        </div>
+        <?= $demo('Notification center',
+            component('notification-center', ['items' => [
+                ['title' => 'New application for Senior Engineer', 'time' => '2m', 'read' => false, 'href' => '#'],
+                ['title' => 'Interview scheduled with Omar', 'time' => '1h', 'read' => false, 'href' => '#'],
+                ['title' => 'Offer accepted by Sara', 'time' => 'yesterday', 'read' => true, 'href' => '#'],
+            ], 'viewAllHref' => url('dashboard')])
         ) ?>
     </div>
 </section>

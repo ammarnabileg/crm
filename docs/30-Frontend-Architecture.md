@@ -118,14 +118,16 @@ composes:
 ]) ?>
 ```
 
-The shipped set (29 components): **forms** — `button`, `input`, `textarea`,
-`select`, `checkbox`, `radio`, `switch`, `field`; **display** — `avatar`, `badge`,
-`chip`, `card`, `stat`, `table`, `accordion`, `breadcrumb`, `pagination`,
-`page-header`, `tabs`; **feedback** — `alert`, `toast`, `progress`, `skeleton`,
-`spinner`, `tooltip`; **overlays** — `modal`, `drawer`, `dropdown`; and `state`
-(the unified Empty / Error / Permission-denied / Offline / Loading screen). The
-`attrs()` helper forwards arbitrary, escaped attributes from a component's
-`attributes` prop (`true` → valueless, `null`/`false` → dropped).
+The shipped set (38 components): **forms** — `button`, `input`, `textarea`,
+`select`, `checkbox`, `radio`, `switch`, `field`, `autocomplete`, `datepicker`,
+`file-upload`; **display** — `avatar`, `badge`, `chip`, `card`, `stat`, `table`,
+`data-grid`, `accordion`, `breadcrumb`, `pagination`, `page-header`, `tabs`,
+`timeline`, `calendar`; **feedback** — `alert`, `toast`, `progress`, `skeleton`,
+`spinner`, `tooltip`; **overlays** — `modal`, `drawer`, `dropdown`, `popover`;
+**search & alerts** — `search`, `notification-center`; and `state` (the unified
+Empty / Error / Permission-denied / Offline / Loading screen). The `attrs()`
+helper forwards arbitrary, escaped attributes from a component's `attributes` prop
+(`true` → valueless, `null`/`false` → dropped).
 
 The component model is **"PHP partial + Tailwind classes"**, not a JS framework.
 `resources/views/partials/` still holds page-level fragments (e.g.
@@ -297,7 +299,7 @@ The frontend has no direct DB access — it renders data handed to it by control
 
 ## Future Expansion
 
-- **Component partials library** — ✅ *shipped*: 29 parameterised components in `resources/views/components/` rendered via `component()`, documented live at `/design`. Future growth adds more primitives (DatePicker, Autocomplete, Calendar, DataGrid) to the same library, never bespoke per-page UI.
+- **Component partials library** — ✅ *shipped*: 38 parameterised components in `resources/views/components/` rendered via `component()`, documented live at `/design` (incl. Autocomplete, DatePicker, FileUpload, DataGrid, Timeline, Calendar, Popover, Search and a Notification Center). Future growth adds more primitives to the same library, never bespoke per-page UI; Global Search and the Notification Center components await a live data feed before being mounted in the production shell (no dead buttons).
 - **Optional richer interactivity**: drop in a tiny, no-build library (e.g. Alpine.js via a local file) for client state on heavy screens (kanban application pipeline, live AI interview) — still no bundler, still progressive.
 - **API-backed widgets**: dashboards can fetch JSON from the planned `/api/v1` ([29](29-API-Architecture.md)) using `fetch` + the `<meta name="csrf-token">`, keeping the page server-rendered with islands of dynamism.
 - **Theming per tenant**: workspace-level branding (logo, brand color) driven by `workspaces.settings`, applied as CSS variables in the layout.
