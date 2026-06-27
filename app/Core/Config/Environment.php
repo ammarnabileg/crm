@@ -51,18 +51,24 @@ final class Environment
 
     public function get(string $key, mixed $default = null): mixed
     {
+        // Real environment variables take precedence over the .env file, so
+        // CI/test/deploy environments can override committed defaults.
+        $fromEnv = getenv($key);
+
+        if ($fromEnv !== false) {
+            return $this->cast($fromEnv);
+        }
+
         if (array_key_exists($key, $this->vars)) {
             return $this->cast($this->vars[$key]);
         }
 
-        $fromEnv = getenv($key);
-
-        return $fromEnv === false ? $default : $this->cast($fromEnv);
+        return $default;
     }
 
     public function has(string $key): bool
     {
-        return array_key_exists($key, $this->vars) || getenv($key) !== false;
+        return getenv($key) !== false || array_key_exists($key, $this->vars);
     }
 
     public function isLoaded(): bool

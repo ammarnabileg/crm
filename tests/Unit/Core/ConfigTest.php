@@ -45,17 +45,33 @@ final class ConfigTest extends TestCase
 
     public function test_environment_parses_and_casts(): void
     {
+        // Use keys that are NOT set as real env vars, so we test file parsing in
+        // isolation (real env vars intentionally take precedence over the file).
         $file = sys_get_temp_dir() . '/env_' . bin2hex(random_bytes(4));
-        file_put_contents($file, "APP_NAME=\"HaHireAI\"\nAPP_DEBUG=true\nEMPTY=\nNOPE=false\n# comment\n");
+        file_put_contents($file, "ZTEST_NAME=\"HaHireAI\"\nZTEST_DEBUG=true\nZTEST_EMPTY=\nZTEST_NOPE=false\n# comment\n");
 
         $env = (new Environment())->load($file);
 
-        $this->assertSame('HaHireAI', $env->get('APP_NAME'));
-        $this->assertTrue($env->get('APP_DEBUG'));
-        $this->assertFalse($env->get('NOPE'));
-        $this->assertSame('', $env->get('EMPTY'));
-        $this->assertSame('fallback', $env->get('UNSET', 'fallback'));
+        $this->assertSame('HaHireAI', $env->get('ZTEST_NAME'));
+        $this->assertTrue($env->get('ZTEST_DEBUG'));
+        $this->assertFalse($env->get('ZTEST_NOPE'));
+        $this->assertSame('', $env->get('ZTEST_EMPTY'));
+        $this->assertSame('fallback', $env->get('ZTEST_UNSET', 'fallback'));
 
+        unlink($file);
+    }
+
+    public function test_real_env_takes_precedence_over_file(): void
+    {
+        putenv('ZTEST_PRECEDENCE=from_real_env');
+        $file = sys_get_temp_dir() . '/env_' . bin2hex(random_bytes(4));
+        file_put_contents($file, "ZTEST_PRECEDENCE=from_file\n");
+
+        $env = (new Environment())->load($file);
+
+        $this->assertSame('from_real_env', $env->get('ZTEST_PRECEDENCE'));
+
+        putenv('ZTEST_PRECEDENCE');
         unlink($file);
     }
 

@@ -22,5 +22,10 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_DEBUG" value="true"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="3306"/>
+        <env name="DB_DATABASE" value="hahireai_test"/>
+        <env name="DB_USERNAME" value="hahireai"/>
+        <env name="DB_PASSWORD" value="hahireai_pw"/>
     </php>
 </phpunit>
