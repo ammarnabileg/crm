@@ -28,6 +28,19 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   permission-based authorization (no hard-coded roles), ULID primary keys, and
   AI as a central engine.
 
+### Added — Phase 2: System Blueprint & Module Architecture
+- `SYSTEM_BLUEPRINT.md` — the complete engineering map (layers, business
+  domains, module boundaries, dependencies, communication rules, shared
+  services, expansion strategy).
+- `STATE_DIAGRAMS.md` — canonical state machines (Job, Application, Offer,
+  Interview, Employee, Membership, Invitation, Subscription, Workspace,
+  Workflow execution).
+- `NAVIGATION_MAP.md`, `USER_JOURNEYS.md`, `PERMISSION_MATRIX.md`.
+- `FEATURE_SPECIFICATIONS/` — 23 per-module specifications plus an index,
+  each with Purpose/Scope/Inputs/Outputs/Dependencies/Permissions/Events/
+  Data/Acceptance-Criteria.
+- Resolved Recruitment as a single bounded context (not fragmented modules).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

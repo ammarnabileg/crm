@@ -162,7 +162,7 @@ stores only tokenized references and never raw card data.
 - [ ] Charge requests honor an idempotency key so a retried request never charges
   twice.
 - [ ] All financial records carry `workspace_id` and are invisible to other
-  workspaces; cross-tenant access is denied (cross-tenant negative tests pass).
+  workspaces; cross-tenant negative tests pass.
 - [ ] Invoices are generated, numbered, and downloadable only through a
   tenant-guarded, permission-checked path.
 - [ ] Coupons enforce validity windows and redemption limits; an invalid/expired

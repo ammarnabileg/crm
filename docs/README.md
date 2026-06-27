@@ -59,10 +59,17 @@ it, the Constitution wins.
 | `DEPLOYMENT_GUIDE.md` | Build, deploy, release | Draft |
 | `CHANGELOG.md` | Change history | Living |
 
+### Phase 2 — System Blueprint & Module Architecture ✅
+| Document | Purpose | Status |
+|---|---|---|
+| `SYSTEM_BLUEPRINT.md` | Complete engineering map | Adopted (Canon) |
+| `STATE_DIAGRAMS.md` | Canonical state machines | Adopted (Canon) |
+| `NAVIGATION_MAP.md` | Screen-relationship map | Draft |
+| `USER_JOURNEYS.md` | End-to-end journeys | Draft |
+| `PERMISSION_MATRIX.md` | Permission × module matrix | Draft |
+| `FEATURE_SPECIFICATIONS/` | 23 per-module specs (+ index) | Draft |
+
 ### Planned (later phases)
-- **Phase 2 — System Blueprint:** `SYSTEM_BLUEPRINT.md`, `NAVIGATION_MAP.md`,
-  `USER_JOURNEYS.md`, `STATE_DIAGRAMS.md`, `PERMISSION_MATRIX.md`,
-  `FEATURE_SPECIFICATIONS/`.
 - **Phase 3 — Database Architecture:** `DATABASE_ARCHITECTURE.md`,
   `ER_DIAGRAM.md`, `ENTITY_CATALOG.md`, `RELATIONSHIP_MATRIX.md`,
   `INDEXING_GUIDE.md`, `AUDIT_POLICY.md`, `ARCHIVING_POLICY.md`,
