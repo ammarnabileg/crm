@@ -7,21 +7,12 @@
 
 ## 0. Purpose & Scope
 
-This document is the **table-by-table index plan** for HaHireAI. It is the Phase 3
-realization of the indexing rules stated in `DATABASE_GUIDE.md` §13. Where this
-guide and `DATABASE_GUIDE.md` ever differ on a *rule*, `DATABASE_GUIDE.md` wins;
-where this guide and `ENTITY_CATALOG.md` differ on a *table name or scope*,
-`ENTITY_CATALOG.md` wins. This guide never redefines either — it applies them.
-
-It covers: the indexing philosophy (§1), the index types every table draws from
-and when to use each (§2), the per-table index plan for high-traffic tables (§3),
-category-level coverage for the remaining tables (§4), the tenancy/index rule that
-governs composite ordering (§5), the anti-patterns to avoid (§6), and a
-self-review checklist (§7).
-
-All table names below are the **exact** names from `ENTITY_CATALOG.md`. All SQL is
-**illustrative only** — the authoritative schema is delivered by forward-only
-migrations (`DATABASE_GUIDE.md` §12). Illustrative snippets are clearly marked.
+This is the **table-by-table index plan** for HaHireAI — the Phase 3 realization
+of the indexing rules in `DATABASE_GUIDE.md` §13. On a *rule*, `DATABASE_GUIDE.md`
+wins; on a *table name or scope*, `ENTITY_CATALOG.md` wins. This guide never
+redefines either — it applies them. All table names below are the **exact** names
+from `ENTITY_CATALOG.md`; all index DDL is **illustrative only** (the authoritative
+schema is delivered by forward-only migrations, `DATABASE_GUIDE.md` §12).
 
 ---
 
@@ -41,12 +32,11 @@ state machines in `STATE_DIAGRAMS.md`. The governing principles:
 | 6 | **Workspace-first** | On workspace-scoped tables, `workspace_id` leads composite indexes because the tenant guard filters by it on **every** query (§5; `DATABASE_GUIDE.md` §6). |
 | 7 | **Writes cost too** | Every index slows `INSERT`/`UPDATE`/`DELETE` and consumes space. Indexes are added deliberately and removed when redundant (§6). The narrowest set that covers the real queries wins. |
 
-**Consequence of principle 5 (use it deliberately):** because `id` already encodes
-creation time, a plain `(workspace_id, id)` index doubles as a tenant-scoped
-"newest first" pagination index. Prefer it for keyset pagination. Add a separate
-`(workspace_id, created_at)` index **only** where a query sorts/filters by
-`created_at` as a distinct column (e.g. append-only log tables that page by time
-windows) — see §3 and §6 on not duplicating what the PK already gives you.
+**Consequence of principle 5:** because `id` already encodes creation time, a
+plain `(workspace_id, id)` index doubles as a tenant-scoped "newest first" keyset
+pagination index — prefer it. Add a separate `(workspace_id, created_at)` index
+**only** where a query sorts/filters by `created_at` as a *distinct* column (e.g.
+append-only log tables paged by time window) — see §6 on not duplicating the PK.
 
 ---
 
@@ -62,12 +52,11 @@ Every table draws from the same small, uniform toolbox. One way to do each thing
 | **Foreign (FK)** | A single-column index on every `<entity>_id`. | **Always, on every foreign key** — InnoDB requires it and we rely on it for joins and batch reads (`DATABASE_GUIDE.md` §4, §13). | If a composite index already *leads* with that FK column, the standalone FK index is redundant — drop it (§6). The FK constraint can use the composite's leftmost prefix. |
 | **Search (FULLTEXT)** | `FULLTEXT (...)` on natural-language text. | Only for free-text relevance search (the unified search projection). Never use `LIKE '%term%'` for this — it cannot use a B-tree index and scans. | InnoDB FULLTEXT, `utf8mb4`. Tenant scoping is applied as a `WHERE workspace_id = ?` predicate combined with `MATCH ... AGAINST` (§3, `search_documents`). |
 
-**Decision order for a new column/query:** (1) is it the PK? use `id`. (2) Must it
-be unique? add a `UNIQUE` (with `workspace_id` if tenant-scoped). (3) Is it a FK?
-it gets an index (unless already the leftmost column of a composite). (4) Is it a
-hot filter/sort, especially alongside `workspace_id`? add a `composite` led by
-`workspace_id`. (5) Is it natural-language search? `FULLTEXT`. (6) Otherwise — no
-index.
+**Decision order for a new column/query:** (1) PK? use `id`. (2) Must it be unique?
+add a `UNIQUE` (with `workspace_id` if tenant-scoped). (3) FK? it gets an index,
+unless already the leftmost column of a composite. (4) Hot filter/sort alongside
+`workspace_id`? add a composite led by `workspace_id`. (5) Natural-language search?
+`FULLTEXT`. (6) Otherwise — no index.
 
 ---
 
@@ -126,10 +115,7 @@ Conventions for this section:
 | jobs | PRIMARY | `(id)` | PK | Row identity; `ORDER BY id` = newest-first listing. |
 | jobs | `uq_jobs_public_token` | `(public_token)` | Unique | Public job page served **without login** by token (`APPLICATION_FLOW.md` §3); globally unique random token, so not workspace-scoped. |
 | jobs | `idx_jobs_ws_status` | `(workspace_id, status_code)` | Composite | Primary jobs board query: jobs in a workspace filtered by state (Draft/Published/Paused/Closed/Archived; `STATE_DIAGRAMS.md` §2). Leftmost-prefix serves all `workspace_id` listings. |
-| jobs | `idx_jobs_created_by` | `(created_by)` | FK | "Jobs I created"; FK to `users`. |
-
-> `workspace_id` is **not** given a standalone index — `idx_jobs_ws_status` covers
-> it via leftmost-prefix (§6). Pagination over the board uses keyset on `id`.
+| jobs | `idx_jobs_created_by` | `(created_by)` | FK | "Jobs I created"; FK to `users`. No standalone `(workspace_id)` index — `idx_jobs_ws_status` covers it via leftmost-prefix (§6). |
 
 #### `applications` (Workspace, soft) — the spine
 
@@ -139,11 +125,11 @@ Conventions for this section:
 | applications | `uq_applications_job_user` | `(job_id, user_id)` | Unique | Invariant: one application per (Job, User) — re-application is history, not a duplicate (`APPLICATION_FLOW.md` §10.1). Both belong to one workspace, so the pair is tenant-safe; also the join index from `jobs`. |
 | applications | `idx_applications_ws_status` | `(workspace_id, status_code)` | Composite | Application lists filtered by lifecycle status (Applied … Hired/Rejected/Withdrawn; `STATE_DIAGRAMS.md` §3). Leftmost-prefix serves all `workspace_id` lists. |
 | applications | `idx_applications_ws_stage` | `(workspace_id, current_stage_id)` | Composite | Pipeline/Kanban board: applications grouped by current pipeline stage within a workspace (`APPLICATION_FLOW.md` §5). |
-| applications | `idx_applications_user` | `(user_id)` | FK | "All of this user's candidacies" feeding the per-(User,Workspace) Candidate Profile view (§6 of `APPLICATION_FLOW.md`); FK to `users`. |
+| applications | `idx_applications_user` | `(user_id)` | FK | "All of this user's candidacies" feeding the per-(User,Workspace) Candidate Profile view (`APPLICATION_FLOW.md` §6); FK to `users`. |
 
-> `current_stage_id` is also a FK; `idx_applications_ws_stage` leads with
-> `workspace_id` (tenant rule §5) and the stage-board query always carries
-> `workspace_id`, so a standalone `(current_stage_id)` index is redundant here.
+> `current_stage_id` is also a FK; its query always carries `workspace_id`, so
+> `idx_applications_ws_stage` serves it and a standalone `(current_stage_id)` index
+> is redundant (§5, §6).
 
 #### `application_stage_history` (Workspace, immutable)
 
@@ -295,59 +281,51 @@ Conventions for this section:
 
 ## 4. Remaining Tables — Category-Level Coverage
 
-Tables not enumerated in §3 follow these **uniform category patterns**. They are
-not exceptions; they are the same rules applied. (Scopes per `ENTITY_CATALOG.md`.)
+Tables not enumerated in §3 follow these **uniform category patterns** — the same
+rules applied, not exceptions. (Scopes per `ENTITY_CATALOG.md`.) Every table also
+has `PRIMARY KEY (id)` (§1); soft-delete tables add a `deleted_at` index only if
+deleted-row volume materially hurts the default-exclusion read path.
 
-- **Every table:** `PRIMARY KEY (id)` (§1). Soft-delete tables MAY add an index
-  involving `deleted_at` only where the volume of deleted rows materially hurts
-  the default-exclusion read path (`DATABASE_GUIDE.md` §9); otherwise rely on the
-  workspace-led composite.
 - **Pivot / join tables** (`membership_roles`, `membership_permissions`,
-  `candidate_profile_tags`): `UNIQUE` on the ordered pair of FKs (the forward
-  join + invariant), plus a single-column index on the **second** FK for the
-  reverse join. The first FK needs no separate index — the unique covers it via
-  leftmost-prefix (§6).
+  `candidate_profile_tags`): `UNIQUE` on the ordered FK pair (forward join +
+  invariant) + a single-column index on the **second** FK (reverse join). The
+  first FK needs none — the unique covers it via leftmost-prefix (§6).
 - **Owned child / detail tables** (`job_versions`, `job_questions`,
   `pipeline_stages`, `application_documents`, `interview_sessions`, `scorecards`,
   `ai_messages`, `ai_fallback_history`, `workflow_execution_steps`,
-  `workflow_approvals`, `payments`): a FK index on the parent
-  (`<parent>_id`); read in `id` (time) order. Add a `(<parent>_id, position)`
-  composite only where rows are explicitly ordered (e.g. `pipeline_stages.position`).
+  `workflow_approvals`, `payments`): FK index on the parent (`<parent>_id`), read
+  in `id` (time) order. Add `(<parent>_id, position)` only where rows are ordered
+  (e.g. `pipeline_stages.position`).
 - **Workspace-scoped status/list tables** (`employees`, `talent_pool_entries`,
   `templates`, `workflows`, `workflow_executions`, `scheduled_tasks`,
   `integrations`, `oauth_connections`, `api_keys`, `payment_methods`,
   `reports`/`saved_views`, `workspace_prompts`, `pipelines`): composite led by
-  `workspace_id` — typically `(workspace_id, status_code)` or
-  `(workspace_id, <hot_filter>)` — plus FK indexes for any additional `<entity>_id`
-  not covered by a composite's leftmost prefix. Examples:
-  `scheduled_tasks (workspace_id, next_run_at)` for the due-task sweep;
-  `workflow_executions (workspace_id, status_code)` for the run monitor.
+  `workspace_id` — `(workspace_id, status_code)` or `(workspace_id, <hot_filter>)`
+  — plus FK indexes for any `<entity>_id` not covered by a composite prefix.
+  E.g. `scheduled_tasks (workspace_id, next_run_at)` (due-task sweep);
+  `workflow_executions (workspace_id, status_code)` (run monitor).
 - **Workspace singleton/config tables** (`workspace_settings`,
   `workspace_branding`, `workspace_ai_settings`, `workspace_ai_keys`,
-  `workspace_feature_flags`): `UNIQUE (workspace_id)` for one-row-per-workspace
-  config, or `UNIQUE (workspace_id, key)` for keyed settings; that unique is the
-  whole read path.
+  `workspace_feature_flags`): `UNIQUE (workspace_id)` for one row per workspace, or
+  `UNIQUE (workspace_id, key)` for keyed settings; that unique is the read path.
 - **Global auth/token tables** (`users`, `user_sessions`, `password_resets`,
-  `remember_tokens`, `access_tokens`): `UNIQUE` on the natural lookup key
-  (`users.email`; the `hashed_token`/`hashed_key` columns) and a FK index on
-  `user_id` for the owner's session/token list. Tokens are looked up by hash on
-  every authenticated request, so the unique-on-hash index is hot.
+  `remember_tokens`, `access_tokens`): `UNIQUE` on the lookup key (`users.email`;
+  the `hashed_token`/`hashed_key` columns — hot, hit on every authenticated
+  request) + FK `(user_id)` for the owner's session/token list.
 - **Global catalog/lookup tables** (`permissions`, `plans`, `coupons`,
   `feature_flags`, `ai_providers`, `ai_models`, `prompt_templates`,
-  `system_settings`): `UNIQUE` on the business key (`permissions.key`,
-  `plans.key`, `coupons.code`, `feature_flags.key`); these are small, mostly-read
-  reference tables — resist adding more than the key index. `ai_models` adds FK
-  `(provider_id)`.
+  `system_settings`): `UNIQUE` on the business key (`permissions.key`, `plans.key`,
+  `coupons.code`, `feature_flags.key`). Small, mostly-read — resist more than the
+  key index. `ai_models` adds FK `(provider_id)`.
 - **Global/append-only operations tables** (`system_audit_logs`, `metrics`,
-  `health_checks`, `backups`, `background_jobs`, `error_events`, `alerts`):
-  index by the time/selection column actually queried —
-  `background_jobs (status_code, available_at)` for the queue claim;
-  `error_events (workspace_id, created_at)` where workspace-scoped, plus
-  `(severity_code, status_code)` for triage. `metrics`/`health_checks` index by
-  `(name, recorded_at)` / `(component, checked_at)` for their dashboards.
+  `health_checks`, `backups`, `background_jobs`, `error_events`, `alerts`): index
+  by the time/selection column actually queried — `background_jobs
+  (status_code, available_at)` (queue claim); `error_events (workspace_id,
+  created_at)` + `(severity_code, status_code)` (triage); `metrics (name,
+  recorded_at)`; `health_checks (component, checked_at)`.
 
-If a table here ever grows a query not covered by its category pattern, add the
-specific index and **promote the table into §3** with its justification.
+If a table here grows a query not covered by its pattern, add the specific index
+and **promote it into §3** with its justification.
 
 ---
 
@@ -356,26 +334,21 @@ specific index and **promote the table into §3** with its justification.
 This restates, for indexing, the most important rule of `DATABASE_GUIDE.md` §6.
 
 - On **every workspace-scoped table**, `workspace_id` **MUST** be the **leading
-  column** of every composite index. Rationale: the repository tenant guard
+  column** of every composite index. The repository tenant guard
   (`DATABASE_GUIDE.md` §6.2) adds `WHERE workspace_id = ?` to **every** SELECT,
-  UPDATE, and DELETE, so an index that does not lead with `workspace_id` cannot be
-  used for the tenant-scoped access path.
-- **Tenant-scoped uniqueness includes `workspace_id`.** Unique constraints on
-  workspace-scoped tables MUST lead with `workspace_id` (e.g.
-  `(workspace_id, name)` for `tags`/`roles`, `(workspace_id, user_id)` for
-  `memberships`/`candidate_profiles`). The lone documented exceptions are columns
-  that are **globally unique by construction** — a random `jobs.public_token`, a
-  hashed token, a global invoice `number` — which are unique without a tenant
-  prefix because they can never collide across tenants.
-- **Reverse-direction indexes are exempt from leading with `workspace_id`** when
-  their purpose is a cross-workspace lookup keyed by a global id — e.g.
-  `memberships (user_id)` answers "which workspaces does this user belong to,"
-  which deliberately spans tenants for the authenticated user and is not a
-  tenant-guarded tenant query.
-- Because `workspace_id` leads, its **leftmost prefix** already serves the common
-  "everything in this workspace" filter — so a **standalone `(workspace_id)`
-  index is almost always redundant** and MUST NOT be added when a
-  `(workspace_id, …)` composite exists (§6).
+  UPDATE, and DELETE — an index not led by `workspace_id` cannot serve that path.
+- **Tenant-scoped uniqueness includes `workspace_id`** (e.g. `(workspace_id, name)`
+  for `tags`/`roles`, `(workspace_id, user_id)` for
+  `memberships`/`candidate_profiles`). The lone exceptions are columns **globally
+  unique by construction** — a random `jobs.public_token`, a hashed token, a global
+  invoice `number` — which can never collide across tenants.
+- **Reverse-direction indexes are exempt** when their purpose is a cross-workspace
+  lookup keyed by a global id — e.g. `memberships (user_id)` ("which workspaces
+  does this user belong to") deliberately spans tenants and is not a tenant query.
+- Because `workspace_id` leads, its leftmost prefix already serves the common
+  "everything in this workspace" filter — so a **standalone `(workspace_id)` index
+  is almost always redundant** and MUST NOT exist beside a `(workspace_id, …)`
+  composite (§6).
 
 ---
 

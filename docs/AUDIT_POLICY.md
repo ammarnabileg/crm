@@ -38,13 +38,12 @@ questions. Each maps to a concrete field.
 | **Where (origin)** | `ip` (+ user agent / request context) | The network origin of the request. SHOULD include user agent and a correlation/request id where available. |
 | **What** | `action` + `entity_type` + `entity_id` + `changes` (JSON) | The action key, the affected entity and its ULID, and a structured before/after diff. |
 
-- The `action` value is a **stable key** drawn from the catalog in
-  `AUDIT_EVENTS.md` (e.g. `role.updated`, `member.invited`). It MUST NOT be a
-  free-text sentence.
-- `changes` is a JSON column holding a **before/after** representation of the
-  mutated fields (an app-owned, schemaless blob per `DATABASE_GUIDE.md` §8). It
-  **MUST NOT** contain secrets, raw credentials, decrypted keys, or full PII
-  payloads (see §6). Redaction happens before write.
+- The `action` value is a **stable key** from `AUDIT_EVENTS.md` (e.g.
+  `role.updated`, `member.invited`), never a free-text sentence.
+- `changes` is a JSON column holding a **before/after** view of the mutated
+  fields (an app-owned blob per `DATABASE_GUIDE.md` §8). It **MUST NOT** contain
+  secrets, raw credentials, decrypted keys, or full PII payloads (see §6);
+  redaction happens before write.
 - `entity_type` + `entity_id` reference the affected record by its `CHAR(26)`
   ULID without a cross-module foreign key (`DATABASE_GUIDE.md` §11). Audit is a
   shared-service trail; it records references, it does not own the entities.
@@ -96,11 +95,9 @@ Audit data is **write-once**. This is the core integrity property of the policy.
   classifies both audit tables as immutable / never-deleted). Removal happens
   **only** through the retention process in §4, executed as a controlled,
   bounded purge of records past their window — never an ad-hoc delete.
-- Writes SHOULD be resilient: a failure to persist the primary business change
-  MUST NOT silently lose its audit record, and a failure to write audit MUST be
-  surfaced (logged/alerted) rather than swallowed.
-- Audit writes capture the **committed** outcome; they MUST reflect what
-  actually happened (no speculative "about to do X" entries that never occurred).
+- A failure to write audit MUST be surfaced (logged/alerted), never swallowed.
+  Audit writes capture the **committed** outcome and MUST reflect what actually
+  happened — no speculative "about to do X" entries that never occurred.
 
 ---
 
