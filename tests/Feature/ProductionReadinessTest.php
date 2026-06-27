@@ -18,7 +18,7 @@ return new class extends TestCase {
     public function test_diagnostics_cover_every_health_category(): void
     {
         $groups = (new SystemDiagnostics())->run();
-        foreach (['Database', 'Storage', 'Cache', 'Queue', 'Mail', 'Scheduler', 'AI Layer'] as $category) {
+        foreach (['Database', 'Storage', 'Cache', 'Queue', 'Mail', 'Scheduler', 'AI Layer', 'Payments & Billing', 'Search'] as $category) {
             $this->assertArrayHasKey($category, $groups, "Health report is missing the {$category} category");
             $this->assertTrue($groups[$category] !== [], "{$category} has no checks");
         }
@@ -29,7 +29,7 @@ return new class extends TestCase {
         // Extensions/Mail/HTTPS depend on the host; Database/Storage/Cache/Queue/
         // Scheduler are within the app's control and must not fail on a healthy box.
         $groups = (new SystemDiagnostics())->run();
-        foreach (['Database', 'Storage', 'Cache', 'Queue', 'Scheduler'] as $category) {
+        foreach (['Database', 'Storage', 'Cache', 'Queue', 'Scheduler', 'Search'] as $category) {
             foreach ($groups[$category] as $check) {
                 $this->assertTrue(
                     ($check['status'] ?? 'fail') !== 'fail',

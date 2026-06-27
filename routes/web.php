@@ -20,6 +20,7 @@ use App\Controllers\App\MemberController;
 use App\Controllers\App\NotificationController;
 use App\Controllers\App\AiSettingsController;
 use App\Controllers\App\SettingsController;
+use App\Controllers\App\SearchController;
 use App\Controllers\Ats\ApplicationController;
 use App\Controllers\Ats\BoardController;
 use App\Controllers\Ats\JobController;
@@ -142,6 +143,9 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
             $router->get('jobs/board', [BoardController::class, 'show'])->middleware('permission:recruitment.view')->name('jobs.board');
             $router->post('jobs/board/move', [BoardController::class, 'move'])->middleware('permission:recruitment.manage')->name('jobs.board.move');
             $router->get('applications/show', [ApplicationController::class, 'show'])->middleware('permission:recruitment.view')->name('applications.show');
+
+            // Global Search (docs/53) — keyword over jobs/applications + talent filter.
+            $router->get('search', [SearchController::class, 'index'])->middleware('permission:recruitment.view')->name('search.index');
 
             // Members (docs/47 RBAC). Reads: members.view; each write checks the
             // matching members.* permission.

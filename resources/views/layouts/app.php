@@ -12,6 +12,7 @@ $nav = [
     // Recruitment / ATS (gated by recruitment.view).
     ['recruiter', 'Recruiter Workspace', 'recruitment.view', true],
     ['jobs',      'Jobs',                'recruitment.view', true],
+    ['search',    'Search',              'recruitment.view', true],
     ['members',   'Members',            'members.view', true],
     ['roles',     'Roles & Permissions', 'roles.view',  false],
     ['ai',        'AI Settings',        'ai.view',      true],

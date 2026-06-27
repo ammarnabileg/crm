@@ -42,6 +42,8 @@ final class SystemDiagnostics
             'Logs'                  => $this->logChecks(),
             'Environment & Security' => $this->securityChecks(),
             'AI Layer'              => $this->aiChecks(),
+            'Payments & Billing'    => $this->paymentChecks(),
+            'Search'                => $this->searchChecks(),
         ];
     }
 
@@ -552,6 +554,105 @@ final class SystemDiagnostics
                     'status' => 'pass',
                     'value'  => $table . ' present (' . $count . ' key' . ($count === 1 ? '' : 's') . ')',
                 ];
+            }),
+        ];
+    }
+
+    // --- Payments & Billing -------------------------------------------------
+
+    /** @return array<int, array<string, mixed>> */
+    private function paymentChecks(): array
+    {
+        return [
+            $this->guard('Payment gateways', function (): array {
+                if (! $this->tableExists('payment_gateways')) {
+                    return ['status' => 'warn', 'value' => 'table missing', 'hint' => 'The payment_gateways catalogue is absent. Run migrations to enable billing.'];
+                }
+                $count = (int) app('db')->scalar('SELECT COUNT(*) FROM `payment_gateways` WHERE is_active = 1');
+
+                return [
+                    'status' => $count > 0 ? 'pass' : 'warn',
+                    'value'  => $count . ' gateway' . ($count === 1 ? '' : 's') . ' available',
+                    'hint'   => $count > 0 ? null : 'No active payment gateways. Manual/offline billing still works; add a gateway to accept online payments.',
+                ];
+            }),
+            $this->guard('Online payments', function (): array {
+                // Online gateways need per-tenant credentials (optional). Without them,
+                // billing degrades to manual/offline — never a failure, just a note.
+                $configured = $this->onlineGatewayConfigured();
+
+                return [
+                    'status' => 'pass',
+                    'value'  => $configured ? 'a gateway is configured' : 'manual / offline mode',
+                    'hint'   => $configured ? null : 'No online gateway keys configured — subscriptions are managed manually. Add gateway credentials in Billing to take card payments.',
+                ];
+            }),
+            $this->guard('Subscription plans', function (): array {
+                if (! $this->tableExists('plans')) {
+                    return ['status' => 'warn', 'value' => 'table missing', 'hint' => 'The plans table is absent. Run migrations to define subscription plans.'];
+                }
+                $active = (int) app('db')->scalar('SELECT COUNT(*) FROM `plans` WHERE is_active = 1 AND deleted_at IS NULL');
+
+                return [
+                    'status' => $active > 0 ? 'pass' : 'warn',
+                    'value'  => $active . ' active plan' . ($active === 1 ? '' : 's'),
+                    'hint'   => $active > 0 ? null : 'No active plans are defined, so workspaces cannot subscribe. Add at least one plan.',
+                ];
+            }),
+        ];
+    }
+
+    /**
+     * Whether any online (non-manual) payment gateway has credentials configured.
+     * Keys are optional: the setting is read defensively and absence means manual
+     * billing (a graceful degrade, not an error).
+     */
+    private function onlineGatewayConfigured(): bool
+    {
+        try {
+            $gateway = (string) settings()->get('billing.gateway', '');
+            if ($gateway !== '' && $gateway !== 'manual') {
+                return true;
+            }
+
+            // Fall back to env-configured Stripe (the optional default adapter).
+            return (string) config('services.stripe.secret', env('STRIPE_SECRET', '')) !== '';
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    // --- Search -------------------------------------------------------------
+
+    /** @return array<int, array<string, mixed>> */
+    private function searchChecks(): array
+    {
+        return [
+            $this->guard('Search tables', function (): array {
+                $missing = [];
+                foreach (['applications', 'candidate_profiles', 'skills'] as $table) {
+                    if (! $this->tableExists($table)) {
+                        $missing[] = $table;
+                    }
+                }
+
+                if ($missing !== []) {
+                    return [
+                        'status' => 'warn',
+                        'value'  => 'missing: ' . implode(', ', $missing),
+                        'hint'   => 'Global search needs these tables. Run migrations to enable full search.',
+                    ];
+                }
+
+                return ['status' => 'pass', 'value' => 'jobs · applications · candidates ready'];
+            }),
+            $this->guard('Discoverable candidates', function (): array {
+                if (! $this->tableExists('candidate_profiles')) {
+                    return ['status' => 'warn', 'value' => 'n/a'];
+                }
+                $count = (int) app('db')->scalar('SELECT COUNT(*) FROM `candidate_profiles` WHERE is_searchable = 1 AND deleted_at IS NULL');
+
+                return ['status' => 'pass', 'value' => $count . ' searchable profile' . ($count === 1 ? '' : 's')];
             }),
         ];
     }
