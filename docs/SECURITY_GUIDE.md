@@ -8,22 +8,19 @@
 ## 0. Purpose & Scope
 
 This guide elaborates the binding security essentials of `PROJECT_CONSTITUTION.md`
-§10 into actionable engineering rules for the entire HaHireAI platform — all
-modules, all layers, all contributors (human or AI). It states *how* we achieve
-the Constitution's *law*; where any statement here appears to conflict with the
-Constitution, **the Constitution wins** and this document must be corrected.
+§10 into actionable engineering rules for the whole platform — all modules, all
+layers, all contributors (human or AI). It states *how*; the Constitution states
+the *law*, and where any statement here conflicts, **the Constitution wins**.
 
 Interpretation keywords (**MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**,
-**MAY**) follow RFC 2119, exactly as in the Constitution. A rule written with
-**MUST / MUST NOT** is binding; a violation is a security defect that blocks
-merge and release.
+**MAY**) follow RFC 2119. A **MUST / MUST NOT** rule is binding; a violation is a
+security defect that blocks merge and release. Detailed access-control catalogs
+(`SECURITY_MATRIX.md`, `ACCESS_POLICIES.md`, `AUDIT_EVENTS.md`,
+`SYSTEM_PERMISSIONS.md`, `WORKSPACE_PERMISSIONS.md`) are authored in **Phase 4**
+and referenced, not duplicated, here.
 
-Detailed access-control catalogs (`SECURITY_MATRIX.md`, `ACCESS_POLICIES.md`,
-`AUDIT_EVENTS.md`, `SYSTEM_PERMISSIONS.md`, `WORKSPACE_PERMISSIONS.md`) are
-authored in **Phase 4** and are referenced, not duplicated, here.
-
-> Code snippets in this document are **illustrative examples only** — they are
-> not implementation and not normative. The normative content is the prose rules.
+> Code snippets are **illustrative examples only** — not implementation and not
+> normative. The normative content is the prose rules.
 
 ---
 
@@ -49,9 +46,8 @@ binding and govern every later decision in this guide.
    guard, prepared statements, output escaping, and database constraints are
    **layered** so that one failure does not become a breach.
 
-These principles are mutually reinforcing: deny-by-default + least privilege
-shrink the attack surface; defense in depth contains the damage when any one
-layer is bypassed.
+Deny-by-default and least privilege shrink the attack surface; defense in depth
+contains the damage when any one layer is bypassed.
 
 ---
 
@@ -62,9 +58,9 @@ Authentication is provided **once** by the shared **Authentication** module
 re-implement login, sessions, or password handling.
 
 ### 2.1 Password hashing
-- Passwords **MUST** be hashed with **Argon2id** (Constitution §10). Plaintext or
-  reversible storage is forbidden; legacy fast hashes (MD5/SHA-1/SHA-256-only)
-  are forbidden for passwords.
+- Passwords **MUST** be hashed with **Argon2id** (Constitution §10). Plaintext,
+  reversible storage, and legacy fast hashes (MD5/SHA-1/plain SHA-256) are
+  forbidden for passwords.
 - Hashing parameters (memory, time, threads) **MUST** be configurable via
   environment and tuned for the production host. Verification **MUST** transparently
   re-hash when parameters change (`password_needs_rehash` pattern).
@@ -81,34 +77,32 @@ if (password_verify($plain, $hash) && password_needs_rehash($hash, PASSWORD_ARGO
 - Session cookies **MUST** be `HttpOnly`, `Secure`, and `SameSite` (Lax minimum;
   Strict where UX allows) — Constitution §10.
 - The session ID **MUST** be regenerated on privilege change (login, logout,
-  workspace owner elevation) to prevent session fixation.
-- Sessions **MUST** have idle and absolute lifetimes; expired sessions are
-  rejected server-side, not merely hidden client-side.
+  owner elevation) to prevent fixation. Sessions **MUST** have idle + absolute
+  lifetimes and be rejected server-side once expired.
 - Server-side session storage **SHOULD** be used so sessions can be revoked
   centrally (e.g. on password change or forced logout).
 
 ### 2.3 Remember-me
-- Remember-me **MUST** use a long-lived, random, **single-use rotating** token
-  stored hashed at rest — never the password and never a guessable value.
-- A remember-me token MUST be bound to one user, be revocable, and rotate on each
-  use; theft detection (reuse of a rotated token) SHOULD invalidate the series.
+- Remember-me **MUST** use a long-lived, random, **single-use rotating** token,
+  stored hashed at rest, bound to one user, and revocable — never the password and
+  never guessable. Reuse of a rotated token (theft signal) SHOULD invalidate the
+  series.
 
 ### 2.4 Password policy
 - A configurable policy **MUST** enforce a minimum length (≥ 12 recommended) and
   **SHOULD** screen against known-breached/common passwords.
 - Password reset **MUST** use a short-lived, single-use, random token delivered
-  out-of-band (email). Reset MUST invalidate existing sessions for that user.
+  out-of-band (email), and MUST invalidate existing sessions for that user.
 
 ### 2.5 MFA-ready
 - The Authentication module is **MFA-ready** (`MODULES.md`): the data model and
   login flow MUST accommodate a second factor (TOTP first) without redesign, even
-  if MFA is enabled in a later phase.
+  when MFA is enabled only in a later phase.
 
 ### 2.6 Rate limiting & brute-force protection
 - Authentication endpoints (login, reset, MFA, token exchange) **MUST** be rate
-  limited per identifier and per IP.
-- Repeated failures **MUST** trigger progressive backoff and/or temporary
-  lockout. Lockout and rate-limit events SHOULD be auditable.
+  limited per identifier and per IP. Repeated failures **MUST** trigger
+  progressive backoff and/or temporary lockout; such events SHOULD be auditable.
 
 ### 2.7 Email verification (optional)
 - Email verification **MAY** be required per deployment/workspace policy. When
@@ -166,9 +160,9 @@ secondary to this one.
   **MUST** be filtered/stamped by the active `workspace_id`. There are **no
   exceptions**.
 - Enforcement lives at the **data-access (repository) layer** via a mandatory
-  tenant guard (`ARCHITECTURE.md` §8, `DATABASE_ARCHITECTURE.md`). It MUST NOT be
-  left to ad-hoc per-query discipline in callers; the guard makes the safe path
-  the default and an un-scoped workspace query the exception that fails closed.
+  tenant guard (`ARCHITECTURE.md` §8, `DATABASE_ARCHITECTURE.md`), not ad-hoc
+  per-query discipline. The guard makes the safe path the default and an un-scoped
+  workspace query fail closed.
 
 ```php
 // EXAMPLE ONLY — the guard is applied centrally, not copy-pasted per call site
@@ -180,16 +174,16 @@ $rows = $tenantRepo->forWorkspace($workspaceId)->where('status', 'active')->get(
 The guard is not limited to recruitment rows. **Files, AI usage, billing, and
 search are all isolated per workspace**:
 
-- **Files** — file storage, ownership, and visibility are workspace-scoped
-  (`WORKSPACE_MODEL.md` §2; Files module). One workspace MUST NOT read another's
+- **Files** — storage, ownership, and visibility are workspace-scoped
+  (`WORKSPACE_MODEL.md` §2; Files module); one workspace MUST NOT read another's
   files or guess their paths (see §7).
-- **AI usage** — AI configuration, keys, prompts, limits, and usage/billing
-  records are per workspace (Phase 11). AI calls MUST be attributed and metered to
-  the originating workspace and MUST NOT expose another workspace's data or keys.
-- **Billing & subscriptions** — plans, invoices, coupons, and usage entitlements
-  are per workspace (Phase 14). Financial data MUST NOT cross workspaces.
-- **Search** — the search index is **workspace-scoped**; queries MUST be filtered
-  by `workspace_id` so results never surface another tenant's records.
+- **AI usage** — AI configuration, keys, prompts, limits, and usage records are
+  per workspace (Phase 11); AI calls MUST be metered to the originating workspace
+  and MUST NOT expose another's data or keys.
+- **Billing & subscriptions** — plans, invoices, coupons, and entitlements are per
+  workspace (Phase 14); financial data MUST NOT cross workspaces.
+- **Search** — the index is **workspace-scoped**; queries MUST be filtered by
+  `workspace_id` so results never surface another tenant's records.
 
 ### 4.3 Global vs scoped data
 The only non-scoped data is the explicitly enumerated **global** set (users,
