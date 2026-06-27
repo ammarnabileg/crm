@@ -148,6 +148,14 @@ $email = $formOpen('email')
         'control' => component('input', ['name' => 'mail.smtp_port', 'id' => 'mail.smtp_port', 'type' => 'number', 'value' => (string) $v('mail.smtp_port', '587'), 'disabled' => ! $canManage, 'attributes' => ['min' => '1', 'max' => '65535']]),
     ])
     . component('field', [
+        'label' => 'SMTP encryption', 'for' => 'mail.smtp_encryption', 'name' => 'mail.smtp_encryption',
+        'control' => component('select', [
+            'name' => 'mail.smtp_encryption', 'id' => 'mail.smtp_encryption', 'disabled' => ! $canManage,
+            'options' => ['tls' => 'STARTTLS (port 587)', 'ssl' => 'SSL/TLS (port 465)', 'none' => 'None'],
+            'selected' => (string) $v('mail.smtp_encryption', 'tls'),
+        ]),
+    ])
+    . component('field', [
         'label' => 'SMTP username', 'for' => 'mail.smtp_username', 'name' => 'mail.smtp_username',
         'control' => component('input', ['name' => 'mail.smtp_username', 'id' => 'mail.smtp_username', 'value' => (string) $v('mail.smtp_username'), 'disabled' => ! $canManage]),
     ])

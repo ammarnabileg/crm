@@ -122,6 +122,36 @@ return new class extends TestCase {
         $this->assertSame('d/m/Y', settings()->get('general.date_format'));
     }
 
+    /**
+     * REGRESSION: PHP rewrites dots in top-level form field names to underscores, so a
+     * real browser submits `mail.from_address` as `mail_from_address`. The controller
+     * must still persist it under the canonical (dotted) settings key. We submit the
+     * underscored names exactly as PHP would expose them and assert the dotted keys
+     * are saved (incl. the SMTP encryption select and the enable toggle).
+     */
+    public function test_email_section_persists_php_mangled_underscore_field_names(): void
+    {
+        $res = (new SettingsController())->update($this->request([], [
+            'section'              => 'email',
+            'mail_enabled'         => '1',
+            'mail_from_address'    => 'ops@mangled.test',
+            'mail_smtp_host'       => 'smtp.mangled.test',
+            'mail_smtp_port'       => '465',
+            'mail_smtp_encryption' => 'ssl',
+            'mail_smtp_username'   => 'mailer',
+            'mail_smtp_password'   => 'pw-from-form',
+        ]));
+        $this->assertSame(302, $res->getStatus());
+
+        $this->assertTrue((bool) settings()->get('mail.enabled'));
+        $this->assertSame('ops@mangled.test', settings()->get('mail.from_address'));
+        $this->assertSame('smtp.mangled.test', settings()->get('mail.smtp_host'));
+        $this->assertSame('465', (string) settings()->get('mail.smtp_port'));
+        $this->assertSame('ssl', settings()->get('mail.smtp_encryption'));
+        $this->assertSame('mailer', settings()->get('mail.smtp_username'));
+        $this->assertSame('pw-from-form', settings()->get('mail.smtp_password'));
+    }
+
     public function test_submitted_smtp_password_is_not_echoed_in_rendered_html(): void
     {
         $secret = 'S3cr3t-SMTP-PaΣΣword-9090';

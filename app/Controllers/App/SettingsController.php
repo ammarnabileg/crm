@@ -7,6 +7,7 @@ namespace App\Controllers\App;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\Validator;
 
 /**
  * System / Workspace Settings (docs/47 EAS-9): one tabbed screen whose sections
@@ -64,6 +65,7 @@ final class SettingsController extends Controller
             'mail.smtp_host'      => $settings->get('mail.smtp_host', ''),
             'mail.smtp_port'      => $settings->get('mail.smtp_port', '587'),
             'mail.smtp_username'  => $settings->get('mail.smtp_username', ''),
+            'mail.smtp_encryption' => $settings->get('mail.smtp_encryption', (string) config('mail.smtp.encryption', 'tls')),
 
             // Security
             'security.password_min'        => $settings->get('security.password_min', '8'),
@@ -101,40 +103,47 @@ final class SettingsController extends Controller
 
         switch ($section) {
             case 'general':
-                $data = $this->validate($request, [
+                $keys = ['general.app_name', 'general.timezone', 'general.date_format'];
+                $data = $this->collect($request, $keys);
+                Validator::make($data, [
                     'general.app_name'    => 'required|max:120',
                     'general.timezone'    => 'required|max:64',
                     'general.date_format' => 'required|max:32',
-                ]);
-                foreach (['general.app_name', 'general.timezone', 'general.date_format'] as $key) {
-                    $settings->set($key, (string) $data[$key]);
+                ])->validate();
+                foreach ($keys as $key) {
+                    $settings->set($key, (string) ($data[$key] ?? ''));
                 }
                 break;
 
             case 'company':
-                $data = $this->validate($request, [
+                $keys = ['company.legal_name', 'company.address', 'company.contact_email', 'company.contact_phone'];
+                $data = $this->collect($request, $keys);
+                Validator::make($data, [
                     'company.legal_name'    => 'nullable|max:160',
                     'company.address'       => 'nullable|max:500',
                     'company.contact_email' => 'nullable|email|max:190',
                     'company.contact_phone' => 'nullable|max:40',
-                ]);
-                foreach (['company.legal_name', 'company.address', 'company.contact_email', 'company.contact_phone'] as $key) {
-                    $settings->set($key, (string) $request->input($key, ''));
+                ])->validate();
+                foreach ($keys as $key) {
+                    $settings->set($key, (string) ($data[$key] ?? ''));
                 }
                 break;
 
             case 'branding':
-                $this->validate($request, [
+                $keys = ['brand.primary_color', 'brand.logo', 'brand.logo_text'];
+                $data = $this->collect($request, $keys);
+                Validator::make($data, [
                     'brand.primary_color' => 'required|max:32',
                     'brand.logo'          => 'nullable|url|max:300',
                     'brand.logo_text'     => 'nullable|max:60',
-                ]);
-                $settings->set('brand.primary_color', (string) $request->input('brand.primary_color', '#2457eb'));
-                $settings->set('brand.logo', (string) $request->input('brand.logo', ''));
-                $settings->set('brand.logo_text', (string) $request->input('brand.logo_text', ''));
+                ])->validate();
+                $settings->set('brand.primary_color', (string) ($data['brand.primary_color'] ?? '#2457eb'));
+                $settings->set('brand.logo', (string) ($data['brand.logo'] ?? ''));
+                $settings->set('brand.logo_text', (string) ($data['brand.logo_text'] ?? ''));
                 break;
 
             case 'localization':
+                // No dotted field names here, so the standard reader is fine.
                 $data = $this->validate($request, [
                     'locale'   => 'required|in:en,ar',
                     'currency' => 'required|max:8',
@@ -144,38 +153,40 @@ final class SettingsController extends Controller
                 break;
 
             case 'email':
-                $this->validate($request, [
-                    'mail.from_address' => 'nullable|email|max:190',
-                    'mail.from_name'    => 'nullable|max:120',
-                    'mail.smtp_host'    => 'nullable|max:190',
-                    'mail.smtp_port'    => 'nullable|integer|between:1,65535',
-                    'mail.smtp_username' => 'nullable|max:190',
-                ]);
-                // The toggle drives the existing Mailer's log-only fallback.
-                $settings->set('mail.enabled', $request->input('mail.enabled') === '1');
-                $settings->set('mail.from_address', (string) $request->input('mail.from_address', ''));
-                $settings->set('mail.from_name', (string) $request->input('mail.from_name', ''));
-                $settings->set('mail.smtp_host', (string) $request->input('mail.smtp_host', ''));
-                $settings->set('mail.smtp_port', (string) $request->input('mail.smtp_port', ''));
-                $settings->set('mail.smtp_username', (string) $request->input('mail.smtp_username', ''));
+                $keys = ['mail.from_address', 'mail.from_name', 'mail.smtp_host', 'mail.smtp_port', 'mail.smtp_username', 'mail.smtp_encryption'];
+                $data = $this->collect($request, $keys);
+                Validator::make($data, [
+                    'mail.from_address'    => 'nullable|email|max:190',
+                    'mail.from_name'       => 'nullable|max:120',
+                    'mail.smtp_host'       => 'nullable|max:190',
+                    'mail.smtp_port'       => 'nullable|integer|between:1,65535',
+                    'mail.smtp_username'   => 'nullable|max:190',
+                    'mail.smtp_encryption' => 'nullable|in:tls,ssl,none',
+                ])->validate();
+                // The toggle drives the Mailer's log-only fallback / SMTP transport.
+                $settings->set('mail.enabled', $this->submitted($request, 'mail.enabled') === '1');
+                foreach ($keys as $key) {
+                    $settings->set($key, (string) ($data[$key] ?? ($key === 'mail.smtp_encryption' ? 'tls' : '')));
+                }
 
                 // Secret handling: store a new password only when one was typed; an
                 // empty field means "leave the configured secret untouched". The
                 // password is never read back into the view.
-                $password = (string) $request->input('mail.smtp_password', '');
+                $password = (string) ($this->submitted($request, 'mail.smtp_password') ?? '');
                 if ($password !== '') {
                     $settings->set('mail.smtp_password', $password);
                 }
                 break;
 
             case 'security':
-                $this->validate($request, [
+                $data = $this->collect($request, ['security.password_min']);
+                Validator::make($data, [
                     'security.password_min' => 'required|integer|between:6,128',
-                ]);
-                $settings->set('security.password_min', (string) $request->input('security.password_min', '8'));
-                $settings->set('security.password_mixed_case', $request->input('security.password_mixed_case') === '1');
-                $settings->set('security.password_numbers', $request->input('security.password_numbers') === '1');
-                $settings->set('security.two_factor_ready', $request->input('security.two_factor_ready') === '1');
+                ])->validate();
+                $settings->set('security.password_min', (string) ($data['security.password_min'] ?? '8'));
+                $settings->set('security.password_mixed_case', $this->submitted($request, 'security.password_mixed_case') === '1');
+                $settings->set('security.password_numbers', $this->submitted($request, 'security.password_numbers') === '1');
+                $settings->set('security.two_factor_ready', $this->submitted($request, 'security.two_factor_ready') === '1');
                 break;
 
             default:
@@ -187,5 +198,36 @@ final class SettingsController extends Controller
         $this->withSuccess('Settings saved.');
 
         return $this->redirect(url('settings'));
+    }
+
+    /**
+     * Read one submitted field, tolerant of PHP rewriting dots in top-level form
+     * field names to underscores — `mail.from_address` arrives in $_POST as
+     * `mail_from_address`. Tries the canonical (dotted) key first, then the
+     * underscored variant, so the same controller works for real browser submits
+     * and for tests that inject canonical keys directly.
+     */
+    private function submitted(Request $request, string $key, mixed $default = null): mixed
+    {
+        $all = $request->all();
+
+        return $all[$key] ?? $all[str_replace('.', '_', $key)] ?? $default;
+    }
+
+    /**
+     * Collect a set of submitted fields into a map keyed by their canonical (dotted)
+     * keys, so validation rules and the settings store both use the real keys.
+     *
+     * @param string[] $keys
+     * @return array<string, mixed>
+     */
+    private function collect(Request $request, array $keys): array
+    {
+        $data = [];
+        foreach ($keys as $key) {
+            $data[$key] = $this->submitted($request, $key);
+        }
+
+        return $data;
     }
 }

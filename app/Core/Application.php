@@ -281,6 +281,23 @@ final class Application
                     $config->set($key, $value);
                 }
             }
+
+            // SMTP transport credentials (Email tab) → the nested config the Mailer
+            // reads. Only overlay non-blank values so unset keys keep the env default;
+            // an empty host means "no SMTP" and the Mailer falls back to mail()/log.
+            $smtp = [
+                'mail.smtp_host'       => 'mail.smtp.host',
+                'mail.smtp_port'       => 'mail.smtp.port',
+                'mail.smtp_username'   => 'mail.smtp.username',
+                'mail.smtp_password'   => 'mail.smtp.password',
+                'mail.smtp_encryption' => 'mail.smtp.encryption',
+            ];
+            foreach ($smtp as $settingKey => $configKey) {
+                $value = (string) $settings->get($settingKey, '');
+                if ($value !== '') {
+                    $config->set($configKey, $value);
+                }
+            }
         } catch (Throwable) {
             // Settings store unavailable → keep the config/env mail defaults.
         }
