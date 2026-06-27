@@ -14,6 +14,14 @@ Event-driven notification system delivering **in-app** and **email** messages ac
 
 ---
 
+## Implementation status (built — Phase 16)
+
+A **read-side in-app feed** is built today. `App\Services\Notifications\NotificationService` (`unreadCount` / `recent` / `markRead` / `markAllRead`) backs `App\Controllers\App\NotificationController` (full paginated list + mark-one / mark-all read), the view `app/notifications`, and the routes `GET /notifications`, `POST /notifications/read`, `POST /notifications/read-all`. A topbar **bell** in the app layout renders the `notification-center` component. Any authenticated tenant user may view their **own** feed, so no permission gates these routes; the security boundary is the per-user scope.
+
+**Security — fail-closed per-user scope.** Every query is scoped by **both** `workspace_id` **and** `user_id`, each re-derived from `tenant()` / `auth()` in every action and **never** taken from request input. `markRead`/`markAllRead` are scoped UPDATEs, so a row that is not the caller's never matches the `WHERE` and is silently a no-op — one user can never read or touch another's notifications.
+
+**Honest scope.** This module is **read-only over the existing `notifications` table**: it surfaces a feed that is **produced elsewhere**. It does **not** create notification **types** or **channels**, and there is no built dispatcher, preference resolver, or channel registry yet — those remain the forward-looking design described below (Architecture §3 onward) and under Future Expansion. Email can additionally be sent **off the queue** via the built-in `mail` job handler (see [27 — Storage System](27-Storage-System.md) for the queue/cron), and the `Mailer` now has a real SMTP transport (see §3). No new tables were added.
+
 ## 1. Purpose (الهدف)
 
 The notification system is the platform's **communication backbone**. It turns domain events (an application moved, an interview scheduled, a decision made, an invoice issued, a member invited) into messages delivered to the right users on the right channels, honouring each user's preferences and language. It defines:
@@ -65,9 +73,12 @@ flowchart LR
 | `NotificationDispatcher` (`app/Services/Notifications/NotificationDispatcher.php`, planned) | Single entry point: `dispatch(eventKey, recipients, context)`. Resolves preferences, renders templates, enqueues per-channel delivery jobs. |
 | Event/notification classes (`app/Notifications/*`, planned) | One small class per event type defining its key, default channels, template keys, and `data` payload shape. |
 | Channel registry + `NotificationChannelInterface` (`app/Services/Notifications/Channels/`, planned) | `send(User $user, RenderedNotification $n)`. Implementations: `InAppChannel`, `EmailChannel`; future `SmsChannel`/`PushChannel`. Adding a channel = a new class + registry entry (data-driven, canonical §2/§12). |
+| `NotificationService` (`app/Services/Notifications/NotificationService.php`, **built**) | Read-side over `notifications`: `unreadCount` / `recent` / `markRead` / `markAllRead`, every query fail-closed scoped by `workspace_id` + `user_id`. Powers the bell and the inbox today. |
+| `NotificationController` (`app/Controllers/App/NotificationController.php`, **built**) | The user's own feed: paginated list + mark-one / mark-all read; re-derives the scope from `auth()`/`tenant()` in every action. |
+| `notification-center` component + topbar bell (`resources/views/components/notification-center.php`, **built**) | Reusable bell trigger + dropdown showing recent items and an unread badge, mounted in the app layout. |
 | `Notification` model (`app/Models/Notification.php`, planned) | Persists in-app notifications; `data` cast to array; `read_at` controls unread state. Tenant-aware (`workspace_id` nullable for platform-wide). |
 | `NotificationPreference` model (`app/Models/NotificationPreference.php`, planned) | Per-user/company/type/channel toggle. |
-| `Mailer` (`app/Core/Mailer.php`, built per canonical §4) | Sends email; the `EmailChannel` is a thin adapter over it. |
+| `Mailer` (`app/Core/Mailer.php`, **built** per canonical §4) | Sends email; chooses a transport at send time — the **built** `App\Infrastructure\Mail\SmtpTransport` when an SMTP host is configured (Workspace Settings → Email tab), else PHP `mail()`, else logs to `storage/logs/mail-*.log`. SMTP credentials are optional (degrade to log). The planned `EmailChannel` would be a thin adapter over it. |
 | Queue worker (`queued_jobs`, canonical §12) | Executes delivery jobs asynchronously with retries via `failed_jobs`. |
 | `Translator` (`app/Core/Translator.php`, built) | Renders templates in the recipient's locale (AR/EN, RTL/LTR). |
 
@@ -114,9 +125,9 @@ sequenceDiagram
 
 For high-frequency, low-urgency events a user may choose **digest** delivery in preferences. The dispatcher then writes the in-app record immediately but, instead of sending an email per event, accumulates email-eligible events into a pending bucket. A scheduled queue job (hourly/daily) collates each user's pending events into a single rendered digest email and marks them sent. Urgent events (e.g. `interview.reminder`, `billing.payment_failed`) bypass digest and send immediately.
 
-### 4.3 Reading in-app notifications
+### 4.3 Reading in-app notifications (built)
 
-The in-app inbox lists the current user's `notifications` (newest first) with an unread count (`read_at IS NULL`). Opening one or clicking "mark all read" stamps `read_at`. The bell badge polls (or uses SSE in future) the unread count.
+This is the part that exists today. The in-app inbox (`app/notifications`) lists the current user's `notifications` (newest first, paginated) with an unread count (`read_at IS NULL`); the topbar `notification-center` bell shows the most recent items and an unread badge. Clicking a "mark read" (`POST /notifications/read` with the row `id`) or "mark all read" (`POST /notifications/read-all`) stamps `read_at` via `NotificationService`, whose every query is scoped by `workspace_id` + `user_id` re-derived server-side. The bell is server-rendered today; live polling/SSE is future work.
 
 ## 5. Business Rules
 
@@ -155,11 +166,12 @@ Index: `IDX(user_id, read_at)` — powers the inbox and unread count.
 
 Supporting: **`queued_jobs`** / **`failed_jobs`** (#35/#36) carry delivery jobs; **`files`** referenced via `data` for attachments; `activity_logs` records that critical notifications (e.g. decisions) were dispatched.
 
-> Note: `notifications` is intentionally **not** tenant-scoped at the model layer (it is keyed by `user_id` and may be platform-wide with `workspace_id = NULL`); access is always filtered by `user_id = auth()->id()`, which provides the isolation a candidate/member needs across the companies they belong to.
+> Note: the `notifications` table **exists** (canonical schema; no new table was added for the built feed). The built read-side (`NotificationService`) fails closed by filtering on **both** `workspace_id = tenant()->id()` **and** `user_id = auth()->id()` — both re-derived server-side, never from request input — which gives a member the isolation they need within their current tenant. (The design also allows platform-wide rows with `workspace_id = NULL`; surfacing those in the per-tenant feed is future work, since the current query always pins an active `workspace_id`.)
 
 ## 7. Permissions
 
-- **`notifications.view`** — view the in-app inbox/bell. Granted broadly (every authenticated role, including `candidate`, holds it) because notifications are inherently personal — a user only ever sees rows where `user_id = auth()->id()`.
+- **In-app feed (built)** — viewing and marking one's own notifications is **not** gated by a dedicated permission today; any authenticated tenant user reaches `GET /notifications` and the mark-read POSTs, because the data is inherently personal and the security boundary is the per-user scope (`workspace_id` + `user_id`, re-derived server-side). A future `notifications.view` (below) may formalise this, but it is not required for the read-side feed as built.
+- **`notifications.view`** (planned) — a dedicated permission to view the in-app inbox/bell. Intended to be granted broadly (every authenticated role, including `candidate`) because notifications are inherently personal — a user only ever sees rows scoped to their `user_id`.
 - **Managing one's own preferences** is governed by ownership (you may edit only your own `notification_preferences`), enforced by a policy gate, not a separate permission.
 - **Platform broadcasts** (creating a platform-wide `workspace_id = NULL` notification to many users) require a super-admin platform permission (`platform.diagnostics` / a dedicated `platform.broadcast` if added) — ordinary tenant users cannot create notifications for other users; they can only *trigger* catalogued domain events through their normal permissioned actions.
 

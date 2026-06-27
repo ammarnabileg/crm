@@ -18,6 +18,19 @@ The subscription system answers two questions for every tenant: **"which plan ar
 
 This document specifies the data-driven plan model, the subscription state machine, how plan **limits** (e.g. `max_members`) are enforced, upgrades/downgrades and the proration concept, and trial handling. The implementation today is `app/Models/Plan.php`, `app/Models/Subscription.php`, the trial bootstrap in `app/Services/Tenancy/WorkspaceService.php`, and the default plan in `database/seeders/DatabaseSeeder.php`.
 
+## Implementation status (built — Phase 16)
+
+The **read side** and a **manual subscribe path** are built; the automated lifecycle (renewal, dunning, proration) remains design. `App\Services\Billing\BillingService` works over the existing `subscriptions` / `plans` / `invoices` tables (reusing the `Plan` and `Subscription` models) to:
+
+- show the workspace's **current subscription** (`currentSubscription()` — latest non-deleted row, tenant-scoped),
+- list **active + public** plans for the pricing/upgrade screen (`availablePlans()`),
+- list the workspace's **invoices** (`invoices()`, read-only, status joined for display), and
+- **`subscribe($planId)`** — the **in-app / manual path that always works with ZERO gateway keys**. It enforces that the plan is active **and** public, then upserts **one subscription row per workspace** (updates the existing row on a plan switch, else creates it), snapshotting `amount`/`currency`. Status is **`trialing`** only for a paid plan that defines trial days, otherwise **`active`** immediately (including free plans).
+
+`App\Controllers\App\BillingController` (`index` / `subscribe` / `webhook`) renders the `app/billing` view; routes `GET /billing` and `POST /billing/subscribe` are gated by `billing.view` / `billing.manage` (the `webhook` is covered in [15](15-Payment-Gateways.md)). **No new tables** were added.
+
+**Honest scope.** What is **not** built: the billing-layer **invoice generation**, the renewal/dunning worker, **proration**, and upgrade/downgrade validation against usage. Those stay as the design described below (and in [14 — Billing System](14-Billing-System.md)). Online checkout is an optional, inert-without-keys enhancement — see [15 — Payment Gateways](15-Payment-Gateways.md).
+
 ## Why It Exists (سبب وجوده)
 
 HalaOps is sold as recurring SaaS, so a tenant must always have a well-defined billing state — there is no "free-forever, no record" mode. The business also needs to change pricing and packaging (new plans, new limits, annual options, promotions) **without shipping code**, because the product runs on buyers' shared hosting with no CLI/Composer/build step. Storing plans as data with JSON `features`/`limits` means a new plan is an `INSERT`, and gating a feature is a lookup, never an `if ($plan === 'pro')`. A canonical state machine prevents the classic SaaS bugs (a "canceled" account that still bills, a "past_due" account with full access forever) by making every transition explicit and auditable.
@@ -26,6 +39,8 @@ HalaOps is sold as recurring SaaS, so a tenant must always have a well-defined b
 
 | Component | File | Responsibility |
 |-----------|------|----------------|
+| `BillingService` (**built**) | `app/Services/Billing/BillingService.php` | Read side + manual subscribe: `currentSubscription()`, `availablePlans()`, `invoices()`, `subscribe()` (zero-gateway upsert of the workspace's single subscription row). |
+| `BillingController` (**built**) | `app/Controllers/App/BillingController.php` | `index` (current sub + plans + invoices) / `subscribe` (manual path) / `webhook`; `app/billing` view. |
 | `Plan` model | `app/Models/Plan.php` | Global catalogue; `active()`, `feature()`, `limit()`, `formattedPrice()`. JSON `features`/`limits` cast to arrays. |
 | `Subscription` model | `app/Models/Subscription.php` | Tenant-scoped; `plan()`, `isActive()`, `onTrial()`; status + snapshotted `amount`/`currency`. |
 | `WorkspaceService::startTrialSubscription()` | `app/Services/Tenancy/WorkspaceService.php` | Bootstraps the trial subscription on the first active plan at workspace creation. |
@@ -113,7 +128,7 @@ Consistent with [§11 of the canonical schema](05-Database-Architecture.md):
 | View subscription & plan | `billing.view` | owner, admin |
 | Change plan / cancel / re-subscribe | `billing.manage` | **owner only** |
 
-`admin` deliberately holds `billing.view` but **not** `billing.manage` (see `config/rbac.php`) — day-to-day administrators can see standing but cannot change the commercial relationship. Platform staff manage the plan catalogue via the planned `platform.plans.manage` permission (see [22 — Super Admin Journey](22-SuperAdmin-Journey.md)). Routes are guarded by `permission:billing.manage`.
+`admin` deliberately holds `billing.view` but **not** `billing.manage` (see `config/rbac.php`) — day-to-day administrators can see standing but cannot change the commercial relationship. Platform staff manage the plan catalogue via the planned `platform.plans.manage` permission (see [22 — Super Admin Journey](22-SuperAdmin-Journey.md)). As built, `GET /billing` is guarded by `permission:billing.view` and `POST /billing/subscribe` by `permission:billing.manage`.
 
 ## Validation
 
@@ -175,7 +190,7 @@ Consistent with [§11 of the canonical schema](05-Database-Architecture.md):
 - **Annual plans & promotions**: already supported by `interval_id` → `billing_interval`/`yearly` and additional plan rows; add coupon/discount tables without touching the lifecycle.
 - **Metered / usage-based add-ons** (e.g. per-AI-interview): a `subscription_items` table layered on the existing subscription, with `limits` extended for usage caps.
 - **Multiple concurrent products** per company: relax "one effective subscription" by scoping subscriptions to a product key.
-- **Automated lifecycle worker**: a queued job (DB-backed `queued_jobs`, triggered via the protected cron URL) sweeps trials and renewals to drive transitions and dunning (see [33 — Diagnostics](33-System-Diagnostics.md) for the cron heartbeat).
+- **Automated lifecycle worker**: the DB-backed queue (`queued_jobs`) and the token-gated cron URL (`GET /cron/run`) that would drive it **are built** (see [27 — Storage System](27-Storage-System.md) and [33 — Diagnostics](33-System-Diagnostics.md) for the cron heartbeat); the queued job that sweeps trials/renewals to drive transitions and dunning is **not yet registered** — the built subscribe path is manual/in-app only.
 - **Grandfathering**: snapshotting already enables it; add a `legacy` flag on subscriptions to exclude them from forced migrations.
 
 ## Open Questions

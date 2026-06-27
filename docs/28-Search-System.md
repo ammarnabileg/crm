@@ -16,6 +16,15 @@ HalaOps search: MySQL FULLTEXT over `jobs` and `applications` today, hidden behi
 
 The Search System gives users fast, relevant, **tenant-isolated** full-text search across the recruitment domain — primarily **jobs** (title, description, department, location) and **applications** (candidate name, cover letter, source). It is delivered behind a single `SearchInterface` so the underlying engine (MySQL FULLTEXT now; Meilisearch/Elasticsearch later) can change without touching callers. Every query is **always** scoped to the active company.
 
+## Implementation status (built — Phase 16)
+
+A **keyword + filter** global search is built (it is **not** a full-text index — see the honest note below). `App\Services\Search\GlobalSearch` + `App\Controllers\App\SearchController` serve the `app/search` view via the route `GET /search`, gated by **`recruitment.view`**, with a nav entry added to the app layout. It does **not** replace the existing ATS search — it composes it:
+
+- **Keyword sweep** (`q`): a tenant-scoped pass over the workspace's **Jobs** (`title` / `slug`) and **Applications** (applicant `name` / `email`, or the job `title`). Both halves are strictly `workspace_id = tenant()->id()` scoped, and the user query's LIKE wildcards (`% _ \`) are escaped so a search for `"50%"` matches literally.
+- **Talent filters** (skills / experience / salary / city, optional): delegated to the existing `App\Services\Ats\AdvancedSearch::searchCandidates` (unchanged), with each returned profile enriched with the candidate's `name` / `email` in **one batched `users` query (no N+1)**.
+
+**Honest limitation.** The built search is **keyword (`LIKE`) + filter based, not a full-text/FULLTEXT index**, and there is **no** `SearchInterface` / `SearchManager` / `MysqlFulltextDriver` abstraction in code yet — that whole pluggable design (FULLTEXT now, Meilisearch/Elasticsearch later) described below remains forward-looking. No new tables were added and `AdvancedSearch` was not modified. Tenant safety: jobs/applications are workspace-scoped here; candidate profiles remain the global, opt-in (`is_searchable`) talent pool exactly as `AdvancedSearch` already governs them — `GlobalSearch` never widens that boundary.
+
 ## Why It Exists (سبب وجوده)
 
 Recruiters and HR managers work over growing lists of jobs and applications and need to find records by free text ("senior backend Riyadh", a candidate's name, a keyword in a cover letter) — `LIKE '%term%'` cannot do this at scale (no index usage, no relevance ranking, poor Arabic handling). At the same time the platform must run on **plain shared MySQL** with no extra services for the buyer, yet allow large tenants to upgrade to a dedicated search engine. The resolution:
@@ -41,20 +50,33 @@ flowchart TD
     RES --> UI
 ```
 
-**Components and responsibilities:**
+**Components and responsibilities** (✅ = built today; the rest are the forward-looking design):
 
-- **`SearchInterface`** (`app/Services/Search/SearchInterface.php`) — the contract: `search(string $index, string $query, array $opts): SearchResult` plus index maintenance hooks `index(string $index, array $doc)`, `delete(string $index, string|int $id)`, `flush(string $index)`. `$opts` carries `workspace_id` (mandatory), `filters`, `sort`, `page`, `perPage`. `$index` is a logical name (`jobs`, `applications`).
-- **`SearchManager`** (`app/Services/Search/SearchManager.php`) — the façade callers use. Resolves the configured driver, **injects the active tenant's `workspace_id`**, normalizes the query, and returns a uniform `SearchResult` (items + total + paging). It is the only thing controllers talk to.
-- **`MysqlFulltextDriver`** — the default. Builds a parameterized `SELECT … WHERE workspace_id = :workspace AND MATCH(<cols>) AGAINST(:q IN BOOLEAN MODE)` via the `QueryBuilder`, ordered by relevance, with `LIMIT/OFFSET`. Uses the FULLTEXT indexes declared on `jobs` and `applications`.
-- **`MeilisearchDriver` / `ElasticsearchDriver`** (future) — implement the same interface; documents are pushed on write and queried with a hard `workspace_id` filter; they add typo-tolerance, facets, and synonyms.
-- **`SearchResult`** — a small DTO: `items[]`, `total`, `page`, `perPage`, `query`, `tookMs`.
-- **Indexer hooks** — model lifecycle events on `Job`/`Application` call `SearchManager::index()/delete()` so external engines stay in sync; for the MySQL driver this is a no-op because the FULLTEXT index is maintained by the database itself.
+- **`GlobalSearch`** (`app/Services/Search/GlobalSearch.php`, **✅ built**) — the web-facing orchestrator. `search($q, $filters)` returns three result sets — `jobs`, `applications`, `candidates`. `jobs()`/`applications()` are tenant-scoped `LIKE` sweeps (wildcards escaped, bound parameters); `candidates()` delegates to `AdvancedSearch::searchCandidates` and batch-enriches names/emails. This is the concrete, keyword-based implementation that the planned `SearchManager`/driver abstraction below would later formalise.
+- **`SearchController`** (`app/Controllers/App/SearchController.php`, **✅ built**) — marshals `q` and the talent filters from the request, enforces `recruitment.view`, and renders `app/search`. Tenant scoping lives inside `GlobalSearch`.
+- **`AdvancedSearch`** (`app/Services/Ats/AdvancedSearch.php`, **✅ pre-existing, unchanged**) — the talent-pool candidate query that `GlobalSearch` composes for the filter path.
+- **`SearchInterface` / `SearchManager`** (`app/Services/Search/…`, planned) — the design's pluggable contract + façade that would inject `workspace_id`, normalize the query, and return a uniform `SearchResult`. **Not built** — `GlobalSearch` is called directly today.
+- **`MysqlFulltextDriver`** (planned, **NOT built**) — the design's default would use `MATCH … AGAINST` over FULLTEXT indexes on `jobs`/`applications`. Today's code uses `LIKE`, not FULLTEXT.
+- **`MeilisearchDriver` / `ElasticsearchDriver`** (future) — would implement the same interface for typo-tolerance, facets, synonyms.
+- **`SearchResult`, indexer hooks** (planned) — a result DTO and `Job`/`Application` lifecycle hooks to keep external engines in sync; not needed by the built `LIKE` search.
 
-**Configuration** (`config/search.php`): `driver` (`mysql` default; `meilisearch`/`elasticsearch` later), per-driver connection settings, `min_query_length`, `per_page`, and the searchable-column map per index.
+**Configuration**: there is no `config/search.php` yet — the built search has no tunables (a fixed per-section result cap of 25 rows). The planned `config/search.php` (`driver`, `min_query_length`, `per_page`, searchable-column map) is design.
 
 ## Workflow
 
-### Query flow (MySQL FULLTEXT, default)
+### Query flow (built — keyword `LIKE`)
+
+The flow that exists today: the user submits `q` (and optional talent filters) to `GET /search`; `SearchController` enforces **`recruitment.view`** and calls `GlobalSearch::search($q, $filters)`. `GlobalSearch` runs, all within the active `workspace_id`:
+
+- `jobs`: `SELECT … FROM jobs WHERE workspace_id = ? AND deleted_at IS NULL AND (title LIKE ? OR slug LIKE ?) ORDER BY id DESC LIMIT 25` — wildcards in `q` escaped, all values bound.
+- `applications`: the same shape joined to `users` + `jobs`, matching applicant `name`/`email` or job `title`, `workspace_id`-scoped.
+- `candidates` (only when a talent filter is present): delegated to `AdvancedSearch::searchCandidates`, then names/emails batch-enriched.
+
+Results are passed straight to the view (no relevance score, no pagination — a fixed 25-row cap per section).
+
+### Query flow (planned — MySQL FULLTEXT)
+
+The forward-looking design (not built):
 
 1. User submits a query and optional filters (status, department, stage) from a list screen. The controller checks the right permission (`jobs.view` or `applications.view`).
 2. `SearchManager::search('jobs', $q, $opts)` normalizes the term, enforces `min_query_length`, and **sets `$opts['workspace_id']` from `TenantManager`** (ignoring any client-supplied value).
@@ -111,23 +133,24 @@ sequenceDiagram
 
 ## Database Relations
 
-Search reads existing domain tables; it adds **FULLTEXT indexes**, not new tables:
+Search reads existing domain tables and adds **no new tables**. The built keyword search uses plain `LIKE` over already-indexed columns; the **FULLTEXT indexes** below are part of the forward-looking design, not added by the built search:
 
-- **`jobs`** (TENANT, planned #17): FULLTEXT index on `(title, description)`; filtered by `workspace_id` and `status` (which already has `KEY (workspace_id, status)`).
-- **`applications`** (TENANT, planned #19): FULLTEXT index on `(cover_letter)` and a join to `users(name)` for candidate-name search; filtered by `workspace_id`, `job_id`, `status`, `current_stage_id` (covered by `KEY (workspace_id, job_id, status, current_stage_id)`).
-- **`users`** (GLOBAL): joined for candidate name on application search; matching is still constrained to the tenant via the `applications.workspace_id` filter, so global `users` rows are only reachable through a tenant's applications.
+- **`jobs`** (TENANT): the built search matches `title` / `slug`, filtered by `workspace_id` (covered by the existing tenant/status indexing). *Planned:* a FULLTEXT index on `(title, description)`.
+- **`applications`** (TENANT): the built search matches the joined `users(name/email)` and `jobs(title)`, filtered by `workspace_id`. *Planned:* a FULLTEXT index on `(cover_letter)`.
+- **`users`** (GLOBAL): joined for candidate name/email; matching is still constrained to the tenant via the `applications.workspace_id` filter, so global `users` rows are only reachable through a tenant's applications.
+- **`candidate_profiles`**: reached only through `AdvancedSearch::searchCandidates` (the existing opt-in `is_searchable` talent pool), unchanged by this work.
 
-These FULLTEXT indexes are declared in the `jobs`/`applications` migrations (see [06-ERD.md](06-ERD.md)). MySQL maintains them transactionally with row writes. For external engines, the per-tenant documents mirror these fields plus `workspace_id`.
+*Planned:* FULLTEXT indexes declared in the `jobs`/`applications` migrations (see [06-ERD.md](06-ERD.md)), maintained transactionally by MySQL; for external engines, per-tenant documents mirror these fields plus `workspace_id`.
 
 ## Permissions
 
-Search inherits the permission model of the data it searches (see [07-RBAC.md](07-RBAC.md), 11-Permissions-Matrix):
+As built, the single global-search surface (`GET /search`) is gated by **`recruitment.view`** — the recruitment module already covers jobs, applications and the talent view, so one gate guards the combined keyword + filter search (see [07-RBAC.md](07-RBAC.md), 11-Permissions-Matrix). Regardless of permission, the `workspace_id` filter is always applied inside `GlobalSearch` for the jobs/applications halves.
 
-- **Job search** requires `jobs.view`.
-- **Application search** requires `applications.view`.
-- **Candidate self-service** searching their own applications is gated by `candidate.profile`/`candidate.apply` and scoped to their own `user_id`.
-- **Super admin** platform-wide search (across tenants) is a distinct capability under `platform.*` and uses `withoutTenantScope()`; it is the only path that may omit the `workspace_id` filter and is never reachable by tenant users.
-- Regardless of permission, the tenant `workspace_id` filter is always applied for tenant users.
+The finer-grained model below is the **design** for the planned per-entity search abstraction:
+
+- **Job search** would require `jobs.view`; **application search** `applications.view`.
+- **Candidate self-service** searching their own applications gated by `candidate.profile` / `candidate.apply`, scoped to their own `user_id`.
+- **Super admin** platform-wide search (across tenants) a distinct `platform.*` capability using `withoutTenantScope()`; the only path that may omit the `workspace_id` filter, never reachable by tenant users.
 
 ## Validation
 

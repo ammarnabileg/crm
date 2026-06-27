@@ -18,6 +18,12 @@ The billing system produces and tracks the financial artifacts of a subscription
 
 The schema is `invoices`, `payments`, `payment_methods` (canonical [§11](05-Database-Architecture.md)); these are documented here as the authoritative billing model that the billing service implements.
 
+## Implementation status (built — Phase 16)
+
+What is built today is the **read side** plus the manual subscription path; the money-movement engine remains design. `App\Services\Billing\BillingService` (`app/Services/Billing/BillingService.php`) reads the workspace's **invoices** over the existing `invoices` table — `invoices()` returns recent rows newest-first with the status `key`/`label` joined from `invoice_statuses` for display — and provides the manual `subscribe()` path (see [13 — Subscription System](13-Subscription-System.md)). `App\Controllers\App\BillingController` (`app/Controllers/App/BillingController.php`) renders the `app/billing` view (current subscription + plans + recent invoices) at `GET /billing` (gated by `billing.view`), and its `webhook` action records gateway events (see [15 — Payment Gateways](15-Payment-Gateways.md)). **No new tables** were added.
+
+**Honest scope.** The following are **design, not yet built**: automated **invoice generation** per cycle, **VAT 15%** computation, invoice **numbering**, the **dunning** retry/grace worker, **receipts/PDF**, and **refunds**. The built billing surface lists existing invoices and runs the manual subscribe; it does not issue invoices, take recurring charges, or move subscriptions between states automatically. The queue + token-gated cron that such workers would run on **are built** (see [27 — Storage System](27-Storage-System.md)), but the billing/dunning jobs are not yet registered.
+
 ## Why It Exists (سبب وجوده)
 
 A subscription's `status` is a state flag; it is not an auditable money trail. Saudi tax law and ordinary commercial practice require a tenant to receive a proper **tax invoice** (فاتورة ضريبية) showing the 15% VAT line, a stable invoice number, and a receipt when paid. The business also needs to recover failed renewals systematically (dunning) and to issue refunds when required. Separating invoices (what is owed) from payments (what was received) — rather than a single "paid?" boolean — lets HalaOps support partial payments, multiple attempts, retries, refunds and reconciliation against any gateway, while keeping records that survive even subscription cancellation.
@@ -26,8 +32,9 @@ A subscription's `status` is a state flag; it is not an auditable money trail. S
 
 | Concern | Where | Responsibility |
 |---------|-------|----------------|
-| Invoice generation | Billing service (planned, e.g. `app/Services/Billing/BillingManager`) | Build invoices from a subscription each cycle: line items, subtotal, VAT, total, due date, number. |
-| Invoice record | `invoices` table | Immutable statement of what is owed; `status`, `line_items JSON`, `paid_at`. |
+| Billing read side + manual subscribe (**built**) | `App\Services\Billing\BillingService` (`app/Services/Billing/BillingService.php`) | Lists existing invoices for display, exposes current subscription + available plans, and runs the zero-gateway `subscribe()` upsert ([13](13-Subscription-System.md)). |
+| Invoice generation (planned) | Billing service (e.g. a future `BillingManager`/cycle job) | Build invoices from a subscription each cycle: line items, subtotal, VAT, total, due date, number. **Not built.** |
+| Invoice record | `invoices` table (**exists**) | Immutable statement of what is owed; `status`, `line_items JSON`, `paid_at`. Read by `BillingService::invoices()`. |
 | Payment record | `payments` table | Each attempt/result against an invoice; `gateway`, `gateway_reference`, `status`, `raw JSON`. |
 | Stored payment method | `payment_methods` table | Tokenized card on file used for renewals (see [15](15-Payment-Gateways.md)). |
 | Money movement | Payment gateways | Charge/refund via `PaymentGatewayInterface`; results land back as `payments` + `gateway_events` ([15](15-Payment-Gateways.md)). |
