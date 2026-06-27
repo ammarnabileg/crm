@@ -78,10 +78,9 @@ deny-by-default rule the sidebar obeys (`SECURITY_MATRIX.md` §1.2).
 
 - Widgets SHOULD refresh **asynchronously** without blocking first paint; heavy or
   AI-backed aggregation runs on the server (`UI_GUIDELINES.md` §10,
-  `Reports_Analytics.md` §4).
-- Each widget SHOULD expose a **last-updated** indication and MAY offer manual
-  refresh. Auto-refresh intervals SHOULD be modest and MUST NOT undermine the
-  p95 < 300 ms first-render budget (`UI_GUIDELINES.md` §10).
+  `Reports_Analytics.md` §4). Each widget SHOULD show a **last-updated** indication
+  and MAY offer manual refresh; auto-refresh MUST NOT undermine the p95 < 300 ms
+  first-render budget.
 - Refreshing a widget MUST re-run the server-side permission and tenant checks; a
   stale grant MUST NOT leak data on refresh.
 
@@ -102,12 +101,11 @@ mandatory screen states (`UI_GUIDELINES.md` §8) — independently of its neighb
 ### 2.6 Customization
 
 - A user MAY reorder, show, or hide widgets **within the set they are entitled to
-  see**. Customization MUST NOT reveal a widget the gating denies.
+  see**; customization MUST NOT reveal a widget the gating denies.
 - Layout preferences are **per user, per context** (and per workspace for the
   Workspace Dashboard); one workspace's layout MUST NOT leak into another
-  (`WORKSPACE_MODEL.md` §3).
-- A workspace MAY define a **default dashboard layout** for new members; defaults
-  are still subject to per-member gating at render.
+  (`WORKSPACE_MODEL.md` §3). A workspace MAY define a **default layout** for new
+  members; defaults remain subject to per-member gating at render.
 - Composable dashboard/widget definitions are owned by **Reports / Analytics** for
   cross-module tiles (`Reports_Analytics.md` §8); module-native widgets are
   contributed by their owning module.
@@ -302,9 +300,8 @@ aspirational.
 
 - The widget grid MUST reflow across breakpoints — multi-column on wide viewports,
   single-column stacking on narrow/mobile — without horizontal scroll or layout
-  shift (`UI_GUIDELINES.md` §10).
-- Tiles MUST reserve space for async content (skeletons) so the grid does not jump
-  as widgets resolve (ties to the Loading state, §2.5).
+  shift, reserving space for async content (skeletons) so the grid does not jump
+  as widgets resolve (`UI_GUIDELINES.md` §10; ties to §2.5).
 - The full grammar MUST mirror correctly under **RTL**: tile order, chart axes,
   trend arrows, and chevrons follow logical start/end (`UI_GUIDELINES.md` §6).
 - Dates, numbers, and currency in every tile MUST format per the active locale and
