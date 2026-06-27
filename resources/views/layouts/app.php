@@ -8,6 +8,9 @@ $current = request()->path();
 // upcoming sections are added here as their modules land.
 $nav = [
     ['dashboard', 'Dashboard', 'dashboard.view', true],
+    // Recruitment / ATS (gated by recruitment.view).
+    ['recruiter', 'Recruiter Workspace', 'recruitment.view', true],
+    ['jobs',      'Jobs',                'recruitment.view', true],
     ['members',   'Members',            'members.view', false],
     ['roles',     'Roles & Permissions', 'roles.view',  false],
     ['ai',        'AI Settings',        'ai.view',      false],

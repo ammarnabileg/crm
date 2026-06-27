@@ -15,6 +15,10 @@ declare(strict_types=1);
 
 use App\Controllers\App\WorkspaceController;
 use App\Controllers\App\DashboardController;
+use App\Controllers\Ats\ApplicationController;
+use App\Controllers\Ats\BoardController;
+use App\Controllers\Ats\JobController;
+use App\Controllers\Ats\RecruiterDashboardController;
 use App\Controllers\App\HomeController;
 use App\Controllers\App\ProfileController;
 use App\Controllers\Auth\LoginController;
@@ -110,6 +114,17 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
             $router->get('dashboard', [DashboardController::class, 'index'])
                 ->middleware('permission:dashboard.view')
                 ->name('dashboard');
+
+            // Recruitment / ATS (docs/53). Reads: recruitment.view; writes: recruitment.manage.
+            $router->get('recruiter', [RecruiterDashboardController::class, 'index'])->middleware('permission:recruitment.view')->name('recruiter.dashboard');
+            $router->get('jobs', [JobController::class, 'index'])->middleware('permission:recruitment.view')->name('jobs.index');
+            $router->post('jobs', [JobController::class, 'store'])->middleware('permission:recruitment.manage')->name('jobs.store');
+            $router->post('jobs/publish', [JobController::class, 'publish'])->middleware('permission:recruitment.manage')->name('jobs.publish');
+            $router->post('jobs/close', [JobController::class, 'close'])->middleware('permission:recruitment.manage')->name('jobs.close');
+            $router->post('jobs/archive', [JobController::class, 'archive'])->middleware('permission:recruitment.manage')->name('jobs.archive');
+            $router->get('jobs/board', [BoardController::class, 'show'])->middleware('permission:recruitment.view')->name('jobs.board');
+            $router->post('jobs/board/move', [BoardController::class, 'move'])->middleware('permission:recruitment.manage')->name('jobs.board.move');
+            $router->get('applications/show', [ApplicationController::class, 'show'])->middleware('permission:recruitment.view')->name('applications.show');
         });
     });
 });

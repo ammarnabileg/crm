@@ -54,6 +54,10 @@ return [
 
         // System operations (platform-level; held by super-admin only)
         ['system.manage', 'Manage system operations', 'system', 'Diagnostics, maintenance mode, backups/restore, environment editor and log viewer.'],
+
+        // Recruitment / ATS
+        ['recruitment.view', 'View recruitment', 'jobs', 'View jobs, the pipeline board, applications and the recruiter workspace.'],
+        ['recruitment.manage', 'Manage recruitment', 'jobs', 'Create/edit jobs, move applications through stages, schedule interviews and manage offers.'],
     ],
 
     /*
