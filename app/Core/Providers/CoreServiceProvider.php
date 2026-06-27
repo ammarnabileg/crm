@@ -39,6 +39,10 @@ final class CoreServiceProvider extends ServiceProvider
         $c->singleton(RouteDispatcher::class, RouteDispatcher::class);
         $c->singleton(HealthChecker::class, HealthChecker::class);
         $c->singleton(ModuleRegistry::class, ModuleRegistry::class);
+        $c->singleton(\HaHireAI\Core\Http\Session::class, \HaHireAI\Core\Http\Session::class);
+        $c->singleton(\HaHireAI\Core\View\View::class, static fn (): \HaHireAI\Core\View\View => new \HaHireAI\Core\View\View(
+            (string) $config->get('path.base') . '/resources/views',
+        ));
 
         $c->singleton(ErrorHandler::class, static fn (Container $container): ErrorHandler => new ErrorHandler(
             (bool) $config->get('app.debug', false),

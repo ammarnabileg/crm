@@ -12,12 +12,19 @@ declare(strict_types=1);
 use HaHireAI\Core\Health\HealthChecker;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Kernel;
+use HaHireAI\Modules\Authentication\Application\AuthContext;
+use HaHireAI\Modules\Installer\Application\Installer;
 
-$router->get('/', static fn (): Response => Response::json([
-    'name' => config('app.name'),
-    'status' => 'ok',
-    'phase' => 'core-kernel',
-]));
+// Root: route the visitor to the right place based on install + auth state.
+$router->get('/', static function (): Response {
+    $container = Kernel::instance()->container();
+
+    if (! $container->make(Installer::class)->isInstalled()) {
+        return Response::redirect('/install');
+    }
+
+    return Response::redirect($container->make(AuthContext::class)->check() ? '/dashboard' : '/login');
+});
 
 // Liveness probe.
 $router->get('/up', static fn (): Response => Response::text('OK'));

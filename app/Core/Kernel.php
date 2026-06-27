@@ -89,6 +89,9 @@ final class Kernel
     {
         $this->boot();
 
+        // Start the HTTP session (no-op under CLI/tests).
+        $this->container->make(\HaHireAI\Core\Http\Session::class)->start();
+
         return $this->container->make(Dispatcher::class)
             ->dispatch($request, $this->container->make(Router::class));
     }
@@ -138,6 +141,12 @@ final class Kernel
     {
         $registry = $this->container->make(ModuleRegistry::class);
         $router = $this->container->make(Router::class);
+
+        // Modules are registered explicitly via config/modules.php (no scanning).
+        $config = $this->container->make(\HaHireAI\Core\Config\Repository::class);
+        foreach ((array) $config->get('modules', []) as $moduleClass) {
+            $registry->add($this->container->make($moduleClass));
+        }
 
         foreach ($registry->ordered() as $module) {
             $module->register($this->container);

@@ -60,3 +60,26 @@ if (! function_exists('storage_path')) {
         return base_path('storage' . ($path !== '' ? '/' . ltrim($path, '/') : ''));
     }
 }
+
+if (! function_exists('e')) {
+    /** Escape a value for safe HTML output (XSS protection — always escape on render). */
+    function e(mixed $value): string
+    {
+        return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+}
+
+if (! function_exists('csrf_token')) {
+    function csrf_token(): string
+    {
+        return app(\HaHireAI\Core\Http\Session::class)->csrfToken();
+    }
+}
+
+if (! function_exists('csrf_field')) {
+    /** A hidden CSRF input for forms (state-changing requests must include it). */
+    function csrf_field(): string
+    {
+        return '<input type="hidden" name="_csrf" value="' . e(csrf_token()) . '">';
+    }
+}

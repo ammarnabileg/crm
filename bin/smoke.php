@@ -45,7 +45,7 @@ echo "HaHireAI — Core Kernel smoke test\n\n";
 // 1. Boot
 $kernel->boot();
 check('kernel boots', $kernel->isBooted());
-check('boots with zero modules', $kernel->container()->make(ModuleRegistry::class)->count() === 0);
+check('boots and loads configured modules', $kernel->container()->make(ModuleRegistry::class)->count() >= 3);
 
 // 2. Configuration & environment
 $config = $kernel->container()->make(Repository::class);
@@ -96,8 +96,8 @@ check('no listeners for unknown event', $events->dispatch('smoke.none') === []);
 
 // 7. Routing through the kernel
 $home = $kernel->handle(new Request('GET', '/'));
-check('GET / returns 200', $home->status() === 200);
-check('GET / returns app status', str_contains($home->content(), '"status":"ok"'));
+check('GET / redirects (302)', $home->status() === 302);
+check('GET / sets Location header', isset($home->headers()['Location']));
 
 $up = $kernel->handle(new Request('GET', '/up'));
 check('GET /up returns 200 OK', $up->status() === 200 && $up->content() === 'OK');

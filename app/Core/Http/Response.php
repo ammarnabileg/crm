@@ -39,6 +39,11 @@ final class Response
         return new self($body === false ? '{}' : $body, $status, ['Content-Type' => 'application/json; charset=UTF-8']);
     }
 
+    public static function redirect(string $location, int $status = 302): self
+    {
+        return new self('', $status, ['Location' => $location]);
+    }
+
     public function withHeader(string $name, string $value): self
     {
         $this->headers[$name] = $value;

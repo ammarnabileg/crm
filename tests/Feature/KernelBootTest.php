@@ -31,12 +31,13 @@ final class KernelBootTest extends TestCase
         return (new Kernel(new Container(), dirname(__DIR__, 2)))->boot();
     }
 
-    public function test_kernel_boots_with_zero_modules(): void
+    public function test_kernel_boots_and_loads_configured_modules(): void
     {
         $kernel = $this->kernel();
 
         $this->assertTrue($kernel->isBooted());
-        $this->assertSame(0, $kernel->container()->make(ModuleRegistry::class)->count());
+        // Foundation modules are registered explicitly via config/modules.php.
+        $this->assertGreaterThanOrEqual(3, $kernel->container()->make(ModuleRegistry::class)->count());
     }
 
     public function test_container_resolves_core_services(): void
@@ -47,12 +48,13 @@ final class KernelBootTest extends TestCase
         $this->assertSame($c->make(Router::class), $c->make(Router::class));
     }
 
-    public function test_root_route_returns_ok(): void
+    public function test_root_route_redirects_based_on_state(): void
     {
         $response = $this->kernel()->handle(new Request('GET', '/'));
 
-        $this->assertSame(200, $response->status());
-        $this->assertStringContainsString('"status":"ok"', $response->content());
+        // Root routes the visitor to install/login/dashboard depending on state.
+        $this->assertSame(302, $response->status());
+        $this->assertArrayHasKey('Location', $response->headers());
     }
 
     public function test_liveness_route(): void
