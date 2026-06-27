@@ -251,8 +251,14 @@ uuid + timestamps, config-driven statuses, **no ENUMs**; per the
   `interviews` gained `state_id`. Engine: `App\Services\Interview\StateMachine`.
 - **Blueprints:** `interview_blueprints`, `blueprint_sections`,
   `blueprint_section_rules`; `blueprint_versions`.
-- **Workflows (builder):** `interview_workflows`, `workflow_nodes`, `workflow_edges`,
-  `workflow_versions`, `workflow_runs`, `workflow_run_steps`.
+- **Workflows (builder) — ✅ REALIZED (migration 0035, P3):** `interview_workflows`,
+  `workflow_nodes` (typed via the `workflow_node_type` lookup), `workflow_edges`
+  (with branch `condition` JSON), `workflow_versions` (immutable snapshot),
+  `workflow_runs` + `workflow_run_steps` (the per-interview execution trace; steps
+  reference nodes by `node_key` against the frozen snapshot). Engines:
+  `App\Services\Workflow\WorkflowBuilder` (validate/create/publish) +
+  `WorkflowRuntime` (start/resume step machine). Run/step statuses are seeded
+  `workflow_run_status`/`workflow_step_status` lookups.
 - **Evaluation — ✅ REALIZED (migration 0034, P2):** the evaluation template IS the
   existing D9 configurable scorecard, REUSED to avoid a parallel system (anti-
   duplication, docs/50): `evaluation_forms` = the weighted, thresholded rubric;
@@ -317,7 +323,10 @@ explicitly prioritized): State Machine, Evaluation Templates, Workflow Builder.
    immutable versioning) and the Decision Engine that consumes weights into an
    explainable decision. — ✅ **DONE** (migration 0034, `EvaluationTemplate` +
    `DecisionEngine`, 16 tests).
-3. **P3 — Workflow Builder** (graph model + runtime + a minimal visual editor).
+3. **P3 — Workflow Builder** (graph model + runtime + a minimal visual editor). — ✅
+   **DONE** (migration 0035, `WorkflowBuilder` + `WorkflowRuntime` step machine, 12
+   tests; deterministic execution with zero model calls). Visual editor UI pending a
+   later UI phase.
 4. **P4 — Provider abstraction + Model Router + Fallback + Prompt Guard + Token
    Optimizer** (the safe model-call core; needs tenant keys).
 5. **P5 — Orchestrator + Memory Engine + Knowledge Engine + Quality Control.**
