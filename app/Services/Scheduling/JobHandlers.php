@@ -77,6 +77,25 @@ final class JobHandlers
             ]);
         });
 
+        // 'mail' — a REAL handler: send an HTML email off the queue (so heavy or
+        // flaky delivery is retryable rather than blocking a request). Producers use
+        // Queue::pushMail(). A failed send throws so the runner retries / fails it;
+        // when mail is disabled the Mailer logs and reports success (no retry).
+        $instance->register('mail', static function (array $data, ?int $workspaceId): void {
+            $to = (string) ($data['to'] ?? '');
+            if ($to === '') {
+                throw new \InvalidArgumentException('mail job is missing a "to" address.');
+            }
+            $sent = app('mailer')->send(
+                $to,
+                (string) ($data['subject'] ?? ''),
+                (string) ($data['html'] ?? $data['body'] ?? '')
+            );
+            if (! $sent) {
+                throw new \RuntimeException('mail delivery failed for ' . $to);
+            }
+        });
+
         return $instance;
     }
 }

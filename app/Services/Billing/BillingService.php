@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Billing;
 
+use App\Contracts\Billing\CheckoutGateway;
 use App\Models\Plan;
 use App\Models\Subscription;
 
@@ -13,12 +14,18 @@ use App\Models\Subscription;
  * single subscriptions row directly, no gateway round-trip. Online checkout is an
  * OPTIONAL enhancement layered on top (see StripeGateway) and never required.
  *
- * Pure domain: this service does no HTTP and holds no secrets. Everything is
+ * Pure domain: this service holds no secrets. The checkout gateway is injected
+ * (StripeGateway in production, a fake in tests) and is INERT without keys, so
+ * checkoutUrl() returns null and the caller uses the manual path. Everything is
  * scoped to the active workspace via the tenant-scoped Subscription model; Plan
  * is the shared (non-tenant) catalogue.
  */
 final class BillingService
 {
+    public function __construct(private readonly CheckoutGateway $gateway = new StripeGateway())
+    {
+    }
+
     /**
      * This workspace's current subscription: the latest non-deleted row. The
      * Subscription model is tenant-scoped, so the query is already constrained to
@@ -127,6 +134,47 @@ final class BillingService
         }
 
         return Subscription::create($attributes);
+    }
+
+    /**
+     * Hosted-checkout URL for a PAID plan when a gateway is configured, else null.
+     * Returns null (→ caller uses the manual path) when: no gateway is configured,
+     * the plan is missing/unavailable, the plan is free (no payment needed), or the
+     * gateway could not create a session. Never throws — degrade, don't break.
+     *
+     * NOTE: the session params below are a sensible starting point; the exact
+     * Stripe price/mode mapping depends on the merchant's product setup and only
+     * takes effect once a real key is configured (it is inert/untested offline).
+     */
+    public function checkoutUrl(int $planId, string $successUrl, string $cancelUrl): ?string
+    {
+        if (! $this->gateway->isConfigured()) {
+            return null;
+        }
+
+        $plan = Plan::find($planId);
+        if ($plan === null
+            || ! (bool) $plan->getAttribute('is_active')
+            || ! (bool) $plan->getAttribute('is_public')) {
+            return null;
+        }
+
+        $price = (float) $plan->getAttribute('price');
+        if ($price <= 0) {
+            return null; // free plans never need a checkout round-trip
+        }
+
+        return $this->gateway->createCheckoutSession([
+            'mode'                => 'payment',
+            'success_url'         => $successUrl,
+            'cancel_url'          => $cancelUrl,
+            'client_reference_id' => (string) tenant()->id(),
+            'metadata[plan_id]'   => (string) $plan->getKey(),
+            'line_items[0][quantity]'                          => '1',
+            'line_items[0][price_data][currency]'              => strtolower((string) ($plan->getAttribute('currency') ?? 'sar')),
+            'line_items[0][price_data][unit_amount]'           => (string) (int) round($price * 100),
+            'line_items[0][price_data][product_data][name]'    => (string) $plan->getAttribute('name'),
+        ]);
     }
 
     /**

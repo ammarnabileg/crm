@@ -50,13 +50,22 @@ final class BillingController extends Controller
         ]);
 
         $billing = new BillingService();
+        $planId = (int) $data['plan_id'];
 
-        // The manual/in-app subscribe always completes. When an online gateway is
-        // configured and the plan is paid, a hosted checkout COULD be initiated here
-        // instead; we deliberately keep the always-working in-app path so billing is
-        // never blocked on external keys (degrade gracefully).
-        $billing->subscribe((int) $data['plan_id']);
+        // When an online gateway is configured AND the plan is paid, send the user to
+        // the gateway's hosted checkout; the subscription is then confirmed by the
+        // webhook. With no keys (or a free plan) checkoutUrl() returns null and we use
+        // the always-working in-app path, so billing is never blocked on external keys.
+        $checkoutUrl = $billing->checkoutUrl(
+            $planId,
+            url('billing?checkout=success'),
+            url('billing?checkout=cancel')
+        );
+        if ($checkoutUrl !== null) {
+            return $this->redirect($checkoutUrl);
+        }
 
+        $billing->subscribe($planId);
         $this->withSuccess('Subscription updated.');
 
         return $this->redirect(url('billing'));

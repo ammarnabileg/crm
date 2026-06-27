@@ -225,6 +225,63 @@ return new class extends TestCase {
         $this->assertSame(1, $count);
     }
 
+    public function test_checkout_url_redirects_to_the_gateway_for_a_paid_plan_when_configured(): void
+    {
+        $gateway = new class implements \App\Contracts\Billing\CheckoutGateway {
+            public array $params = [];
+            public function isConfigured(): bool
+            {
+                return true;
+            }
+            public function createCheckoutSession(array $params): ?string
+            {
+                $this->params = $params;
+
+                return 'https://checkout.gateway.test/session/abc123';
+            }
+        };
+
+        $url = (new BillingService($gateway))->checkoutUrl($this->monthlyPlanId, 'https://app/ok', 'https://app/cancel');
+
+        $this->assertSame('https://checkout.gateway.test/session/abc123', $url);
+        // The paid plan's amount was passed in minor units (price * 100).
+        $this->assertTrue(isset($gateway->params['line_items[0][price_data][unit_amount]']));
+    }
+
+    public function test_checkout_url_is_null_without_a_configured_gateway(): void
+    {
+        $gateway = new class implements \App\Contracts\Billing\CheckoutGateway {
+            public function isConfigured(): bool
+            {
+                return false;
+            }
+            public function createCheckoutSession(array $params): ?string
+            {
+                return 'should-never-be-called';
+            }
+        };
+
+        // Not configured → null → the controller uses the manual in-app path.
+        $this->assertNull((new BillingService($gateway))->checkoutUrl($this->monthlyPlanId, 'https://app/ok', 'https://app/cancel'));
+    }
+
+    public function test_checkout_url_is_null_for_a_free_plan_even_when_configured(): void
+    {
+        $gateway = new class implements \App\Contracts\Billing\CheckoutGateway {
+            public function isConfigured(): bool
+            {
+                return true;
+            }
+            public function createCheckoutSession(array $params): ?string
+            {
+                return 'https://checkout.gateway.test/should-not-happen';
+            }
+        };
+
+        // Free plans never need a checkout round-trip.
+        $this->assertNull((new BillingService($gateway))->checkoutUrl($this->freePlanId, 'https://app/ok', 'https://app/cancel'));
+    }
+
     public function test_webhook_with_no_signing_secret_logs_unverified_event_and_returns_200(): void
     {
         $payload = json_encode([

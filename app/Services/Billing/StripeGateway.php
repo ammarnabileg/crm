@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Billing;
 
+use App\Contracts\Billing\CheckoutGateway;
+
 /**
  * OPTIONAL Stripe adapter — INERT without keys (ABSOLUTE RULE 2). No secret is
  * ever stored in the database or logged; keys come only from config/env. Every
@@ -14,7 +16,7 @@ namespace App\Services\Billing;
  * No network call is made unless a real checkout session is requested AND a key is
  * present; tests never trigger that path.
  */
-final class StripeGateway
+final class StripeGateway implements CheckoutGateway
 {
     /** Stripe API secret (sk_...). Empty string when unconfigured. */
     private string $secret;
