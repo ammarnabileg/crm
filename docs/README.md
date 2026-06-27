@@ -151,12 +151,26 @@ Implemented against a real **MySQL 8** database and verified end-to-end:
 > copy `.env.example`→`.env`, then open `/install` in the browser (or
 > `php bin/console.php migrate`). See `INSTALLATION.md`.
 
+### Phase 9 — Workspace Platform & Collaboration ✅ (code; files/notifications pending)
+The daily collaboration platform, on the verified foundation:
+- **Audit & Activity:** append-only `AuditLogger` + workspace `ActivityFeed`.
+- **Members:** directory, invite-by-email, invitation accept flow.
+- **Role Builder (UI):** create roles and pick permissions by category.
+- **Multi-workspace:** `WorkspaceContext` (per-request authz), switching.
+- **Settings:** per-workspace name/timezone/locale/currency (audited).
+- **Search:** unified, workspace-scoped (members + roles).
+- Modules registered via `config/modules.php`; the dynamic sidebar gains
+  Roles, Activity, Search.
+- Verified end-to-end (curl): owner builds a Recruiter role → invites a user →
+  they accept → their sidebar is the recruiter subset → activity timeline shows
+  every event. Suite: **46 tests / 115 assertions**.
+- _Remaining in Phase 9:_ File manager, Notification center, workspace branding.
+
 ### Planned (later phases)
-- **Phases 9–16 — Implementation:** Workspace platform (settings, files,
-  notifications, search, audit, activity), Recruitment, AI Engine, Workflow
-  Engine, Integration Platform, Billing/Subscriptions, Observability, and
-  Release certification — each with its own documents and tests (see
-  `MODULES.md`).
+- **Phases 10–16 — Implementation:** Recruitment (jobs/applications/candidates/
+  pipeline/interviews/offers), AI Engine, Workflow Engine, Integration Platform,
+  Billing/Subscriptions, Observability, and Release certification — each with
+  its own documents and tests (see `MODULES.md`).
 
 `/docs/adr/` holds Architecture Decision Records for significant decisions.
 

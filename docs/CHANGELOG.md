@@ -134,6 +134,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Provisioned MySQL 8 for development; verified the full FINAL ACCEPTANCE
   scenario plus an end-to-end HTTP flow. Suite: 42 tests / 102 assertions.
 
+### Added — Phase 9: Workspace Platform & Collaboration
+- **Audit** (`app/Modules/Audit`): append-only AuditLogger + ActivityFeed +
+  ActivityController (workspace timeline).
+- **Memberships UI**: member directory, invite-by-email, invitation accept flow.
+- **Permissions UI** (`Role Builder`): create roles and assign permissions by
+  category.
+- **Workspaces**: WorkspaceContext (per-request authorization), WorkspaceShell
+  (layout), multi-workspace switching, dashboard switcher, and per-workspace
+  Settings (name/timezone/locale/currency).
+- **Search** (`app/Modules/Search`): unified workspace-scoped search.
+- New modules registered via `config/modules.php`; sidebar gains Roles,
+  Activity, Search; permission catalog gains `search.use`.
+- Verified end-to-end (HTTP): role-build → invite → accept → recruiter sidebar
+  subset → activity timeline. Suite: 46 tests / 115 assertions.
+- _Remaining in Phase 9:_ file manager, notification center, branding.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
