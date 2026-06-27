@@ -65,35 +65,21 @@ Implementations **MUST** check the permission **key** for each capability and
 **MUST NOT** infer capability from the actor's role name or from any role's
 title.
 
-### 3.1 Create
+Behavioural notes on the capabilities:
 
-Creating a role yields a new bundle in the active workspace. The creator selects
-permissions (§5) and names the role. A freshly created role grants **nothing**
-until permissions are added — consistent with deny-by-default
-(`PERMISSION_MODEL.md` §5). Creation MAY be seeded from a **template** (§6); the
-result is still an ordinary editable role.
-
-### 3.2 Rename & Update
-
-Renaming changes display text only and never alters effective access. Updating
-the permission set takes effect for the **union** of permissions held by every
-member assigned that role at the next authorization check (`PERMISSION_MODEL.md`
-§4). Editors **SHOULD** be reminded that broadening a role broadens it for *all*
-current holders.
-
-### 3.3 Clone
-
-Cloning copies an existing role's permission set into a **new, independent**
-role. The clone has no link back to its source: later edits to either do not
-propagate to the other. Cloning is the recommended way to derive a variant
-(e.g. "Recruiter (read-only)") without disturbing the original.
-
-### 3.4 Delete & Assignment
-
-Deletion removes the bundle subject to §7. Assigning or removing a role on a
-member changes that member's effective permissions immediately; the action is a
-membership change and is governed jointly by the Memberships and Permissions
-capabilities (§8).
+- **Create** yields a new bundle that grants **nothing** until permissions are
+  added (deny-by-default, `PERMISSION_MODEL.md` §5). It MAY be seeded from a
+  **template** (§5); the result is still an ordinary editable role.
+- **Rename** changes display text only and never alters access. **Update** to the
+  permission set takes effect for the **union** held by every member assigned
+  that role at the next authorization check (`PERMISSION_MODEL.md` §4) —
+  broadening a role broadens it for *all* current holders.
+- **Clone** copies a role's permission set into a **new, independent** role with
+  no link back to its source; it is the recommended way to derive a variant
+  (e.g. "Recruiter (read-only)") without disturbing the original.
+- **Delete** removes the bundle subject to §7. **Assigning/removing** a role on a
+  member changes that member's effective permissions immediately and is a
+  membership change governed jointly by Memberships and Permissions (§8).
 
 ---
 
