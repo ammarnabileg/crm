@@ -17,7 +17,7 @@ $nav = [
     ['members',   'Members',            'members.view', true],
     ['roles',     'Roles & Permissions', 'roles.view',  false],
     ['ai',        'AI Settings',        'ai.view',      true],
-    ['billing',   'Billing',            'billing.view', false],
+    ['billing',   'Billing',            'billing.view', true],
     ['settings',  'Workspace Settings',   'settings.view', true],
     // System operations (super-admin only — gated by system.manage). No terminal.
     ['system/diagnostics', 'Diagnostics',      'system.manage', true],

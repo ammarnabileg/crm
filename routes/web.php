@@ -22,6 +22,7 @@ use App\Controllers\App\AiSettingsController;
 use App\Controllers\App\SettingsController;
 use App\Controllers\App\SearchController;
 use App\Controllers\App\FileController;
+use App\Controllers\App\BillingController;
 use App\Controllers\System\CronController;
 use App\Controllers\Ats\ApplicationController;
 use App\Controllers\Ats\BoardController;
@@ -51,6 +52,12 @@ $router->group(['middleware' => ['security']], function ($router): void {
     // the controller, fail-closed 404 when no token is configured), no tenant, and
     // outside the maintenance gate so the queue keeps draining during maintenance.
     $router->get('cron/run', [CronController::class, 'run'])->name('cron.run');
+
+    // Payment gateway webhook — an external server-to-server callback that cannot
+    // carry our CSRF token (it authenticates via the gateway signature instead), so
+    // it lives in this CSRF-exempt, unauthenticated group. It bypasses maintenance so
+    // events are never lost; it is inert-but-safe with zero gateway keys.
+    $router->post('billing/webhook', [BillingController::class, 'webhook'])->name('billing.webhook');
 });
 
 $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function ($router): void {
@@ -162,6 +169,12 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
             $router->post('files/upload', [FileController::class, 'upload'])->middleware('permission:recruitment.manage')->name('files.upload');
             $router->get('files/download', [FileController::class, 'download'])->middleware('permission:recruitment.view')->name('files.download');
             $router->post('files/delete', [FileController::class, 'delete'])->middleware('permission:recruitment.manage')->name('files.delete');
+
+            // Billing (docs/14) — in-app subscription management. Reads: billing.view;
+            // changes: billing.manage. The manual/in-app path always works with zero
+            // gateway keys; online checkout layers on top only when a gateway is set.
+            $router->get('billing', [BillingController::class, 'index'])->middleware('permission:billing.view')->name('billing.index');
+            $router->post('billing/subscribe', [BillingController::class, 'subscribe'])->middleware('permission:billing.manage')->name('billing.subscribe');
 
             // Members (docs/47 RBAC). Reads: members.view; each write checks the
             // matching members.* permission.
