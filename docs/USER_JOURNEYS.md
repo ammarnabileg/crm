@@ -113,40 +113,27 @@ account (`USER_MODEL.md` §1, `APPLICATION_FLOW.md` §4).
 **Steps:**
 
 ```
-1. Discover a public job page (NO login required)
-       │        Reachable only while {Job: Published} (STATE_DIAGRAMS.md §2).
-       ▼
-2. Click Apply ──▶ system ensures ONE `User` identity exists
-       │        Register OR Log in — never a "candidate account"
-       │        (APPLICATION_FLOW.md §4). {User: Registered/Active}
-       ▼
-3. Submit application
-       │        [perm: application.create — the applicant acting on their own
-       │         candidacy; deny-by-default still applies]
-       │        Create exactly ONE `Application` {user_id, job_id, workspace_id}
-       │        {Application: Applied}        (event) application.submitted
-       │        ├─ open Activity Timeline (append-only)
-       │        ├─ attach CV/resume = a `File` OWNED BY THE USER, referenced
-       │        │   (never copied — reusable across applications)
-       │        └─ derive/refresh the workspace-scoped Candidate Profile (a VIEW)
-       │        Re-applying to the same job adds HISTORY, never a duplicate
-       │        (Invariant — §8 below; APPLICATION_FLOW.md §4).
-       ▼
-4. AI and/or Human Interview
-       │        AI:    {Interview: Scheduled ──▶ … ──▶ Evaluated} via AI Engine
-       │        Human: interviewer records a scorecard/rating
-       │        (AI output is advisory; APPLICATION_FLOW.md §7.)
-       ▼
-5. Receive Offer ──▶ {Offer: Sent}, {Application: Offer}
-       ▼
-6. Accept Offer
-       │        {Offer: Accepted} ──▶ {Application: Hired (terminal)}
-       ▼
-7. Employment begins
-       │        The same `User` gains an EMPLOYEE context in this workspace
-       │        {Employee: Onboarding ──activate──▶ Active}
-       │        Workspace-scoped: the user may simultaneously be a candidate in
-       │        another workspace with zero cross-visibility (DOMAIN_MODEL.md §7).
+1. Discover a public job page (NO login). Reachable only while {Job: Published}
+   (STATE_DIAGRAMS.md §2).
+2. Click Apply ──▶ system ensures ONE `User` exists: Register OR Log in — never a
+   "candidate account" (APPLICATION_FLOW.md §4). {User: Registered/Active}
+3. Submit application. [perm: application.create — applicant on own candidacy;
+   deny-by-default still applies] Create exactly ONE `Application` {user_id,
+   job_id, workspace_id}: {Application: Applied} (event) application.submitted.
+     ├─ open Activity Timeline (append-only)
+     ├─ attach CV/resume = a `File` OWNED BY THE USER, referenced (never copied,
+     │  reusable across applications)
+     └─ derive/refresh the workspace-scoped Candidate Profile (a VIEW)
+   Re-applying to the same job adds HISTORY, never a duplicate (§8; APPLICATION_FLOW.md §4).
+4. AI and/or Human Interview. AI: {Interview: Scheduled ──▶ … ──▶ Evaluated} via
+   the AI Engine; Human: interviewer records a scorecard/rating. AI output is
+   advisory (APPLICATION_FLOW.md §7).
+5. Receive Offer ──▶ {Offer: Sent}, {Application: Offer}.
+6. Accept Offer ──▶ {Offer: Accepted} ──▶ {Application: Hired (terminal)}.
+7. Employment begins. The same `User` gains an EMPLOYEE context in this workspace
+   {Employee: Onboarding ──activate──▶ Active}. Workspace-scoped: the user may
+   simultaneously be a candidate in another workspace with zero cross-visibility
+   (DOMAIN_MODEL.md §7).
 ```
 
 **Outcome:** One `User`, now carrying a candidate-turned-employee context in this
