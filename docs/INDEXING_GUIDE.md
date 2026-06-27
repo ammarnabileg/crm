@@ -158,11 +158,7 @@ Conventions for this section:
 | Table | Index | Columns | Type | Justification (query it serves) |
 |---|---|---|---|---|
 | tags | PRIMARY | `(id)` | PK | Row identity. |
-| tags | `uq_tags_ws_name` | `(workspace_id, name)` | Unique | Tag names are unique per workspace; leftmost-prefix serves the workspace's tag picker list. |
-
-> The pivot `candidate_profile_tags` is covered at category level in §4
-> (standard pivot: unique `(candidate_profile_id, tag_id)` + reverse FK on
-> `(tag_id)`).
+| tags | `uq_tags_ws_name` | `(workspace_id, name)` | Unique | Tag names are unique per workspace; leftmost-prefix serves the workspace's tag picker list. (Pivot `candidate_profile_tags` → §4.) |
 
 #### `interviews` (Workspace)
 
@@ -196,10 +192,7 @@ Conventions for this section:
 |---|---|---|---|---|
 | ai_sessions | PRIMARY | `(id)` | PK | Row identity. |
 | ai_sessions | `idx_aisessions_ws_status` | `(workspace_id, status_code)` | Composite | A workspace's AI sessions filtered by status (active/completed/failed). Leftmost-prefix serves workspace session lists. |
-| ai_sessions | `idx_aisessions_provider` | `(provider_id)` | FK | Sessions by provider (fallback/health analysis); FK to `ai_providers`. |
-
-> `ai_messages` is covered at category level in §4 (child of a session: FK
-> `(ai_session_id)`, read in `id` order).
+| ai_sessions | `idx_aisessions_provider` | `(provider_id)` | FK | Sessions by provider (fallback/health analysis); FK to `ai_providers`. (Child `ai_messages` → §4.) |
 
 ### 3.3 Platform Services
 
@@ -235,10 +228,10 @@ Conventions for this section:
 | search_documents | `idx_searchdocs_ws_entity` | `(workspace_id, entity_type, entity_id)` | Composite | Upsert/locate the projection row for a given source entity; also tenant-scopes the search. |
 | search_documents | `ft_searchdocs_content` | `(content)` | FULLTEXT | Unified relevance search: `MATCH(content) AGAINST(? IN BOOLEAN MODE)` combined with a `WHERE workspace_id = ?` predicate for tenant isolation. Never `LIKE '%…%'` (§2). |
 
-> FULLTEXT cannot be the *leading* part of a composite with `workspace_id`; tenant
-> isolation is enforced by combining the `MATCH` with an indexed `workspace_id`
-> equality predicate (via `idx_searchdocs_ws_entity`'s leftmost prefix). The
-> repository tenant guard (`DATABASE_GUIDE.md` §6.2) MUST still apply.
+> FULLTEXT cannot lead a composite with `workspace_id`; tenant isolation combines
+> the `MATCH` with an indexed `workspace_id` equality predicate (via
+> `idx_searchdocs_ws_entity`'s leftmost prefix). The repository tenant guard
+> (`DATABASE_GUIDE.md` §6.2) MUST still apply.
 
 ### 3.4 Integration
 

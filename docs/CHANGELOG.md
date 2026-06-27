@@ -41,6 +41,17 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   Data/Acceptance-Criteria.
 - Resolved Recruitment as a single bounded context (not fragmented modules).
 
+### Added — Phase 3: Database Architecture & Data Modeling
+- `ENTITY_CATALOG.md` — the authoritative list of every entity (~79 tables),
+  its tenancy scope (Global vs Workspace), owning module, and relationships.
+- `DATABASE_ARCHITECTURE.md` — the data-model design (naming, ULID PKs, FK
+  referential actions, constraints, tenancy, migration engine).
+- `ER_DIAGRAM.md` (Mermaid, all entities), `RELATIONSHIP_MATRIX.md`,
+  `INDEXING_GUIDE.md`.
+- `AUDIT_POLICY.md`, `ARCHIVING_POLICY.md`, `VERSIONING_POLICY.md`.
+- Confirmed: ULID-only keys (no `AUTO_INCREMENT`), no MySQL `ENUM`, mandatory
+  `workspace_id` tenant guard, no duplicated/derived data, acyclic FK ownership.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

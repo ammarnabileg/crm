@@ -69,11 +69,19 @@ it, the Constitution wins.
 | `PERMISSION_MATRIX.md` | Permission × module matrix | Draft |
 | `FEATURE_SPECIFICATIONS/` | 23 per-module specs (+ index) | Draft |
 
+### Phase 3 — Database Architecture & Data Modeling ✅
+| Document | Purpose | Status |
+|---|---|---|
+| `ENTITY_CATALOG.md` | Authoritative entity & tenancy list | Adopted (Canon) |
+| `DATABASE_ARCHITECTURE.md` | Data-model design | Adopted |
+| `ER_DIAGRAM.md` | Mermaid ER diagrams (all entities) | Adopted |
+| `RELATIONSHIP_MATRIX.md` | 1:1 / 1:N / N:M per entity | Adopted |
+| `INDEXING_GUIDE.md` | Per-table index strategy | Adopted |
+| `AUDIT_POLICY.md` | What/how is audited | Adopted |
+| `ARCHIVING_POLICY.md` | Archive / soft-delete / hard-delete | Adopted |
+| `VERSIONING_POLICY.md` | Entity version history | Adopted |
+
 ### Planned (later phases)
-- **Phase 3 — Database Architecture:** `DATABASE_ARCHITECTURE.md`,
-  `ER_DIAGRAM.md`, `ENTITY_CATALOG.md`, `RELATIONSHIP_MATRIX.md`,
-  `INDEXING_GUIDE.md`, `AUDIT_POLICY.md`, `ARCHIVING_POLICY.md`,
-  `VERSIONING_POLICY.md`.
 - **Phase 4 — Access Control:** `PERMISSION_CATALOG.md`, `SECURITY_MATRIX.md`,
   `ROLE_BUILDER.md`, `ACCESS_POLICIES.md`, `SYSTEM_PERMISSIONS.md`,
   `WORKSPACE_PERMISSIONS.md`, `AUDIT_EVENTS.md`.
