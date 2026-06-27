@@ -12,6 +12,14 @@
 /storage/sessions/*
 /storage/app/*
 /storage/backups/*
+# Keep the private sub-trees the app writes to (uploads/exports/imports) so a fresh
+# clone/deploy has them — but still ignore the files written into them.
+!/storage/app/uploads/
+!/storage/app/exports/
+!/storage/app/imports/
+/storage/app/uploads/*
+/storage/app/exports/*
+/storage/app/imports/*
 !/storage/**/.gitkeep
 
 # Dependencies / build

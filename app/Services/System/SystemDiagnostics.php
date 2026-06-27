@@ -36,7 +36,9 @@ final class SystemDiagnostics
             'Database'              => $this->databaseChecks(),
             'Storage'               => $this->storageChecks(),
             'Cache'                 => $this->cacheChecks(),
+            'Queue'                 => $this->queueChecks(),
             'Mail'                  => $this->mailChecks(),
+            'Scheduler'             => $this->schedulerChecks(),
             'Logs'                  => $this->logChecks(),
             'Environment & Security' => $this->securityChecks(),
             'AI Layer'              => $this->aiChecks(),
@@ -300,6 +302,90 @@ final class SystemDiagnostics
                     'status' => $ok ? 'pass' : 'fail',
                     'value'  => $ok ? 'write/read/forget OK' : 'probe failed',
                     'hint'   => $ok ? null : 'The cache store could not round-trip a value. Check storage/cache writability or the configured cache driver.',
+                ];
+            }),
+        ];
+    }
+
+    // --- Queue --------------------------------------------------------------
+
+    /** @return array<int, array<string, mixed>> */
+    private function queueChecks(): array
+    {
+        return [
+            $this->guard('Queue store', function (): array {
+                if (! $this->tableExists('queued_jobs')) {
+                    return [
+                        'status' => 'warn',
+                        'value'  => 'table missing',
+                        'hint'   => 'The queued_jobs table is absent; long tasks would run inline. Run migrations to enable async queueing.',
+                    ];
+                }
+                $pending = (int) app('db')->scalar('SELECT COUNT(*) FROM `queued_jobs`');
+                // A very large backlog means no worker is draining the queue.
+                $ok = $pending < 10000;
+
+                return [
+                    'status' => $ok ? 'pass' : 'warn',
+                    'value'  => $pending . ' job' . ($pending === 1 ? '' : 's') . ' pending',
+                    'hint'   => $ok ? null : 'Large queue backlog — ensure the queue worker (cron-driven) is running to drain jobs.',
+                ];
+            }),
+            $this->guard('Failed jobs', function (): array {
+                if (! $this->tableExists('failed_jobs')) {
+                    return ['status' => 'pass', 'value' => 'n/a'];
+                }
+                $failed = (int) app('db')->scalar('SELECT COUNT(*) FROM `failed_jobs`');
+
+                return [
+                    'status' => $failed === 0 ? 'pass' : 'warn',
+                    'value'  => $failed === 0 ? 'none' : $failed . ' failed',
+                    'hint'   => $failed === 0 ? null : 'There are failed background jobs — review failed_jobs and retry or discard them.',
+                ];
+            }),
+        ];
+    }
+
+    // --- Scheduler (cron) ---------------------------------------------------
+
+    /** @return array<int, array<string, mixed>> */
+    private function schedulerChecks(): array
+    {
+        return [
+            $this->guard('Scheduled tasks', function (): array {
+                if (! $this->tableExists('scheduled_tasks')) {
+                    return [
+                        'status' => 'warn',
+                        'value'  => 'table missing',
+                        'hint'   => 'The scheduled_tasks table is absent. Run migrations to enable the scheduler.',
+                    ];
+                }
+                $active = (int) app('db')->scalar('SELECT COUNT(*) FROM `scheduled_tasks` WHERE is_active = 1');
+
+                return ['status' => 'pass', 'value' => $active . ' active task' . ($active === 1 ? '' : 's')];
+            }),
+            $this->guard('Scheduler heartbeat', function (): array {
+                if (! $this->tableExists('scheduled_tasks')) {
+                    return ['status' => 'warn', 'value' => 'unknown'];
+                }
+                $active = (int) app('db')->scalar('SELECT COUNT(*) FROM `scheduled_tasks` WHERE is_active = 1');
+                if ($active === 0) {
+                    return ['status' => 'pass', 'value' => 'no active tasks'];
+                }
+                $last = app('db')->scalar('SELECT MAX(last_run_at) FROM `scheduled_tasks` WHERE is_active = 1');
+                if ($last === null) {
+                    return [
+                        'status' => 'warn',
+                        'value'  => 'never run',
+                        'hint'   => 'Active scheduled tasks have never run. Add a server cron entry that hits the scheduler so background work fires.',
+                    ];
+                }
+                $recent = (time() - strtotime((string) $last)) < 26 * 3600;
+
+                return [
+                    'status' => $recent ? 'pass' : 'warn',
+                    'value'  => 'last run ' . $last,
+                    'hint'   => $recent ? null : 'No scheduled task has run in over a day — the server cron may not be wired to the scheduler.',
                 ];
             }),
         ];

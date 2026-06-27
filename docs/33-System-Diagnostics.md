@@ -71,6 +71,18 @@ flowchart TD
 | `opcache` | `opcache_get_status()` | enabled with healthy hit ratio | disabled → WARN | No (php.ini) |
 | `disk` | `disk_free_space()` on the install root | free above threshold | low → WARN; critical → FAIL | Partial (purge old logs/cache) |
 
+### Liveness probe (`GET /up`)
+
+Separate from the gated, detailed report, an **unauthenticated** `GET /up` returns
+`{"status":"ok"}` (HTTP 200) when the app boots and the database answers, or
+`{"status":"error"}` (HTTP 503) otherwise. It is deliberately minimal — it leaks no
+internal detail — and **bypasses the maintenance gate** so a load balancer / uptime
+monitor does not kill a healthy container during a maintenance window. The full
+human-readable status remains at `/system/diagnostics` (super-admin, `system.manage`),
+which now covers every category: PHP, Extensions, Database, Storage, Cache, **Queue**
+(`queued_jobs` backlog + `failed_jobs`), Mail, **Scheduler** (active tasks + last-run
+heartbeat), Logs, Environment & Security, and the AI Layer.
+
 ### Version / environment report
 
 A non-actionable facts table for support and the [44-Production-Checklist]: HalaOps app version and build, `APP_ENV`/`APP_DEBUG`, PHP version + SAPI, loaded vs required extensions (`pdo_mysql, mbstring, openssl, json, fileinfo, curl` and recommended `gd, intl, zip`), MySQL server version + charset/collation, applied vs total migrations, configured timezone/locale/currency, session driver, mail enabled flag, and whether the install lock (`storage/framework/installed`) is present.

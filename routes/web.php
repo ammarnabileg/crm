@@ -27,11 +27,18 @@ use App\Controllers\Auth\PasswordController;
 use App\Controllers\Auth\RegisterController;
 use App\Controllers\Setup\InstallController;
 use App\Controllers\System\BackupController;
+use App\Controllers\System\HealthController;
 use App\Controllers\System\DiagnosticsController;
 use App\Controllers\System\EnvironmentController;
 use App\Controllers\System\LogViewerController;
 use App\Controllers\System\MaintenanceController;
 use App\Core\Response;
+
+// Liveness probe — outside the maintenance gate so health checks stay green during
+// maintenance windows. Unauthenticated, minimal, leaks nothing (just app+DB up).
+$router->group(['middleware' => ['security']], function ($router): void {
+    $router->get('up', [HealthController::class, 'up'])->name('health.up');
+});
 
 $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function ($router): void {
 
