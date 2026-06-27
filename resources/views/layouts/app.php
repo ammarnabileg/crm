@@ -55,7 +55,25 @@ $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || st
     <!-- Main -->
     <div class="flex min-w-0 flex-1 flex-col">
         <header class="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
-            <div class="min-w-0">
+            <div class="flex min-w-0 items-center gap-2">
+                <!-- Mobile navigation: the sidebar is hidden below lg, so expose the
+                     same nav from a hamburger here (no page is unreachable on phones). -->
+                <details class="relative lg:hidden">
+                    <summary class="flex cursor-pointer list-none items-center rounded-lg p-2 hover:bg-slate-100" aria-label="Open navigation menu">
+                        <svg class="h-6 w-6 text-slate-700" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    </summary>
+                    <nav class="absolute start-0 z-30 mt-2 w-64 space-y-1 rounded-xl bg-white p-2 shadow-lg ring-1 ring-slate-200">
+                        <?php foreach ($nav as [$path, $label, $perm, $built]): ?>
+                            <?php if ($built && can($perm)): ?>
+                                <a href="<?= e(url($path)) ?>" class="nav-link <?= $isActive($path) ? 'nav-link-active' : '' ?>">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-current opacity-60"></span>
+                                    <?= e($label) ?>
+                                </a>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    </nav>
+                </details>
+                <div class="min-w-0">
                 <?php if ($workspace): ?>
                     <details class="relative">
                         <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-100">
@@ -80,11 +98,12 @@ $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || st
                 <?php else: ?>
                     <span class="font-semibold text-slate-800"><?= e(config('app.name')) ?></span>
                 <?php endif; ?>
+                </div>
             </div>
 
             <div class="flex items-center gap-2">
                 <a href="<?= e(url(request()->path() === '/' ? '/' : ltrim($current, '/')) . '?lang=' . (is_rtl() ? 'en' : 'ar')) ?>"
-                   class="btn-ghost px-2 py-1.5 text-sm"><?= is_rtl() ? 'EN' : 'ع' ?></a>
+                   class="btn-ghost px-2 py-1.5 text-sm" aria-label="<?= is_rtl() ? 'Switch language to English' : 'تغيير اللغة إلى العربية' ?>"><?= is_rtl() ? 'EN' : 'ع' ?></a>
 
                 <details class="relative">
                     <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-100">

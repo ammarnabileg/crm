@@ -23,7 +23,7 @@
 <div class="mt-6 card">
     <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
         <h2 class="font-semibold text-slate-900">Newest workspaces</h2>
-        <a href="<?= e(url('admin/workspaces')) ?>" class="text-sm font-medium text-brand-600 hover:text-brand-700">View all</a>
+        <?php /* A workspaces admin index is not built yet — no dead "View all" link (Golden Rule). */ ?>
     </div>
     <div class="card-body">
         <?php if (empty($recent)): ?>

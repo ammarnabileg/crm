@@ -200,7 +200,9 @@ abstract class Model
     {
         $attributes = static::filterFillable($attributes);
 
-        if (static::shouldApplyTenantScope() && ! isset($attributes[static::$tenantColumn])) {
+        // Stamp the tenant from the ACTIVE tenant only — never from caller input
+        // (prevents a mass-assigned workspace_id from writing into another tenant).
+        if (static::shouldApplyTenantScope()) {
             $attributes[static::$tenantColumn] = static::currentTenantId();
         }
 
@@ -225,6 +227,11 @@ abstract class Model
     public function update(array $attributes): bool
     {
         $attributes = static::filterFillable($attributes);
+
+        // The tenant column is immutable — a row can never be moved across tenants.
+        if (static::shouldApplyTenantScope()) {
+            unset($attributes[static::$tenantColumn]);
+        }
 
         if (static::$timestamps) {
             $attributes['updated_at'] = now();
@@ -377,8 +384,11 @@ abstract class Model
             return $attributes;
         }
 
+        // NOTE: the tenant column is deliberately NOT mass-assignable — it is
+        // stamped from the ACTIVE tenant in create() and is immutable on update(),
+        // so a caller-supplied workspace_id can never write/move a row across
+        // tenants (defence against mass-assignment tenant escape).
         $allowed = array_merge(static::$fillable, [
-            static::$tenantColumn,
             static::$uuidColumn,
             static::$deletedAtColumn,
             'created_at',

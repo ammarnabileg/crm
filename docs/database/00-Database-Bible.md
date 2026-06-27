@@ -1,8 +1,10 @@
 # 00 — Database Bible (Final Blueprint Standard)
 
 The authoritative standard and index for the HalaOps database design. The
-database is the foundation of the platform; **no migration or code is written
-until this blueprint and its ERD are approved.**
+database is the foundation of the platform. The blueprint and its ERD were
+approved and are now **fully realized** — migrations `0018`–`0032` (see
+"Migration Status — Blueprint Realized" below): 166 business tables, 0 ENUM
+columns, 451 foreign keys, verified against MySQL.
 
 ## Related Documents
 
@@ -149,10 +151,11 @@ LONGTEXT/JSON columns excluded from list queries.
 
 ## Testing
 
-Schema correctness is verified by: migration dry-runs against the ERD, FK/index
-presence checks, and the tenant-isolation/soft-delete tests in
-[../39-Testing-Strategy](../39-Testing-Strategy.md). No migration is authored
-until the ERD is approved.
+Schema correctness is verified by: migration runs against the ERD (43 migrations,
+0 failures from scratch), FK/index presence checks, and the
+tenant-isolation/soft-delete tests in
+[../39-Testing-Strategy](../39-Testing-Strategy.md). The ERD was approved before
+any migration was authored; the schema is now realized and verified.
 
 ## Future Expansion
 
@@ -267,7 +270,7 @@ migrations + built→blueprint cutover) on top of the original `0001`–`0017`:
 (166 business + the `migrations` ledger); **0 ENUM columns**; **451 foreign keys**;
 seeded by `ReferenceDataSeeder` + `LookupSeeder` + `DatabaseSeeder`
 (30 currencies, 46 countries, 16 languages, 33 timezones, 49 lookup categories,
-215 lookup values, 21 system modules, all per-entity status tables). Application
+215 lookup values, 22 system modules, all per-entity status tables). Application
 test suite green; registration and dashboard flows verified end-to-end.
 
 ## Open Questions

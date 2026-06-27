@@ -149,45 +149,48 @@ That is 51 numbered documents (00–50) plus the CHANGELOG.
 
 ### Database blueprint (`/docs/database/`)
 
-The complete, scale-ready database design (the **Final Database Blueprint**,
-design-only until approved) lives under [`database/`](database/00-Database-Bible.md):
+The complete, scale-ready database design (the **Final Database Blueprint**, now
+**fully realized** — migrations `0018`–`0032`; see the Bible's "Migration Status —
+Blueprint Realized") lives under [`database/`](database/00-Database-Bible.md):
 the [Database Bible](database/00-Database-Bible.md) (standard + inventory), 11
 domain designs + [12 Workspace/Modules/Registries](database/12-Workspace-Types-Modules-Registries.md)
 (Revision R1), the consolidated [99-ERD-Blueprint](database/99-ERD-Blueprint.md)
-(166 tables), and the external-architect [98-Validation-Report](database/98-Validation-Report.md).
+(166 business tables; 167 incl. the `migrations` ledger), and the
+external-architect [98-Validation-Report](database/98-Validation-Report.md).
 
 ## Database Relations
 
 This index does not own data, but it summarizes the schema so newcomers have orientation before diving into [05-Database-Architecture](05-Database-Architecture.md) and [06-ERD](06-ERD.md).
 
-The schema is split into **built** tables (migrations `0001`–`0015` plus `migrations`) and **planned** domain tables documented as planned:
+The full 166-table schema is realized (migrations `0001`–`0032`). A small slice of
+the identity/tenancy + recruitment core:
 
 ```mermaid
 erDiagram
     USERS ||--o{ MEMBERSHIPS : has
-    COMPANIES ||--o{ MEMBERSHIPS : has
-    COMPANIES ||--o{ ROLES : "tenant roles"
-    ROLES ||--o{ PERMISSION_ROLE : grants
-    PERMISSIONS ||--o{ PERMISSION_ROLE : in
-    MEMBERSHIPS ||--o{ MEMBERSHIP_ROLE : assigned
-    USERS ||--o{ USER_ROLE : "global roles"
-    COMPANIES ||--o{ SUBSCRIPTIONS : pays
+    WORKSPACES ||--o{ MEMBERSHIPS : has
+    WORKSPACES ||--o{ ROLES : "tenant roles"
+    ROLES ||--o{ ROLE_PERMISSIONS : grants
+    PERMISSIONS ||--o{ ROLE_PERMISSIONS : in
+    MEMBERSHIPS ||--o{ MEMBERSHIP_ROLES : assigned
+    USERS ||--o{ USER_ROLES : "global roles"
+    WORKSPACES ||--o{ SUBSCRIPTIONS : pays
     PLANS ||--o{ SUBSCRIPTIONS : priced_by
-    COMPANIES ||--o{ AI_CREDENTIALS : owns
-    COMPANIES ||--o{ JOBS : posts
+    WORKSPACES ||--o{ TENANT_AI_KEYS : owns
+    WORKSPACES ||--o{ JOBS : posts
     JOBS ||--o{ APPLICATIONS : receives
     USERS ||--o{ APPLICATIONS : "as candidate"
     APPLICATIONS ||--o{ INTERVIEWS : leads_to
     INTERVIEWS ||--o{ EVALUATIONS : produce
 ```
 
-- **Built / identity & tenancy**: `users`, `companies`, `memberships`, `roles`, `permissions`, `permission_role`, `membership_role`, `user_role`.
-- **Built / commercial & config**: `plans`, `subscriptions`, `ai_credentials`, `settings`, `onboarding_progress`.
-- **Built / infra & audit**: `password_resets`, `activity_log`, `migrations`.
-- **Planned / recruitment**: `jobs`, `pipeline_stages`, `applications`, `application_events`, `interviews`, `interview_participants`, `interview_questions`, `interview_responses`, `ai_interview_sessions`, `evaluations`.
-- **Planned / supporting**: `files`, `notifications`, `notification_preferences`, `invoices`, `payments`, `payment_methods`, `gateway_events`, `api_tokens`, `queued_jobs`, `failed_jobs`.
+- **Identity & tenancy**: `users`, `workspaces` (typed via `workspace_types`), `memberships`, `roles`, `permissions`, `role_permissions`, `membership_roles`, `user_roles`.
+- **Commercial & config**: `plans`, `subscriptions`, `tenant_ai_keys`, `settings`, `onboarding_progress`, plus the D4 billing tables.
+- **Infra & audit**: `password_resets`, `activity_logs`, `system_modules`, the D0 lookups/reference + polymorphic tables, `migrations`.
+- **Recruitment**: `jobs`, `pipelines`, `pipeline_stages`, `applications`, `interviews`, `interview_sessions`, `evaluations`, … (full D5–D9 set).
+- **Supporting**: `files`, `notifications`, `invoices`, `payments`, `queued_jobs`, `failed_jobs`, analytics + logs.
 
-Every tenant table carries a `company_id` FK and index; uniqueness is per-company where relevant. See [05-Database-Architecture](05-Database-Architecture.md) for the authoritative definitions.
+Statuses/types are configuration-driven (per-entity `*_statuses` tables / `lookup_values` FKs — **no ENUM columns**). Every tenant table carries a `workspace_id` FK and index; uniqueness is per-workspace where relevant. See [05-Database-Architecture](05-Database-Architecture.md) and the [Database Bible](database/00-Database-Bible.md) for authoritative definitions.
 
 ## Permissions
 
@@ -195,7 +198,7 @@ This index is for everyone and gates nothing, but it points to where authorizati
 
 - The permission catalogue and default roles are defined in [07-RBAC](07-RBAC.md) (data-driven in `config/rbac.php`).
 - The role × permission matrix is in [11-Permissions-Matrix](11-Permissions-Matrix.md).
-- Built permission groups today: `dashboard.*`, `company.*`, `members.*`, `roles.*`, `billing.*`, `ai.*`, `settings.*`. Planned groups (jobs, applications, interviews, evaluations, candidate, notifications, files, platform) are added as their modules ship.
+- Built permission modules today: `dashboard.*`, `workspace.*`, `members.*`, `roles.*`, `billing.*`, `ai.*`, `settings.*`, and `system.manage` (platform ops, super-admin). Permissions bind to a `system_modules.module_id` (the module is the group). Planned modules (jobs, applications, interviews, evaluations, candidates, notifications, files) are added as their features ship.
 
 ## Validation
 

@@ -42,7 +42,12 @@ final class InstallController extends Controller
 
     public function requirements(Request $request): Response
     {
-        return $this->json($this->manager()->checkRequirements());
+        $manager = $this->manager();
+        if ($manager->isInstalled()) {
+            return $this->json(['ok' => false, 'message' => 'The application is already installed.'], 409);
+        }
+
+        return $this->json($manager->checkRequirements());
     }
 
     public function database(Request $request): Response
@@ -182,7 +187,12 @@ final class InstallController extends Controller
 
     public function health(Request $request): Response
     {
-        return $this->json($this->manager()->healthCheck());
+        $manager = $this->manager();
+        if ($manager->isInstalled()) {
+            return $this->json(['ok' => false, 'message' => 'The application is already installed.'], 409);
+        }
+
+        return $this->json($manager->healthCheck());
     }
 
     public function finalize(Request $request): Response

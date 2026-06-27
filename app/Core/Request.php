@@ -174,14 +174,26 @@ final class Request
 
     public function ip(): string
     {
-        foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $key) {
-            if (! empty($this->server[$key])) {
-                $value = explode(',', (string) $this->server[$key])[0];
-                return trim($value);
+        $remote = trim((string) ($this->server['REMOTE_ADDR'] ?? ''));
+
+        // Forwarding headers (CF-Connecting-IP / X-Forwarded-For) are
+        // client-spoofable, so they are honoured ONLY when the connecting peer is
+        // a configured trusted proxy/CDN. Otherwise an attacker could rotate the
+        // header to defeat rate limiting or an IP allow-list. Default: no trusted
+        // proxies → always use REMOTE_ADDR.
+        $trusted = (array) config('app.trusted_proxies', []);
+        if ($remote !== '' && $trusted !== [] && in_array($remote, $trusted, true)) {
+            foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR'] as $key) {
+                if (! empty($this->server[$key])) {
+                    $forwarded = trim(explode(',', (string) $this->server[$key])[0]);
+                    if ($forwarded !== '') {
+                        return $forwarded;
+                    }
+                }
             }
         }
 
-        return '0.0.0.0';
+        return $remote !== '' ? $remote : '0.0.0.0';
     }
 
     public function userAgent(): string

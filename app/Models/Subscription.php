@@ -13,7 +13,7 @@ final class Subscription extends Model
     protected static bool $usesUuid = true;
 
     protected static array $fillable = [
-        'workspace_id', 'plan_id', 'subscription_status_id', 'amount', 'currency',
+        'plan_id', 'subscription_status_id', 'amount', 'currency',
         'trial_ends_at', 'starts_at', 'ends_at', 'canceled_at',
     ];
 

@@ -19,7 +19,7 @@ final class AiCredential extends Model
     protected static bool $softDeletes = true;
 
     protected static array $fillable = [
-        'workspace_id', 'provider', 'label', 'credentials', 'meta',
+        'provider', 'label', 'credentials', 'meta',
         'is_active', 'is_default', 'last_used_at',
     ];
 

@@ -17,7 +17,7 @@ final class Workspace extends Model
     protected static bool $usesUuid = true;
 
     protected static array $fillable = [
-        'name', 'slug', 'owner_id', 'logo', 'locale', 'timezone', 'status', 'settings',
+        'name', 'slug', 'owner_id', 'logo', 'locale', 'timezone', 'workspace_status_id', 'settings',
     ];
 
     protected static array $casts = ['settings' => 'array'];
@@ -31,18 +31,39 @@ final class Workspace extends Model
 
     public function isActive(): bool
     {
-        return in_array($this->attributes['status'] ?? '', ['active', 'trial'], true);
+        $statusId = (int) ($this->attributes['workspace_status_id'] ?? 0);
+
+        return in_array($statusId, [
+            (int) status_id('workspace_statuses', 'active'),
+            (int) status_id('workspace_statuses', 'trial'),
+        ], true);
     }
 
     public function activeSubscription(): ?Subscription
     {
         $row = Subscription::withoutTenantScope()
             ->where('workspace_id', '=', $this->getKey())
-            ->whereIn('status', ['trialing', 'active'])
+            ->whereIn('subscription_status_id', [
+                (int) status_id('subscription_statuses', 'trialing'),
+                (int) status_id('subscription_statuses', 'active'),
+            ])
             ->latest('created_at')
             ->first();
 
         return $row ? Subscription::hydrate($row) : null;
+    }
+
+    /** The current lifecycle status key (e.g. `active`), resolved from the status table. */
+    public function statusKey(): string
+    {
+        $id = (int) ($this->attributes['workspace_status_id'] ?? 0);
+        if ($id === 0) {
+            return '';
+        }
+
+        $row = static::db()->table('workspace_statuses')->where('id', '=', $id)->first();
+
+        return (string) ($row['key'] ?? '');
     }
 
     public function membersCount(): int

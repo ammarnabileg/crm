@@ -18,4 +18,12 @@ return [
     'asset_version' => env('ASSET_VERSION', '1.0.0'),
 
     'currency' => env('APP_CURRENCY', 'SAR'),
+
+    // Trusted reverse-proxy / CDN IPs whose forwarding headers (X-Forwarded-For,
+    // CF-Connecting-IP) Request::ip() may honour. Empty = trust none (use
+    // REMOTE_ADDR) so client-spoofed headers can't defeat rate limiting.
+    'trusted_proxies' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('TRUSTED_PROXIES', ''))
+    ))),
 ];

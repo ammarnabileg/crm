@@ -6,15 +6,14 @@
  * @var array{pass:int,warn:int,fail:int,total:int} $summary
  * @var string $generated
  */
-// Badge styling. The compiled stylesheet ships badge-green/badge-amber but not
-// a red variant, so the "fail" badge is composed from primitive utility classes
-// that are present in the build (no CSS rebuild required). Unknown statuses fall
-// through to the red treatment so problems are never shown as green.
+// Badge styling. Uses the badge-green / badge-amber / badge-red component classes
+// (all present in the compiled stylesheet). Unknown statuses fall through to the
+// red treatment so problems are never shown as green.
 $badgeClass = static function (string $status): string {
     return match ($status) {
         'pass'  => 'badge-green',
         'warn'  => 'badge-amber',
-        default => 'inline-flex items-center rounded-full bg-red-100 px-2 py-1.5 text-xs font-medium text-red-700',
+        default => 'badge-red',
     };
 };
 $badgeLabel = static fn (string $status): string => match ($status) {
@@ -24,7 +23,7 @@ $badgeLabel = static fn (string $status): string => match ($status) {
 };
 // Overall headline derived from the tallies.
 if (($summary['fail'] ?? 0) > 0) {
-    $overall = ['class' => 'inline-flex items-center rounded-full bg-red-100 px-2 py-1.5 text-xs font-medium text-red-700', 'label' => 'Action needed'];
+    $overall = ['class' => 'badge-red', 'label' => 'Action needed'];
 } elseif (($summary['warn'] ?? 0) > 0) {
     $overall = ['class' => 'badge-amber', 'label' => 'Healthy with warnings'];
 } else {
@@ -47,7 +46,7 @@ if (($summary['fail'] ?? 0) > 0) {
             <div class="flex items-center gap-2">
                 <span class="badge-green">Pass <?= e((string) ($summary['pass'] ?? 0)) ?></span>
                 <span class="badge-amber">Warn <?= e((string) ($summary['warn'] ?? 0)) ?></span>
-                <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-1.5 text-xs font-medium text-red-700">Fail <?= e((string) ($summary['fail'] ?? 0)) ?></span>
+                <span class="badge-red">Fail <?= e((string) ($summary['fail'] ?? 0)) ?></span>
             </div>
         </div>
     </div>

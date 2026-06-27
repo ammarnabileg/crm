@@ -19,7 +19,7 @@ final class Membership extends Model
     protected static bool $usesUuid = true;
 
     protected static array $fillable = [
-        'workspace_id', 'user_id', 'membership_status_id', 'title', 'invited_by', 'invited_at', 'joined_at',
+        'user_id', 'membership_status_id', 'title', 'invited_by', 'invited_at', 'joined_at',
     ];
 
     public function user(): ?User
