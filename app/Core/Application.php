@@ -243,12 +243,46 @@ final class Application
         $user = auth()->user();
         tenant()->bootFor($user);
 
+        // The Workspace Settings → Email tab persists mail.* per tenant; overlay them
+        // onto the runtime config now (the global Mailer is a lazy singleton resolved
+        // at send time, so it picks these up for the rest of the request). Unset keys
+        // keep the config/env defaults; no .env is ever written.
+        $this->overlayTenantMailSettings();
+
         if (! session()->has('locale')) {
             $userLocale = (string) $user->getAttribute('locale');
             $supported = (array) config('app.supported_locales', ['en', 'ar']);
             if (in_array($userLocale, $supported, true)) {
                 app('translator')->setLocale($userLocale);
             }
+        }
+    }
+
+    /**
+     * Bridge the per-tenant mail preferences (Workspace Settings → Email) onto the
+     * runtime config the global Mailer reads. Only the keys the Mailer actually uses
+     * are overlaid (enabled / from address / from name — it sends via PHP mail() or
+     * logs, it does not do SMTP), and only when a value is stored, so an unset key
+     * keeps the config/env default. Defensive: any failure (settings unavailable)
+     * leaves the safe defaults in place and never breaks the request.
+     */
+    private function overlayTenantMailSettings(): void
+    {
+        try {
+            $settings = app('settings');
+            $config = config();
+
+            if ($settings->has('mail.enabled')) {
+                $config->set('mail.enabled', (bool) $settings->get('mail.enabled'));
+            }
+            foreach (['mail.from_address', 'mail.from_name'] as $key) {
+                $value = (string) $settings->get($key, '');
+                if ($value !== '') {
+                    $config->set($key, $value);
+                }
+            }
+        } catch (Throwable) {
+            // Settings store unavailable → keep the config/env mail defaults.
         }
     }
 
