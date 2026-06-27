@@ -20,6 +20,7 @@ use App\Controllers\App\NotificationController;
 use App\Controllers\App\AiSettingsController;
 use App\Controllers\App\SettingsController;
 use App\Controllers\App\SearchController;
+use App\Controllers\App\AutomationController;
 use App\Controllers\App\RoleController;
 use App\Controllers\App\FileController;
 use App\Controllers\App\BillingController;
@@ -220,6 +221,15 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
             $router->get('roles/edit', [RoleController::class, 'edit'])->middleware('permission:roles.manage')->name('roles.edit');
             $router->post('roles/update', [RoleController::class, 'update'])->middleware('permission:roles.manage')->name('roles.update');
             $router->post('roles/delete', [RoleController::class, 'destroy'])->middleware('permission:roles.manage')->name('roles.delete');
+
+            // Workflow Automations (docs/51) — trigger → conditions → actions rules.
+            // Reads: automation.view; writes: automation.manage. Tenant-scoped.
+            $router->get('automations', [AutomationController::class, 'index'])->middleware('permission:automation.view')->name('automations.index');
+            $router->get('automations/show', [AutomationController::class, 'show'])->middleware('permission:automation.view')->name('automations.show');
+            $router->post('automations', [AutomationController::class, 'store'])->middleware('permission:automation.manage')->name('automations.store');
+            $router->post('automations/toggle', [AutomationController::class, 'toggle'])->middleware('permission:automation.manage')->name('automations.toggle');
+            $router->post('automations/publish', [AutomationController::class, 'publish'])->middleware('permission:automation.manage')->name('automations.publish');
+            $router->post('automations/delete', [AutomationController::class, 'destroy'])->middleware('permission:automation.manage')->name('automations.delete');
 
             // Notifications (docs/30) — the signed-in user's own feed. No permission
             // gate: the controller scopes every query to auth()->id() + tenant().

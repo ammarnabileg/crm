@@ -366,7 +366,13 @@ explicitly prioritized): State Machine, Evaluation Templates, Workflow Builder.
 (Zapier/n8n-style triggers→conditions→actions, versioning/rollback, execution logs)
 and the **Plugin SDK** (registry + lifecycle + capability-gateway sandbox,
 marketplace-ready) — so future features (assessments, integrations, background checks)
-are added as plugins/automations without touching core.
+are added as plugins/automations without touching core. The Automation Engine has a
+**reachable web UI** (`/automations`, gated by `automation.view`/`automation.manage`):
+`AutomationController` + `AutomationDirectory` over `AutomationBuilder`, where a user
+builds a rule (trigger + ordered `condition`/`action` steps with optional JSON config),
+toggles/publishes/deletes it and reads its run history — tenant-scoped + audited. See
+[CHANGELOG](CHANGELOG.md). *(The separate AI-interview visual Workflow Builder — a
+node/edge graph — is still service-layer only, awaiting its own canvas UI.)*
 
 Phases 1–3 deliver tenant-configurable interview logic **without any model call**
 (pure platform value, testable end-to-end). Live model execution begins at P4 and

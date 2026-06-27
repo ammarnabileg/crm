@@ -61,6 +61,10 @@ return [
         // Recruitment / ATS
         ['recruitment.view', 'View recruitment', 'jobs', 'View jobs, the pipeline board, applications and the recruiter workspace.'],
         ['recruitment.manage', 'Manage recruitment', 'jobs', 'Create/edit jobs, move applications through stages, schedule interviews and manage offers.'],
+
+        // Workflow Automation (trigger → conditions → actions rules)
+        ['automation.view', 'View automations', 'automation', 'View workflow automation rules and their run history.'],
+        ['automation.manage', 'Manage automations', 'automation', 'Create, edit, publish, clone and toggle workflow automation rules.'],
     ],
 
     /*
@@ -102,6 +106,8 @@ return [
                 'ai.view', 'ai.manage', 'settings.view', 'settings.manage',
                 // The workspace Administrator runs recruitment day to day.
                 'recruitment.view', 'recruitment.manage',
+                // …and builds the workspace's automation rules.
+                'automation.view', 'automation.manage',
             ],
         ],
         'member' => [
