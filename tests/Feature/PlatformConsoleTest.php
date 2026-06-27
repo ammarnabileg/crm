@@ -80,10 +80,10 @@ return new class extends TestCase {
         $this->otherWorkspaceId = (int) (new WorkspaceService())->create($otherOwner, $this->otherWorkspaceName)->getKey();
 
         // --- A plain user with NO roles in the admin's tenant. ----------------
-        // Used for the 403 case: an Owner can't be the negative subject because the
-        // Owner role's wildcard ('*') grants every permission INCLUDING system.manage,
-        // so an Owner legitimately passes the gate. A roleless user is the true
-        // "not a super admin, no system.manage" subject.
+        // Used for the 403 case: a roleless user is the clearest "not a super admin,
+        // no system.manage" subject. (Since the platform-permission fix an Owner no
+        // longer holds system.manage either — the Owner '*' wildcard now excludes
+        // platform-scope permissions — but a roleless user keeps the test unambiguous.)
         $plain = User::create([
             'name'           => 'Plain User',
             'email'          => 'plain-' . uniqid() . '@platform.test',

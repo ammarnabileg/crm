@@ -138,7 +138,8 @@ final class RbacManager
     {
         $now = now();
         $permissionMap = $this->permissionKeyToId();
-        $allPermissionIds = array_values($permissionMap);
+        // Owner '*' grants every TENANT permission, never platform-scope ones.
+        $tenantGrantableIds = $this->tenantGrantablePermissionIds($permissionMap);
         $slugToId = [];
 
         foreach ((array) config('rbac.tenant_roles', []) as $slug => $definition) {
@@ -167,7 +168,7 @@ final class RbacManager
 
             $permissions = $definition['permissions'] ?? [];
             $ids = $permissions === '*'
-                ? $allPermissionIds
+                ? $tenantGrantableIds
                 : array_values(array_filter(array_map(
                     static fn (string $key): ?int => $permissionMap[$key] ?? null,
                     (array) $permissions
@@ -202,7 +203,9 @@ final class RbacManager
         $this->ensureSuperAdminRole();
 
         $permissionMap = $this->permissionKeyToId();
-        $allPermissionIds = array_values($permissionMap);
+        // Owner '*' re-grants every TENANT permission, never platform-scope ones —
+        // this is what strips a previously-granted system.manage off existing Owners.
+        $tenantGrantableIds = $this->tenantGrantablePermissionIds($permissionMap);
         $defs = (array) config('rbac.tenant_roles', []);
 
         foreach ($this->db->table('roles')->whereNotNull('workspace_id')->get() as $role) {
@@ -212,7 +215,7 @@ final class RbacManager
             }
             $permissions = $defs[$slug]['permissions'] ?? [];
             $ids = $permissions === '*'
-                ? $allPermissionIds
+                ? $tenantGrantableIds
                 : array_values(array_filter(array_map(
                     static fn (string $key): ?int => $permissionMap[$key] ?? null,
                     (array) $permissions
@@ -260,5 +263,43 @@ final class RbacManager
         }
 
         return $map;
+    }
+
+    /**
+     * The permission ids a TENANT role's '*' wildcard may grant: every permission
+     * EXCEPT those belonging to a platform-scope module (config
+     * `rbac.platform_modules`). Platform powers — `system.manage`: the .env editor,
+     * cross-tenant backups, the platform console — are the global super-admin's
+     * alone (granted via ensureSuperAdminRole, a separate path), never a tenant
+     * Owner's. So the Owner '*' expands to all NON-platform permissions; this is
+     * the data-level half of the `system.manage`-via-`*` escalation fix (the route
+     * is also gated by the super_admin middleware). See config/rbac.php.
+     *
+     * @param array<string, int> $permissionMap key => id (from permissionKeyToId)
+     * @return int[]
+     */
+    private function tenantGrantablePermissionIds(array $permissionMap): array
+    {
+        $platformModules = (array) config('rbac.platform_modules', []);
+        if ($platformModules === []) {
+            return array_values($permissionMap);
+        }
+
+        $platformKeys = [];
+        foreach ((array) config('rbac.permissions', []) as $perm) {
+            // catalogue entry: [key, name, module, description]
+            if (isset($perm[0], $perm[2]) && in_array($perm[2], $platformModules, true)) {
+                $platformKeys[$perm[0]] = true;
+            }
+        }
+
+        $ids = [];
+        foreach ($permissionMap as $key => $id) {
+            if (! isset($platformKeys[$key])) {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
     }
 }

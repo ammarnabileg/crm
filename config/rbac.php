@@ -64,6 +64,19 @@ return [
     ],
 
     /*
+     * Platform-scope modules. Permissions in these modules are platform-owner
+     * powers (cross-tenant ops: the .env editor, backups of every tenant, the
+     * platform console) and must NEVER be granted to a tenant role — not even to
+     * Owner via the '*' wildcard. The Owner '*' therefore expands to every
+     * NON-platform permission; only the global super-admin role (a separate path,
+     * see RbacManager::ensureSuperAdminRole) holds these. This is the data-level
+     * root cause of the `system.manage`-via-`*` cross-tenant escalation: the
+     * route is gated by the super_admin middleware AND the permission is never
+     * granted to tenants, so `can('system.manage')` is correctly false for Owners.
+     */
+    'platform_modules' => ['system'],
+
+    /*
      * Default roles created for every NEW workspace. The key '*' grants every
      * tenant permission (used for Owner). Roles may declare a `parent` slug for
      * inheritance. Adding HR/Recruiter/Candidate roles later is just data here,

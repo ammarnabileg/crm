@@ -208,9 +208,12 @@ final class RoleController extends Controller
             return [];
         }
 
-        return array_map('intval', $this->db()->table('permissions')
-            ->whereIn('id', $submitted)
-            ->pluck('id'));
+        // Intersect with the GRANTABLE (tenant-scope) set, not the whole permissions
+        // table: platform permissions like system.manage are hidden from the matrix
+        // and must never be granted to a tenant role even via a hand-crafted POST.
+        $grantable = $this->directory()->grantablePermissionIds();
+
+        return array_values(array_intersect($submitted, $grantable));
     }
 
     private function descriptionInput(Request $request): ?string

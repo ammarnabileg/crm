@@ -85,6 +85,11 @@ final class RoleDirectory
      */
     public function permissionCatalogue(): array
     {
+        // Platform-scope modules (config rbac.platform_modules) are super-admin only
+        // — their permissions (e.g. system.manage) are never shown in, or grantable
+        // from, the tenant role matrix. Mirrors RbacManager::tenantGrantablePermissionIds.
+        $platformModuleKeys = (array) config('rbac.platform_modules', []);
+
         $modules = [];
         $order = [];
         foreach ($this->db->table('system_modules')
@@ -93,6 +98,9 @@ final class RoleDirectory
             ->orderBy('sort_order')
             ->orderBy('label')
             ->get() as $i => $module) {
+            if (in_array((string) $module['key'], $platformModuleKeys, true)) {
+                continue; // platform-scope module — hidden from tenants
+            }
             $id = (int) $module['id'];
             $modules[$id] = [
                 'key'         => (string) $module['key'],
@@ -138,12 +146,33 @@ final class RoleDirectory
     }
 
     /**
-     * Total number of permissions in the catalogue — used to render an owner-style
-     * "all permissions" role (`*`) as fully granted without per-row state.
+     * The flat list of permission ids a tenant role may be granted — every
+     * permission shown in the matrix (so platform-scope permissions, hidden from
+     * the catalogue, are excluded). The controller intersects submitted ids with
+     * this set so a hand-crafted POST can never grant a platform permission.
+     *
+     * @return int[]
+     */
+    public function grantablePermissionIds(): array
+    {
+        $ids = [];
+        foreach ($this->permissionCatalogue() as $module) {
+            foreach ($module['permissions'] as $permission) {
+                $ids[] = (int) $permission['id'];
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Total number of GRANTABLE (tenant-scope) permissions — used to render an
+     * owner-style "all permissions" role (`*`) as fully granted without per-row
+     * state. Excludes platform-scope permissions so the count matches the matrix.
      */
     public function totalPermissionCount(): int
     {
-        return (int) $this->db->table('permissions')->count();
+        return count($this->grantablePermissionIds());
     }
 
     /**

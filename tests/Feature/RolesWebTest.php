@@ -262,4 +262,44 @@ return new class extends TestCase {
         $this->assertTrue(str_contains($content, 'members.view'));
         $this->assertTrue(str_contains($content, 'roles.manage'));
     }
+
+    public function test_platform_permission_is_hidden_from_the_tenant_matrix(): void
+    {
+        $res = (new RoleController())->create($this->request());
+        $this->assertSame(200, $res->getStatus());
+        $content = $res->getContent();
+
+        // The platform-scope permission (system.manage) and its module must never
+        // appear in the tenant role matrix — it is super-admin only.
+        $this->assertFalse(str_contains($content, 'system.manage'), 'system.manage must not be offered to tenants.');
+    }
+
+    public function test_a_crafted_post_cannot_grant_a_platform_permission(): void
+    {
+        // A tenant admin (or a tampered form) submits the real system.manage id for
+        // a brand-new custom role. The controller must filter it out — the role is
+        // created WITHOUT system.manage, only the legitimate tenant permission lands.
+        $systemManage = $this->permissionId('system.manage');
+        $membersView  = $this->permissionId('members.view');
+        $this->assertTrue($systemManage > 0, 'system.manage exists in the catalogue (for super admins).');
+
+        $res = (new RoleController())->store($this->request([], [
+            'name'        => 'Sneaky Role',
+            'permissions' => [(string) $systemManage, (string) $membersView],
+        ]));
+        $this->assertSame(302, $res->getStatus());
+
+        $roleId = (int) app('db')->table('roles')
+            ->where('workspace_id', '=', $this->workspaceId)
+            ->where('name', '=', 'Sneaky Role')
+            ->value('id');
+        $this->assertTrue($roleId > 0);
+
+        $granted = array_map('intval', app('db')->table('role_permissions')
+            ->where('role_id', '=', $roleId)
+            ->pluck('permission_id'));
+
+        $this->assertTrue(in_array($membersView, $granted, true), 'The legitimate tenant permission is granted.');
+        $this->assertFalse(in_array($systemManage, $granted, true), 'system.manage must be filtered out of a tenant role.');
+    }
 };
