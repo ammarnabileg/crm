@@ -56,16 +56,16 @@ HaHireAI (one product, one sidebar — dynamically generated)
     Same User, one login ──▶ both contexts reachable; data never crosses tenants
 ```
 
-The two contexts share the same shell and the same sidebar **engine**; they
-differ only in the entries that engine emits for the resolved context.
+Both contexts share the same shell and sidebar **engine**; they differ only in
+the entries that engine emits for the resolved context.
 
 ---
 
 ## 3. Platform Context — Screen Tree
 
 Scope: the platform itself (`SYSTEM_OVERVIEW.md` §6). Every entry requires a
-`system.*` permission and is invisible in the Workspace Context. Owned by the
-**System Administration** module, reading/managing other platform modules.
+`system.*` permission and is invisible in the Workspace Context. Owned by
+**System Administration**, reading/managing other platform modules.
 
 ```
 PLATFORM CONTEXT
@@ -104,11 +104,10 @@ PLATFORM CONTEXT
 
 ## 4. Workspace Context — Screen Tree
 
-Scope: exactly one active workspace; all data is tenant-isolated
-(`WORKSPACE_MODEL.md` §3). Every entry below is gated by permission +
-subscription + enabled module. **Recruitment** is one bounded context with
-sub-areas (`MODULES.md` §3); it appears only when the Recruitment module is
-enabled for the workspace.
+Scope: exactly one active workspace; all data tenant-isolated
+(`WORKSPACE_MODEL.md` §3). Every entry is gated by permission + subscription +
+enabled module. **Recruitment** is one bounded context with sub-areas
+(`MODULES.md` §3), shown only when the Recruitment module is enabled.
 
 ```
 WORKSPACE CONTEXT  (active workspace)
