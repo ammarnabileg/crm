@@ -35,7 +35,15 @@ final class RbacManager
         foreach ((array) config('rbac.permissions', []) as [$key, $name, $moduleKey, $description]) {
             $moduleId = $moduleIds[$moduleKey] ?? null;
             if ($moduleId === null) {
-                throw new \RuntimeException("RBAC: permission '{$key}' references unknown module '{$moduleKey}'.");
+                // The module isn't registered yet. This legitimately happens during a
+                // FRESH install: the re-sync migrations read the full live config, so a
+                // permission for a module created by a LATER migration (e.g. the
+                // `automation` module in 0131) is seen before that module exists. Skip
+                // it this pass — a subsequent sync (the migration that creates the
+                // module, or the seeder) picks it up once the module is present. This
+                // keeps the forward-sync resilient to migration ordering instead of
+                // hard-failing the installer.
+                continue;
             }
             $action = $this->actionFromKey($key);
 
