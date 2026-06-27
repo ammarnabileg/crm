@@ -335,12 +335,31 @@ explicitly prioritized): State Machine, Evaluation Templates, Workflow Builder.
    registry and are wired when a workspace has added its own keys — they require
    live keys + network to verify and so are an integration step, not part of the
    tested core.
-5. **P5 — Orchestrator + Memory Engine + Knowledge Engine + Quality Control.**
-6. **P6 — Multi-Agent layer + Explainable AI** wired to the Decision Engine.
-7. **P7 — Question Bank + Blueprint Library** seeding.
-8. **P8 — Anti-Cheating Engine.**
+5. **P5 — Orchestrator + Memory Engine + Knowledge Engine + Quality Control.** — ✅
+   **DONE** (migration 0040, `Orchestrator`/`MemoryEngine`/`KnowledgeEngine`/
+   `QualityControl`, 14 tests; bounded context; all model calls via the AiGateway).
+6. **P6 — Multi-Agent layer + Explainable AI** wired to the Decision Engine. — ✅
+   **DONE** (migration 0041, 9 agents + `AgentRunner` reusing `DecisionEngine` for
+   explainable per-agent factors, 9 tests).
+7. **P7 — Question Bank + Blueprint Library** seeding. — ✅ **DONE** (migrations 0036
+   Blueprint Library + 21 role blueprints, 0037 Question Bank, 15 tests).
+8. **P8 — Anti-Cheating Engine.** — ✅ **DONE** (migration 0042, `CheatingDetector`,
+   confidence score + band only — never proof, 7 tests).
 9. **P9 — Observability Dashboard + Cost Optimizer + Benchmark + Sandbox/Simulation.**
-10. **P10 — Learning Engine + future integrations (RAG/vector/avatars/…).**
+   — ✅ **DONE** (migration 0043, `AiObservability`/`CostOptimizer`/`BenchmarkEngine`/
+   `SimulationMode`, 8 tests). The dashboard UI is a later UI phase; the metrics layer
+   is built.
+10. **P10 — Learning Engine + future integrations (RAG/vector/avatars/…).** — ✅
+    **DONE (engine + Human-in-the-Loop + AI Feature Flags)** (migration 0044,
+    `HumanReview`/`LearningEngine`/`AiFeatures`, 8 tests). RAG/vector/avatar/live-coding
+    integrations are future seams (the Plugin SDK + provider/contract abstractions make
+    them additive — no Architecture rewrite).
+
+**Also realized (extensibility foundation):** the **Workflow Automation Engine**
+(Zapier/n8n-style triggers→conditions→actions, versioning/rollback, execution logs)
+and the **Plugin SDK** (registry + lifecycle + capability-gateway sandbox,
+marketplace-ready) — so future features (assessments, integrations, background checks)
+are added as plugins/automations without touching core.
 
 Phases 1–3 deliver tenant-configurable interview logic **without any model call**
 (pure platform value, testable end-to-end). Live model execution begins at P4 and
