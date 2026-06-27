@@ -3,31 +3,41 @@
 $user = auth()->user();
 $workspace = tenant()->workspace();
 $current = request()->path();
-// Navigation registry. Each entry: [path, label, permission, built?]. Only
-// shipped features are rendered, so there are never dead links in the UI;
-// upcoming sections are added here as their modules land.
-$nav = [
-    ['dashboard', 'Dashboard', 'dashboard.view', true],
-    // Recruitment / ATS (gated by recruitment.view).
-    ['recruiter', 'Recruiter Workspace', 'recruitment.view', true],
-    ['jobs',      'Jobs',                'recruitment.view', true],
-    ['search',    'Search',              'recruitment.view', true],
-    ['files',     'Files',               'recruitment.view', true],
-    ['members',   'Members',            'members.view', true],
-    ['roles',     'Roles & Permissions', 'roles.view',  true],
-    ['automations', 'Automations',      'automation.view', true],
-    ['ai',        'AI Settings',        'ai.view',      true],
-    ['billing',   'Billing',            'billing.view', true],
-    ['settings',  'Workspace Settings',   'settings.view', true],
+// ONE sidebar, generated dynamically (docs/47 + Phase 18 Unified Experience). The
+// registry is grouped into modules; a group renders only when the user can see at
+// least one of its items, so the SAME registry adapts per user / workspace /
+// permissions — there is never a separate sidebar per role, and never a dead link
+// (only shipped features are listed). Each item: [path, label, permission, built?].
+$navGroups = [
+    ['label' => null, 'items' => [
+        ['dashboard', 'Dashboard', 'dashboard.view', true],
+        ['search',    'Search',    'recruitment.view', true],
+    ]],
+    // Recruitment is ONE module (not a "Recruiter Workspace" silo).
+    ['label' => 'Recruitment', 'items' => [
+        ['recruiter', 'Overview', 'recruitment.view', true],
+        ['jobs',      'Jobs',     'recruitment.view', true],
+        ['files',     'Files',    'recruitment.view', true],
+    ]],
+    ['label' => 'Workspace', 'items' => [
+        ['members',     'Members',             'members.view',    true],
+        ['roles',       'Roles & Permissions', 'roles.view',      true],
+        ['automations', 'Automations',         'automation.view', true],
+        ['ai',          'AI Settings',         'ai.view',         true],
+        ['billing',     'Billing',             'billing.view',    true],
+        ['settings',    'Workspace Settings',  'settings.view',   true],
+    ]],
     // Platform operations (super-admin only — hidden from customers by $navVisible,
     // routes gated by the super_admin middleware). No terminal.
-    ['system/platform/workspaces', 'All Workspaces', 'system.manage', true],
-    ['system/platform/users',      'All Users',      'system.manage', true],
-    ['system/diagnostics', 'Diagnostics',      'system.manage', true],
-    ['system/maintenance', 'Maintenance',      'system.manage', true],
-    ['system/backups',     'Backup & Restore', 'system.manage', true],
-    ['system/environment', 'Environment',      'system.manage', true],
-    ['system/logs',        'Logs',             'system.manage', true],
+    ['label' => 'Platform', 'items' => [
+        ['system/platform/workspaces', 'All Workspaces',   'system.manage', true],
+        ['system/platform/users',      'All Users',        'system.manage', true],
+        ['system/diagnostics',         'Diagnostics',      'system.manage', true],
+        ['system/maintenance',         'Maintenance',      'system.manage', true],
+        ['system/backups',             'Backup & Restore', 'system.manage', true],
+        ['system/environment',         'Environment',      'system.manage', true],
+        ['system/logs',                'Logs',             'system.manage', true],
+    ]],
 ];
 $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || str_starts_with($current, '/' . trim($path, '/') . '/');
 // Platform operations (system/*) are super-admin only — the Owner role's '*'
@@ -35,6 +45,13 @@ $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || st
 $isSuper = auth()->user()?->isSuperAdmin() ?? false;
 $navVisible = fn (string $path, string $perm, bool $built): bool =>
     $built && can($perm) && (! str_starts_with($path, 'system/') || $isSuper);
+// The items of a group the current user may actually see (empty → hide the group).
+$visibleItems = function (array $group) use ($navVisible): array {
+    return array_values(array_filter(
+        $group['items'],
+        static fn (array $it): bool => $navVisible($it[0], $it[2], $it[3])
+    ));
+};
 ?>
 <!DOCTYPE html>
 <html lang="<?= e(locale()) ?>" dir="<?= is_rtl() ? 'rtl' : 'ltr' ?>">
@@ -75,12 +92,18 @@ $navVisible = fn (string $path, string $perm, bool $built): bool =>
             <span class="font-bold text-slate-900 dark:text-white"><?= e(config('app.name')) ?></span>
         </div>
         <nav class="flex-1 space-y-1 p-3">
-            <?php foreach ($nav as [$path, $label, $perm, $built]): ?>
-                <?php if ($navVisible($path, $perm, $built)): ?>
-                    <a href="<?= e(url($path)) ?>" class="nav-link <?= $isActive($path) ? 'nav-link-active' : '' ?>">
-                        <span class="h-1.5 w-1.5 rounded-full bg-current opacity-60"></span>
-                        <?= e($label) ?>
-                    </a>
+            <?php foreach ($navGroups as $group): ?>
+                <?php $items = $visibleItems($group); ?>
+                <?php if ($items !== []): ?>
+                    <?php if (! empty($group['label'])): ?>
+                        <p class="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"><?= e($group['label']) ?></p>
+                    <?php endif; ?>
+                    <?php foreach ($items as [$path, $label, $perm, $built]): ?>
+                        <a href="<?= e(url($path)) ?>" class="nav-link <?= $isActive($path) ? 'nav-link-active' : '' ?>">
+                            <span class="h-1.5 w-1.5 rounded-full bg-current opacity-60"></span>
+                            <?= e($label) ?>
+                        </a>
+                    <?php endforeach; ?>
                 <?php endif; ?>
             <?php endforeach; ?>
         </nav>
@@ -97,12 +120,18 @@ $navVisible = fn (string $path, string $perm, bool $built): bool =>
                         <svg class="h-6 w-6 text-slate-700" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                     </summary>
                     <nav class="absolute start-0 z-30 mt-2 w-64 space-y-1 rounded-xl bg-white p-2 shadow-lg ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
-                        <?php foreach ($nav as [$path, $label, $perm, $built]): ?>
-                            <?php if ($navVisible($path, $perm, $built)): ?>
-                                <a href="<?= e(url($path)) ?>" class="nav-link <?= $isActive($path) ? 'nav-link-active' : '' ?>">
-                                    <span class="h-1.5 w-1.5 rounded-full bg-current opacity-60"></span>
-                                    <?= e($label) ?>
-                                </a>
+                        <?php foreach ($navGroups as $group): ?>
+                            <?php $items = $visibleItems($group); ?>
+                            <?php if ($items !== []): ?>
+                                <?php if (! empty($group['label'])): ?>
+                                    <p class="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"><?= e($group['label']) ?></p>
+                                <?php endif; ?>
+                                <?php foreach ($items as [$path, $label, $perm, $built]): ?>
+                                    <a href="<?= e(url($path)) ?>" class="nav-link <?= $isActive($path) ? 'nav-link-active' : '' ?>">
+                                        <span class="h-1.5 w-1.5 rounded-full bg-current opacity-60"></span>
+                                        <?= e($label) ?>
+                                    </a>
+                                <?php endforeach; ?>
                             <?php endif; ?>
                         <?php endforeach; ?>
                     </nav>

@@ -80,4 +80,19 @@ return new class extends TestCase {
         $this->assertTrue(str_contains($content, 'id="toast-region"'), 'toast mount region present');
         $this->assertTrue(str_contains($content, 'dark:bg-slate-900'), 'dark shell variants present');
     }
+
+    public function test_sidebar_is_grouped_and_hides_platform_from_non_super_admin(): void
+    {
+        // Phase 18: ONE grouped, permission-driven sidebar.
+        $content = (new DashboardController())->index($this->request())->getContent();
+
+        // Module group headings render (the Owner can see Recruitment + Workspace).
+        $this->assertTrue(str_contains($content, '>Recruitment</p>'), 'Recruitment group heading present');
+        $this->assertTrue(str_contains($content, '>Workspace</p>'), 'Workspace group heading present');
+        // The unified module replaced the old "Recruiter Workspace" silo.
+        $this->assertFalse(str_contains($content, 'Recruiter Workspace'), 'old "Recruiter Workspace" label is gone');
+        // Platform ops are super-admin only — hidden from a normal Owner.
+        $this->assertFalse(str_contains($content, '>Platform</p>'), 'Platform group hidden from non-super-admin');
+        $this->assertFalse(str_contains($content, 'All Workspaces'), 'platform items hidden from non-super-admin');
+    }
 };

@@ -18,7 +18,7 @@ $stats = [
 ?>
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-semibold text-slate-900">Recruiter workspace</h1>
+        <h1 class="text-2xl font-semibold text-slate-900">Recruitment</h1>
         <a href="<?= e(url('jobs')) ?>" class="btn-primary">Manage jobs</a>
     </div>
 
