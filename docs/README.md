@@ -132,11 +132,31 @@ The bespoke native-PHP Core Kernel is implemented and verified:
 - Tests: `vendor/bin/phpunit` → **30 passing**; `php bin/smoke.php` → **28/28**.
   The kernel boots, routes, and reports health with **zero modules**.
 
+### Phase 8 — Foundation (Installer + Database + Auth + RBAC) ✅ (code)
+Implemented against a real **MySQL 8** database and verified end-to-end:
+- **Database layer:** Connection/ConnectionManager, Schema Blueprint/Builder
+  (ULID keys, FKs, indexes, no ENUM), bespoke migration engine, base Repository
+  with the **tenant guard**; 15 foundation tables via 7 migrations.
+- **RBAC:** permission catalog + seeder, `RoleService` (roles-as-data), and an
+  `Authorizer` (deny-by-default; checks keys, not role names).
+- **Auth:** Argon2id, registration, login, sessions; **Installer** (zero-touch).
+- **Workspaces/Memberships:** creation (owner gets all perms by direct grant,
+  no reserved roles), invitations, and the single **dynamic sidebar**.
+- **Browser UI:** installer wizard, login/register, no-workspace screen,
+  workspace creation, dashboard — server-rendered (Tailwind), CSRF-protected.
+- Tests: **42 PHPUnit / 102 assertions**; full acceptance scenario + an HTTP
+  flow verified via `php -S` + curl.
+
+> **Running locally:** needs PHP 8.3+, MySQL 8, Composer. `composer install`,
+> copy `.env.example`→`.env`, then open `/install` in the browser (or
+> `php bin/console.php migrate`). See `INSTALLATION.md`.
+
 ### Planned (later phases)
-- **Phases 8–16 — Implementation:** Installer/DB/Auth/RBAC, Workspace platform,
-  Recruitment, AI Engine, Workflow Engine, Integration Platform,
-  Billing/Subscriptions, Observability, and Release certification — each with
-  its own documents and tests (see `MODULES.md`).
+- **Phases 9–16 — Implementation:** Workspace platform (settings, files,
+  notifications, search, audit, activity), Recruitment, AI Engine, Workflow
+  Engine, Integration Platform, Billing/Subscriptions, Observability, and
+  Release certification — each with its own documents and tests (see
+  `MODULES.md`).
 
 `/docs/adr/` holds Architecture Decision Records for significant decisions.
 

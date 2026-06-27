@@ -114,6 +114,26 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   standalone `bin/smoke.php` acceptance runner (28 checks). Kernel boots,
   routes, and serves `/`, `/up`, `/health` with no modules.
 
+### Added — Phase 8: Foundation (Installer + Database + Authentication + RBAC)
+- **Database layer** (`app/Core/Database`): Connection, ConnectionManager,
+  Schema Blueprint/Builder, bespoke MigrationRunner, base Repository with the
+  workspace_id tenant guard; `app/Shared/Ulid`; `DatabaseServiceProvider`.
+- **Foundation migrations** (`database/migrations`): 15 Identity & Access +
+  platform tables; `bin/console.php` (migrate/rollback/status/db:wipe/health).
+- **RBAC** (`app/Modules/Permissions`): PermissionCatalog + seeder, RoleService,
+  Authorizer (deny-by-default, keys not roles).
+- **Users/Auth** (`app/Modules/Users`, `…/Authentication`): Argon2id hashing,
+  registration, System Owner, credential auth, session-backed AuthContext.
+- **Workspaces/Memberships** (`app/Modules/Workspaces`, `…/Memberships`):
+  workspace creation (owner direct grants, no reserved roles), invitations.
+- **Navigation** (`app/Modules/Navigation`): single permission-driven SidebarBuilder.
+- **Installer** (`app/Modules/Installer`): zero-touch orchestration + self-lock.
+- **Browser UI**: View renderer, Session/CSRF, installer wizard, login/register,
+  no-workspace + workspace-creation screens, dashboard; module loading via
+  `config/modules.php`.
+- Provisioned MySQL 8 for development; verified the full FINAL ACCEPTANCE
+  scenario plus an end-to-end HTTP flow. Suite: 42 tests / 102 assertions.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
