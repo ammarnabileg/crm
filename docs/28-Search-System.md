@@ -45,7 +45,7 @@ flowchart TD
 
 - **`SearchInterface`** (`app/Services/Search/SearchInterface.php`) — the contract: `search(string $index, string $query, array $opts): SearchResult` plus index maintenance hooks `index(string $index, array $doc)`, `delete(string $index, string|int $id)`, `flush(string $index)`. `$opts` carries `workspace_id` (mandatory), `filters`, `sort`, `page`, `perPage`. `$index` is a logical name (`jobs`, `applications`).
 - **`SearchManager`** (`app/Services/Search/SearchManager.php`) — the façade callers use. Resolves the configured driver, **injects the active tenant's `workspace_id`**, normalizes the query, and returns a uniform `SearchResult` (items + total + paging). It is the only thing controllers talk to.
-- **`MysqlFulltextDriver`** — the default. Builds a parameterized `SELECT … WHERE workspace_id = :company AND MATCH(<cols>) AGAINST(:q IN BOOLEAN MODE)` via the `QueryBuilder`, ordered by relevance, with `LIMIT/OFFSET`. Uses the FULLTEXT indexes declared on `jobs` and `applications`.
+- **`MysqlFulltextDriver`** — the default. Builds a parameterized `SELECT … WHERE workspace_id = :workspace AND MATCH(<cols>) AGAINST(:q IN BOOLEAN MODE)` via the `QueryBuilder`, ordered by relevance, with `LIMIT/OFFSET`. Uses the FULLTEXT indexes declared on `jobs` and `applications`.
 - **`MeilisearchDriver` / `ElasticsearchDriver`** (future) — implement the same interface; documents are pushed on write and queried with a hard `workspace_id` filter; they add typo-tolerance, facets, and synonyms.
 - **`SearchResult`** — a small DTO: `items[]`, `total`, `page`, `perPage`, `query`, `tookMs`.
 - **Indexer hooks** — model lifecycle events on `Job`/`Application` call `SearchManager::index()/delete()` so external engines stay in sync; for the MySQL driver this is a no-op because the FULLTEXT index is maintained by the database itself.
@@ -62,7 +62,7 @@ flowchart TD
    ```sql
    SELECT *, MATCH(title, description) AGAINST(:q IN BOOLEAN MODE) AS score
    FROM jobs
-   WHERE workspace_id = :company
+   WHERE workspace_id = :workspace
      AND status IN (:statuses)            -- optional filters
      AND MATCH(title, description) AGAINST(:q IN BOOLEAN MODE)
    ORDER BY score DESC, published_at DESC

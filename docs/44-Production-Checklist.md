@@ -21,7 +21,7 @@ This is the final gate before a HalaOps instance serves real customers. It is a 
 
 HalaOps is installed by non-technical operators with no CLI, so the safety net that an experienced sysadmin would carry in their head must be written down and turned into clicks. This checklist exists to:
 
-- **Prevent the predictable production incidents** — debug left on, an open `/install`, a missing lock file, world-readable `.env`, no backups, no cron draining the queue, test-mode payment gateways taking real money.
+- **Prevent the predictable production incidents** — debug left on, an open `/setup`, a missing lock file, world-readable `.env`, no backups, no cron draining the queue, test-mode payment gateways taking real money.
 - **Make go-live a decision, not a guess** — when every box is checked and Diagnostics is green, the instance is ready.
 - **Give support a baseline** — a ticket can be triaged against "which of these were not checked?".
 
@@ -30,7 +30,7 @@ HalaOps is installed by non-technical operators with no CLI, so the safety net t
 The checklist maps one-to-one onto things HalaOps can verify:
 
 - **Self-verifiable via Diagnostics** ([33-System-Diagnostics]): DB connectivity, storage writable, cache, sessions, queue/cron heartbeats, mail, OPcache, disk, version/environment, lock-file presence.
-- **Verifiable by a request**: `/install` redirects to login (lock in place), `.env`/`storage/` not web-reachable, HTTPS + security headers, custom error pages.
+- **Verifiable by a request**: `/setup` redirects to login (lock in place), `.env`/`storage/` not web-reachable, HTTPS + security headers, custom error pages.
 - **Verifiable by configuration review**: `.env` hardening, rate limits, per-tenant AI keys, payment gateway live mode, backups schedule, monitoring hooks.
 
 Use it top-to-bottom; do not go live with any **Security** or **Backups & Recovery** box unchecked.
@@ -57,7 +57,7 @@ flowchart LR
 ## Business Rules
 
 - **BR-PROD-1 — No go-live with debug on.** `APP_DEBUG=false` is mandatory in production.
-- **BR-PROD-2 — Installer must be locked.** `storage/framework/installed` present and `/install` redirects to login.
+- **BR-PROD-2 — Installer must be locked.** `storage/framework/installed` present and `/setup` redirects to login.
 - **BR-PROD-3 — Secrets are private and off-web.** `.env` is `600/640` and not retrievable over HTTP.
 - **BR-PROD-4 — No money in test mode.** A live gateway is configured and verified before accepting real payments ([15-Payment-Gateways]).
 - **BR-PROD-5 — Backups exist and restore.** At least one verified restore before go-live.
@@ -76,11 +76,11 @@ flowchart LR
 - [ ] Document root is `/public` (preferred) **or** the root `.htaccess` is active and blocking internals (fallback) — see [43-Deployment].
 - [ ] `https://your-domain/.env` returns 403/404 (not the file).
 - [ ] `https://your-domain/storage/logs/...`, `/config/...`, `/database/...` all return 403/404.
-- [ ] CSRF protection active on all write forms (login, register, company, billing, AI, settings) — `VerifyCsrfToken` in the middleware stack.
+- [ ] CSRF protection active on all write forms (login, register, workspace, billing, AI, settings) — `VerifyCsrfToken` in the middleware stack.
 - [ ] Security headers present on responses (CSP/`X-Frame-Options`/`X-Content-Type-Options`/Referrer-Policy) via `SecurityHeaders` middleware.
 - [ ] Login throttling active (`auth.max_login_attempts=5`, 900s lockout) and password reset is anti-enumeration with hashed, 60-minute tokens ([09-Authentication]).
 - [ ] Passwords hashed with Argon2id (transparent rehash on login) — no plaintext anywhere.
-- [ ] AI credentials and other secrets are AES-256-GCM encrypted at rest (`ai_credentials.credentials`), never logged ([34-Security]).
+- [ ] AI credentials and other secrets are AES-256-GCM encrypted at rest (`tenant_ai_keys.credentials`), never logged ([34-Security]).
 - [ ] Tenant isolation verified: a user of company A cannot read/modify company B data (fail-closed scoping) ([08-Multi-Tenant]).
 - [ ] Super-admin account uses a strong, unique password and (where available) is restricted to trusted operators only.
 
@@ -97,8 +97,8 @@ flowchart LR
 ### 3. Installer Lock-down
 
 - [ ] `storage/framework/installed` lock file is present.
-- [ ] Visiting `/install` redirects to `/login` (installer refuses to re-run).
-- [ ] POSTs to `/install/*` return HTTP 409 (installed) — the wizard cannot mutate a live instance.
+- [ ] Visiting `/setup` redirects to `/login` (installer refuses to re-run).
+- [ ] POSTs to `/setup/*` return HTTP 409 (installed) — the wizard cannot mutate a live instance.
 - [ ] `storage/framework/install_state.json` no longer exists (deleted at finalize — credentials not left on disk).
 
 ### 4. HTTPS & Networking
@@ -161,7 +161,7 @@ flowchart LR
 
 ### 11. AI Keys (per tenant)
 
-- [ ] Confirmed the **platform stores no AI keys** — AI is driven only by each tenant's `ai_credentials` ([16-AI-Architecture], [17-AI-Providers]).
+- [ ] Confirmed the **platform stores no AI keys** — AI is driven only by each tenant's `tenant_ai_keys` ([16-AI-Architecture], [17-AI-Providers]).
 - [ ] Onboarding/docs guide tenant owners to add their own provider keys (OpenAI/Anthropic/Gemini/DeepSeek/Azure/HeyGen).
 - [ ] Stored credentials are encrypted (AES-256-GCM) and a test call succeeds for at least one tenant.
 - [ ] Graceful behavior when a tenant has no/invalid AI key (clear message, no crash) — AI output remains advisory per human-in-the-loop ([18-AI-Interview-Engine]).
@@ -188,7 +188,7 @@ flowchart LR
 - [ ] Leveled file logging active under `storage/logs` and the directory is writable ([37-Logging]).
 - [ ] Log level set appropriately for production (not debug-verbose); rotation/retention in place so logs don't fill the disk.
 - [ ] No secrets/PII written to logs.
-- [ ] `activity_log` recording security/business events with actor, subject, IP ([38-Audit-System]).
+- [ ] `activity_logs` recording security/business events with actor, subject, IP ([38-Audit-System]).
 - [ ] A log retention/rotation strategy exists (or the disk check is monitored).
 
 ### 15. Rate Limits & Abuse Protection
@@ -214,10 +214,10 @@ The checklist references these tables from [05-Database-Architecture] §11 as go
 - `migrations` — all expected migrations applied (Diagnostics "db" / environment report).
 - `users`, `roles`, `permissions`, `user_roles` — super-admin exists with the global role (from install).
 - `plans` — the "Standard" plan seeded and correct.
-- `ai_credentials` — per-tenant encrypted keys; platform holds none.
+- `tenant_ai_keys` — per-tenant encrypted keys; platform holds none.
 - `invoices`, `payments`, `gateway_events` — live-mode payment produces real records.
 - `queued_jobs`, `failed_jobs` — queue draining, no stuck failures.
-- `activity_log` — security/business events recorded.
+- `activity_logs` — security/business events recorded.
 
 ## Permissions
 
@@ -258,7 +258,7 @@ The Performance and Queue groups encode the [35-Performance] essentials: OPcache
 ## Future Expansion
 
 - **Automated checklist runner** that turns each verifiable item into a Diagnostics sub-check and produces a single pass/fail go-live report.
-- **Signed go-live record** stored in `activity_log` capturing who certified the instance and when.
+- **Signed go-live record** stored in `activity_logs` capturing who certified the instance and when.
 - **Per-tenant readiness** view (AI keys present, billing live, members invited) surfaced to Owners.
 - **Compliance overlays** (data residency, retention) appended as additional grouped sections for regulated buyers.
 - **Continuous compliance**: scheduled re-runs that alert (via [26-Notification-System]) when a previously-green item regresses (debug flipped on, backup failed, gateway dropped to test).

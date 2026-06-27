@@ -101,7 +101,7 @@ HTTP middleware that knows about the **application's** concerns (auth, tenancy, 
 
 - `Authenticate.php` — require a logged-in user (`auth` alias).
 - `RedirectIfAuthenticated.php` — keep guests-only pages guest-only (`guest` alias).
-- `EnsureTenant.php` — require an active company context (`tenant` alias).
+- `EnsureTenant.php` — require an active workspace context (`tenant` alias).
 - `RequirePermission.php` — RBAC gate, `permission:key1,key2` (any-of).
 - `ThrottleRequests.php` — fixed-window rate limiter, `throttle:max,seconds`.
 
@@ -114,7 +114,7 @@ Grouped by area, namespaced to match:
 ```
 app/Controllers/
 ├── Auth/      LoginController, RegisterController, PasswordController
-├── App/       HomeController, DashboardController, CompanyController, ProfileController
+├── App/       HomeController, DashboardController, WorkspaceController, ProfileController
 └── Setup/     InstallController
 ```
 
@@ -123,9 +123,9 @@ Controllers extend `App\Core\Controller`, validate input, call **one** service, 
 ### `app/Models/` — domain models
 
 Active-record classes extending `App\Core\Model`, one per table:
-`User`, `Company`, `Membership`, `Role`, `Permission`, `Plan`, `Subscription`, `AiCredential`, `Setting`, `OnboardingProgress`, `ActivityLog`.
+`User`, `Workspace`, `Membership`, `Role`, `Permission`, `Plan`, `Subscription`, `AiCredential`, `Setting`, `OnboardingProgress`, `ActivityLog`. (Some model class names intentionally differ from their renamed tables — e.g. `AiCredential` maps to `tenant_ai_keys`, `ActivityLog` to `activity_logs`.)
 
-Each declares its `$table`, `$fillable`, `$hidden`, `$casts`, and — critically — `$tenantScoped` (true for tenant-bound tables like `memberships`, false for global tables like `users`/`companies`). Model-specific query helpers (e.g. `User::companies()`, `Company::uniqueSlug()`) live here.
+Each declares its `$table`, `$fillable`, `$hidden`, `$casts`, and — critically — `$tenantScoped` (true for tenant-bound tables like `memberships`, false for global tables like `users`/`workspaces`). Model-specific query helpers (e.g. `User::workspaces()`, `Workspace::uniqueSlug()`) live here.
 
 ### `app/Services/` — business logic
 
@@ -134,13 +134,13 @@ Where the real work happens. Organised by domain:
 ```
 app/Services/
 ├── Auth/      AuthManager
-├── Tenancy/   TenantManager, CompanyService
+├── Tenancy/   TenantManager, WorkspaceService
 ├── Rbac/      AccessControl, RbacManager
 ├── Install/   InstallManager
 └── AI/        AiProviderInterface, AiProviderManager, Providers/
 ```
 
-A service is the right home for anything that spans multiple models, runs inside a transaction, or encodes a business rule (e.g. `CompanyService::create()` provisions a whole tenant atomically). New domain modules (Jobs, Applications, Interviews, Billing) add a subfolder here.
+A service is the right home for anything that spans multiple models, runs inside a transaction, or encodes a business rule (e.g. `WorkspaceService::create()` provisions a whole tenant atomically). New domain modules (Jobs, Applications, Interviews, Billing) add a subfolder here.
 
 ### `app/Support/` — helpers and utilities
 
@@ -162,7 +162,7 @@ Plain-PHP files returning arrays, read through `Config`:
 | `database.php` | default connection + MySQL connection params. |
 | `session.php` | cookie name, lifetime, secure flag. |
 | `auth.php` | login throttle, lockout, `tenant_key` session key. |
-| `rbac.php` | **data-driven** role catalogue + permission groups (the source for `RbacManager::provisionCompanyRoles()`). |
+| `rbac.php` | **data-driven** role catalogue + permission catalogue grouped by module (the source for `RbacManager::provisionWorkspaceRoles()`). |
 | `mail.php` | from-address/from-name and transport. |
 | `middleware.php` | route middleware alias → class map. |
 
@@ -172,7 +172,7 @@ Plain-PHP files returning arrays, read through `Config`:
 database/
 ├── Migration.php     base class for a migration
 ├── Migrator.php      runs/rolls back migrations, tracks the migrations table
-├── migrations/       NNNN_description.php (ordered, 0001–0015 today)
+├── migrations/       NNNN_description.php (ordered, 0001–0032 today, plus FK-binding migrations)
 └── seeders/          permission/role/plan seeders
 ```
 
@@ -199,7 +199,7 @@ resources/
 ├── views/
 │   ├── layouts/     app.php (authenticated shell), guest.php (auth/installer/public)
 │   ├── auth/        login, register, forgot-password, reset-password
-│   ├── app/         dashboard, dashboard-platform, profile, companies/{create,select}
+│   ├── app/         dashboard, dashboard-platform, profile, workspaces/{create,select}
 │   ├── setup/       install.php (installer wizard)
 │   ├── errors/      403, 404, 419, 500, generic
 │   ├── partials/    alerts.php (flash messages)
@@ -210,7 +210,7 @@ resources/
     └── ar/          Arabic strings
 ```
 
-Views use dot notation that the `View` engine maps to files: `app.companies.create` → `resources/views/app/companies/create.php`. See [30 — Frontend Architecture](30-Frontend-Architecture.md).
+Views use dot notation that the `View` engine maps to files: `app.workspaces.create` → `resources/views/app/workspaces/create.php`. See [30 — Frontend Architecture](30-Frontend-Architecture.md).
 
 ### `routes/`
 
@@ -281,7 +281,7 @@ sequenceDiagram
 
 This document concerns the filesystem, not the schema, but two folders are schema-adjacent:
 
-- **`database/migrations/`** defines every table listed in the canonical schema (§11). Files are ordered `0001`–`0015` for the built tables (`users`, `companies`, `memberships`, `roles`, `permissions`, `role_permissions`, `membership_roles`, `user_roles`, `plans`, `subscriptions`, `ai_credentials`, `password_resets`, `settings`, `onboarding_progress`, `activity_log`) plus the `migrations` tracking table.
+- **`database/migrations/`** defines every table listed in the canonical schema (§11). The early files (`0001`–`0015`) create the foundational built tables — now named `users`, `workspaces`, `memberships`, `roles`, `permissions`, `role_permissions`, `membership_roles`, `user_roles`, `plans`, `subscriptions`, `tenant_ai_keys`, `password_resets`, `settings`, `onboarding_progress`, `activity_logs` — plus the `migrations` tracking table. The original create-migration **filenames** keep their pre-cutover names (e.g. `0002_create_companies_table`, `0011_create_ai_credentials_table`, `0006_create_permission_role_table`, `0015_create_activity_log_table`); later migrations (`0031`/`0032`) rename the tables and convert status/type ENUMs to config-driven FKs.
 - **`database/seeders/`** populates the global `permissions` catalogue and default `roles` from `config/rbac.php`.
 
 See [05 — Database Architecture](05-Database-Architecture.md) and [06 — ERD](06-ERD.md).

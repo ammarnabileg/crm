@@ -44,7 +44,7 @@ flowchart LR
   AS --> AM[(applications)]
   AS --> EV[(application_events)]
   AS --> NT[Notification dispatch]
-  AS --> AL[(activity_log)]
+  AS --> AL[(activity_logs)]
   IV[Interview outcomes] --> AS
   EvalS[Evaluations / scorecards] --> AS
   AS -->|score recompute| AM
@@ -164,7 +164,7 @@ Primary table — **`applications`** (tenant, planned #19):
 | Column | Type / Notes |
 | --- | --- |
 | `id` | BIGINT UNSIGNED PK |
-| `workspace_id` | FK → `companies(id)` CASCADE (tenant scope) |
+| `workspace_id` | FK → `workspaces(id)` CASCADE (tenant scope) |
 | `job_id` | FK → `jobs(id)` CASCADE |
 | `user_id` | FK → `users(id)` CASCADE — the candidate |
 | `current_stage_id` | FK → `pipeline_stages(id)` SET NULL |
@@ -225,7 +225,7 @@ Default mapping ([11 — Permissions Matrix](11-Permissions-Matrix.md)): `owner`
 - Candidate access strictly limited by a policy gate to `user_id === auth()->id()`; candidates can never enumerate or read others' applications, scores, notes, or evaluations.
 - All mutations are CSRF-protected POSTs behind `permission:` middleware.
 - Internal fields (`score`, evaluator notes, AI feedback) are stripped from any candidate-facing serialization (`$hidden` + dedicated candidate DTO).
-- `application_events` provides a tamper-evident audit; combined with `activity_log` for security-level events (who exported candidate data, who rejected).
+- `application_events` provides a tamper-evident audit; combined with `activity_logs` for security-level events (who exported candidate data, who rejected).
 - Resume files are private (`files.visibility='private'`, tenant-scoped path) and served only via authorized, signed download routes ([27 — Storage System](27-Storage-System.md)).
 
 ### GDPR / PDPL data handling

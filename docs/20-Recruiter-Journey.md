@@ -50,7 +50,7 @@ Architectural decisions:
 - **Tenant scope is automatic.** `Job`, `Application`, `Interview`, `Evaluation` models are `tenantScoped = true`; `query()` adds `WHERE workspace_id = :active` and throws if no tenant is active (§4). A recruiter literally cannot query another company's data through the normal model path.
 - **The pipeline is data-driven.** Stages come from `pipeline_stages` (per-job, or a company default template when `job_id IS NULL`), so a company can reshape its hiring funnel without code (§2).
 - **AI results are read-only artifacts.** `ai_interview_sessions.analysis` / `score` render in a clearly-labelled "AI insight" panel; the recruiter's own input lives in `evaluations`. The two are never merged silently.
-- **Every state change is logged.** Moves/rejections/schedules write `application_events` and `activity_log`, giving an auditable history per candidate.
+- **Every state change is logged.** Moves/rejections/schedules write `application_events` and `activity_logs`, giving an auditable history per candidate.
 
 ## Workflow
 
@@ -124,7 +124,7 @@ flowchart TD
 7. **AI is advisory.** `ai_interview_sessions.score`/`analysis` may inform but never set the application's final `status`. The decision is recorded by a user with `evaluations.manage`.
 8. Any participant interviewer may submit a scorecard (`evaluations.create`); consolidating/overriding scorecards into a recommendation requires `evaluations.manage`.
 9. A recruiter operates **only within the active tenant**; switching companies (topbar switcher) changes which jobs/applications are visible. There is no cross-company view for recruiters.
-10. Closing a job does not delete its applications; historical pipeline and evaluations remain for audit (`application_events`, `activity_log`).
+10. Closing a job does not delete its applications; historical pipeline and evaluations remain for audit (`application_events`, `activity_logs`).
 11. A recruiter cannot edit a candidate's profile or resume (that is candidate-owned, §19); they only read it in context of the application.
 
 ## Database Relations
@@ -142,7 +142,7 @@ Consistent with §11:
 - **evaluations** (tenant) — scorecards; `interview_id`, `evaluator_id`, `criteria JSON`, `rating`, `recommendation[strong_yes|yes|neutral|no|strong_no]`, `notes`. `IDX(workspace_id, application_id)`.
 - **files** (tenant) — candidate resumes (read), interview attachments.
 - **notifications** (§26) — fired to candidate/interviewers on publish, move, schedule, decision.
-- **activity_log** — every recruiter action with actor + ip.
+- **activity_logs** — every recruiter action with actor + ip.
 
 ## Permissions
 
@@ -175,7 +175,7 @@ The default `recruiter` tenant role (data-driven in `config/rbac.php`) maps to `
 - **Job**: `title required|min:3|max:150`; `description required|min:20`; `employment_type in:full_time,part_time,contract,intern,remote`; `openings integer|min:1`; `salary_min/max nullable|numeric` with `salary_max >= salary_min`; `slug` auto-generated unique per company.
 - **Publish**: job must have a title, description, and at least one pipeline stage of type `applied`; cannot publish an `archived` job.
 - **Stage move**: `to_stage_id exists` and belongs to the job; cannot move a `withdrawn`/`hired`/`rejected` application.
-- **Interview schedule**: `scheduled_at required|date|after:now` (for live); `mode in:video,phone,onsite,ai_async`; `type in:ai,human,panel`; at least one interviewer participant for human/panel; AI interview requires an active `ai_credentials` row or it is blocked with guidance to use a human interview.
+- **Interview schedule**: `scheduled_at required|date|after:now` (for live); `mode in:video,phone,onsite,ai_async`; `type in:ai,human,panel`; at least one interviewer participant for human/panel; AI interview requires an active `tenant_ai_keys` row or it is blocked with guidance to use a human interview.
 - **Scorecard**: `rating required|numeric|between:0,5`; `recommendation in:strong_yes,yes,neutral,no,strong_no`; `criteria` validated against the job's rubric JSON.
 - CSRF on all writes; server-side validation authoritative.
 
@@ -197,7 +197,7 @@ The default `recruiter` tenant role (data-driven in `config/rbac.php`) maps to `
 - **IDOR**: `/applications/{id}`, `/interviews/{id}`, `/jobs/{id}` resolve then assert the row's `workspace_id === tenant()->id()` and the relevant permission/gate.
 - **Least privilege**: recruiters get exactly the recruitment permissions; no members/roles/billing access. Final-decision authority is a separate permission (`evaluations.manage`).
 - **CSRF** on publish/move/reject/schedule/evaluate.
-- **Audit**: every status/stage change, schedule, and decision is in `application_events` + `activity_log` with actor and ip — supporting compliance and dispute resolution.
+- **Audit**: every status/stage change, schedule, and decision is in `application_events` + `activity_logs` with actor and ip — supporting compliance and dispute resolution.
 - **AI key confidentiality**: the recruiter triggers AI but never sees the tenant's encrypted credentials (§9); calls run server-side.
 - **PII handling**: candidate resumes streamed through an authorizing controller (`files.view` + company membership), never via public URLs; cover letters escaped on render (`e()`).
 - **Rate limiting** on bulk actions and search to prevent scraping.
@@ -217,7 +217,7 @@ The default `recruiter` tenant role (data-driven in `config/rbac.php`) maps to `
 - **Feature**: create→publish job appears to candidates; application appears on the board; move writes an event and notifies; schedule creates interview + participants + notifications; AI session result renders in the advisory panel without altering `status`; reject sets status and notifies.
 - **Security**: recruiter at Company A gets 403 on Company B's job/application/interview ids; missing permission (`applications.move`) blocks the action; CSRF rejected; AI credentials never appear in any response.
 - **Concurrency**: two simultaneous stage moves both logged; stale-board warning fires.
-- **Fallback**: scheduling AI interview with no `ai_credentials` falls back to human path with guidance.
+- **Fallback**: scheduling AI interview with no `tenant_ai_keys` falls back to human path with guidance.
 
 ## Future Expansion
 

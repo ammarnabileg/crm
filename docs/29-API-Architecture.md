@@ -92,7 +92,7 @@ Tokens are stored in the **`api_tokens`** table (canonical §11.34): `id, user_i
 - A token is a random secret (`str_random(64)`-style) shown **once** at creation; only its **hash** is stored (`token_hash`), so a DB leak does not expose usable tokens.
 - The client sends it as `Authorization: Bearer <token>` (`Request::bearerToken()` already extracts this).
 - `AuthenticateApiToken` (planned) hashes the presented token, looks it up by `token_hash`, rejects if missing/expired, loads the owning `User` into `AuthManager`, updates `last_used_at`, and — when the token carries a `workspace_id` — sets the active tenant via `TenantManager::setById()`.
-- A token may be **company-scoped** (`workspace_id` set ⇒ acts within exactly one tenant) or **user-scoped** (`workspace_id` NULL ⇒ the caller selects a tenant per request via an `X-Company-Id` header, validated against the user's active memberships, exactly as the web `companies/switch` flow validates).
+- A token may be **workspace-scoped** (`workspace_id` set ⇒ acts within exactly one tenant) or **user-scoped** (`workspace_id` NULL ⇒ the caller selects a tenant per request via an `X-Workspace-Id` header, validated against the user's active memberships, exactly as the web `workspaces/switch` flow validates).
 
 ### Authorization — same RBAC
 
@@ -100,7 +100,7 @@ The API does **not** invent a permission model. After `AuthenticateApiToken` est
 
 ### Tenant scoping — same fail-closed model
 
-Every API data query runs through `App\Core\Model`, so the `WHERE workspace_id = ?` filter is automatic and **fail-closed**: a tenant-scoped query with no active tenant throws. A company-scoped token has its tenant set at auth time; a user-scoped token must supply a valid `X-Company-Id`, or tenant-scoped endpoints return `409 no_active_company` (the same signal `EnsureTenant` gives the web app). Cross-tenant access is impossible through the API — there is no exposed `withoutTenantScope()` path. See [08 — Multi-Tenant](08-Multi-Tenant.md).
+Every API data query runs through `App\Core\Model`, so the `WHERE workspace_id = ?` filter is automatic and **fail-closed**: a tenant-scoped query with no active tenant throws. A workspace-scoped token has its tenant set at auth time; a user-scoped token must supply a valid `X-Workspace-Id`, or tenant-scoped endpoints return `409 no_active_workspace` (the same signal `EnsureTenant` gives the web app). Cross-tenant access is impossible through the API — there is no exposed `withoutTenantScope()` path. See [08 — Multi-Tenant](08-Multi-Tenant.md).
 
 ## Workflow
 
@@ -140,7 +140,7 @@ sequenceDiagram
 
 ### Token issuance
 
-1. A user with the right permission creates a token from the UI (planned API-tokens screen) — naming it, optionally scoping it to a company and to a subset of `abilities`, optionally with an expiry.
+1. A user with the right permission creates a token from the UI (planned API-tokens screen) — naming it, optionally scoping it to a workspace and to a subset of `abilities`, optionally with an expiry.
 2. The server generates the secret, stores `token_hash` (never the plaintext), and returns the plaintext **once**.
 3. The client stores it securely and sends it as a bearer token thereafter.
 4. Revocation deletes the row; expiry is enforced on every request.
@@ -155,7 +155,7 @@ sequenceDiagram
 6. **Idempotent creates.** `POST` endpoints honour an `Idempotency-Key` header to make retries safe.
 7. **Rate-limited.** Every endpoint is throttled; limits are surfaced via `X-RateLimit-*` headers and `429` + `Retry-After` on exhaustion.
 8. **Paginated lists.** Collections are always paginated; clients must follow `meta`/`links`, never assume the full set.
-9. **Audited.** State-changing API calls write to `activity_log` with the acting user, subject, and IP, exactly like UI actions.
+9. **Audited.** State-changing API calls write to `activity_logs` with the acting user, subject, and IP, exactly like UI actions.
 
 ### Response envelopes
 
@@ -178,7 +178,7 @@ The `meta` block maps 1:1 onto `QueryBuilder::paginate()`'s return (`total`, `pe
 ```json
 { "error": { "code": "validation_failed", "message": "The given data was invalid.", "details": { "title": ["The title field is required."] } } }
 ```
-- `code` — a stable machine string (`unauthenticated`, `forbidden`, `not_found`, `validation_failed`, `no_active_company`, `rate_limited`, `server_error`).
+- `code` — a stable machine string (`unauthenticated`, `forbidden`, `not_found`, `validation_failed`, `no_active_workspace`, `rate_limited`, `server_error`).
 - `message` — human-readable summary.
 - `details` — optional per-field map (for `422`) or extra context.
 
@@ -188,11 +188,11 @@ This reuses the kernel's existing JSON error behaviour: `ValidationException →
 
 - **`api_tokens`** (canonical §11.34) — the auth store: `user_id` (FK → `users`, CASCADE), `workspace_id` (NULL = user-scoped), `name`, `token_hash` (UNIQUE), `abilities` JSON, `last_used_at`, `expires_at`, `created_at`. Indexed on `token_hash` for O(1) lookup.
 - **`users`** — the principal a token acts as.
-- **`memberships`** — validates that a user-scoped token's `X-Company-Id` is a company the user actively belongs to (same check as `TenantManager::userBelongsTo()`).
+- **`memberships`** — validates that a user-scoped token's `X-Workspace-Id` is a workspace the user actively belongs to (same check as `TenantManager::userBelongsTo()`).
 - **`roles`/`permissions`/`role_permissions`/`membership_roles`/`user_roles`** — read by `AccessControl` for API authorization (unchanged from the web path).
 - **All tenant-bound domain tables** (`jobs`, `applications`, `interviews`, `evaluations`, …) are accessed through tenant-scoped models, so every API read/write carries the `workspace_id` filter automatically.
 - **`gateway_events`** (canonical §11.33) — log for inbound payment webhooks (below).
-- **`activity_log`** — API mutations are audited here.
+- **`activity_logs`** — API mutations are audited here.
 
 See [05 — Database Architecture](05-Database-Architecture.md) and [06 — ERD](06-ERD.md).
 
@@ -212,7 +212,7 @@ A token additionally constrained by `abilities` (e.g. `["jobs.view","application
 
 - **Body parsing:** `Request::isJson()`/`body()` already decode `application/json` payloads; controllers read via `input()`/`only()`/`all()`.
 - **Rules:** the same `App\Core\Validator` rule strings used by web controllers (`required`, `email`, `min`, `max`, `in`, `exists`, `integer`, …); a `ValidationException` is rendered as `422` with `error.code = validation_failed` and per-field `details`.
-- **Headers validated:** `Authorization` (required bearer), optional `Idempotency-Key`, optional `X-Company-Id` (must be a numeric id the user belongs to), `Accept: application/json`.
+- **Headers validated:** `Authorization` (required bearer), optional `Idempotency-Key`, optional `X-Workspace-Id` (must be a numeric id the user belongs to), `Accept: application/json`.
 - **Query params** for lists: `page` (≥1), `per_page` (bounded, default 15, hard cap e.g. 100), plus endpoint-specific filters/sorts — all validated and bound (never interpolated into SQL).
 
 ## Edge Cases
@@ -223,7 +223,7 @@ A token additionally constrained by `abilities` (e.g. `["jobs.view","application
 | Expired token (`expires_at` past) | `401 unauthenticated` (treated as invalid). |
 | Valid token, lacks the permission | `403 { error.code: "forbidden" }`. |
 | Token ability excludes the endpoint | `403 forbidden` (even if RBAC would allow). |
-| User-scoped token with no/invalid `X-Company-Id` on a tenant endpoint | `409 { error.code: "no_active_company" }`. |
+| User-scoped token with no/invalid `X-Workspace-Id` on a tenant endpoint | `409 { error.code: "no_active_workspace" }`. |
 | Requesting a resource in another tenant | `404 not_found` (tenant scope makes it invisible — no leakage). |
 | Rate limit exceeded | `429 { error.code: "rate_limited" }` + `Retry-After` + `X-RateLimit-*`. |
 | Validation failure | `422 validation_failed` with `details`. |
@@ -239,14 +239,14 @@ A token additionally constrained by `abilities` (e.g. `["jobs.view","application
 - **Same fail-closed tenancy + RBAC** as the UI; `abilities` enforce least privilege per token; expiry + revocation limit blast radius.
 - **Rate limiting** (`ThrottleRequests`, keyed by token/IP) blunts credential-stuffing and abuse.
 - **Prepared statements** throughout (`QueryBuilder`) — no injection from query params or bodies.
-- **Audit trail** for every mutation (`activity_log`) with actor, subject, IP, user-agent.
+- **Audit trail** for every mutation (`activity_logs`) with actor, subject, IP, user-agent.
 - **Webhook verification** (below) prevents forged inbound events. See [34 — Security](34-Security.md).
 
 ## Performance
 
 - **Indexed token lookup** on `api_tokens.token_hash` (UNIQUE) — single-row auth.
 - **Reuses `paginate()`** so list endpoints never return unbounded sets; `per_page` is capped.
-- **Lazy DB + per-request RBAC cache** carry over from the core (`AccessControl` caches effective permissions per `userId:companyId`).
+- **Lazy DB + per-request RBAC cache** carry over from the core (`AccessControl` caches effective permissions per `userId:workspaceId`).
 - **Thin controllers → shared services → tenant-scoped models** keep query counts low; clients are encouraged to request only needed pages.
 - **Conditional requests** (`ETag`/`If-None-Match`) and short-TTL caching can be layered on read endpoints later without contract changes.
 - See [35 — Performance](35-Performance.md).
@@ -255,7 +255,7 @@ A token additionally constrained by `abilities` (e.g. `["jobs.view","application
 
 - **Auth tests:** missing/invalid/expired token → `401`; valid token loads the right user and sets the tenant; `last_used_at` updated.
 - **Authorization tests:** RBAC denial → `403`; token `abilities` narrower than RBAC → `403`; super-admin bypass still bounded by abilities.
-- **Tenancy tests:** company-scoped token sees only its tenant's rows; user-scoped token requires valid `X-Company-Id`; cross-tenant id → `404`.
+- **Tenancy tests:** workspace-scoped token sees only its tenant's rows; user-scoped token requires valid `X-Workspace-Id`; cross-tenant id → `404`.
 - **Envelope tests:** success single/collection shapes; `meta`/`links` correctness against `paginate()`; error shape and stable `code`s for 401/403/404/409/422/429/500.
 - **Idempotency tests:** repeated `POST` with the same key produces one side effect and identical response.
 - **Rate-limit tests:** `429` after the limit with `Retry-After`/`X-RateLimit-*`.
@@ -269,10 +269,10 @@ A token additionally constrained by `abilities` (e.g. `["jobs.view","application
 - **OpenAPI spec + docs:** publish a machine-readable schema and interactive docs generated from the route definitions.
 - **Cursor pagination** for very large collections (alongside the current page-based `meta`).
 - **Scoped/short-lived tokens & OAuth2 client-credentials** for partner integrations, layered on the `api_tokens.abilities` model.
-- **`X-Request-Id` propagation** into logs/`activity_log` for end-to-end tracing.
+- **`X-Request-Id` propagation** into logs/`activity_logs` for end-to-end tracing.
 - **GraphQL gateway** (optional, far future) sitting in front of the same services if integrators demand it.
 
 ## Open Questions
 
-- **Token issuance UI/permission:** which permission key gates creating API tokens (a new `api.tokens.manage`?) and whether company-scoped vs user-scoped issuance differ in required privilege — to be finalized when the module is built (consistent with [11 — Permissions Matrix](11-Permissions-Matrix.md)).
+- **Token issuance UI/permission:** which permission key gates creating API tokens (a new `api.tokens.manage`?) and whether workspace-scoped vs user-scoped issuance differ in required privilege — to be finalized when the module is built (consistent with [11 — Permissions Matrix](11-Permissions-Matrix.md)).
 - **Default and maximum `per_page`** values per resource — to be tuned against real payload sizes during implementation.

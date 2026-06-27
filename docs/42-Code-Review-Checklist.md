@@ -86,7 +86,7 @@ Each numbered group below is independent and actionable. A reviewer may approve 
 - [ ] Reads/writes of tenant data go through `Model::query()` (auto-scoped, fails closed) — **not** raw SQL or `withoutTenantScope()`.
 - [ ] Every `withoutTenantScope()` use is **justified in a comment** and confined to super-admin/system/installer code (never reachable from a normal tenant request).
 - [ ] No user-controlled `workspace_id` is ever trusted from the request; it comes from the active tenant.
-- [ ] New tenant tables (migrations) carry `workspace_id` (FK→`companies`, indexed) and per-tenant uniqueness where relevant.
+- [ ] New tenant tables (migrations) carry `workspace_id` (FK→`workspaces`, indexed) and per-tenant uniqueness where relevant.
 - [ ] Cross-tenant joins do not bypass the scope (joined tables are also tenant-filtered or intentionally global).
 - [ ] A tenant-isolation test exists for the new model/table (reads filtered + `query()` throws with no tenant) — see [39 — Testing Strategy](39-Testing-Strategy.md).
 
@@ -161,7 +161,7 @@ Each numbered group below is independent and actionable. A reviewer may approve 
 Review confirms schema changes (migrations) match §11 conventions:
 
 - New tables are InnoDB/utf8mb4; PK `id BIGINT UNSIGNED AUTO_INCREMENT`; timestamps present.
-- Tenant tables have `workspace_id` with a real FK to `companies` and an index; child rows `ON DELETE CASCADE`, optional refs `SET NULL`, deletion-blocking refs `RESTRICT`.
+- Tenant tables have `workspace_id` with a real FK to `workspaces` and an index; child rows `ON DELETE CASCADE`, optional refs `SET NULL`, deletion-blocking refs `RESTRICT`.
 - Indexes back every FK and every status/filter column the feature queries.
 - Per-tenant uniqueness uses composite unique keys (e.g. `(workspace_id, slug)`, `(workspace_id, job_id, user_id)`).
 - Migrations are reversible/idempotent where the migrator expects it and do not assume transactional DDL (MySQL auto-commits DDL — see §4).

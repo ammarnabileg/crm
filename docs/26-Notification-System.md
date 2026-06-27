@@ -140,7 +140,7 @@ The in-app inbox lists the current user's `notifications` (newest first) with an
 | Column | Type / Notes |
 | --- | --- |
 | `id` | BIGINT UNSIGNED PK |
-| `workspace_id` | FK → `companies(id)` CASCADE, **NULL** = platform-wide |
+| `workspace_id` | FK → `workspaces(id)` CASCADE, **NULL** = platform-wide |
 | `user_id` | FK → `users(id)` CASCADE — recipient |
 | `type` | VARCHAR — the event key, e.g. `application.moved` |
 | `title`, `body` | VARCHAR / TEXT (rendered, localized) |
@@ -153,7 +153,7 @@ Index: `IDX(user_id, read_at)` — powers the inbox and unread count.
 
 **`notification_preferences`** (planned #29): `user_id` → `users(id)` CASCADE; `workspace_id` NULL (global default for the user) or set (per-tenant override); `type`, `channel`, `enabled`. `UQ(user_id, workspace_id, type, channel)` — one explicit toggle per combination.
 
-Supporting: **`queued_jobs`** / **`failed_jobs`** (#35/#36) carry delivery jobs; **`files`** referenced via `data` for attachments; `activity_log` records that critical notifications (e.g. decisions) were dispatched.
+Supporting: **`queued_jobs`** / **`failed_jobs`** (#35/#36) carry delivery jobs; **`files`** referenced via `data` for attachments; `activity_logs` records that critical notifications (e.g. decisions) were dispatched.
 
 > Note: `notifications` is intentionally **not** tenant-scoped at the model layer (it is keyed by `user_id` and may be platform-wide with `workspace_id = NULL`); access is always filtered by `user_id = auth()->id()`, which provides the isolation a candidate/member needs across the companies they belong to.
 
@@ -192,7 +192,7 @@ No notification is ever readable by a user other than its `user_id` recipient, r
 - Email contains no secrets/tokens beyond signed, expiring action links; sensitive details (scores, internal notes) are never emailed to candidates.
 - Tenant boundaries respected: a recruiter triggering an event can only target users appropriate to that event in their tenant; cross-tenant targeting requires platform privileges.
 - Unsubscribe/preference links in emails are signed and tied to the user.
-- Delivery records and critical dispatches are auditable via `activity_log`.
+- Delivery records and critical dispatches are auditable via `activity_logs`.
 
 ## 11. Performance
 

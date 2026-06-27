@@ -110,7 +110,7 @@ sequenceDiagram
 6. **Quotas are per plan and per tenant.** Total `SUM(files.size)` for a company must not exceed the plan's storage limit (`plans.limits.storage_mb`); uploads that would exceed it are rejected.
 7. **The default disk is `local`** under `storage/app`, which must be outside the public web root and writable by PHP. `s3` is opt-in per deployment/file.
 8. **Original filenames are preserved for display only** (`original_name`); the on-disk name is a generated ULID to avoid collisions, path traversal, and information leaks.
-9. **Deletion is explicit and audited** — file deletes write an `activity_log` entry (actor, subject, ip).
+9. **Deletion is explicit and audited** — file deletes write an `activity_logs` entry (actor, subject, ip).
 
 ## Database Relations
 
@@ -119,7 +119,7 @@ Primary table — **`files`** (TENANT, planned #27):
 | Column | Type | Notes |
 |--------|------|-------|
 | id | BIGINT UNSIGNED AI | PK |
-| workspace_id | BIGINT UNSIGNED | FK → `companies(id)` **CASCADE**; tenant scope |
+| workspace_id | BIGINT UNSIGNED | FK → `workspaces(id)` **CASCADE**; tenant scope |
 | user_id | BIGINT UNSIGNED NULL | FK → `users(id)` **SET NULL** (uploader) |
 | disk | VARCHAR | `local` / `s3` |
 | path | VARCHAR | tenant-scoped relative path |
@@ -136,7 +136,7 @@ Primary table — **`files`** (TENANT, planned #27):
 - `applications.resume_file_id → files(id) SET NULL`
 - `interview_responses.response_file_id → files(id) SET NULL`
 
-Other modules may store a `files.id` (e.g. avatars/logos referenced from `users.avatar` / `companies.logo` may migrate from a plain path to a `files` reference). Quota reads `plans.limits` via the company's active `subscriptions` row. See [06-ERD.md](06-ERD.md) for the full diagram.
+Other modules may store a `files.id` (e.g. avatars/logos referenced from `users.avatar` / `workspaces.logo` may migrate from a plain path to a `files` reference). Quota reads `plans.limits` via the company's active `subscriptions` row. See [06-ERD.md](06-ERD.md) for the full diagram.
 
 ## Permissions
 
@@ -179,7 +179,7 @@ Governed by the Files permission group and domain policies (see [07-RBAC.md](07-
 - **Executable upload protection**: PHP/script types are never in any allowlist, and the storage folder is not executable by the web server.
 - **Integrity**: SHA-256 checksums detect tampering/corruption.
 - **Least exposure for `public`**: public URLs are unguessable (ULID-based) and read-only; sensitive categories may never be `public`.
-- **Audit**: uploads and deletions are recorded in `activity_log`.
+- **Audit**: uploads and deletions are recorded in `activity_logs`.
 
 ## Performance
 

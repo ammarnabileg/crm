@@ -28,7 +28,7 @@ The roadmap is sequenced so each phase depends only on prior phases and the depe
 flowchart LR
     P1[Phase 1 Core framework] --> P2[Phase 2 No-CLI installer]
     P2 --> P3[Phase 3 Tenancy RBAC Auth]
-    P3 --> P4[Phase 4 Company and Subscription UI]
+    P3 --> P4[Phase 4 Workspace and Subscription UI]
     P4 --> P5[Phase 5 Tenant AI provider UI]
     P5 --> P6[Phase 6 Recruitment domain]
     P6 --> P7[Phase 7 Billing and Gateways]
@@ -71,20 +71,20 @@ The roadmap is constrained by the platform's invariants (full list in [02-Busine
 The pure-PHP micro-framework with zero runtime dependencies: custom PSR-4 autoloader (`bootstrap/autoload.php`), `Application`, `Container`, `Router`, `Request`/`Response`, `Database`/`QueryBuilder`, `Model`, `View`, `Session`, `Validator`, `Hash`, `Encrypter`, `Mailer`, `Logger`, `Translator`, middleware pipeline. See [31-Backend-Architecture](31-Backend-Architecture.md).
 
 #### Phase 2 — No-CLI web installer ✅
-The browser installer at `/install` (`app/Controllers/Setup/InstallController.php`, routes in `routes/web.php`): requirements → database → migrate → seed → admin → finalize, with a live AJAX console and resume-from-last-step recovery. Writes `.env` and a lock file. See [32-Setup-Installer](32-Setup-Installer.md).
+The browser installer at `/setup` (`app/Controllers/Setup/InstallController.php`, routes in `routes/web.php`): requirements → database → migrate → seed → admin → finalize, with a live AJAX console and resume-from-last-step recovery. Writes `.env` and a lock file. See [32-Setup-Installer](32-Setup-Installer.md).
 
 #### Phase 3 — Multi-tenancy, single users table, RBAC, authentication ✅
 Row-level tenant isolation (fail-closed in `app/Core/Model.php`), the single `users` table, the full RBAC stack (`config/rbac.php`, `app/Services/Rbac/*`), and platform-wide authentication (login/register/forgot/reset, throttling, Argon2id). Migrations `0001`–`0015` and the baseline seeder (`database/seeders/DatabaseSeeder.php`) ship the schema, permission catalogue, super-admin role, and the "Standard" plan. See [07-RBAC](07-RBAC.md), [08-Multi-Tenant](08-Multi-Tenant.md), [09-Authentication](09-Authentication.md).
 
 ### Next phases (التالية)
 
-#### Phase 4 — Company & subscription management UI
-- Company creation/provisioning UI (atomic per BR-050), member invitations and role assignment screens (`members.*`, `roles.manage`).
+#### Phase 4 — Workspace & subscription management UI
+- Workspace creation/provisioning UI (atomic per BR-050), member invitations and role assignment screens (`members.*`, `roles.manage`).
 - Subscription management surface over `plans`/`subscriptions`: view current plan, trial countdown, upgrade/downgrade (`billing.view/manage`).
 - Backed entirely by existing tables; no schema changes for the core flows.
 
 #### Phase 5 — Tenant AI provider layer (settings UI)
-- Settings screens to add/rotate per-tenant credentials in `ai_credentials` (encrypted AES-256-GCM), choose a default per provider (`(workspace_id, provider)` unique), and test connectivity (`ai.view/manage`).
+- Settings screens to add/rotate per-tenant credentials in `tenant_ai_keys` (encrypted AES-256-GCM), choose a default per provider (`(workspace_id, provider)` unique), and test connectivity (`ai.view/manage`).
 - Implements provider classes behind `AiProviderInterface` for OpenAI, Anthropic, Gemini, DeepSeek, Azure OpenAI, and HeyGen. See [17-AI-Providers](17-AI-Providers.md).
 
 #### Phase 6 — Recruitment domain & AI interview engine
@@ -113,10 +113,10 @@ Row-level tenant isolation (fail-closed in `app/Core/Model.php`), the single `us
 | Phase | Theme | Status | Key tables / extension points |
 |-------|-------|--------|-------------------------------|
 | 1 | Core framework | Delivered | `app/Core/*` |
-| 2 | No-CLI installer | Delivered | `/install`, `migrations` |
-| 3 | Tenancy, RBAC, Auth | Delivered | `users`, `companies`, `memberships`, `roles`, `permissions`, … |
-| 4 | Company & subscription UI | Next | `companies`, `memberships`, `plans`, `subscriptions` |
-| 5 | Tenant AI provider UI | Next | `ai_credentials`, `AiProviderInterface` |
+| 2 | No-CLI installer | Delivered | `/setup`, `migrations` |
+| 3 | Tenancy, RBAC, Auth | Delivered | `users`, `workspaces`, `memberships`, `roles`, `permissions`, … |
+| 4 | Workspace & subscription UI | Next | `workspaces`, `memberships`, `plans`, `subscriptions` |
+| 5 | Tenant AI provider UI | Next | `tenant_ai_keys`, `AiProviderInterface` |
 | 6 | Recruitment + AI interviews | Next | `jobs`…`evaluations`, `files`, `notifications` |
 | 7 | Billing & gateways | Future | `invoices`, `payments`, `gateway_events`, `PaymentGatewayInterface` |
 | 8 | Public API & integrations | Future | `api_tokens`, `queued_jobs`, `failed_jobs` |
@@ -144,7 +144,7 @@ Each phase adds only data-driven permissions to `config/rbac.php`, consistent wi
 
 Roadmap-level guardrails before any phase is accepted:
 
-- New tables follow schema conventions (InnoDB, utf8mb4, FK + index on `workspace_id`, per-company uniqueness where relevant).
+- New tables follow schema conventions (InnoDB, utf8mb4, FK + index on `workspace_id`, per-workspace uniqueness where relevant).
 - New permissions are actually enforced somewhere (no unused permissions, BR-066).
 - New providers/gateways register without touching unrelated code (additive, BR-163/BR-182).
 - New features render in both LTR and RTL and pass the [40-QA-Checklist](40-QA-Checklist.md).

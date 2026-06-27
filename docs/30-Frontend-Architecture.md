@@ -76,7 +76,7 @@ Key behaviours from the implementation:
 Two layouts cover the whole product:
 
 - **`layouts/guest.php`** — auth screens, the installer, and public/landing pages. Minimal: sets `<html lang dir>`, loads the stylesheet/favicon, yields `content` and `scripts`.
-- **`layouts/app.php`** — the authenticated application shell: a permission-aware sidebar, a topbar with the company switcher, the language toggle, the user menu, the flash-message partial, and the `content`/`scripts` yields.
+- **`layouts/app.php`** — the authenticated application shell: a permission-aware sidebar, a topbar with the workspace switcher, the language toggle, the user menu, the flash-message partial, and the `content`/`scripts` yields.
 
 The authenticated shell drives the **navigation registry** — an array of `[path, label, permission, built?]` entries. A link renders **only** when the feature is `built` **and** `can($permission)` is true, so the UI never shows dead links or unauthorized sections:
 
@@ -87,7 +87,7 @@ $nav = [
     ['roles',     'Roles & Permissions',  'roles.view',     false],
     ['ai',        'AI Settings',          'ai.view',        false],
     ['billing',   'Billing',              'billing.view',   false],
-    ['settings',  'Company Settings',     'settings.view',  false],
+    ['settings',  'Workspace Settings',   'settings.view',  false],
 ];
 ```
 
@@ -105,7 +105,7 @@ Reusable UI fragments live in `resources/views/partials/`. Today `partials/alert
 ### JavaScript — vanilla progressive enhancement
 
 `public/assets/js/app.js` is a single IIFE, loaded with `defer`. It is **enhancement, not infrastructure** — every page works without it. It currently:
-- closes any open `<details>` dropdown on outside-click and on `Escape` (the company switcher and user menu are pure-HTML `<details>` disclosures);
+- closes any open `<details>` dropdown on outside-click and on `Escape` (the workspace switcher and user menu are pure-HTML `<details>` disclosures);
 - intercepts form submits carrying `data-confirm` to show a native confirm dialog before destructive actions.
 
 There is no bundler, no framework, no inline event handlers. New behaviour is added as small, delegated listeners in the same file.
@@ -141,14 +141,14 @@ sequenceDiagram
     participant Part as partials/alerts
     participant Resp as Response
 
-    C->>H: view('app.companies.select', {companies, title})
-    H->>E: render('app.companies.select', data)
+    C->>H: view('app.workspaces.select', {workspaces, title})
+    H->>E: render('app.workspaces.select', data)
     E->>E: snapshot+reset sections; merge shared globals
     E->>Child: include child (ob_start)
     Child->>E: $this->extends('layouts.app')
     Child->>E: section('content') ... endSection()
     E->>Lay: include layout (ob_start)
-    Lay->>E: read $user, $company; build $nav; filter by can()
+    Lay->>E: read $user, $workspace; build $nav; filter by can()
     Lay->>Part: $this->include('partials.alerts')
     Part-->>Lay: flash HTML
     Lay->>E: $this->yield('content')
@@ -192,7 +192,7 @@ sequenceDiagram
 
 The frontend has no direct DB access — it renders data handed to it by controllers/services (the model layer enforces tenancy upstream). The few things templates read are already-resolved objects:
 
-- The **authenticated layout** reads `auth()->user()` (from `users`) and `tenant()->company()` (the active `companies` row) for the topbar, and `$user->companies()` (via `memberships`) to render the company switcher.
+- The **authenticated layout** reads `auth()->user()` (from `users`) and `tenant()->workspace()` (the active `workspaces` row) for the topbar, and `$user->workspaces()` (via `memberships`) to render the workspace switcher.
 - The **nav registry** is gated by `can($permission)`, which resolves against `roles`/`permissions`/`role_permissions`/`membership_roles`/`user_roles` in `AccessControl` — but the template only ever sees the boolean. See [05 — Database Architecture](05-Database-Architecture.md) and [07 — RBAC](07-RBAC.md).
 
 ## Permissions
@@ -214,10 +214,10 @@ The frontend has no direct DB access — it renders data handed to it by control
 | JavaScript disabled | All flows work; dropdowns are pure-HTML `<details>` and still open/close; only the click-outside-to-close nicety is lost. |
 | Missing template | `View::resolve()` throws a clear `RuntimeException("View [x] not found …")`. |
 | Arabic content in a mostly-LTR layout | Root `dir="rtl"` plus flow-relative utilities mirror the whole shell; no per-element overrides needed. |
-| Long company/user names | Topbar uses `truncate`/`min-w-0` so layout doesn't break. |
+| Long workspace/user names | Topbar uses `truncate`/`min-w-0` so layout doesn't break. |
 | Flash with no messages | `partials/alerts.php` renders nothing. |
 | Stale CSS after a release | Bump `ASSET_VERSION`; the `?v=` string forces a refetch. |
-| No active company (chooser/landing) | Layout falls back to showing the app name instead of the switcher. |
+| No active workspace (chooser/landing) | Layout falls back to showing the app name instead of the switcher. |
 | `?lang=` with an unsupported value | Ignored (`resolveLocale()` checks `supported_locales`); current locale stands. |
 | Error pages | Rendered from `resources/views/errors/*` (403/404/419/500/generic) using the same escaping, independent of the app shell. |
 
@@ -244,7 +244,7 @@ The frontend has no direct DB access — it renders data handed to it by control
 - **Permission-visibility tests:** sidebar shows only links the user `can()` see and that are `built`; unauthorized/unbuilt links absent.
 - **Form tests:** every mutating form contains `_token`; `PUT`/`DELETE` forms contain `_method`; `old()` repopulates after a validation failure.
 - **Accessibility checks (QA):** labels/`for` associations, focus order, keyboard operability of `<details>` menus, color-contrast on `brand`/`slate` palette, `Escape` closes menus.
-- **No-JS smoke test:** core flows (login, create company, switch company, logout) succeed with scripting disabled.
+- **No-JS smoke test:** core flows (login, create workspace, switch workspace, logout) succeed with scripting disabled.
 - See [39 — Testing Strategy](39-Testing-Strategy.md) and [40 — QA Checklist](40-QA-Checklist.md).
 
 ## Future Expansion
@@ -252,7 +252,7 @@ The frontend has no direct DB access — it renders data handed to it by control
 - **Component partials library**: extract recurring UI (form field, button, modal, table, empty/loading state, pagination) into `resources/views/partials/components/` with a consistent prop convention via `$this->include(..., $data)`.
 - **Optional richer interactivity**: drop in a tiny, no-build library (e.g. Alpine.js via a local file) for client state on heavy screens (kanban application pipeline, live AI interview) — still no bundler, still progressive.
 - **API-backed widgets**: dashboards can fetch JSON from the planned `/api/v1` ([29](29-API-Architecture.md)) using `fetch` + the `<meta name="csrf-token">`, keeping the page server-rendered with islands of dynamism.
-- **Theming per tenant**: company-level branding (logo, brand color) driven by `companies.settings`, applied as CSS variables in the layout.
+- **Theming per tenant**: workspace-level branding (logo, brand color) driven by `workspaces.settings`, applied as CSS variables in the layout.
 - **Asset fingerprinting**: move from `?v=` query strings to content-hashed filenames if/when an offline build step is introduced for the design team (still shipped pre-built).
 - **More locales**: the `Translator` + `resources/lang/<code>/` + root-element direction model extends to any additional language/RTL script with no template changes.
 

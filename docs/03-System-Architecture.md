@@ -278,14 +278,14 @@ At the architectural seam, validation is the controller's first responsibility a
 
 | Case | Handling |
 |---|---|
-| App not installed, request to a normal page | Redirect to `/install` (`handleNotInstalled()`). |
-| App not installed, request to `/install` or `/assets` | Routes loaded and dispatched normally so the installer can run. |
+| App not installed, request to a normal page | Redirect to `/setup` (`handleNotInstalled()`). |
+| App not installed, request to `/setup` (or legacy `/install`) or `/assets` | Routes loaded and dispatched normally so the installer can run. |
 | Missing `.env` / `APP_KEY` during install | `encrypter` singleton uses a throwaway key so the installer can boot; real key written at finalize. |
 | Route path matches but method does not | `Router::dispatch()` throws `HttpException(405)`. |
 | No route matches | `HttpException(404)`. |
 | Middleware alias unknown / not a `MiddlewareInterface` | `RuntimeException` from `resolveMiddleware()` (developer error, surfaced in debug). |
 | Tenant-scoped model queried with no active tenant | `Model::query()` throws a loud `RuntimeException` — **fail closed**, never a silent unscoped query. |
-| Authenticated user with no company hits a tenant route | `EnsureTenant` redirects to `companies/select` (or `409` for JSON). |
+| Authenticated user with no workspace hits a tenant route | `EnsureTenant` redirects to `workspaces/select` (or `409` for JSON). |
 | Uncaught `Throwable` | Logged via `Logger`, rendered as `errors.500` (or debug page); fatal-of-fatal falls back to a plain 500 string. |
 | Headers already sent | `Response::send()` guards with `headers_sent()` and still echoes the body. |
 
@@ -304,7 +304,7 @@ At the architectural seam, validation is the controller's first responsibility a
 
 - **PHP-FPM + OPcache**: each request is short-lived; OPcache keeps the compiled core hot. No bootstrap I/O beyond `.env` and config files.
 - **Lazy services**: container singletons are built on first `make()`; the DB connection is opened lazily in `Database::pdo()` only when a query runs (the installer's requirements step never touches MySQL).
-- **Per-request permission cache** in `AccessControl` keyed by `userId:companyId` avoids recomputing the effective permission set within a request.
+- **Per-request permission cache** in `AccessControl` keyed by `userId:workspaceId` avoids recomputing the effective permission set within a request.
 - **Compiled CSS** (`public/assets/css/app.css`) and `defer`-loaded JS — no server-side build, no per-request asset compilation.
 - **Indexed tenant column** on every tenant table makes the injected `WHERE workspace_id` filter cheap.
 - See [35 — Performance](35-Performance.md).
@@ -315,7 +315,7 @@ At the architectural seam, validation is the controller's first responsibility a
 - **Unit (pipeline):** middleware order — assert `SecurityHeaders` runs last on the way out (headers present), CSRF rejects bad tokens, `RequirePermission` any-of semantics.
 - **Feature (HTTP):** install-gating redirect; full authenticated dashboard render; locale switch via `?lang=ar` flips `dir="rtl"`.
 - **Security:** tenant fail-closed (querying a scoped model with no tenant throws); CSRF `419`; unauthorized route → `403`; unauthenticated → redirect/`401`.
-- **Integration:** `CompanyService::create()` provisions company + membership + roles + trial subscription atomically and rolls back on failure.
+- **Integration:** `WorkspaceService::create()` provisions workspace + membership + roles + trial subscription atomically and rolls back on failure.
 - See [39 — Testing Strategy](39-Testing-Strategy.md).
 
 ## Future Expansion

@@ -37,7 +37,7 @@ flowchart TD
     D --> E[Daily rotation by filename date]
     E --> F[Retention pruning by age]
     D --> G[Diagnostics viewer super admin]
-    H[Audit events] -. separate path .-> I[(activity_log table)]
+    H[Audit events] -. separate path .-> I[(activity_logs table)]
 ```
 
 `App\Core\Logger` is a minimal PSR-3-style file logger resolved from the container as `log` (helper `logger()`):
@@ -88,13 +88,13 @@ sequenceDiagram
 7. **Logging must never break a request.** The logger no-ops on an unwritable directory rather than throwing.
 8. **Logs are rotated daily and retained for a bounded window** (default 14–30 days), then pruned.
 9. **`storage/logs` is never web-accessible** (outside the document root, denied by `.htaccess`).
-10. **Operational logging is separate from auditing.** Compliance-relevant "who did what" goes to `activity_log` ([38 — Audit System](38-Audit-System.md)), not to the file log.
+10. **Operational logging is separate from auditing.** Compliance-relevant "who did what" goes to `activity_logs` ([38 — Audit System](38-Audit-System.md)), not to the file log.
 
 ## Database Relations
 
 Logging is **file-based and intentionally has no table** — it must work before/around the database and must not add DB load on the hot path. Related data lives elsewhere:
 
-- **activity_log** — the *audit* sink (a real table per §11); the file log and the audit table are deliberately distinct (see [38 — Audit System](38-Audit-System.md)).
+- **activity_logs** — the *audit* sink (a real table per §11); the file log and the audit table are deliberately distinct (see [38 — Audit System](38-Audit-System.md)).
 - **failed_jobs** — background-job failures are persisted here for retry/inspection in addition to being logged.
 - **gateway_events** — payment webhook payloads are stored for reconciliation; the file log records processing outcomes (success/failure) without dumping full payloads.
 
@@ -125,9 +125,9 @@ If a database/searchable log store is ever required, it is added behind the same
 
 Logs are a high-value target and a common leak vector, so logging is treated as a security-sensitive subsystem:
 
-- **No secrets or PII in logs** — passwords, tokens, session ids, `APP_KEY`, decrypted `ai_credentials`, full payment data and raw request bodies are NEVER logged. The standing rule is "reference by id, never by content" (log `user_id=42`, not the email/password). A redaction allow-list governs what context keys may be written; everything else is dropped.
+- **No secrets or PII in logs** — passwords, tokens, session ids, `APP_KEY`, decrypted `tenant_ai_keys`, full payment data and raw request bodies are NEVER logged. The standing rule is "reference by id, never by content" (log `user_id=42`, not the email/password). A redaction allow-list governs what context keys may be written; everything else is dropped.
 - **Log-injection / forgery** — user-supplied values are written as structured context (JSON-encoded), and newlines/control chars are stripped, so an attacker cannot inject fake log lines or break the daily-file format. The `user_agent` is truncated (255 chars) as in `ActivityLog`.
-- **Access control on logs** — `storage/logs` lives outside the web root (and is hard-blocked by `.htaccess` if the docroot is the project root), so logs are never web-served. Reading logs/diagnostics requires `platform.diagnostics` (see [33 — System-Diagnostics](33-System-Diagnostics.md)); tenant-scoped audit data (`activity_log`) is filtered by `workspace_id` for non-super-admins.
+- **Access control on logs** — `storage/logs` lives outside the web root (and is hard-blocked by `.htaccess` if the docroot is the project root), so logs are never web-served. Reading logs/diagnostics requires `platform.diagnostics` (see [33 — System-Diagnostics](33-System-Diagnostics.md)); tenant-scoped audit data (`activity_logs`) is filtered by `workspace_id` for non-super-admins.
 - **Tamper evidence** — application logs are append-only; the audit trail ([38 — Audit-System](38-Audit-System.md)) is the authoritative, integrity-focused record (immutable `created_at`, optional hash-chaining), and security-relevant events are written there as well as to the log.
 - **Retention & privacy compliance** — logs are rotated and pruned on a defined retention window so PDPL/GDPR "right to erasure" and data-minimisation obligations are met; security/audit events keep a longer window than debug logs. See [34 — Security](34-Security.md).
 

@@ -31,7 +31,7 @@ The job is the unit that:
 Recruitment without an explicit job state machine devolves into ambiguity: candidates apply to roles that are no longer hiring, recruiters interview for positions that were already filled, and public careers pages advertise stale openings. By modelling the job as a strict lifecycle we get:
 
 - **A single source of truth for "is this role hiring?"** — only `status = open` jobs accept new applications and appear publicly.
-- **Auditability** — every status change is recorded (timestamps `published_at`, `closed_at`, and an `activity_log` entry), so HR can answer "when did we stop hiring for X?".
+- **Auditability** — every status change is recorded (timestamps `published_at`, `closed_at`, and an `activity_logs` entry), so HR can answer "when did we stop hiring for X?".
 - **Safe public exposure** — the careers page renders exactly the set of currently-open jobs, never drafts or closed roles, and never another tenant's jobs.
 - **Capacity control** — `openings` enforces how many hires a job represents, preventing over-hiring and giving headcount visibility.
 - **Data-driven pipelines** — each job can use the company default pipeline template or a job-specific one, without code changes (per §2 of the canonical context: extensible without code changes).
@@ -46,7 +46,7 @@ flowchart LR
   JS --> PS[(pipeline_stages)]
   JS -->|jobs.publish| CP[Public Careers Page]
   CP -->|candidate applies| APP[(applications)]
-  JS --> AL[(activity_log)]
+  JS --> AL[(activity_logs)]
   JS --> NQ[Notification dispatch / queued_jobs]
 ```
 
@@ -95,7 +95,7 @@ sequenceDiagram
     participant JS as JobService
     participant PS as PipelineService
     participant DB as MySQL
-    participant AL as activity_log
+    participant AL as activity_logs
 
     U->>C: POST /jobs (title, department, openings, ...)
     C->>C: require permission jobs.create
@@ -140,7 +140,7 @@ When an application transitions to `hired` (see [25 — Application Lifecycle](2
 9. A job's `slug` is unique per company (`UQ(workspace_id, slug)`), generated from the title and de-collided with a numeric suffix.
 10. Deleting (hard) a job is **not** a normal operation; `jobs.delete` performs *archive*. True deletion is reserved for super-admin tooling and cascades to applications/interviews/evaluations via FK `ON DELETE CASCADE`.
 11. A job must have at least one `pipeline_stage` of type `applied` and one terminal stage (`hired` or `rejected`) before it can be published.
-12. Every status transition writes an `activity_log` entry (`action` = `job.published`, `job.paused`, `job.closed`, `job.reopened`, `job.archived`, `job.cloned`).
+12. Every status transition writes an `activity_logs` entry (`action` = `job.published`, `job.paused`, `job.closed`, `job.reopened`, `job.archived`, `job.cloned`).
 13. Ownership: `created_by` is the author; the job belongs to the **company**, so any user with the relevant `jobs.*` permission in that tenant may manage it (capability comes from roles, never from `created_by` — §2 of canonical context).
 
 ## 6. Database Relations
@@ -150,7 +150,7 @@ Primary table — **`jobs`** (tenant, planned #17):
 | Column | Type / Notes |
 | --- | --- |
 | `id` | BIGINT UNSIGNED PK |
-| `workspace_id` | FK → `companies(id)` ON DELETE CASCADE, indexed (tenant scope) |
+| `workspace_id` | FK → `workspaces(id)` ON DELETE CASCADE, indexed (tenant scope) |
 | `title`, `description` | VARCHAR / TEXT |
 | `slug` | VARCHAR — `UQ(workspace_id, slug)` |
 | `department`, `location` | VARCHAR NULL |
@@ -216,7 +216,7 @@ Policy gates (`AccessControl::define`) add context: a `hiring-manager` may `jobs
 - The careers page is the only unauthenticated read path; it uses `withoutTenantScope()` but **must** bind to the resolved company id from the requested slug and `status = open`, never returning drafts, paused, closed, archived, or other tenants' jobs.
 - All state-changing routes are POST with CSRF tokens (`csrf_field()`), gated by `permission:` middleware.
 - Status is never mass-assigned from request input (kept out of `$fillable`-driven create paths for client data); transitions are explicit service calls — prevents a forged `status=open` field from bypassing publish rules.
-- `activity_log` captures actor, ip, and user-agent for every transition for audit ([38 — Audit-System](38-Audit-System.md)).
+- `activity_logs` captures actor, ip, and user-agent for every transition for audit ([38 — Audit-System](38-Audit-System.md)).
 
 ## 11. Performance
 

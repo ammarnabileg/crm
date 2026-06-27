@@ -12,7 +12,7 @@ The single platform-wide login, registration, and password-reset flow — Argon2
 
 ## Purpose (الهدف)
 
-This document specifies HalaOps **authentication**: one login / register / forgot / reset flow for the entire platform; password hashing with Argon2id (bcrypt fallback) and transparent rehash; session security (regeneration, hardened cookies); login throttling; anti-enumeration password reset with hashed, time-limited tokens; optional company creation during registration; and logout.
+This document specifies HalaOps **authentication**: one login / register / forgot / reset flow for the entire platform; password hashing with Argon2id (bcrypt fallback) and transparent rehash; session security (regeneration, hardened cookies); login throttling; anti-enumeration password reset with hashed, time-limited tokens; optional workspace creation during registration; and logout.
 
 Implemented by:
 
@@ -25,7 +25,7 @@ Implemented by:
 
 ## Why It Exists (سبب وجوده)
 
-HalaOps has **one users table** and **one identity** per person (see [07 — RBAC](07-RBAC.md)). It would be wrong to build separate logins for "candidate", "recruiter", "admin" — the same human is different roles in different companies. So there is exactly **one** authentication surface, and everything downstream (which company is active, what the user may do) is decided by tenancy and RBAC, not by *how* they logged in.
+HalaOps has **one users table** and **one identity** per person (see [07 — RBAC](07-RBAC.md)). It would be wrong to build separate logins for "candidate", "recruiter", "admin" — the same human is different roles in different companies. So there is exactly **one** authentication surface, and everything downstream (which workspace is active, what the user may do) is decided by tenancy and RBAC, not by *how* they logged in.
 
 Authentication is also the front door for a multi-tenant SaaS sold to thousands of companies, installed on shared hosting with no CLI. That raises concrete threats the flow must answer out of the box: credential stuffing (→ throttling), offline cracking of a stolen database (→ Argon2id), session fixation/hijacking (→ regeneration + hardened cookies), account enumeration via the reset form (→ uniform responses + hashed tokens), and stale privileged sessions (→ re-validate the account on every resolve, clear tenant on logout). Each is addressed below.
 
@@ -37,7 +37,7 @@ Authentication is also the front door for a multi-tenant SaaS sold to thousands 
 |-----------|------|----------------|
 | `AuthManager` | `app/Services/Auth/AuthManager.php` | Verify credentials (`validate`), authenticate (`attempt`), establish/clear the session identity (`login`/`logout`), resolve the current `User` (`user`) and re-check it's still active. Container singleton (alias `auth`). |
 | `LoginController` | `app/Controllers/Auth/LoginController.php` | `show`, `login` (with throttle + audit), `logout`. |
-| `RegisterController` | `app/Controllers/Auth/RegisterController.php` | `show`, `register` (create user, optional company, auto-login). |
+| `RegisterController` | `app/Controllers/Auth/RegisterController.php` | `show`, `register` (create user, optional workspace, auto-login). |
 | `PasswordController` | `app/Controllers/Auth/PasswordController.php` | `showForgot`, `sendReset` (anti-enumeration), `showReset`, `reset`. |
 | `Hash` | `app/Core/Hash.php` | `make()` (Argon2id, bcrypt fallback), `verify()`, `needsRehash()`. |
 | `Session` | `app/Core/Session.php` | Hardened cookie store, `regenerate()`, `invalidate()`, CSRF token, flash/old-input. |
@@ -66,7 +66,7 @@ sequenceDiagram
     participant AM as AuthManager
     participant H as Hash
     participant S as Session
-    participant DB as users / activity_log
+    participant DB as users / activity_logs
 
     U->>LC: POST /login (email, password, CSRF)
     LC->>LC: validate(email required|email, password required)
@@ -82,7 +82,7 @@ sequenceDiagram
         alt invalid / inactive
             AM-->>LC: null
             LC->>RL: hit(key, lockout=900s)
-            LC->>DB: activity_log 'auth.login_failed'
+            LC->>DB: activity_logs 'auth.login_failed'
             LC-->>U: "These credentials do not match our records."
         else valid & active
             AM->>S: regenerate()  %% prevent fixation
@@ -94,7 +94,7 @@ sequenceDiagram
             end
             AM-->>LC: User
             LC->>RL: clear(key)
-            LC->>DB: activity_log 'auth.login'
+            LC->>DB: activity_logs 'auth.login'
             LC-->>U: redirect intended || /dashboard
         end
     end
@@ -112,12 +112,12 @@ Key points, as implemented in `LoginController::login()` and `AuthManager::attem
 
 `RegisterController::register()`:
 
-1. Validate `name` (2–150), `email` (`email|max:190|unique:users,email`), `password` (`min:8|confirmed`), `company_name` (optional, max 150).
-2. Insert the `users` row with `withoutTenantScope()` (`status = 'active'`, `locale` from the request, password hashed via `Hash::make`).
-3. Record `user.registered` in `activity_log`; `auth()->login($user)` (regenerates session, signs them in).
-4. **If a company name was given**, `CompanyService::create()` provisions a full tenant (company, owner membership, default roles, owner role, trial subscription — see [08 — Multi-Tenant](08-Multi-Tenant.md)), sets it active, and redirects to `/dashboard`. Otherwise redirect to `companies/create`.
+1. Validate `name` (2–150), `email` (`email|max:190|unique:users,email`), `password` (`min:8|confirmed`), `workspace_name` (optional, max 150).
+2. Insert the `users` row with `withoutTenantScope()` (status `active` via `user_status_id`, `locale` from the request, password hashed via `Hash::make`).
+3. Record `user.registered` in `activity_logs`; `auth()->login($user)` (regenerates session, signs them in).
+4. **If a workspace name was given**, `WorkspaceService::create()` provisions a full tenant (workspace, owner membership, default roles, owner role, trial subscription — see [08 — Multi-Tenant](08-Multi-Tenant.md)), sets it active, and redirects to `/dashboard`. Otherwise redirect to `workspaces/create`.
 
-The registrant who names a company becomes its **Owner** — not because of a "type", but because they are granted the `owner` role on their membership.
+The registrant who names a workspace becomes its **Owner** — not because of a "type", but because they are granted the `owner` role on their membership.
 
 ### Forgot / reset password (sequence)
 
@@ -138,7 +138,7 @@ sequenceDiagram
         PC->>DB: delete old password_resets for email
         PC->>DB: insert {email, token = Hash::make(token), created_at}
         PC->>M: email link ?token=<plain>&email=<email>
-        PC->>DB: activity_log 'auth.password_reset_requested'
+        PC->>DB: activity_logs 'auth.password_reset_requested'
     else user missing
         Note right of PC: do nothing (silent)
     end
@@ -154,7 +154,7 @@ sequenceDiagram
     else valid
         PC->>DB: users.password = Hash::make(password)
         PC->>DB: delete password_resets for email
-        PC->>DB: activity_log 'auth.password_reset'
+        PC->>DB: activity_logs 'auth.password_reset'
         PC-->>U: redirect /login "Password reset."
     end
 ```
@@ -178,9 +178,9 @@ The **only** information returned by `sendReset()` is the uniform message "If th
 5. **Login is throttled** per `(email, ip)`: `max_login_attempts = 5`, `lockout_seconds = 900`; a successful login clears the counter. An additional HTTP throttle (`throttle:10,60`) guards the route.
 6. **Password reset is anti-enumeration**: identical response regardless of email existence; timing equalised on login lookups.
 7. **Reset tokens are random (32 bytes), stored hashed, single-use, and expire after `reset_token_ttl` (60 min).** Requesting a new token deletes the previous one for that email (one active token per email; `password_resets.email` is the PK).
-8. **Registration may create a company**; the registrant becomes its Owner via the `owner` role.
+8. **Registration may create a workspace**; the registrant becomes its Owner via the `owner` role.
 9. **Email is canonicalised** to lowercase on register/login/reset (`mb_strtolower`) so identity is case-insensitive and unique (`users.email` UNIQUE).
-10. **Inactive accounts cannot authenticate or stay authenticated.** `attempt()`/`user()` both require `status = 'active'`.
+10. **Inactive accounts cannot authenticate or stay authenticated.** `attempt()`/`user()` both require an `active` user status (`users.user_status_id`).
 11. **All auth writes are CSRF-protected** (the `csrf` middleware wraps every web route).
 
 ## Database Relations
@@ -189,10 +189,10 @@ Consistent with §11 of the canonical context:
 
 | Table | Columns used | Notes |
 |-------|--------------|-------|
-| `users` (global) | `email` (UNIQUE), `password`, `status[active|suspended|pending]`, `locale`, `last_login_at`, `last_login_ip`, `email_verified_at`, `remember_token` | `INDEX(status)`. `password`/`remember_token` are `$hidden`. Looked up via `withoutTenantScope()` (global model). |
+| `users` (global) | `email` (UNIQUE), `password`, `user_status_id` (FK → `lookup_values`, category `user_status`: `active`/`suspended`/`pending`), `locale`, `last_login_at`, `last_login_ip`, `email_verified_at`, `remember_token` | `INDEX(user_status_id)`. `password`/`remember_token` are `$hidden`. Looked up via `withoutTenantScope()` (global model). |
 | `password_resets` | `email` (PK), `token` (hashed), `created_at` | `INDEX(token)`. One active token per email; consumed on use. |
-| `companies` / `memberships` | via `CompanyService` on registration | Owner provisioning (see [08 — Multi-Tenant](08-Multi-Tenant.md)). |
-| `activity_log` | `action`, `user_id`, `ip`, `description` | Records `auth.login`, `auth.login_failed`, `auth.logout`, `auth.password_reset_requested`, `auth.password_reset`, `user.registered`. |
+| `workspaces` / `memberships` | via `WorkspaceService` on registration | Owner provisioning (see [08 — Multi-Tenant](08-Multi-Tenant.md)). |
+| `activity_logs` | `action`, `user_id`, `ip`, `description` | Records `auth.login`, `auth.login_failed`, `auth.logout`, `auth.password_reset_requested`, `auth.password_reset`, `user.registered`. |
 
 ## Permissions
 
@@ -207,7 +207,7 @@ Authentication is **pre-authorization** and therefore gated by *middleware state
 | Endpoint | Rules |
 |----------|-------|
 | `POST /login` | `email: required|email`, `password: required`. |
-| `POST /register` | `name: required|min:2|max:150`, `email: required|email|max:190|unique:users,email`, `password: required|min:8|confirmed`, `company_name: nullable|max:150`. |
+| `POST /register` | `name: required|min:2|max:150`, `email: required|email|max:190|unique:users,email`, `password: required|min:8|confirmed`, `workspace_name: nullable|max:150`. |
 | `POST /forgot-password` | `email: required|email`. |
 | `POST /reset-password` | `token: required`, `email: required|email`, `password: required|min:8|confirmed`. |
 
@@ -237,7 +237,7 @@ All validation runs through the core `Validator`, which throws `ValidationExcept
 - **Reset-token theft:** tokens stored hashed (a DB leak doesn't yield usable tokens), single-use, 60-minute TTL, delivered only over the emailed link.
 - **CSRF:** every state-changing auth POST is CSRF-protected.
 - **PII / secret hygiene:** passwords and `remember_token` are `$hidden`; emails lowercased; reset emails escape user-supplied content (`e()`).
-- **Audit trail:** all auth events recorded in `activity_log` with actor and IP for incident response ([34 — Security](34-Security.md)).
+- **Audit trail:** all auth events recorded in `activity_logs` with actor and IP for incident response ([34 — Security](34-Security.md)).
 
 ## Performance
 
@@ -258,7 +258,7 @@ All validation runs through the core `Validator`, which throws `ValidationExcept
 **Feature (HTTP flows):**
 - Login success → redirect to intended/`/dashboard`; failure → error + counted attempt.
 - Throttle: 5 failures lock the 6th with a "try again" message; success resets the counter.
-- Register without company → redirect to `companies/create`; with company → tenant provisioned, owner role assigned, redirect to `/dashboard`.
+- Register without workspace → redirect to `workspaces/create`; with workspace → tenant provisioned, owner role assigned, redirect to `/dashboard`.
 - Forgot-password returns the same message for known and unknown emails; writes a hashed token only for known emails.
 - Reset with a valid token changes the password and consumes the token; expired/used token is rejected.
 - Authenticated user visiting `login`/`register` is redirected to `/dashboard`.
@@ -275,7 +275,7 @@ All validation runs through the core `Validator`, which throws `ValidationExcept
 - **Two-factor authentication (TOTP / WebAuthn)** — slot a second-factor step after `attempt()` succeeds; store factors on the user.
 - **"Remember me"** — `users.remember_token` is present for a long-lived, rotated remember cookie.
 - **SSO / OAuth / SAML** for enterprise tenants — a new authentication adapter that still resolves to the one `users` table and RBAC.
-- **Login notifications & device/session management** — leverage `last_login_at`/`last_login_ip` + `activity_log` to surface and revoke sessions.
+- **Login notifications & device/session management** — leverage `last_login_at`/`last_login_ip` + `activity_logs` to surface and revoke sessions.
 - **Configurable password policy & breach-list checks** — extend the `Validator` rules; centralised because all password entry funnels through these three controllers.
 - **Token-based API auth** (`api_tokens`, §12) reuses the same identity/RBAC, keeping web and API consistent.
 

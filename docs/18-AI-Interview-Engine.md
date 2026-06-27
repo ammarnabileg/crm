@@ -176,7 +176,7 @@ The completed session surfaces in the application's interview view with: transcr
 
 ## 6. Database Relations
 
-All tables are tenant-scoped (carry `workspace_id`, FK → `companies`, indexed) per the canonical schema (§11):
+All tables are tenant-scoped (carry `workspace_id`, FK → `workspaces`, indexed) per the canonical schema (§11):
 
 - **`interviews`** (§11.21): `application_id`→applications, `job_id`→jobs, `type[ai|human|panel]`, `mode[video|phone|onsite|ai_async]`, `status[scheduled|in_progress|completed|canceled|no_show]`, `scheduled_at`, `duration_minutes`, `created_by`. IDX(`workspace_id,application_id,status`). The parent of an AI run.
 - **`interview_questions`** (§11.23): `interview_id`→interviews (NULL = reusable template/bank), `text`, `type[text|video|mcq|coding]`, `options` JSON, `expected` JSON, `ai_generated`, `sort_order`. The generated/curated question set.
@@ -235,7 +235,7 @@ The candidate's ability to answer is constrained by an `AccessControl` policy ga
 - **Evidence-linked scoring.** `ai_feedback` must cite the specific answer text justifying each score; unsupported scores are rejected. This makes the recommendation auditable and contestable.
 - **Consistent criteria.** All candidates for a job are scored against the identical criteria set and weights, enabling apples-to-apples comparison and downstream fairness review.
 - **Human override is binding.** The AI recommendation is labeled advisory in the UI; the `evaluations` row authored under `evaluations.manage` is the record of truth.
-- **Auditability.** Provider, model, and `tokens_used` are stored per session; question generation, scoring, and human overrides are logged to `activity_log` with actor + `workspace_id`.
+- **Auditability.** Provider, model, and `tokens_used` are stored per session; question generation, scoring, and human overrides are logged to `activity_logs` with actor + `workspace_id`.
 
 **Data protection:**
 

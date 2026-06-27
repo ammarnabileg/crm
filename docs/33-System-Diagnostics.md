@@ -1,6 +1,6 @@
 # 33 — System Diagnostics (تشخيص النظام)
 
-The super-admin health and self-test surface: connectivity, storage, cache, sessions, queue/cron heartbeats, mail, OPcache, and disk checks — with a version/environment report and safe auto-fixes — gated by `platform.diagnostics`.
+The super-admin health and self-test surface: connectivity, storage, cache, sessions, queue/cron heartbeats, mail, OPcache, and disk checks — with a version/environment report and safe auto-fixes — gated by `system.manage`.
 
 ## Related Documents
 
@@ -34,7 +34,7 @@ Diagnostics is a super-admin module composed of a set of independent **checks**,
 | Health checks | `app/Services/Diagnostics/` (checks) | One small class/closure per check returning `{key, label, status, value, detail, fixable}`. |
 | Runner | Diagnostics service | Executes all checks, aggregates an overall status, captures timings. |
 | Environment report | Diagnostics service | Collects version/runtime facts (PHP, extensions, schema/migration state, build). |
-| Controller | `app/Controllers/Platform/DiagnosticsController.php` | Renders the dashboard, exposes JSON self-test and auto-fix endpoints; gated by `permission:platform.diagnostics`. |
+| Controller | `app/Controllers/System/DiagnosticsController.php` | Renders the dashboard, exposes JSON self-test and auto-fix endpoints; gated by `permission:system.manage`. |
 | View | `resources/views/platform/diagnostics.php` | Colour-coded panels (OK / WARN / FAIL), the report table, "Run self-test" and "Fix" buttons. |
 | Data sources | `App\Core\Database`, `App\Core\Logger`, `storage/*`, `queued_jobs`/`failed_jobs`, `settings` | The real subsystems each check probes. |
 
@@ -42,7 +42,7 @@ Each check returns a normalized status: **OK** (green), **WARN** (amber, degrade
 
 ```mermaid
 flowchart TD
-    Admin["Super Admin\n(platform.diagnostics)"] --> Ctrl["DiagnosticsController"]
+    Admin["Super Admin\n(system.manage)"] --> Ctrl["DiagnosticsController"]
     Ctrl --> Runner["Diagnostics runner"]
     Runner --> C1["DB connectivity"]
     Runner --> C2["Storage writable"]
@@ -85,7 +85,7 @@ sequenceDiagram
     participant S as Subsystems (DB/FS/queue/mail)
 
     A->>C: GET /platform/diagnostics
-    C->>C: permission:platform.diagnostics
+    C->>C: permission:system.manage
     C->>R: runAll()
     R->>S: probe each subsystem
     S-->>R: per-check {status,value,detail,fixable}
@@ -102,19 +102,19 @@ sequenceDiagram
 
 Steps:
 
-1. The operator opens the diagnostics dashboard; the controller enforces `platform.diagnostics` and runs all checks server-side.
+1. The operator opens the diagnostics dashboard; the controller enforces `system.manage` and runs all checks server-side.
 2. Each check renders as OK/WARN/FAIL with its measured value and a one-line detail; the overall banner shows the worst status.
 3. **Self-test** re-runs all checks on demand (e.g. after changing a setting or fixing permissions) and returns fresh JSON.
-4. For any check flagged `fixable`, a **Fix** button posts the check key; the auto-fixer performs the safe remediation and reports the new status. Every fix is recorded to `activity_log`.
+4. For any check flagged `fixable`, a **Fix** button posts the check key; the auto-fixer performs the safe remediation and reports the new status. Every fix is recorded to `activity_logs`.
 
 ## Business Rules
 
-- **BR-DIAG-1 — Super-admin only.** The entire surface requires the global `platform.diagnostics` permission; there is no tenant-scoped diagnostics.
+- **BR-DIAG-1 — Super-admin only.** The entire surface requires the global `system.manage` permission; there is no tenant-scoped diagnostics.
 - **BR-DIAG-2 — Read by default.** Running checks and the report never mutate application data; only explicit auto-fix actions change state.
 - **BR-DIAG-3 — Worst-wins overall status.** Overall health = the worst individual status (any FAIL → FAIL; else any WARN → WARN; else OK).
 - **BR-DIAG-4 — Only safe fixes are automated.** Auto-fix is offered solely for unambiguous, reversible actions (create missing storage dir, clear cache, retry/flush failed jobs, purge old logs). Schema changes, mail/cron configuration, and php.ini changes are never auto-applied.
 - **BR-DIAG-5 — Heartbeats define liveness.** Queue and cron health are derived from the last tick timestamp the worker/scheduler writes; a missing or stale tick is a real failure, not "unknown".
-- **BR-DIAG-6 — Every fix is audited.** Each auto-fix writes an `activity_log` entry with actor, action, and result.
+- **BR-DIAG-6 — Every fix is audited.** Each auto-fix writes an `activity_logs` entry with actor, action, and result.
 - **BR-DIAG-7 — No secret leakage.** The report shows presence/shape of secrets (e.g. "APP_KEY set", "mail enabled"), never their values.
 
 ## Database Relations
@@ -124,16 +124,16 @@ Diagnostics mostly probes infrastructure, but it reads/writes a few tables from 
 - `migrations` — read for applied-vs-pending count (the `db` check and the environment report).
 - `queued_jobs` (planned) — read for backlog depth and the queue heartbeat freshness.
 - `failed_jobs` (planned) — read for the failed-job count; auto-fix may retry/flush rows.
-- `activity_log` — written on every auto-fix (`workspace_id` NULL for platform actions, `action='diagnostics.fix'`, the check key in `properties`).
+- `activity_logs` — written on every auto-fix (`workspace_id` NULL for platform actions, `action='diagnostics.fix'`, the check key in `properties`).
 - `settings` / a `storage/framework` heartbeat file — read for the cron/queue last-tick timestamps and any diagnostics thresholds.
 
 No new table is required; heartbeats can be stored as a small JSON file under `storage/framework/` or as platform-level `settings` keys.
 
 ## Permissions
 
-- **`platform.diagnostics`** (from the platform super-admin group in [07-RBAC] §6) gates the dashboard, the self-test endpoint, and all auto-fix endpoints. It is part of the super-admin role granted at install (see [32-Setup-Installer]).
-- No tenant role grants diagnostics; it is platform-wide and uses `withoutTenantScope()` semantics where it touches tenant tables (e.g. counting queued jobs across companies).
-- Routes live under a `platform`-prefixed group protected by `middleware('auth')` + `permission:platform.diagnostics` (consistent with the `permission:perm` middleware in [10-Authorization]).
+- **`system.manage`** (from the platform super-admin group in [07-RBAC] §6) gates the dashboard, the self-test endpoint, and all auto-fix endpoints. It is part of the super-admin role granted at install (see [32-Setup-Installer]).
+- No tenant role grants diagnostics; it is platform-wide and uses `withoutTenantScope()` semantics where it touches tenant tables (e.g. counting queued jobs across workspaces).
+- Routes live under a `system`-prefixed group protected by `middleware('auth')` + `permission:system.manage` (consistent with the `permission:perm` middleware in [10-Authorization]).
 
 ## Validation
 
@@ -155,10 +155,10 @@ No new table is required; heartbeats can be stored as a small JSON file under `s
 
 ## Security
 
-- **Strict gating.** Only `platform.diagnostics` holders reach any endpoint; everything else 403s. This prevents an attacker from probing infrastructure through the dashboard.
+- **Strict gating.** Only `system.manage` holders reach any endpoint; everything else 403s. This prevents an attacker from probing infrastructure through the dashboard.
 - **No secret disclosure.** The report exposes presence and shape (set/unset, enabled/disabled, version numbers) but never `APP_KEY`, DB passwords, or AI credentials (which are encrypted per [34-Security]).
 - **Auto-fix is least-privilege and reversible.** Fixers only create directories, clear regenerable caches, or retry jobs — never delete tenant data or rewrite `.env`.
-- **CSRF + audit.** All mutating actions require the CSRF token and are written to `activity_log`, giving a tamper-evident trail of operator actions.
+- **CSRF + audit.** All mutating actions require the CSRF token and are written to `activity_logs`, giving a tamper-evident trail of operator actions.
 - **Rate-limited test sends.** The optional mail test is throttled to avoid being used as a spam relay.
 - **Heartbeat endpoints are protected.** The cron URL that updates the heartbeat is itself a protected, secret-token URL (see [43-Deployment]); diagnostics only *reads* the resulting timestamp.
 
@@ -172,8 +172,8 @@ No new table is required; heartbeats can be stored as a small JSON file under `s
 ## Testing
 
 - **Unit:** each check maps subsystem state → correct status (e.g. unwritable dir → FAIL; disabled mail → WARN; recent heartbeat → OK; stale heartbeat → FAIL); overall status is the worst child; only `fixable=true` checks expose a fixer.
-- **Feature (HTTP):** dashboard returns 200 for a `platform.diagnostics` user and 403 otherwise; self-test returns refreshed JSON; fix endpoint rejects unknown keys; a successful storage fix flips the panel to OK on re-test.
-- **Security:** a tenant admin without `platform.diagnostics` cannot reach any endpoint; the report never contains secret values; auto-fix writes an `activity_log` row; mail test is throttled.
+- **Feature (HTTP):** dashboard returns 200 for a `system.manage` user and 403 otherwise; self-test returns refreshed JSON; fix endpoint rejects unknown keys; a successful storage fix flips the panel to OK on re-test.
+- **Security:** a tenant admin without `system.manage` cannot reach any endpoint; the report never contains secret values; auto-fix writes an `activity_logs` row; mail test is throttled.
 - **Resilience:** with the database forced down, the page still renders and the `db` panel is FAIL; with the queue heartbeat absent, the queue panel is WARN/FAIL and self-test recovers once a tick is written.
 
 ## Post-Install Operations Suite (no terminal)
@@ -196,11 +196,11 @@ block non-super-admins (HTTP 403) and to never lock the super-admin out.
 ## Future Expansion
 
 - **Scheduled health snapshots + alerting.** Persist periodic snapshots and email/notify super-admins (via [26-Notification-System]) when status degrades, instead of relying on someone opening the page.
-- **Per-tenant diagnostics.** A scoped subset (storage usage, AI credential validity, queue backlog for that company) could be exposed to tenant owners under a tenant permission.
+- **Per-tenant diagnostics.** A scoped subset (storage usage, AI credential validity, queue backlog for that workspace) could be exposed to tenant owners under a tenant permission.
 - **Deeper external checks.** Validate each tenant's AI provider keys ([17-AI-Providers]) and the configured payment gateway webhooks ([15-Payment-Gateways]) as additional checks.
 - **Metrics export.** A protected `/healthz` JSON endpoint for external uptime monitors and a Prometheus-style metrics feed, reusing the same runner.
 - **History & trends.** Store check timings/values to chart disk growth, queue depth, and OPcache hit ratio over time, feeding [35-Performance] tuning.
 
 ## Open Questions
 
-None at this time. The check set, the `platform.diagnostics` gate, the heartbeat-based liveness model, and the safe-auto-fix policy are settled and consistent with the canonical context.
+None at this time. The check set, the `system.manage` gate, the heartbeat-based liveness model, and the safe-auto-fix policy are settled and consistent with the canonical context.

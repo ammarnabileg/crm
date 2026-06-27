@@ -17,7 +17,7 @@ This document specifies the **provider adapter layer** (طبقة المُحوِ�
 It defines, for every supported provider:
 
 - its **capabilities** (chat / completion / embeddings / transcription / video);
-- the **required credential fields** it reads from `ai_credentials`;
+- the **required credential fields** it reads from `tenant_ai_keys`;
 - representative **models**;
 - exactly **how a new provider is added** (one class + one registry entry, no changes elsewhere);
 - the **registry table** that makes the set data-driven;
@@ -83,7 +83,7 @@ final class OpenAiProvider implements AiProviderInterface
 }
 ```
 
-Adapters do **not** read `ai_credentials` themselves and never touch `TenantManager` — `AiProviderManager` owns resolution and hands the adapter its already-decrypted secrets. This keeps the "no system keys" guarantee in exactly one place ([16] §3.3).
+Adapters do **not** read `tenant_ai_keys` themselves and never touch `TenantManager` — `AiProviderManager` owns resolution and hands the adapter its already-decrypted secrets. This keeps the "no system keys" guarantee in exactly one place ([16] §3.3).
 
 ### 3.2 The registry
 
@@ -204,7 +204,7 @@ sequenceDiagram
 
 1. Create `app/Services/AI/Providers/AcmeProvider.php` implementing `AiProviderInterface`.
 2. Add one entry to `AiProviderRegistry::PROVIDERS`.
-3. Done. The Settings UI renders the new card from the registry; `AiProviderManager` resolves it; the `ai_credentials` schema already accommodates it (`provider` VARCHAR, generic `credentials` blob, generic `meta`). **No controller, view, migration, or manager edits are required.**
+3. Done. The Settings UI renders the new card from the registry; `AiProviderManager` resolves it; the `tenant_ai_keys` schema already accommodates it (`provider` VARCHAR, generic `credentials` blob, generic `meta`). **No controller, view, migration, or manager edits are required.**
 
 ### 4.2 Configuring & testing a provider (per tenant)
 
@@ -245,8 +245,8 @@ A probe that returns 2xx → `validateConnection()` returns `true`; otherwise it
 
 ## 5. Business Rules
 
-1. **Adapters are stateless and tenant-fed.** They receive decrypted secrets via the constructor; they never read `ai_credentials`, env, or config for keys.
-2. **One adapter per vendor**, one registry key per adapter; the key is also the value stored in `ai_credentials.provider`.
+1. **Adapters are stateless and tenant-fed.** They receive decrypted secrets via the constructor; they never read `tenant_ai_keys`, env, or config for keys.
+2. **One adapter per vendor**, one registry key per adapter; the key is also the value stored in `tenant_ai_keys.provider`.
 3. **Capabilities are declared in two consistent places** — the adapter's `supports*()` methods and the registry's `capabilities` list — and must agree (tested in §12).
 4. **HeyGen is video-only.** It declares only the `video` capability; the interview engine treats video-avatar features as optional and degrades when no `video`-capable provider is configured.
 5. **OpenAI-compatible vendors reuse one HTTP shape.** DeepSeek and self-hosted gateways set `base_url`; Azure OpenAI additionally needs `deployment` + `api_version`. This is data, not new code.
@@ -255,7 +255,7 @@ A probe that returns 2xx → `validateConnection()` returns `true`; otherwise it
 
 ## 6. Database Relations
 
-All providers share the single tenant-scoped table **`ai_credentials`** (see [05 — Database-Architecture](05-Database-Architecture.md) §11.11 and [16] §6). Per-provider differences are carried entirely by data:
+All providers share the single tenant-scoped table **`tenant_ai_keys`** (built as `ai_credentials`; see [05 — Database-Architecture](05-Database-Architecture.md) §11.11 and [16] §6). Per-provider differences are carried entirely by data:
 
 - `provider` — the registry key (`openai` … `heygen`).
 - `credentials` — encrypted JSON whose shape varies by provider (`api_key` always; `base_url`, `deployment`, `api_version`, `anthropic_version`, `avatar_id`, `voice_id` as needed).
@@ -303,12 +303,12 @@ Structural validation is followed by a live `validateConnection()` probe (§4.3)
 
 ## 10. Security
 
-- **Keys are encrypted at rest** in `ai_credentials.credentials` via `App\Core\Encrypter` (AES-256-GCM, authenticated) and decrypted only transiently inside an adapter call ([16] §10, [34 — Security](34-Security.md)).
+- **Keys are encrypted at rest** in `tenant_ai_keys.credentials` via `App\Core\Encrypter` (AES-256-GCM, authenticated) and decrypted only transiently inside an adapter call ([16] §10, [34 — Security](34-Security.md)).
 - **No system keys.** Adapters cannot function without a tenant-supplied key (the constructor throws `auth()` on an empty `api_key`); there is no environment/config fallback.
 - **Strict transport security.** The shared `JsonClient` always verifies TLS and sets per-call timeouts; secrets travel only in the Authorization header to the vendor, never in query logs (Gemini's `?key=` requests are sent but never written to our logs).
 - **Masking everywhere.** Only `AiCredential::maskedKey()` reaches a template; full secrets are never echoed back, even to `ai.manage` users.
 - **Tenant isolation.** Resolution is via the tenant-scoped `AiCredential` model, so an adapter is only ever built from the active tenant's row.
-- **Audit & least logging.** Configure/test/remove are logged to `activity_log` with provider + masked hint; raw keys never appear in logs or error pages.
+- **Audit & least logging.** Configure/test/remove are logged to `activity_logs` with provider + masked hint; raw keys never appear in logs or error pages.
 
 ## 11. Performance
 

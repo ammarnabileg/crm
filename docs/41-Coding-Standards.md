@@ -163,7 +163,7 @@ Classes are `final` unless a subclass is a deliberate extension point (e.g. the 
 ```php
 // GOOD — concrete service is final; only Model is abstract by design
 final class AccessControl { /* ... */ }
-abstract class Model { /* base for User, Company, ... */ }
+abstract class Model { /* base for User, Workspace, ... */ }
 ```
 
 ```php
@@ -173,16 +173,16 @@ class AccessControl { /* ... */ }
 
 ### 5. No duplicated logic — extract to a service
 
-If the same rule appears twice, it is extracted into a service so there is exactly one source of truth. Company provisioning lives **only** in `App\Services\Tenancy\CompanyService`; RBAC provisioning **only** in `App\Services\Rbac\RbacManager`.
+If the same rule appears twice, it is extracted into a service so there is exactly one source of truth. Workspace provisioning lives **only** in `App\Services\Tenancy\WorkspaceService`; RBAC provisioning **only** in `App\Services\Rbac\RbacManager`.
 
 ```php
-// GOOD — registration, in-app "new company", and super-admin provisioning all call ONE place
-$company = (new CompanyService())->create($owner, $name);
+// GOOD — registration, in-app "new workspace", and super-admin provisioning all call ONE place
+$workspace = (new WorkspaceService())->create($owner, $name);
 ```
 
 ```php
-// BAD — re-implementing company creation in a controller; rules drift out of sync
-$companyId = $db->table('companies')->insertGetId([...]);
+// BAD — re-implementing workspace creation in a controller; rules drift out of sync
+$workspaceId = $db->table('workspaces')->insertGetId([...]);
 $db->table('memberships')->insertGetId([...]);   // forgot the trial subscription + owner role
 ```
 
@@ -270,15 +270,15 @@ Every dynamic value rendered into HTML is escaped with `e()` (`htmlspecialchars`
 
 ```php
 // GOOD — in resources/views
-<h1><?= e($company->name) ?></h1>
-<form method="post" action="<?= e(url('companies')) ?>">
+<h1><?= e($workspace->name) ?></h1>
+<form method="post" action="<?= e(url('workspaces')) ?>">
     <?= csrf_field() ?>
 </form>
 ```
 
 ```php
 // BAD — stored XSS
-<h1><?= $company->name ?></h1>
+<h1><?= $workspace->name ?></h1>
 echo "<div>{$user->name}</div>";   // unescaped
 ```
 
@@ -288,8 +288,8 @@ Every state-changing form/route includes `csrf_field()` and passes through the `
 
 ### 12. Naming conventions
 
-- **Classes**: `StudlyCase`, noun phrases (`CompanyService`, `RequirePermission`).
-- **Methods/functions/variables**: `camelCase`, verb phrases for methods (`provisionCompanyRoles`, `effectivePermissions`).
+- **Classes**: `StudlyCase`, noun phrases (`WorkspaceService`, `RequirePermission`).
+- **Methods/functions/variables**: `camelCase`, verb phrases for methods (`provisionWorkspaceRoles`, `effectivePermissions`).
 - **Constants**: `UPPER_SNAKE_CASE` (`self::STEPS`, `self::OPERATORS`).
 - **DB columns / config keys / permission keys**: `snake_case` / dotted (`workspace_id`, `auth.max_login_attempts`, `jobs.publish`).
 - **Interfaces**: `*Interface` (`MiddlewareInterface`, `AiProviderInterface`, `PaymentGatewayInterface`).
@@ -361,15 +361,15 @@ $i++; // increment i
 
 ```php
 // GOOD — atomic provisioning, exceptions bubble to the kernel
-return $this->db->transaction(function (Database $db) use ($owner, $name): Company {
-    // company + membership + roles + trial — all or nothing
+return $this->db->transaction(function (Database $db) use ($owner, $name): Workspace {
+    // workspace + membership + roles + trial — all or nothing
 });
 ```
 
 ```php
 // BAD — swallows the failure, leaves a half-created tenant
 try {
-    $db->table('companies')->insert([...]);
+    $db->table('workspaces')->insert([...]);
     $db->table('memberships')->insert([...]);
 } catch (Throwable $e) {
     // ignore
@@ -389,7 +389,7 @@ try {
 
 Coding standards interact with the schema (§11) through these rules:
 
-- Every tenant-bound table has `workspace_id` (FK→`companies`, indexed); models for them set `$tenantScoped = true` and `$tenantColumn = 'workspace_id'` (the default).
+- Every tenant-bound table has `workspace_id` (FK→`workspaces`, indexed); models for them set `$tenantScoped = true` and `$tenantColumn = 'workspace_id'` (the default).
 - `$fillable` on each model lists mass-assignable columns; `workspace_id`, `created_at`, `updated_at` are always allowed by the base `Model::filterFillable()`, so never add user-controlled `workspace_id` to `$fillable`.
 - `$hidden` excludes secrets from array/JSON output (e.g. `User::$hidden = ['password', 'remember_token']`).
 - `$casts` declares types (`int`, `bool`, `array`/`json`, `float`) so JSON columns (`features`, `limits`, `settings`, `properties`) are decoded consistently.

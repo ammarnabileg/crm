@@ -143,7 +143,7 @@ Tables touched (all consistent with §11):
 - **files** (tenant) — resume / response uploads; `visibility='private'`, `checksum`, `mime`, `size`.
 - **notifications** + **notification_preferences** — delivery of updates.
 - **onboarding_progress** — candidate onboarding flow (`flow='candidate'`).
-- **activity_log** — security/business events (registration, application submitted) with actor + ip.
+- **activity_logs** — security/business events (registration, application submitted) with actor + ip.
 
 ## Permissions
 
@@ -191,7 +191,7 @@ The `candidate` tenant role (data-driven in `config/rbac.php`, added when the re
 - **Rate limiting** on apply and interview submission (`throttle:` middleware) to deter abuse/scraping; the public board is cache-friendly and rate-limited.
 - **AI keys** are never exposed to the candidate; all AI calls run server-side with the tenant's encrypted credentials (§9).
 - **Output escaping** via `e()` for cover letters and any candidate-supplied text rendered back to staff.
-- **Audit**: registration, application submit/withdraw, and interview completion are written to `activity_log` with actor and ip.
+- **Audit**: registration, application submit/withdraw, and interview completion are written to `activity_logs` with actor and ip.
 
 ## Performance
 

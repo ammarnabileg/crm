@@ -261,7 +261,7 @@ sequenceDiagram
     participant Engine as AI Interview Engine
     participant Mgr as AiProviderManager
     participant Tenant as TenantManager
-    participant Cred as AiCredential (ai_credentials)
+    participant Cred as AiCredential (tenant_ai_keys)
     participant Enc as Encrypter (AES-256-GCM)
     participant Reg as AiProviderRegistry
     participant Guard as GuardedProvider
@@ -304,7 +304,7 @@ Every AI-touching feature must first ask `AiProviderManager::hasProviderFor($cap
 
 ## 5. Business Rules
 
-1. **No system keys, ever.** No `.env` variable, config value, or constant holds a provider key. The only source of a key is the active tenant's `ai_credentials.credentials` (encrypted). Code review and the test suite enforce this (§12).
+1. **No system keys, ever.** No `.env` variable, config value, or constant holds a provider key. The only source of a key is the active tenant's `tenant_ai_keys.credentials` (encrypted). Code review and the test suite enforce this (§12).
 2. **Tenant binding is mandatory.** `AiProviderManager::for()` throws `AiException::noTenant()` if `TenantManager::hasTenant()` is false. AI is impossible without an active tenant; this fails closed exactly like the Model layer.
 3. **One row per provider per tenant** — enforced by the DB unique key `(workspace_id, provider)`.
 4. **Exactly one default** per capability family per tenant; setting a new default clears the previous one in the same transaction.
@@ -316,12 +316,12 @@ Every AI-touching feature must first ask `AiProviderManager::hasProviderFor($cap
 
 ## 6. Database Relations
 
-Primary table — **`ai_credentials`** (tenant-scoped), per [05 — Database-Architecture](05-Database-Architecture.md) §11.11 and `database/migrations/0011_create_ai_credentials_table.php`:
+Primary table — **`tenant_ai_keys`** (tenant-scoped, built as `ai_credentials`), per [05 — Database-Architecture](05-Database-Architecture.md) §11.11 and `database/migrations/0011_create_ai_credentials_table.php`:
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | BIGINT UNSIGNED PK | |
-| `workspace_id` | BIGINT UNSIGNED | FK → `companies(id)` ON DELETE CASCADE; the tenant binding |
+| `workspace_id` | BIGINT UNSIGNED | FK → `workspaces(id)` ON DELETE CASCADE; the tenant binding |
 | `provider` | VARCHAR(40) | registry key: `openai`, `anthropic`, `gemini`, `deepseek`, `azure_openai`, `heygen` |
 | `label` | VARCHAR(120) NULL | tenant-friendly name |
 | `credentials` | TEXT NOT NULL | **AES-256-GCM** ciphertext of `{ "api_key": "...", "base_url": "...", ... }` |
@@ -378,8 +378,8 @@ Cross-field: the controller rejects a save if the registry's `requiredFields(pro
 - **No plaintext persistence or transit to the client.** Decryption happens only in `AiCredential::secrets()`, in-memory, for the duration of one call. The UI sees only `maskedKey()`.
 - **No system key surface.** Because no platform key exists, there is nothing to leak platform-wide; a breach of one tenant's row exposes only that tenant's key, and only if `APP_KEY` is also compromised.
 - **Tenant isolation.** `AiCredential` is `$tenantScoped`; queries auto-filter by `workspace_id` and **throw if no tenant is active**, so one tenant can never resolve another's key.
-- **Least logging.** Keys are never written to `storage/logs`; `AiException` messages and `activity_log` entries carry provider + masked hint only.
-- **Audit.** Add/update/remove/test events are recorded in `activity_log` with actor, `workspace_id`, action, and masked metadata.
+- **Least logging.** Keys are never written to `storage/logs`; `AiException` messages and `activity_logs` entries carry provider + masked hint only.
+- **Audit.** Add/update/remove/test events are recorded in `activity_logs` with actor, `workspace_id`, action, and masked metadata.
 - **Outbound TLS.** All adapter HTTP calls require TLS verification on (no `CURLOPT_SSL_VERIFYPEER => false`).
 
 See [34 — Security](34-Security.md) for the platform-wide posture.
@@ -409,7 +409,7 @@ See [34 — Security](34-Security.md) for the platform-wide posture.
 **Security**
 - No code path reads a provider key from env/config (static assertion / grep test in CI).
 - Cross-tenant: tenant A cannot resolve or read tenant B's credential (isolation test).
-- Decrypted keys never appear in responses, logs, or `activity_log` (masking test).
+- Decrypted keys never appear in responses, logs, or `activity_logs` (masking test).
 - CSRF enforced on all credential writes.
 
 ## 13. Future Expansion

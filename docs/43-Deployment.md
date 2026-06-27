@@ -67,7 +67,7 @@ For Nginx (no `.htaccess`), the equivalent is `root <install>/public;` with `try
 2. **Upload** the HalaOps package and unzip it into the account (File Manager, FTP, or the host's deploy tool). No `composer install` — there is no `vendor/`; the autoloader is custom (`bootstrap/autoload.php`).
 3. **Set the document root** to `/public` if possible (preferred model). If not, leave it at the project root; the root `.htaccess` will protect internals (fallback model).
 4. **Fix permissions** (see below) so `storage/` and the project root (for `.env`) are writable.
-5. **Open the site in a browser** → you land on `/install`. Run the wizard (requirements → database → migrate → seed → admin → finalize) per [32-Setup-Installer]. Finalize writes `.env`, places the lock, and forces `APP_ENV=production` + `APP_DEBUG=false`.
+5. **Open the site in a browser** → you land on `/setup`. Run the wizard (requirements → database → migrate → seed → admin → finalize) per [32-Setup-Installer]. Finalize writes `.env`, places the lock, and forces `APP_ENV=production` + `APP_DEBUG=false`.
 6. **Enable HTTPS** and confirm `SESSION_SECURE=true` (the installer sets this automatically when the App URL is `https`).
 7. **Configure the cron URL** for the queue/scheduler (below).
 8. **Run Diagnostics** ([33-System-Diagnostics]) and the [44-Production-Checklist] before announcing go-live.
@@ -157,7 +157,7 @@ Deployment is largely infrastructural, but these tables (from [05-Database-Archi
 - `migrations` — the runner records applied files here; updates compare pending vs applied. The full initial schema is migrations `0001`–`0015`.
 - `queued_jobs` / `failed_jobs` (planned) — drained by the cron URL; their backlog and the heartbeat freshness feed Diagnostics.
 - `settings` / `storage/framework` heartbeat — store the queue/cron last-tick timestamps and the maintenance flag.
-- `activity_log` — update/migration/maintenance actions are audited here (`workspace_id` NULL for platform actions).
+- `activity_logs` — update/migration/maintenance actions are audited here (`workspace_id` NULL for platform actions).
 
 ## Permissions
 
@@ -191,7 +191,7 @@ Deployment is largely infrastructural, but these tables (from [05-Database-Archi
 - **Protected cron.** Secret-token, constant-time compare, rate-limited, idempotent/locked — so the worker URL cannot be abused to flood or double-run jobs.
 - **HTTPS + secure cookies + HSTS**, plus the `SecurityHeaders` middleware on every response.
 - **Maintenance bypass is RBAC-gated.** Only super-admins see the app during maintenance; everyone else gets the 503 page, so no one hits a partially-migrated state.
-- **Audited operations.** Updates, migrations, and maintenance toggles are written to `activity_log`.
+- **Audited operations.** Updates, migrations, and maintenance toggles are written to `activity_logs`.
 - **Least-privilege DB user.** The MySQL user needs DDL for migrations; if you split duties, grant DDL only during updates.
 
 ## Performance
@@ -205,7 +205,7 @@ Deployment is largely infrastructural, but these tables (from [05-Database-Archi
 
 ## Testing
 
-- **Deployment smoke:** after upload, `/install` is reachable, internals (`/.env`, `/storage/...`, `/config/...`) return 403/404, and the front controller serves the home/login route once installed.
+- **Deployment smoke:** after upload, `/setup` is reachable, internals (`/.env`, `/storage/...`, `/config/...`) return 403/404, and the front controller serves the home/login route once installed.
 - **Permissions:** with `storage/` read-only, the app surfaces the failure cleanly (and Diagnostics FAILs `storage`); after fixing, self-test passes.
 - **Cron:** hitting `/cron/run` with a valid token drains a seeded queued job and updates the heartbeat; an invalid/missing token is rejected; overlapping calls do not double-process.
 - **Update flow:** with maintenance mode on, the public gets 503 while a super-admin sees the app; pending migrations apply and already-applied ones are skipped; `rollback()` reverses the last batch.

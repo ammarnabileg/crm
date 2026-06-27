@@ -16,9 +16,9 @@ This document specifies **how authorization is enforced** across HalaOps. Authen
 
 1. **Route middleware** — `permission:…` (`RequirePermission`) and `auth`/`tenant` gates on routes.
 2. **Controller checks** — `can()` / `access()->allows()` / `abort_unless()` inside actions.
-3. **Policy gates** — context-aware closures registered via `AccessControl::define()` ("own record", "in my company").
+3. **Policy gates** — context-aware closures registered via `AccessControl::define()` ("own record", "in my workspace").
 4. **View gating** — `can()` in templates to hide/show UI affordances.
-5. **Model tenant scope** — `Model::query()` constrains every tenant query to the active company and fails closed ([08 — Multi-Tenant](08-Multi-Tenant.md)).
+5. **Model tenant scope** — `Model::query()` constrains every tenant query to the active workspace and fails closed ([08 — Multi-Tenant](08-Multi-Tenant.md)).
 
 These layers are **defence in depth**: a missing UI check is still caught by the controller; a missing controller check is still caught by middleware; and even a permitted action can only ever touch the active tenant's rows because of the model scope.
 
@@ -60,7 +60,7 @@ flowchart TD
     REQ["Incoming request to a protected route"] --> AUTHMW{"auth middleware:<br/>auth()->check()?"}
     AUTHMW -- No --> LOGIN["remember intended URL<br/>redirect to /login (or 401 JSON)"]
     AUTHMW -- Yes --> TENMW{"tenant middleware (if present):<br/>hasTenant() OR isSuperAdmin()?"}
-    TENMW -- No --> SELECT["redirect to companies/select (or 409 JSON)"]
+    TENMW -- No --> SELECT["redirect to workspaces/select (or 409 JSON)"]
     TENMW -- Yes --> PERMMW{"permission:keys middleware?"}
     PERMMW -- "present" --> ANY{"access()->allows(any key)?"}
     ANY -- No --> F403["HttpException 403"]
@@ -91,12 +91,12 @@ flowchart TD
 
 ## Workflow
 
-A typical authorized action (e.g. updating the company profile) traverses the layers in order:
+A typical authorized action (e.g. updating the workspace profile) traverses the layers in order:
 
 1. **`auth`** confirms a session user exists (else redirect to `login`, remembering the intended URL).
-2. **`tenant`** (`EnsureTenant`) confirms an active company (or super admin) for tenant-scoped routes; otherwise routes to company selection.
+2. **`tenant`** (`EnsureTenant`) confirms an active workspace (or super admin) for tenant-scoped routes; otherwise routes to workspace selection.
 3. **`permission:workspace.update`** (`RequirePermission`) calls `access()->allows('workspace.update')`. The engine applies the super-admin bypass, else resolves effective permissions for the active tenant (union of global + membership roles, expanded up `parent_id`) and checks the key. Any-of semantics if several keys are listed. Failure → **403**.
-4. **Controller** may add a finer check, e.g. `abort_unless(can('workspace.update'), 403)` or a context check for object-level rules, then loads the record with the **tenant-scoped** `Model::findOrFail()` — which can only find rows in the active company.
+4. **Controller** may add a finer check, e.g. `abort_unless(can('workspace.update'), 403)` or a context check for object-level rules, then loads the record with the **tenant-scoped** `Model::findOrFail()` — which can only find rows in the active workspace.
 5. **Model** writes through `Model::query()`, which re-applies `WHERE workspace_id = :active`, so even a permitted write cannot touch another tenant.
 6. **View** renders, using `can('workspace.update')` to show the "Edit" button only to users who actually have it — purely cosmetic, never the security boundary.
 
@@ -135,7 +135,7 @@ Here a flat permission flag cannot express "edit *your own* profile"; the gate i
 2. **Authentication precedes authorization.** `RequirePermission` itself first checks `auth()->check()` and redirects guests, so permission checks only run for authenticated users.
 3. **`permission:a,b` is any-of.** The request is allowed if the user holds *any* listed key.
 4. **Authorization is tenant-relative.** The same user can be authorized for an action in company A and denied in company B, because tenant roles resolve against the active `workspace_id`.
-5. **Policy gates beat flat permissions** for the same ability and are the mechanism for object-level ("own record", "in my company") rules.
+5. **Policy gates beat flat permissions** for the same ability and are the mechanism for object-level ("own record", "in my workspace") rules.
 6. **Super admins are authorized for everything** (engine bypass) — but cross-tenant *data* still requires `withoutTenantScope()` ([08 — Multi-Tenant](08-Multi-Tenant.md)), so the bypass grants permission, not silent cross-tenant reads through scoped models.
 7. **View checks are cosmetic.** Hiding a button is UX, never enforcement; the controller/middleware/model are the real boundaries.
 8. **The model scope is non-negotiable.** Even an authorized action cannot read/write outside the active tenant; with no tenant, tenant-scoped queries throw.
@@ -149,7 +149,7 @@ Authorization reads from the RBAC and tenancy tables (consistent with §11; full
 | Table | Used for |
 |-------|----------|
 | `user_roles` | global role grants (super-admin and other platform roles). |
-| `memberships` (`status='active'`) | which tenant roles apply for the active company. |
+| `memberships` (active membership status) | which tenant roles apply for the active workspace. |
 | `membership_roles` | tenant role grants. |
 | `roles` (`parent_id`, `workspace_id`, `is_system`) | inheritance + global/tenant distinction. |
 | `role_permissions` + `permissions.key` | the keys each role grants; the final allow/deny lookup. |
@@ -157,7 +157,7 @@ Authorization reads from the RBAC and tenancy tables (consistent with §11; full
 
 ## Permissions
 
-This document is about *enforcing* permissions rather than defining new ones; the keys it references are the built catalogue from [07 — RBAC](07-RBAC.md) (`dashboard.view`, `workspace.view/update`, `members.view/invite/update/remove`, `roles.view/manage`, `billing.view/manage`, `ai.view/manage`, `settings.view/manage`) plus the planned domain groups. The authoritative mapping of every key to every role lives in [11 — Permissions Matrix](11-Permissions-Matrix.md). Enforcement contracts to remember:
+This document is about *enforcing* permissions rather than defining new ones; the keys it references are the built catalogue from [07 — RBAC](07-RBAC.md) (`dashboard.view`, `workspace.view/update`, `members.view/invite/update/remove`, `roles.view/manage`, `billing.view/manage`, `ai.view/manage`, `settings.view/manage`, and the super-admin-only `system.manage` that gates `/system/*`) plus the planned domain groups. The authoritative mapping of every key to every role lives in [11 — Permissions Matrix](11-Permissions-Matrix.md). Enforcement contracts to remember:
 
 - A route guarded by `permission:X` requires `X` (or super-admin).
 - A controller calling `can('X', $obj)` requires `X` **or** a passing gate for `X` with `$obj`.
@@ -174,7 +174,7 @@ Authorization composes with input validation but is separate:
 
 ## Edge Cases
 
-- **Authenticated but no tenant** on a tenant-scoped route → `EnsureTenant` redirects to `companies/select` (super admins pass). Reaching a tenant model anyway → fail-closed `RuntimeException`.
+- **Authenticated but no tenant** on a tenant-scoped route → `EnsureTenant` redirects to `workspaces/select` (super admins pass). Reaching a tenant model anyway → fail-closed `RuntimeException`.
 - **Route missing a `permission:` guard** → controller `can()`/`abort_unless()` and the model scope still apply (defence in depth); the QA checklist (§14/[40 — QA Checklist](40-QA-Checklist.md)) requires verifying every route's guards.
 - **UI shows a button the user can't use** (stale cache / template bug) → clicking it still 403s server-side; cosmetic only.
 - **Permission granted but object belongs to another tenant** → scoped lookup returns nothing → 404, never another tenant's record.
@@ -190,13 +190,13 @@ Authorization composes with input validation but is separate:
 - **Fail-closed data boundary:** the model scope means an authorization mistake at most exposes the *user's own tenant*, and a no-tenant state exposes nothing (it throws).
 - **No type-based shortcuts:** every check goes through role-resolved permissions, eliminating `if ($type === …)` escalation paths.
 - **Consistent 403 semantics:** unauthorized actions raise `HttpException(403)` (or 403 JSON), distinct from 401 (unauthenticated) and 404 (not found / cross-tenant), so behaviour is predictable and testable.
-- **Auditability:** sensitive authorized actions are recorded in `activity_log` with actor and IP; denied attempts (e.g. failed logins) are logged too ([34 — Security](34-Security.md)).
-- **IDOR resistance:** scoped finders + per-company uniqueness turn cross-tenant id guessing into 404s.
+- **Auditability:** sensitive authorized actions are recorded in `activity_logs` with actor and IP; denied attempts (e.g. failed logins) are logged too ([34 — Security](34-Security.md)).
+- **IDOR resistance:** scoped finders + per-workspace uniqueness turn cross-tenant id guessing into 404s.
 - **CSRF + authorization:** state-changing routes are also CSRF-protected (the `csrf` middleware), so authorization is not the only guard on writes.
 
 ## Performance
 
-- **Single resolution per request:** `AccessControl` caches the effective permission map per `userId:companyId`, so middleware + multiple controller checks + dozens of view `can()` calls share **one** resolution ([07 — RBAC](07-RBAC.md)).
+- **Single resolution per request:** `AccessControl` caches the effective permission map per `userId:workspaceId`, so middleware + multiple controller checks + dozens of view `can()` calls share **one** resolution ([07 — RBAC](07-RBAC.md)).
 - **Cheap enforcement points:** middleware and `can()` are array lookups after the first resolution; the model scope is a single indexed `WHERE workspace_id = ?`.
 - **No redundant DB work across layers:** because all layers hit the same cached engine, adding checks (defence in depth) is nearly free.
 - **Hot paths:** dashboards/list views that gate many elements benefit most from the cache; keep object-level gate closures cheap (avoid per-call queries; resolve the object once and pass it as context).
