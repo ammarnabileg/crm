@@ -34,7 +34,7 @@
     },
     "scripts": {
         "test": "phpunit",
-        "smoke": "php tests/smoke.php"
+        "smoke": "php bin/smoke.php"
     },
     "minimum-stability": "stable",
     "prefer-stable": true
