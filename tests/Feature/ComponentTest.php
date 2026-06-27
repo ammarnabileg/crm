@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Controllers\App\DesignSystemController;
 use App\Core\Request;
 use Tests\TestCase;
 
 /**
  * Design System (docs/30) — the component() library renders correct, accessible
- * markup, and the /design catalog renders end to end through the app shell. These
- * lock the component contracts (classes, ARIA, data-hooks) so refactors can't
- * silently break the shared UI.
+ * markup. These lock the component contracts (classes, ARIA, data-hooks) so
+ * refactors can't silently break the shared UI. The authenticated app shell
+ * itself (dark-mode toggle, toast region) is covered by AppShellTest.
  */
 return new class extends TestCase {
     protected bool $useDatabaseTransaction = true;
@@ -23,7 +22,7 @@ return new class extends TestCase {
         tenant()->setById((int) $db->table('workspaces')->orderBy('id')->value('id'));
         // Bind a request: components that default a URL fall back to request()->path(),
         // exactly as they do under a real HTTP request.
-        app()->instance('request', new Request([], [], ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/design'], [], []));
+        app()->instance('request', new Request([], [], ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/dashboard'], [], []));
     }
 
     /**
@@ -54,7 +53,7 @@ return new class extends TestCase {
 
     private function request(array $query = []): Request
     {
-        $req = new Request($query, [], ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/design'], [], []);
+        $req = new Request($query, [], ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/dashboard'], [], []);
         app()->instance('request', $req); // the layout + some components call request()
 
         return $req;
@@ -273,32 +272,4 @@ return new class extends TestCase {
         $this->assertTrue(str_contains($html, 'action="/jobs"'));
     }
 
-    // --- The /design catalog page (controller → view → layout) -------------
-
-    public function test_design_catalog_renders(): void
-    {
-        $res = (new DesignSystemController())->index($this->request());
-        $this->assertSame(200, $res->getStatus());
-        $content = $res->getContent();
-        $this->assertTrue(str_contains($content, 'Design System'));
-        // Sampling of components present on the page.
-        $this->assertTrue(str_contains($content, 'btn-primary'));
-        $this->assertTrue(str_contains($content, 'role="tablist"'));
-        $this->assertTrue(str_contains($content, 'data-modal-open="ds-modal"'));
-        $this->assertTrue(str_contains($content, 'id="ds-modal"'));
-        // Newer library components also appear on the catalog.
-        $this->assertTrue(str_contains($content, 'data-autocomplete'));
-        $this->assertTrue(str_contains($content, 'data-dropzone'));
-        $this->assertTrue(str_contains($content, 'data-grid-select-all'));
-        $this->assertTrue(str_contains($content, 'Search &amp; alerts'));
-    }
-
-    public function test_layout_ships_dark_mode_and_toast_region(): void
-    {
-        $content = (new DesignSystemController())->index($this->request())->getContent();
-        $this->assertTrue(str_contains($content, 'data-theme-toggle'));      // dark-mode toggle
-        $this->assertTrue(str_contains($content, 'halaops-theme'));          // no-flash theme script
-        $this->assertTrue(str_contains($content, 'id="toast-region"'));      // toast mount point
-        $this->assertTrue(str_contains($content, 'dark:bg-slate-900'));      // dark shell variants
-    }
 };

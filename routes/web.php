@@ -15,7 +15,6 @@ declare(strict_types=1);
 
 use App\Controllers\App\WorkspaceController;
 use App\Controllers\App\DashboardController;
-use App\Controllers\App\DesignSystemController;
 use App\Controllers\App\MemberController;
 use App\Controllers\App\NotificationController;
 use App\Controllers\App\AiSettingsController;
@@ -164,13 +163,6 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
             $router->get('dashboard', [DashboardController::class, 'index'])
                 ->middleware('permission:dashboard.view')
                 ->name('dashboard');
-
-            // Design System catalog (docs/30) — an internal component reference for
-            // the platform owner only; hidden from tenant users (no nav link) and
-            // gated to super-admins via system.manage so it never shows to customers.
-            $router->get('design', [DesignSystemController::class, 'index'])
-                ->middleware('permission:system.manage')
-                ->name('design');
 
             // Recruitment / ATS (docs/53). Reads: recruitment.view; writes: recruitment.manage.
             $router->get('recruiter', [RecruiterDashboardController::class, 'index'])->middleware('permission:recruitment.view')->name('recruiter.dashboard');

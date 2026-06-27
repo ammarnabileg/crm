@@ -143,10 +143,13 @@ The component model is **"PHP partial + Tailwind classes"**, not a JS framework.
 `partials/alerts.php`); the difference is that `components/` are parameterised,
 reusable primitives.
 
-**Living catalog.** `GET /design` (`DesignSystemController` → `app/design.php`,
-gated by `dashboard.view`) renders every component with its variants and states
-inside the real app shell — the canonical, always-current style guide for
-reviewing light/dark, RTL/LTR and accessibility in one place.
+**Component documentation.** Each component partial in `resources/views/components/`
+carries a Purpose/Props/States/Usage docblock at the top of its file — that is the
+canonical, in-code reference. (An internal `/design` catalog page existed during
+development as a visual style guide; it was removed because it was not a product
+feature and is not shown to customers. The component contracts are locked instead
+by `tests/Feature/ComponentTest.php`, and the authenticated shell — dark-mode
+toggle, no-flash theme script, toast region — by `tests/Feature/AppShellTest.php`.)
 
 ### Styling — compiled Tailwind
 
@@ -297,7 +300,7 @@ The frontend has no direct DB access — it renders data handed to it by control
 
 ## Testing
 
-- **Design System tests:** `tests/Feature/ComponentTest.php` renders each component and asserts its contract — classes, ARIA roles (`dialog`/`tablist`/`switch`/`progressbar`/`alert`), data-hooks (`data-modal-open`, `data-tab-target`), escaping, and the `/design` catalog rendering 200 through the app shell with the dark-mode toggle, no-flash script and toast region present.
+- **Design System tests:** `tests/Feature/ComponentTest.php` renders each component and asserts its contract — classes, ARIA roles (`dialog`/`tablist`/`switch`/`progressbar`/`alert`), data-hooks (`data-modal-open`, `data-tab-target`), escaping. The authenticated app shell (dark-mode toggle, no-flash theme script, toast region, dark variants) is asserted by `tests/Feature/AppShellTest.php`, rendered through a real signed-in page (the dashboard).
 - **Rendering unit tests:** `View` layout inheritance (child `content` flows into layout), explicit vs implicit `content` section, nested `include` isolation, `yield` defaults, missing-view error.
 - **Bilingual tests:** rendering with locale `ar` yields `<html lang="ar" dir="rtl">` and `en` yields `dir="ltr"`; `?lang=ar` persists across requests; flow-relative classes present (no raw `left:`/`right:`).
 - **Permission-visibility tests:** sidebar shows only links the user `can()` see and that are `built`; unauthorized/unbuilt links absent.
@@ -308,7 +311,7 @@ The frontend has no direct DB access — it renders data handed to it by control
 
 ## Future Expansion
 
-- **Component partials library** — ✅ *shipped*: 38 parameterised components in `resources/views/components/` rendered via `component()`, documented live at `/design` (incl. Autocomplete, DatePicker, FileUpload, DataGrid, Timeline, Calendar, Popover, Search and a Notification Center). Future growth adds more primitives to the same library, never bespoke per-page UI; Global Search and the Notification Center components await a live data feed before being mounted in the production shell (no dead buttons).
+- **Component partials library** — ✅ *shipped*: 38 parameterised components in `resources/views/components/` rendered via `component()`, documented by an in-code Purpose/Props/States/Usage docblock per partial (incl. Autocomplete, DatePicker, FileUpload, DataGrid, Timeline, Calendar, Popover, Search and a Notification Center). Future growth adds more primitives to the same library, never bespoke per-page UI. (The internal `/design` visual catalog used during development was removed — it was not a product feature; contracts are locked by `ComponentTest`.)
 - **Optional richer interactivity**: drop in a tiny, no-build library (e.g. Alpine.js via a local file) for client state on heavy screens (kanban application pipeline, live AI interview) — still no bundler, still progressive.
 - **API-backed widgets**: dashboards can fetch JSON from the planned `/api/v1` ([29](29-API-Architecture.md)) using `fetch` + the `<meta name="csrf-token">`, keeping the page server-rendered with islands of dynamism.
 - **Theming per tenant**: workspace-level branding (logo, brand color) driven by `workspaces.settings`, applied as CSS variables in the layout.
