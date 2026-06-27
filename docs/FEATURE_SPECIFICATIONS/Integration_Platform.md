@@ -199,32 +199,28 @@ after creation (`SECURITY_GUIDE.md` §6.4).
 
 - [ ] The REST API is JSON-only, URI-versioned at `/api/v1`, uses kebab-case
   plural resources, and returns standard HTTP status codes.
-- [ ] Every collection endpoint is paginated; unbounded responses are impossible
-  and a server-enforced maximum page size applies.
-- [ ] Filtering and sorting accept only allow-listed fields per resource; arbitrary
-  column access is rejected.
+- [ ] Every collection endpoint is paginated with a server-enforced maximum page
+  size; filtering and sorting accept only allow-listed fields per resource.
 - [ ] Unsafe writes honor `Idempotency-Key`: a repeated key returns the original
   result; the same key with a different body returns `409 Conflict`.
 - [ ] All non-2xx responses use the standard error envelope (`code`, `message`,
   `details`, `request_id`) and never leak stack traces, SQL, paths, or secrets.
-- [ ] The API authenticates with **tokens only**; browser sessions are never
-  accepted. Tokens are stored hashed and shown in full exactly once on creation.
+- [ ] The API authenticates with **tokens only** (never sessions); tokens are
+  stored hashed and shown in full exactly once on creation.
 - [ ] Every request resolves to a workspace and all returned data is filtered by
   `workspace_id`; out-of-scope resources return `404`, not `403`.
-- [ ] Every endpoint enforces the required permission key (deny-by-default);
-  denial returns `403`.
+- [ ] Every endpoint enforces the required permission key (deny-by-default;
+  denial returns `403`).
 - [ ] Rate limits are enforced per credential (and per workspace where relevant);
-  exceeding a limit returns `429` with `Retry-After`; limit tiers come from
-  Licensing.
+  a breach returns `429` with `Retry-After`; limit tiers come from Licensing.
 - [ ] Outbound webhooks are HMAC-signed over the raw body with a per-endpoint
   secret and retried with backoff; every attempt is recorded in a delivery log.
 - [ ] Inbound webhooks are rejected unless the HMAC signature matches and the
-  timestamp/nonce passes replay protection.
-- [ ] A delivered webhook can be replayed only with `webhook.replay`; replays are
-  auditable.
-- [ ] OAuth2/OIDC, SAML, and SCIM transport is present and hands identity results
-  to Authentication/Users/Memberships via contracts — this module never creates
-  users or sessions itself.
+  timestamp/nonce passes replay protection; replay needs `webhook.replay` and is
+  audited.
+- [ ] OAuth2/OIDC, SAML, and SCIM transport hands identity results to
+  Authentication/Users/Memberships via contracts — this module never creates users
+  or sessions itself.
 - [ ] Enabling any connector or API scope is gated by a Licensing check; the
   module never self-decides availability.
 - [ ] No business module calls an external service except through this module's

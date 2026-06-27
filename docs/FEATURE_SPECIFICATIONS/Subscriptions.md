@@ -157,24 +157,23 @@ Cancellation and expiry **retain** business data (recoverable per
 - [ ] The status machine exactly matches `STATE_DIAGRAMS.md` §9
   (Trialing/Active/PastDue/Suspended/Cancelled/Expired) and forbids any transition
   not listed there.
-- [ ] A new workspace can begin **Trialing**; trial end with no plan transitions to
-  **Expired**, and trial conversion transitions to **Active**.
+- [ ] A new workspace can begin **Trialing**; trial conversion → **Active**, trial
+  end with no plan → **Expired**.
 - [ ] A failed payment moves Active → **PastDue** and opens a configurable grace
-  window; grace-end transitions PastDue → **Suspended**.
-- [ ] A successful payment recovers PastDue/Suspended → **Active**.
+  window; grace-end → **Suspended**; a successful payment recovers
+  PastDue/Suspended → **Active**.
 - [ ] **Suspended** workspaces can still log in, view data, and renew, but cannot
-  perform gated actions.
-- [ ] **Cancelled** and **Expired** never hard-delete business data.
-- [ ] Every status change and plan change emits the corresponding event with
+  perform gated actions; **Cancelled** and **Expired** never hard-delete data.
+- [ ] Every status and plan change emits the corresponding event with
   `workspace_id` and writes an audit entry.
-- [ ] Licensing can read the authoritative status + plan reference via contract;
-  this module never computes feature availability itself.
-- [ ] Renewals and charges are requested from Billing; this module never calls a
+- [ ] Licensing reads the authoritative status + plan reference via contract; this
+  module never computes feature availability itself.
+- [ ] Renewals/charges are requested from Billing; this module never calls a
   payment provider directly.
 - [ ] `billing.view` is required to view and `billing.manage` to change a
   subscription; Platform Context overrides require `system.subscriptions.manage`.
 - [ ] Scheduled evaluations (trial/period/grace) run via the Workflow scheduler as
-  background jobs, not via in-module timers.
+  background jobs, not in-module timers.
 
 ### Related Documents
 
