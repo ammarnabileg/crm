@@ -211,7 +211,7 @@ This section maps the **OWASP Top 10 (2021)** to HalaOps controls, then gives th
 | 1 | Cross-tenant data access | Tampering with `workspace_id`/IDs | Auto tenant scope in `Model::query()`, throws if no tenant; FK + per-workspace uniqueness; `findOrFail` → 404 | A01 |
 | 2 | Privilege escalation | Calling a privileged route | `RequirePermission` + `AccessControl`; allow-listed permissions; `is_system` role protection | A01 |
 | 3 | SQL injection | Malicious form/query input | Prepared statements only; `EMULATE_PREPARES=false`; parameterized `QueryBuilder` | A03 |
-| 4 | Stored/reflected XSS | Candidate names, job text, notes | `e()` escaping in all templates (`ENT_QUOTES`); conservative CSP | A03 |
+| 4 | Stored/reflected XSS | Candidate names, job text, notes | `e()` escaping in all templates (`ENT_QUOTES`); **nonce-based CSP** (`script-src 'self' 'nonce-…'`, no `'unsafe-inline'`) so injected inline scripts can't run | A03 |
 | 5 | CSRF | Forged write from another site | `VerifyCsrfToken` constant-time check; SameSite=Lax cookies | A01 |
 | 6 | Credential theft at rest | DB dump / backup leak | Argon2id password hashes; AES-256-GCM secrets; hashed reset & API tokens | A02 |
 | 7 | AI key exfiltration | Reading `tenant_ai_keys` | Encrypted blob, decrypt at use only, masked display, tenant-scoped, per-tenant keys | A02 |
@@ -228,6 +228,7 @@ This section maps the **OWASP Top 10 (2021)** to HalaOps controls, then gives th
 | 18 | Vulnerable dependency | Supply chain | Zero runtime deps; only PHP runtime to patch | A06 |
 | 19 | SSRF via AI/gateway URL | User-controlled endpoint | Allow-listed provider/gateway base URLs; no arbitrary fetch | A10 |
 | 20 | Info disclosure via errors | Stack traces in prod | `APP_DEBUG=false`; generic error views; secrets never logged | A05 |
+| 21 | Open redirect | `Referer`-driven `back()` | `back()` follows the referer only when same-origin (or relative); otherwise falls back to `/` | A01 |
 
 ## Performance
 
@@ -258,7 +259,7 @@ Security tests are first-class (see [39 — Testing Strategy](39-Testing-Strateg
 ## Future Expansion
 
 - **Multi-factor authentication (TOTP / WebAuthn)** layered on the existing auth flow without schema upheaval (new `user_mfa` table; gate at login after password verify).
-- **Per-route CSP with nonces** to tighten the conservative default once inline scripts are eliminated.
+- ✅ *Shipped:* **nonce-based CSP** — `script-src 'self' 'nonce-…'` with a fresh per-request nonce (SecurityHeaders + `csp_nonce()`); `'unsafe-inline'` removed from scripts. Next: extend the nonce to inline `style=""` (replace with classes) to drop `'unsafe-inline'` from `style-src` too.
 - **Key rotation / envelope encryption**: introduce a key-id prefix in `Encrypter` payloads to rotate `APP_KEY` and re-wrap secrets without downtime.
 - **Secrets backend abstraction**: move AI keys to an external KMS/secrets manager behind the same `encrypt_value()`/`decrypt_value()` seam on managed hosting.
 - **SIEM export** of `activity_logs` and `Logger` output; anomaly detection on auth failures and cross-tenant 403s.

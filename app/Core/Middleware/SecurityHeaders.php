@@ -9,28 +9,36 @@ use App\Core\Response;
 use Closure;
 
 /**
- * Applies hardening headers to every response, including a Content-Security-Policy.
- * The CSP restricts everything to the same origin and forbids plugins, base-uri
- * hijacking and cross-origin framing/forms; it permits `'unsafe-inline'` for
- * script/style because the app uses inline styles (progress bar) and the install
- * console's inline script. `img-src` allows `data:` for the inline SVG favicon.
+ * Applies hardening headers to every response, including a strict, nonce-based
+ * Content-Security-Policy. A fresh per-request nonce is bound (csp_nonce()) before
+ * the response renders; only inline <script> tags carrying that nonce execute, so
+ * `script-src` no longer needs `'unsafe-inline'` — injected inline scripts (the
+ * classic XSS payload) are blocked by the browser even if they slip past escaping.
+ * `style-src` keeps `'unsafe-inline'` for the handful of inline `style=""` attributes
+ * (progress bars, swatches), which is low risk. `img-src` allows `data:` for the
+ * inline SVG favicon. Everything else is same-origin; framing/forms/base-uri locked.
  */
 final class SecurityHeaders implements MiddlewareInterface
 {
-    private const CSP = "default-src 'self'; "
-        . "script-src 'self' 'unsafe-inline'; "
-        . "style-src 'self' 'unsafe-inline'; "
-        . "img-src 'self' data:; "
-        . "font-src 'self'; "
-        . "connect-src 'self'; "
-        . "object-src 'none'; "
-        . "base-uri 'self'; "
-        . "frame-ancestors 'self'; "
-        . "form-action 'self'";
-
     public function handle(Request $request, Closure $next): Response
     {
+        // Generate + bind the nonce BEFORE rendering so views can stamp it onto
+        // their legitimate inline scripts; reuse the same value in the header.
+        $nonce = base64_encode(random_bytes(16));
+        app()->instance('csp_nonce', $nonce);
+
         $response = $next($request);
+
+        $csp = "default-src 'self'; "
+            . "script-src 'self' 'nonce-{$nonce}'; "
+            . "style-src 'self' 'unsafe-inline'; "
+            . "img-src 'self' data:; "
+            . "font-src 'self'; "
+            . "connect-src 'self'; "
+            . "object-src 'none'; "
+            . "base-uri 'self'; "
+            . "frame-ancestors 'self'; "
+            . "form-action 'self'";
 
         $headers = [
             'X-Content-Type-Options'  => 'nosniff',
@@ -38,7 +46,7 @@ final class SecurityHeaders implements MiddlewareInterface
             'Referrer-Policy'         => 'strict-origin-when-cross-origin',
             'X-XSS-Protection'        => '0',
             'Permissions-Policy'      => 'camera=(), microphone=(), geolocation=()',
-            'Content-Security-Policy'  => self::CSP,
+            'Content-Security-Policy'  => $csp,
         ];
 
         if ($request->isSecure()) {

@@ -81,21 +81,19 @@
                                                class="btn-ghost px-3 py-1.5 text-sm">Download</a>
 
                                             <?php if (($backup['type'] ?? '') === 'db'): ?>
-                                                <form method="POST" action="<?= e(url('system/backups/restore')) ?>"
-                                                      onsubmit="return confirm('Restore the database from <?= e($backup['name']) ?>?\n\nThis OVERWRITES all current data and cannot be undone. Make sure you have a fresh backup first.');">
+                                                <form method="POST" action="<?= e(url('system/backups/restore')) ?>">
                                                     <?= csrf_field() ?>
                                                     <input type="hidden" name="name" value="<?= e($backup['name']) ?>">
                                                     <input type="hidden" name="confirm" value="1">
-                                                    <button type="submit" class="btn-secondary px-3 py-1.5 text-sm">Restore</button>
+                                                    <button type="submit" class="btn-secondary px-3 py-1.5 text-sm" data-confirm="Restore the database from <?= e($backup['name']) ?>? This OVERWRITES all current data and cannot be undone. Make sure you have a fresh backup first.">Restore</button>
                                                 </form>
                                             <?php endif; ?>
 
-                                            <form method="POST" action="<?= e(url('system/backups/delete')) ?>"
-                                                  onsubmit="return confirm('Delete <?= e($backup['name']) ?>? This cannot be undone.');">
+                                            <form method="POST" action="<?= e(url('system/backups/delete')) ?>">
                                                 <?= csrf_field() ?>
                                                 <input type="hidden" name="_method" value="DELETE">
                                                 <input type="hidden" name="name" value="<?= e($backup['name']) ?>">
-                                                <button type="submit" class="btn-danger px-3 py-1.5 text-sm">Delete</button>
+                                                <button type="submit" class="btn-danger px-3 py-1.5 text-sm" data-confirm="Delete <?= e($backup['name']) ?>? This cannot be undone.">Delete</button>
                                             </form>
                                         </div>
                                     </td>

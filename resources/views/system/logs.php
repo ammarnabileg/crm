@@ -90,11 +90,10 @@ $levelBadge = [
                             <p class="text-xs text-slate-400">Showing the last <?= count($lines) ?> line<?= count($lines) === 1 ? '' : 's' ?> (newest at the bottom).</p>
                         </div>
                         <?php if ($selected !== null): ?>
-                            <form method="POST" action="<?= e(url('system/logs/clear')) ?>"
-                                  onsubmit="return confirm('Clear all contents of <?= e($selected) ?>? This cannot be undone.');">
+                            <form method="POST" action="<?= e(url('system/logs/clear')) ?>">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="file" value="<?= e($selected) ?>">
-                                <button type="submit" class="btn-danger">Clear log</button>
+                                <button type="submit" class="btn-danger" data-confirm="Clear all contents of <?= e($selected) ?>? This cannot be undone.">Clear log</button>
                             </form>
                         <?php endif; ?>
                     </div>

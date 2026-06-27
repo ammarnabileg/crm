@@ -135,7 +135,7 @@
 <?php $this->endSection(); ?>
 
 <?php $this->section('scripts'); ?>
-<script>
+<script nonce="<?= e(csp_nonce()) ?>">
 (function () {
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
     const consoleEl = document.getElementById('console');

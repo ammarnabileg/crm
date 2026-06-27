@@ -32,7 +32,7 @@ $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || st
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
-    <script>
+    <script nonce="<?= e(csp_nonce()) ?>">
       // No-flash theme: apply the saved (or system) dark mode before first paint.
       (function () {
         try {

@@ -233,8 +233,17 @@ if (! function_exists('redirect')) {
 if (! function_exists('back')) {
     function back(int $status = 302): Response
     {
+        // Open-redirect protection: only follow the Referer when it targets our own
+        // host (or is a relative path). A user-controlled header must never bounce
+        // the user off-site.
         $referer = request()->header('referer');
-        $target = is_string($referer) && $referer !== '' ? $referer : url('/');
+        $target = url('/');
+        if (is_string($referer) && $referer !== '') {
+            $refHost = parse_url($referer, PHP_URL_HOST);
+            if ($refHost === null || $refHost === parse_url(base_url(), PHP_URL_HOST)) {
+                $target = $referer;
+            }
+        }
 
         return Response::redirect($target, $status);
     }
@@ -314,6 +323,21 @@ if (! function_exists('csrf_field')) {
     function csrf_field(): string
     {
         return '<input type="hidden" name="_token" value="' . e(csrf_token()) . '">';
+    }
+}
+
+if (! function_exists('csp_nonce')) {
+    /**
+     * The per-request Content-Security-Policy nonce. SecurityHeaders binds it before
+     * the response renders; legitimate inline <script> tags echo it as `nonce="..."`
+     * so they run under a strict `script-src 'self' 'nonce-…'` (no 'unsafe-inline').
+     * Returns '' when unbound (e.g. isolated view-render tests) so templates are safe.
+     */
+    function csp_nonce(): string
+    {
+        $c = app();
+
+        return $c->bound('csp_nonce') ? (string) $c->make('csp_nonce') : '';
     }
 }
 
