@@ -14,7 +14,7 @@ $nav = [
     ['search',    'Search',              'recruitment.view', true],
     ['files',     'Files',               'recruitment.view', true],
     ['members',   'Members',            'members.view', true],
-    ['roles',     'Roles & Permissions', 'roles.view',  false],
+    ['roles',     'Roles & Permissions', 'roles.view',  true],
     ['ai',        'AI Settings',        'ai.view',      true],
     ['billing',   'Billing',            'billing.view', true],
     ['settings',  'Workspace Settings',   'settings.view', true],

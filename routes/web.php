@@ -21,6 +21,7 @@ use App\Controllers\App\NotificationController;
 use App\Controllers\App\AiSettingsController;
 use App\Controllers\App\SettingsController;
 use App\Controllers\App\SearchController;
+use App\Controllers\App\RoleController;
 use App\Controllers\App\FileController;
 use App\Controllers\App\BillingController;
 use App\Controllers\System\CronController;
@@ -185,6 +186,15 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
             $router->post('members/update-roles', [MemberController::class, 'updateRoles'])->middleware('permission:members.update')->name('members.update-roles');
             $router->post('members/deactivate', [MemberController::class, 'deactivate'])->middleware('permission:members.remove')->name('members.deactivate');
             $router->post('members/reactivate', [MemberController::class, 'reactivate'])->middleware('permission:members.remove')->name('members.reactivate');
+
+            // Roles & Permissions (docs/47 RBAC) — per-workspace roles + a module-
+            // grouped permission matrix. Reads: roles.view; writes: roles.manage.
+            $router->get('roles', [RoleController::class, 'index'])->middleware('permission:roles.view')->name('roles.index');
+            $router->get('roles/create', [RoleController::class, 'create'])->middleware('permission:roles.manage')->name('roles.create');
+            $router->post('roles', [RoleController::class, 'store'])->middleware('permission:roles.manage')->name('roles.store');
+            $router->get('roles/edit', [RoleController::class, 'edit'])->middleware('permission:roles.manage')->name('roles.edit');
+            $router->post('roles/update', [RoleController::class, 'update'])->middleware('permission:roles.manage')->name('roles.update');
+            $router->post('roles/delete', [RoleController::class, 'destroy'])->middleware('permission:roles.manage')->name('roles.delete');
 
             // Notifications (docs/30) — the signed-in user's own feed. No permission
             // gate: the controller scopes every query to auth()->id() + tenant().
