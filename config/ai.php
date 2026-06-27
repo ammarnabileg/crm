@@ -8,6 +8,11 @@ declare(strict_types=1);
  * `tenant_ai_keys`, encrypted — the platform stores none).
  */
 return [
+    // Per-call HTTP timeout (seconds) for the real provider adapters (OpenAI/Claude/
+    // Gemini/DeepSeek/Azure). A timeout fails the call cleanly so the gateway falls
+    // back to the next provider — it never hangs a request.
+    'http_timeout' => (int) env('AI_HTTP_TIMEOUT', 60),
+
     // PromptGuard (§13) — mandatory injection protection on every untrusted input.
     'guard' => [
         // Risk score (0–100) at/above which an input is rejected outright. Below it,

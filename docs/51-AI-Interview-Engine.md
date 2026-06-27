@@ -331,10 +331,17 @@ explicitly prioritized): State Machine, Evaluation Templates, Workflow Builder.
    Optimizer** (the safe model-call core; needs tenant keys). — ✅ **CORE DONE**
    (`AiProvider` contract, `PromptGuard`, `TokenOptimizer`, `ModelRouter`,
    `AiGateway` guard→optimize→route→fallback→audit, `FakeProvider` sandbox; 16
-   tests, all offline). Live HTTP provider adapters (OpenAI/Claude/…) plug into the
-   registry and are wired when a workspace has added its own keys — they require
-   live keys + network to verify and so are an integration step, not part of the
-   tested core.
+   tests, all offline). **Live HTTP provider adapters — ✅ realized (Phase 16):**
+   `OpenAiProvider`, `ClaudeProvider`, `GeminiProvider`, `DeepSeekProvider`,
+   `AzureOpenAiProvider` (DeepSeek/Azure reuse the OpenAI shape) implement the same
+   `AiProvider` contract over an injectable `App\Contracts\Http\HttpClient`
+   (`CurlHttpClient` in production, `FakeHttpClient` in tests) and register into the
+   SAME `AiGateway` registry — routing/fallback/audit unchanged. They never throw:
+   missing key, 401/403 (invalid/expired key), 429 (rate limit), 5xx, timeout and
+   network errors all return `AiResult::failure()` so the gateway falls back. The
+   full request/response + failure matrix is tested offline via `FakeHttpClient`
+   (`tests/Feature/AiProvidersTest`); only a *live* end-to-end call needs a real
+   tenant key + network (the platform stores no keys).
 5. **P5 — Orchestrator + Memory Engine + Knowledge Engine + Quality Control.** — ✅
    **DONE** (migration 0040, `Orchestrator`/`MemoryEngine`/`KnowledgeEngine`/
    `QualityControl`, 14 tests; bounded context; all model calls via the AiGateway).

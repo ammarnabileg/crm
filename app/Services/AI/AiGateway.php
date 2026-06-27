@@ -6,8 +6,14 @@ namespace App\Services\AI;
 
 use App\Contracts\AI\AiProvider;
 use App\Core\Database;
+use App\Infrastructure\Http\CurlHttpClient;
 use App\Models\AiCredential;
+use App\Services\AI\Providers\AzureOpenAiProvider;
+use App\Services\AI\Providers\ClaudeProvider;
+use App\Services\AI\Providers\DeepSeekProvider;
 use App\Services\AI\Providers\FakeProvider;
+use App\Services\AI\Providers\GeminiProvider;
+use App\Services\AI\Providers\OpenAiProvider;
 
 /**
  * AI Gateway (docs/51 §12–13) — the single safe entry point for every model call.
@@ -37,7 +43,18 @@ final class AiGateway
     public static function make(): self
     {
         $gateway = new self(app('db'), new PromptGuard(), new TokenOptimizer(), ModelRouter::make());
-        $gateway->register(new FakeProvider('sandbox')); // offline sandbox is always available
+
+        // The offline sandbox is always available; the real adapters share one cURL
+        // transport + the configured timeout. They register into the SAME registry,
+        // so the routing/fallback/audit orchestration above is untouched.
+        $http = new CurlHttpClient();
+        $timeout = (int) config('ai.http_timeout', 60);
+        $gateway->register(new FakeProvider('sandbox'))
+            ->register(new OpenAiProvider($http, $timeout))
+            ->register(new ClaudeProvider($http, $timeout))
+            ->register(new GeminiProvider($http, $timeout))
+            ->register(new DeepSeekProvider($http, $timeout))
+            ->register(new AzureOpenAiProvider($http, $timeout));
 
         return $gateway;
     }
