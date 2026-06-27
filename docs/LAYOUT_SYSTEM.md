@@ -378,27 +378,9 @@ scheduled later (`UI_GUIDELINES.md` §5).
 
 ---
 
-## 10. Conformance Rules (binding summary)
+## 10. Self-Review Checklist (Layout gate)
 
-- The shell is **one server-rendered layout** with four regions (top bar,
-  dynamic sidebar, content, optional right panel); modules render into it and MUST
-  NOT define competing chrome (§1).
-- Spacing, sizing, color, type, radius, elevation, motion, and z-index come from
-  **tokens**; raw values are a defect (§2, §5).
-- Layout is **direction-aware** (logical start/end) and correct in RTL and LTR
-  (§4).
-- Responsive behavior follows the breakpoint tokens; the sidebar degrades
-  expanded → rail → off-canvas without losing navigation (§3).
-- Overlays use the **shared components** and the **fixed z-ladder**; focus,
-  scroll-lock, and Escape behavior are honored (§6, §7).
-- Density modes and per-workspace branding are achieved by **token swaps**, never
-  template forks; brand never crosses the tenant boundary (§8).
-- Tokens are defined so **dark mode** is achievable without rewriting components
-  (§9).
-
----
-
-## Self-Review Checklist (Layout gate)
+The per-section **MUST** rules above are binding; this checklist is the gate.
 
 - [ ] Page renders inside the shared shell; no module-specific chrome.
 - [ ] No raw pixel/color/z-index values — all from tokens.
