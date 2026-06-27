@@ -9,7 +9,9 @@ use App\Core\Hash;
 use App\Core\Model;
 use App\Models\Application;
 use App\Services\Ats\ApplicationFlow;
+use App\Services\Cv\CvService;
 use App\Services\Files\FileService;
+use App\Services\Files\FileStorage;
 
 /**
  * Public Careers portal data layer (docs/53 ATS).
@@ -213,6 +215,23 @@ final class CareersService
                 return ['errors' => $stored['errors'] ?? ['The CV could not be uploaded.']];
             }
             $resumeFileId = (int) $stored->getKey();
+
+            // Read the CV so the candidate's profile + skills are populated. Strictly
+            // best-effort — it never throws and never blocks the application.
+            try {
+                $abs = (new FileStorage())->path((string) $stored->getAttribute('path'));
+                if ($abs !== null) {
+                    (new CvService())->parseFile(
+                        $userId,
+                        $abs,
+                        (string) $stored->getAttribute('original_name'),
+                        (int) $workspaceId,
+                        $resumeFileId,
+                    );
+                }
+            } catch (\Throwable) {
+                // CV reading is enrichment only — a failure must not affect applying.
+            }
         }
 
         $coverLetter = trim((string) ($input['cover_letter'] ?? ''));
