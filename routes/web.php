@@ -143,9 +143,11 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
                 ->middleware('permission:dashboard.view')
                 ->name('dashboard');
 
-            // Design System catalog (docs/30) — living component reference.
+            // Design System catalog (docs/30) — an internal component reference for
+            // the platform owner only; hidden from tenant users (no nav link) and
+            // gated to super-admins via system.manage so it never shows to customers.
             $router->get('design', [DesignSystemController::class, 'index'])
-                ->middleware('permission:dashboard.view')
+                ->middleware('permission:system.manage')
                 ->name('design');
 
             // Recruitment / ATS (docs/53). Reads: recruitment.view; writes: recruitment.manage.
