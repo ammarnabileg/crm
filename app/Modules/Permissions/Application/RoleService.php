@@ -99,6 +99,15 @@ final class RoleService
         return array_map(static fn (array $r): string => (string) $r['key'], $rows);
     }
 
+    /** @return list<array<string, mixed>> roles defined in a workspace */
+    public function rolesForWorkspace(string $workspaceId): array
+    {
+        return $this->connection->select(
+            'SELECT id, name, description FROM roles WHERE workspace_id = ? AND deleted_at IS NULL ORDER BY name ASC',
+            [$workspaceId],
+        );
+    }
+
     public function deleteRole(string $workspaceId, string $roleId): void
     {
         // Tenant guard: only delete a role that belongs to this workspace.

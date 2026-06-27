@@ -35,6 +35,15 @@ final class MembershipService
     }
 
     /** @return array<string, mixed>|null */
+    public function findById(string $membershipId): ?array
+    {
+        return $this->connection->selectOne(
+            'SELECT * FROM memberships WHERE id = ? AND deleted_at IS NULL',
+            [$membershipId],
+        );
+    }
+
+    /** @return array<string, mixed>|null */
     public function find(string $workspaceId, string $userId): ?array
     {
         return $this->connection->selectOne(
@@ -62,6 +71,22 @@ final class MembershipService
               WHERE m.user_id = ? AND m.deleted_at IS NULL AND w.deleted_at IS NULL
               ORDER BY w.created_at ASC',
             [$userId],
+        );
+    }
+
+    /** @return list<array<string, mixed>> members of a workspace with their role names */
+    public function membersForWorkspace(string $workspaceId): array
+    {
+        return $this->connection->select(
+            "SELECT m.id AS membership_id, m.status, m.joined_at, u.name, u.email,
+                    (SELECT GROUP_CONCAT(r.name ORDER BY r.name SEPARATOR ', ')
+                       FROM membership_roles mr JOIN roles r ON r.id = mr.role_id
+                      WHERE mr.membership_id = m.id) AS roles
+               FROM memberships m
+               JOIN users u ON u.id = m.user_id
+              WHERE m.workspace_id = ? AND m.deleted_at IS NULL
+              ORDER BY m.created_at ASC",
+            [$workspaceId],
         );
     }
 }

@@ -12,4 +12,7 @@ return [
     \HaHireAI\Modules\Installer\InstallerModule::class,
     \HaHireAI\Modules\Authentication\AuthenticationModule::class,
     \HaHireAI\Modules\Workspaces\WorkspaceModule::class,
+    \HaHireAI\Modules\Memberships\MembershipsModule::class,
+    \HaHireAI\Modules\Permissions\PermissionsModule::class,
+    \HaHireAI\Modules\Audit\AuditModule::class,
 ];

@@ -22,6 +22,8 @@ final class SidebarBuilder
         ['label' => 'Offers', 'route' => '/offers', 'permission' => 'offer.view'],
         ['label' => 'Reports', 'route' => '/reports', 'permission' => 'report.view'],
         ['label' => 'Members', 'route' => '/members', 'permission' => 'member.view'],
+        ['label' => 'Roles', 'route' => '/roles', 'permission' => 'role.view'],
+        ['label' => 'Activity', 'route' => '/activity', 'permission' => 'audit.view'],
         ['label' => 'Files', 'route' => '/files', 'permission' => 'files.view'],
         ['label' => 'Settings', 'route' => '/settings', 'permission' => 'settings.view'],
         ['label' => 'Billing', 'route' => '/billing', 'permission' => 'billing.view'],

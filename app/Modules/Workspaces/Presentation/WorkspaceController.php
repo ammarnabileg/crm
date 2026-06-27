@@ -8,18 +8,22 @@ use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
 use HaHireAI\Core\View\View;
+use HaHireAI\Modules\Audit\Application\AuditLogger;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
+use HaHireAI\Modules\Memberships\Application\MembershipService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceCreator;
 use Throwable;
 
-/** Create a workspace (docs/WORKSPACE_MODEL.md). Any user may create one. */
+/** Create / switch workspaces (docs/WORKSPACE_MODEL.md). Any user may create one. */
 final class WorkspaceController
 {
     public function __construct(
         private readonly View $view,
         private readonly AuthContext $auth,
         private readonly WorkspaceCreator $creator,
+        private readonly MembershipService $memberships,
         private readonly Session $session,
+        private readonly AuditLogger $audit,
     ) {
     }
 
@@ -67,8 +71,37 @@ final class WorkspaceController
             return Response::redirect('/workspaces/create');
         }
 
+        $this->audit->record('workspaces.workspace.created', [
+            'workspace_id' => $result['workspace_id'],
+            'actor_user_id' => $this->auth->id(),
+            'entity_type' => 'workspace',
+            'entity_id' => $result['workspace_id'],
+            'ip' => $request->server('REMOTE_ADDR'),
+            'changes' => ['name' => $name],
+        ]);
+
         $this->auth->setCurrentWorkspace($result['workspace_id']);
 
         return Response::redirect('/dashboard');
     }
+
+    /** Switch the active workspace (multi-workspace UX). */
+    public function switch(Request $request, string $id): Response
+    {
+        if (! $this->auth->check()) {
+            return Response::redirect('/login');
+        }
+
+        if (! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return Response::redirect('/dashboard');
+        }
+
+        // Tenant guard: only switch to a workspace the user is a member of.
+        if ($this->memberships->find($id, (string) $this->auth->id()) !== null) {
+            $this->auth->setCurrentWorkspace($id);
+        }
+
+        return Response::redirect('/dashboard');
+    }
 }
+

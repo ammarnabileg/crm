@@ -8,12 +8,11 @@ use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Memberships\Application\MembershipService;
-use HaHireAI\Modules\Navigation\Application\SidebarBuilder;
-use HaHireAI\Modules\Permissions\Application\Authorizer;
+use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 
 /**
- * The workspace dashboard. Renders the single dynamic sidebar from the current
- * member's permissions; a user with no workspace sees Create/Join only
+ * The workspace dashboard. A user with no workspace sees Create/Join only;
+ * otherwise the single dynamic sidebar is rendered from their permissions
  * (docs/DASHBOARD_GUIDE.md, docs/SIDEBAR_MODEL.md).
  */
 final class DashboardController
@@ -21,9 +20,9 @@ final class DashboardController
     public function __construct(
         private readonly View $view,
         private readonly AuthContext $auth,
+        private readonly WorkspaceContext $context,
+        private readonly WorkspaceShell $shell,
         private readonly MembershipService $memberships,
-        private readonly Authorizer $authorizer,
-        private readonly SidebarBuilder $sidebar,
     ) {
     }
 
@@ -34,51 +33,22 @@ final class DashboardController
         }
 
         $user = $this->auth->user();
-        $workspaces = $this->memberships->workspacesForUser((string) $user['id']);
 
-        if ($workspaces === []) {
+        if (! $this->context->resolve()) {
             return Response::html($this->view->page('workspace.none', [
                 'user' => $user,
             ], 'layouts.app', ['user' => $user, 'sidebar' => [], 'workspaceName' => null]));
         }
 
-        $current = $this->resolveCurrentWorkspace($workspaces);
-        $this->auth->setCurrentWorkspace((string) $current['id']);
+        $workspaces = $this->memberships->workspacesForUser((string) $user['id']);
 
-        $membership = $this->memberships->find((string) $current['id'], (string) $user['id']);
-        $permissions = $membership !== null
-            ? $this->authorizer->permissionsForMembership((string) $membership['id'])
-            : [];
-
-        $items = $this->sidebar->build('workspace', $permissions);
-
-        return Response::html($this->view->page('dashboard.index', [
+        return $this->shell->render($this->context, 'dashboard.index', [
             'user' => $user,
-            'workspace' => $current,
+            'workspace' => $this->context->workspace(),
             'workspaces' => $workspaces,
-            'permissionCount' => count($permissions),
+            'currentWorkspaceId' => $this->context->workspaceId(),
+            'permissionCount' => count($this->context->permissions()),
             'isSystemOwner' => (int) ($user['is_system_owner'] ?? 0) === 1,
-        ], 'layouts.app', [
-            'user' => $user,
-            'sidebar' => $items,
-            'workspaceName' => $current['name'],
-        ]));
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $workspaces
-     * @return array<string, mixed>
-     */
-    private function resolveCurrentWorkspace(array $workspaces): array
-    {
-        $currentId = $this->auth->currentWorkspaceId();
-
-        foreach ($workspaces as $workspace) {
-            if ((string) $workspace['id'] === $currentId) {
-                return $workspace;
-            }
-        }
-
-        return $workspaces[0];
+        ]);
     }
 }

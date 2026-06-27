@@ -34,6 +34,24 @@
 </div>
 
 <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-900">Your workspaces</h2>
+        <a href="/workspaces/create" class="text-sm font-medium text-indigo-600 hover:underline">+ New workspace</a>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        <?php foreach ($workspaces as $w): ?>
+            <?php $active = (string) $w['id'] === (string) $currentWorkspaceId; ?>
+            <form method="post" action="/workspaces/<?= e($w['id']) ?>/switch">
+                <?= csrf_field() ?>
+                <button type="submit" class="rounded-lg border px-3 py-1.5 text-sm <?= $active ? 'border-indigo-500 bg-indigo-50 font-semibold text-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50' ?>">
+                    <?= e($w['name']) ?><?= $active ? ' ·' : '' ?>
+                </button>
+            </form>
+        <?php endforeach; ?>
+    </div>
+</div>
+
+<div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
     <h2 class="text-sm font-semibold text-slate-900">Your sidebar is generated from your permissions</h2>
     <p class="mt-1 text-sm text-slate-500">
         The single sidebar on the left is built dynamically from your current workspace, permissions,
