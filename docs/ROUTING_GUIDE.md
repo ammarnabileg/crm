@@ -59,15 +59,12 @@ The Router **MUST** support exactly these verbs, each with standard semantics
 
 ### 3.1 Per-module declaration
 
-Each module ships route files in `app/Modules/<Module>/Routes/`. By convention:
-
-- `web.php` — server-rendered, session/CSRF-protected web routes.
-- `api.php` — external REST endpoints mounted under `/api/v1` (Phase 13 wires the
-  gateway; the declarations exist from each module's foundation).
-
-Route files are **kebab/lowercase `.php`** files that **return a closure** taking
-the route collector (`DIRECTORY_STANDARD.md` §3). They register routes against
-the collector; they **MUST NOT** instantiate controllers or the kernel.
+Each module ships route files in `app/Modules/<Module>/Routes/`: by convention
+`web.php` (server-rendered, session/CSRF-protected) and `api.php` (external REST
+under `/api/v1` — Phase 13 wires the gateway, but the declarations exist from each
+module's foundation). Route files are **kebab/lowercase `.php`** files that
+**return a closure** taking the route collector (`DIRECTORY_STANDARD.md` §3); they
+register routes and **MUST NOT** instantiate controllers or the kernel.
 
 ### 3.2 Aggregation by `/routes`
 
@@ -82,10 +79,9 @@ eligibility.
 
 ### 3.3 Collision policy
 
-Two routes that resolve the same `(method, path)` are a **defect**. The loader
-**MUST** fail fast at boot with a clear message naming both modules, rather than
-silently letting later registration win. Named-route collisions (§5) are treated
-the same way.
+Two routes resolving the same `(method, path)` — or sharing a route name (§6) — are
+a **defect**. The loader **MUST** fail fast at boot with a message naming both
+modules, never silently letting later registration win.
 
 ## 4. Route Groups
 
@@ -125,20 +121,19 @@ surfaces and attach cross-cutting concerns without repetition:
   **MUST NOT** hard-code path strings — the routing corollary of "no constants in
   code" (`CONFIGURATION_GUIDE.md`). Hard-coded paths break silently when a URL
   changes; named generation fails loudly on a missing/extra parameter or unknown
-  name.
-- Absolute-URL generation uses the configured app base URL from the Config loader
-  (`CONFIGURATION_GUIDE.md`), never a hard-coded host.
+  name. Absolute-URL generation uses the configured app base URL from the Config
+  loader (`CONFIGURATION_GUIDE.md`), never a hard-coded host.
 
 ## 7. Middleware Registration
 
-Middleware is the pipeline that wraps a matched route before/after the controller
+Middleware is the pipeline wrapping a matched route before/after the controller
 runs. In **this phase middleware is declared, not executed** — the registration
-surface and ordering are designed now; execution of auth, CSRF, rate limiting,
-and tenant resolution lands in later phases (`ARCHITECTURE.md` §6–§8).
+surface and ordering are designed now; execution of auth, CSRF, rate limiting, and
+tenant resolution lands in later phases (`ARCHITECTURE.md` §6–§8).
 
-- Middleware is attached at three scopes: **global** (every request), **group**
-  (a route group), and **route** (one route). The effective stack is the
-  concatenation in that order; the response unwinds in reverse.
+- Middleware attaches at three scopes — **global** (every request), **group** (a
+  route group), **route** (one route). The effective stack is the concatenation in
+  that order; the response unwinds in reverse.
 - Middleware is referenced by a **name/alias** resolved from the container
   (`SERVICE_CONTAINER.md`), never by hard-coded class strings in the route file.
 - Reserved names are designed up front so route files can declare intent today —
@@ -166,11 +161,11 @@ The two surfaces are organized separately and **MUST NOT** be mixed in one file.
 | Versioning | None (UI evolves freely) | URI-versioned `/api/v1` |
 | Owner doc | This guide + `UI_GUIDELINES.md` | `API_GUIDELINES.md` (Part B) |
 
-- The **session vs token** split is binding: the REST API **NEVER** uses sessions
-  (`API_GUIDELINES.md` §B9; Constitution §10).
-- API resource paths are **kebab-case, plural nouns** (`/api/v1/job-postings`);
-  web paths are likewise **kebab-case** (Constitution §7). The full naming
-  authority for API resources is `API_GUIDELINES.md` §B3.
+The **session vs token** split is binding: the REST API **NEVER** uses sessions
+(`API_GUIDELINES.md` §B9; Constitution §10). API resource paths are **kebab-case,
+plural nouns** (`/api/v1/job-postings`) and web paths are likewise **kebab-case**
+(Constitution §7); the naming authority for API resources is `API_GUIDELINES.md`
+§B3.
 
 ## 9. kebab-case URL Convention
 
@@ -203,13 +198,13 @@ The Dispatcher distinguishes "no such path" from "wrong method on a known path":
 
 Routing sits inside the request lifecycle (`ARCHITECTURE.md` §7): the Kernel boots,
 `/routes` aggregates each enabled module's `Routes/{web,api}.php`, then
-`Router.match(method, path)` resolves to a 404 (no path), 405 + `Allow` (wrong
-method), or the middleware pipeline → controller.
+`Router.match(method, path)` resolves to a 404, a 405 + `Allow`, or the middleware
+pipeline → controller (§10).
 
-> **EXAMPLE ONLY — illustrative, not source.** The intended shape of a module
-> route file: a returned closure registering routes, a group with
-> prefix/name/middleware, URL parameters, named routes, and **declared**
-> middleware. Final signatures are fixed when the Router lands (Phase 7).
+> **EXAMPLE ONLY — illustrative, not source.** The intended shape of a module route
+> file: a returned closure registering routes, a group with prefix/name/middleware,
+> URL parameters, named routes, and **declared** middleware. Final signatures are
+> fixed when the Router lands (Phase 7).
 
 ```php
 <?php
@@ -240,8 +235,8 @@ return static function (RouteCollector $routes): void {
 
 > **EXAMPLE ONLY — URL generation by name (illustrative):** build paths from the
 > route **name**, never a literal — `url('jobs.show', ['jobId' => $id])` →
-> `/jobs/01J...`. The matching API file (`Routes/api.php`) mounts under the
-> `/api/v1` group with `auth.token` + `rate-limit` and returns the JSON envelope.
+> `/jobs/01J...`. The matching `Routes/api.php` mounts under the `/api/v1` group
+> with `auth.token` + `rate-limit` and returns the JSON envelope.
 
 ## 12. Self-Review (Phase 6 gate)
 

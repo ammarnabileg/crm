@@ -72,11 +72,10 @@ when keys collide. From lowest precedence (base) to highest (override):
   the Settings module/DB (§10). These are the most specific and win where they
   apply.
 
-> **Precedence summary.** For a given key, the **most specific defined layer
-> wins**: workspace/runtime > module `Config/` > `config/` > env-derived default.
-> Layers do not deep-merge arbitrary structures by default; a key defined at a
-> higher layer **replaces** the lower value unless a config file is explicitly
-> authored to merge (§6).
+> **Precedence (full rules in §6).** Most-specific layer wins: workspace/runtime >
+> module `Config/` > `config/` > env-derived default. Layers do **not** deep-merge
+> by default — a higher-layer key **replaces** the lower value unless a config file
+> is explicitly authored to merge.
 
 ## 3. Environment Layer (`.env`)
 
@@ -135,33 +134,30 @@ when keys collide. From lowest precedence (base) to highest (override):
 ## 7. Typed Config Access
 
 - Configuration is read through a **typed accessor** keyed by a dotted path that
-  encodes the layer/namespace, e.g. `app.timezone`, `database.connections.mysql`,
-  `modules.jobs.max-active-postings`.
-- Accessors are **type-asserting**: a caller requests a value as the type it
-  expects (string/int/bool/array), and a type mismatch is an error, not a silent
-  coercion at the call site.
-- A caller **MAY** supply a default for **optional** keys; **required** keys
-  **MUST NOT** be silently defaulted — their absence is a configuration defect
-  (§9).
+  encodes the layer/namespace, e.g. `app.timezone`,
+  `modules.jobs.max-active-postings`. Accessors are **type-asserting** — a caller
+  requests the type it expects (string/int/bool/array) and a mismatch is an error,
+  not a silent call-site coercion.
+- A caller **MAY** supply a default for **optional** keys; **required** keys **MUST
+  NOT** be silently defaulted — their absence is a defect (§9).
 - The accessor is **injected** (constructor injection via the container); code
   **MUST NOT** reach a global singleton (`ARCHITECTURE.md` §6).
-- Configuration is treated as **read-only at runtime**; nothing mutates the loaded
-  config tree (immutability — Constitution §6). Tenant-changeable values live in
-  layer 4 (§10), not by mutating layers 1–3.
+- Configuration is **read-only at runtime**; nothing mutates the loaded tree
+  (immutability — Constitution §6). Tenant-changeable values live in layer 4
+  (§10), not by mutating layers 1–3.
 
 ## 8. Per-Module Configuration
 
 - Each module owns `app/Modules/<Module>/Config/` and ships sensible, secret-free
-  defaults (`PROJECT_STRUCTURE.md` §4; module standards, Constitution §9: a
-  module **MUST** ship its configuration).
-- Module config is **namespaced by module** (conventionally under a
-  `modules.<module>.*` path) so keys are collision-free and discoverable.
+  defaults — a module **MUST** ship its configuration (`PROJECT_STRUCTURE.md` §4;
+  Constitution §9). Files obey naming rules: **kebab-case `.php` returning an
+  array** (`DIRECTORY_STANDARD.md` §3), declarative only.
+- Module config is **namespaced by module** (conventionally `modules.<module>.*`)
+  so keys are collision-free and discoverable.
 - A module **MUST NOT** read another module's config keys; if it needs another
-  module's behavior, it depends on that module's **Contract** or an **event**
+  module's behavior it depends on that module's **Contract** or an **event**
   (`ARCHITECTURE.md` §4; `API_GUIDELINES.md` Part A). Configuration is not a
   cross-module API.
-- Module config files obey naming rules: **kebab-case `.php` returning an array**
-  (`DIRECTORY_STANDARD.md` §3), declarative only.
 
 ## 9. Validation of Required Env Vars at Boot
 
@@ -173,10 +169,9 @@ when keys collide. From lowest precedence (base) to highest (override):
 - The set of required keys is declared centrally (mirrored in `.env.example`).
   Optional keys declare a default.
 - Validation failures **MUST NOT** echo secret values; the message names the key,
-  not its contents (Constitution §10 — never leak secrets; align with the Error
-  Handler, `ARCHITECTURE.md` §6).
-- This boot-time check is the configuration counterpart of "deny by default":
-  the system refuses to run misconfigured rather than guessing.
+  not its contents (Constitution §10; align with the Error Handler,
+  `ARCHITECTURE.md` §6). This boot-time check is the configuration counterpart of
+  "deny by default": the system refuses to run misconfigured rather than guessing.
 
 ## 10. System Config vs Per-Workspace Settings
 
@@ -192,13 +187,12 @@ These are deliberately separated; conflating them is a design error.
 | Access | Typed Config accessor (injected) | Read via the **Settings** module's Contract |
 | Owner doc | This guide | Settings module + `WORKSPACE_MODEL.md` |
 
-- **Per-workspace settings live in the database, tenant-isolated by
-  `workspace_id`** (Constitution §5; `ARCHITECTURE.md` §8;
-  `DATABASE_ARCHITECTURE.md`). They are **not** placed in `.env` or `config/`,
-  and the Config loader does **not** own them.
-- Where both could apply (e.g. default locale), the resolution is: **workspace
-  setting (layer 4) overrides the system default (layers 1–3)** for that
-  workspace's requests — consistent with the precedence model (§2, §6).
+- **Per-workspace settings live in the database, tenant-isolated by `workspace_id`**
+  (Constitution §5; `ARCHITECTURE.md` §8; `DATABASE_ARCHITECTURE.md`). They are
+  **not** placed in `.env` or `config/`, and the Config loader does **not** own
+  them. Where both could apply (e.g. default locale), the **workspace setting
+  (layer 4) overrides the system default (layers 1–3)** for that workspace's
+  requests, consistent with the precedence model (§2, §6).
 - Other code reads workspace settings through the **Settings module's published
   Contract**, never by querying its tables (cross-module rule, `ARCHITECTURE.md`
   §4). See `WORKSPACE_MODEL.md` for the workspace/settings model of record.

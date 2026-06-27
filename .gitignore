@@ -1,0 +1,25 @@
+# Dependencies
+/vendor/
+
+# Environment & secrets
+.env
+
+# Runtime artifacts
+/storage/logs/*
+/storage/cache/*
+/storage/compiled/*
+/storage/uploads/*
+!/storage/**/.gitkeep
+
+# Build output
+/public/assets/build/
+
+# Installer lock
+/storage/installed.lock
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

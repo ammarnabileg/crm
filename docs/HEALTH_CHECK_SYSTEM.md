@@ -192,23 +192,22 @@ database tables; snapshot persistence over time is a Phase 15 concern
 
 ## 6. Where the Health Checker Is Used
 
-The same checker, the same probes, three consumers:
+The same checker, the same probes, four consumers:
 
-1. **Installer — final step.** The wizard's **Health check** step
-   (`Installer.md` §2, step 11; `INSTALLATION.md` §2.2) invokes the checker to
-   confirm a sound install before **Finish** and self-lock. Critical failures
-   stop the install with the probe's **remediation** shown inline in the live
-   setup log; the customer never sees a stack trace (`Installer.md` §9).
+1. **Installer — final step.** The wizard's **Health check** step (`Installer.md`
+   §2, step 11; `INSTALLATION.md` §2.2) confirms a sound install before **Finish**
+   and self-lock. Critical failures stop the install with the probe's
+   **remediation** shown inline in the live setup log; the customer never sees a
+   stack trace (`Installer.md` §9).
 2. **"Run Full Diagnostics" button.** An on-demand run from the System
-   Administration / operations surface, gated by **`system.diagnostics.run`**
-   (`Core_Kernel.md` §6; `Observability.md` §6) in the **Platform Context**. It
-   re-runs every probe and renders the full report for the operator.
-3. **Operations dashboard (Phase 15).** The **Health Center** in the
-   **Observability** module consumes the probe surface continuously, snapshots
-   results as time-series, groups by module, and drives alerting
-   (`Observability.md` §2; `HEALTH_CENTER.md`, `OBSERVABILITY.md`). Viewing the
-   aggregated readout is gated by **`system.health.view`**; running diagnostics by
-   **`system.diagnostics.run`** (`Core_Kernel.md` §6).
+   Administration / operations surface in the **Platform Context**, gated by
+   **`system.diagnostics.run`** — re-runs every probe and renders the full report
+   (`Core_Kernel.md` §6; `Observability.md` §6).
+3. **Operations dashboard (Phase 15).** The **Health Center** in **Observability**
+   consumes the probe surface continuously, snapshots results as time-series,
+   groups by module, and drives alerting (`Observability.md` §2; `HEALTH_CENTER.md`,
+   `OBSERVABILITY.md`). Viewing the readout is gated by **`system.health.view`**,
+   running diagnostics by **`system.diagnostics.run`** (`Core_Kernel.md` §6).
 4. **Deploy / readiness check.** A release MUST satisfy a **green health check**
    before cutover; the machine-readable report is the source for that gate
    (`DEPLOYMENT_GUIDE.md` §10, §11).

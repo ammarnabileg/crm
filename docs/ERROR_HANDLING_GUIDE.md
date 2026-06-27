@@ -259,19 +259,18 @@ SQL, file paths, or secrets.
 
 Every inbound request is assigned a **correlation `request_id`** at the start of
 the lifecycle (`ARCHITECTURE.md` §7; `Core_Kernel.md` §4) — a ULID-style,
-non-guessable identifier.
+non-guessable identifier that contains no PII and is never secret.
 
-- The `request_id` is **attached to every log record** for that request (§6),
-  **returned in the API error envelope** and as a **response header**
-  (`API_GUIDELINES.md` §B7), and **shown on HTML error pages** (§7.1).
-- It is the join key across **logs, errors, and traces**: an operator takes the id
-  a user quotes and finds the exact request in the Phase 15 **Log Explorer** and
-  **Error Tracking** (`Observability.md` §3, §4; `ERROR_TRACKING.md`).
-- If an inbound request already carries a trusted correlation id (e.g. from an
-  upstream proxy or the Integration Platform), the handler **MAY** adopt/propagate
-  it; otherwise it generates one. The id is **never** secret and contains no PII.
-- For background/queued work, the originating `request_id` SHOULD propagate so
-  async failures correlate back to their trigger (`BACKGROUND_JOBS.md`, Phase 12).
+- It is **attached to every log record** (§6), **returned in the API error
+  envelope** and as a **response header** (`API_GUIDELINES.md` §B7), and **shown on
+  HTML error pages** (§7.1) — the join key across **logs, errors, and traces** so
+  an operator can find the exact request from the id a user quotes (Phase 15
+  **Log Explorer** / **Error Tracking** — `Observability.md` §3, §4).
+- If an inbound request carries a trusted correlation id (upstream proxy or the
+  Integration Platform), the handler **MAY** adopt/propagate it; otherwise it
+  generates one. For background/queued work the originating `request_id` SHOULD
+  propagate so async failures correlate to their trigger (`BACKGROUND_JOBS.md`,
+  Phase 12).
 
 ---
 
@@ -281,45 +280,39 @@ Handling is not only about reporting — the platform **SHOULD degrade gracefull
 rather than fail hard where it safely can.
 
 - **Optional dependencies degrade.** When an *optional* capability is unavailable
-  (e.g. Search index, an AI provider, a non-critical integration), the feature
-  **SHOULD** degrade — disable the feature, show a clear notice, queue for
-  retry — rather than failing the whole request (`ARCHITECTURE.md` §5;
-  `API_GUIDELINES.md` §A4). The Health Checker surfaces the degraded dependency
-  (`HEALTH_CHECK_SYSTEM.md` §8).
+  (Search index, an AI provider, a non-critical integration), the feature
+  **SHOULD** degrade — disable it, show a clear notice, queue for retry — rather
+  than fail the whole request (`ARCHITECTURE.md` §5; `API_GUIDELINES.md` §A4); the
+  Health Checker surfaces the degraded dependency (`HEALTH_CHECK_SYSTEM.md` §8).
 - **Critical dependencies fail closed.** When a *critical* dependency fails (e.g.
   the database), the request fails with a safe **500**; the system never serves
-  partial or cross-tenant data to paper over a failure. **Security failures fail
-  closed**, never open (`SECURITY_GUIDE.md` §1).
-- **Retries for transient infrastructure faults** belong in the
-  Infrastructure/queue layer (idempotent, bounded, backoff — `BACKGROUND_JOBS.md`,
-  Phase 12), not in controllers. Heavy/AI work runs async so a provider blip
-  retries without blocking the user (`ARCHITECTURE.md` §8).
-- **Maintenance mode** returns the maintenance surface (§7.1) instead of errors
-  during planned windows (`Observability.md` §2, Maintenance Center).
-- **Never swallow to "recover".** Degradation is explicit and logged; a silently
-  ignored failure is a defect (`CODING_STANDARD.md` §7, §10).
+  partial or cross-tenant data to paper over a failure — **security failures fail
+  closed, never open** (`SECURITY_GUIDE.md` §1).
+- **Retries for transient faults** belong in the Infrastructure/queue layer
+  (idempotent, bounded, backoff — `BACKGROUND_JOBS.md`, Phase 12), not controllers;
+  heavy/AI work runs async so a provider blip retries without blocking the user
+  (`ARCHITECTURE.md` §8). **Maintenance mode** returns the maintenance surface
+  (§7.1) during planned windows (`Observability.md` §2). Degradation is always
+  **explicit and logged** — a silently ignored failure is a defect
+  (`CODING_STANDARD.md` §7, §10).
 
 ---
 
 ## 10. Phase 15 Hand-off — Error Tracking
 
 The Error Handler is the **producer** of error signals; the **Observability**
-module is the **consumer** (`Observability.md` §1, §4):
-
-- On capture, the handler logs safely (§6) and emits **`kernel.exception.captured`**
-  (`Core_Kernel.md` §7). Phase 15 **Error Tracking** ingests these and groups them
-  into **fingerprinted Error Groups** with occurrence trends (`Observability.md`
-  §8; `ERROR_TRACKING.md`).
-- Grouping/fingerprinting correlates by exception type, normalized message, and
-  origin — and ties occurrences together via the **`request_id`** (§8;
-  `Observability.md` §4).
-- Security-relevant errors (auth failures, permission-denied spikes, cross-tenant
-  attempts) also feed the **Security Center**, and threshold breaches drive the
-  **Alert Engine**, delivered **only** through the Integration Platform
-  (`Observability.md` §2, §7) — the kernel never sends alerts itself.
-- Until Phase 15 ships, the handler still fully protects users (safe pages/
-  envelopes) and operators (structured logs); Error Tracking is **additive** on
-  top of the same signals.
+module is the **consumer** (`Observability.md` §1, §4). On capture, the handler
+logs safely (§6) and emits **`kernel.exception.captured`** (`Core_Kernel.md` §7);
+Phase 15 **Error Tracking** ingests these and groups them into **fingerprinted
+Error Groups** with occurrence trends, correlating by exception type, normalized
+message, and origin, and tying occurrences together via the **`request_id`**
+(`Observability.md` §4, §8; `ERROR_TRACKING.md`). Security-relevant errors (auth
+failures, permission-denied spikes, cross-tenant attempts) also feed the
+**Security Center**, and threshold breaches drive the **Alert Engine**, delivered
+**only** through the Integration Platform — the kernel never sends alerts itself
+(`Observability.md` §2, §7). Until Phase 15 ships, the handler still fully
+protects users (safe pages/envelopes) and operators (structured logs); Error
+Tracking is **additive** on top of the same signals.
 
 ---
 
