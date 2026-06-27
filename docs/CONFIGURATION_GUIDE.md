@@ -129,18 +129,14 @@ when keys collide. From lowest precedence (base) to highest (override):
 ## 6. Resolution & Precedence Rules
 
 1. The Environment Loader loads layer 1 and validates required vars (§9).
-2. The Configuration Loader loads layer 2 (`config/`) and layer 3 (each enabled
-   module's `Config/`, via the Module Registry — `ARCHITECTURE.md` §6),
-   producing a merged, typed configuration tree.
+2. The Configuration Loader loads layer 2 (`config/`) then layer 3 (each **enabled**
+   module's `Config/`, via the Module Registry — `ARCHITECTURE.md` §6), producing a
+   merged, typed tree. Disabled modules contribute nothing (Constitution §9).
 3. At request time, layer 4 (runtime/workspace) overrides where applicable.
-4. **Most-specific-wins:** for any key, the highest defined layer supplies the
-   value; lower layers provide the fallback.
-5. **Module isolation:** module config is namespaced (§8) so two modules cannot
-   clobber each other; cross-module reads go through contracts, not config
-   (`ARCHITECTURE.md` §4).
-6. **Disabled modules contribute nothing** — their `Config/` is not loaded
-   (graceful degradation, Constitution §9).
-7. A key that is undefined in every layer and has no default is treated per §9
+4. **Most-specific-wins:** for any key the highest defined layer supplies the value;
+   lower layers are the fallback. Module config is namespaced (§8) so modules cannot
+   clobber one another, and cross-module reads go through contracts, not config
+   (`ARCHITECTURE.md` §4). A key undefined in every layer is handled per §9
    (required → boot failure; optional → explicit caller default).
 
 ## 7. Typed Config Access
