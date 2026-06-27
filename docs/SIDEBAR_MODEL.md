@@ -291,24 +291,15 @@ defects.
 Conformant only if **all** hold:
 
 - [ ] **One sidebar, generated, never per-role** (§1).
-- [ ] **Every item carries all required attributes** — Title, Icon, Permission,
-      Route, Badge Support, Children, Search Keywords, Documentation Reference (§2);
-      malformed descriptors are rejected.
-- [ ] **Filter → group → order** runs the three-way AND as the only visibility
-      decision, deny-by-default, deterministic (§3).
-- [ ] **Sections, collapse/expand, active state** are declared, stable, and
-      color-independent; active/expanded derive from the route (§4).
+- [ ] **Every item carries all required attributes** — Title, Icon, Permission, Route, Badge Support, Children, Search Keywords, Documentation Reference (§2); malformed descriptors are rejected.
+- [ ] **Filter → group → order** runs the three-way AND as the only visibility decision, deny-by-default, deterministic (§3).
+- [ ] **Sections, collapse/expand, active state** are declared, stable, color-independent; active/expanded derive from the route (§4).
 - [ ] **Badges** are declared, lazy, tenant-scoped, localized, and announced (§5).
-- [ ] **Context-aware rendering** uses exact keys per context; workspace branding
-      applies without forking; no cross-context leakage (§6).
-- [ ] **Accessible** — landmark, keyboard, `aria-current`/`aria-expanded`,
-      icon-only names, announced badges, direction-aware (§7).
-- [ ] **No item without a reason** — every item maps to a screen, a key, and a doc
-      reference; no orphans, no duplicate paths (§8).
-- [ ] **Bilingual & bidirectional** — AR/EN parity, logical start/end, full RTL/LTR
-      mirroring (§6.4).
-- [ ] **Defers to canon** — screen names from `NAVIGATION_MAP.md`, keys from
-      `PERMISSION_CATALOG.md`, engine from `NAVIGATION_ARCHITECTURE.md`.
+- [ ] **Context-aware rendering** uses exact keys per context; workspace branding applies without forking; no cross-context leakage (§6).
+- [ ] **Accessible** — landmark, keyboard, `aria-current`/`aria-expanded`, icon-only names, announced badges, direction-aware (§7).
+- [ ] **No item without a reason** — every item maps to a screen, a key, and a doc reference; no orphans, no duplicate paths (§8).
+- [ ] **Bilingual & bidirectional** — AR/EN parity, logical start/end, full RTL/LTR mirroring (§6.4).
+- [ ] **Defers to canon** — screen names from `NAVIGATION_MAP.md`, keys from `PERMISSION_CATALOG.md`, engine from `NAVIGATION_ARCHITECTURE.md`.
 
 ---
 

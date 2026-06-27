@@ -347,26 +347,16 @@ Direction is a **first-class property** of the engine, not a late translation la
 
 Conformant only if **all** hold:
 
-- [ ] **Computed, not authored** — pure function of Current Context, Current
-      Workspace, Permissions, Subscription, Enabled Modules (§2, §4).
-- [ ] **One sidebar, no roles** — exactly one generated sidebar; no per-role nav,
-      no role-name branch anywhere (§1).
-- [ ] **Three-way AND visibility** — permission **AND** subscription **AND** module,
-      deny-by-default (§5).
-- [ ] **Visibility ≠ authorization** — hiding never enforces; every route
-      re-authorized server-side; no cross-tenant leak (§6).
-- [ ] **Routes, deep-links, breadcrumbs** — stable routes; deep-links set context
-      and re-authorize; breadcrumbs derive from the tree and are gated (§7).
-- [ ] **Palette/search entitled-only** — indexes only entitled targets,
-      re-authorizes on open, never crosses tenants (§8).
-- [ ] **Additive modules** — a new module adds nav via manifest, no engine change;
-      a future domain appears like Recruitment (§9).
-- [ ] **Bilingual & bidirectional** — AR/EN parity, logical start/end, full RTL/LTR
-      mirroring, localized labels/formats (§10).
-- [ ] **Accessible & fast** — keyboard-operable, focus-managed, announced,
-      server-rendered-first, lazy badges (§11).
-- [ ] **Defers to canon** — screen names from `NAVIGATION_MAP.md`, keys from
-      `PERMISSION_CATALOG.md`, principles from `UI_GUIDELINES.md`.
+- [ ] **Computed, not authored** — pure function of Current Context, Current Workspace, Permissions, Subscription, Enabled Modules (§2, §4).
+- [ ] **One sidebar, no roles** — exactly one generated sidebar; no per-role nav, no role-name branch anywhere (§1).
+- [ ] **Three-way AND visibility** — permission **AND** subscription **AND** module, deny-by-default (§5).
+- [ ] **Visibility ≠ authorization** — hiding never enforces; every route re-authorized server-side; no cross-tenant leak (§6).
+- [ ] **Routes, deep-links, breadcrumbs** — stable routes; deep-links set context and re-authorize; breadcrumbs derive from the tree and are gated (§7).
+- [ ] **Palette/search entitled-only** — indexes only entitled targets, re-authorizes on open, never crosses tenants (§8).
+- [ ] **Additive modules** — a new module adds nav via manifest, no engine change; a future domain appears like Recruitment (§9).
+- [ ] **Bilingual & bidirectional** — AR/EN parity, logical start/end, full RTL/LTR mirroring, localized labels/formats (§10).
+- [ ] **Accessible & fast** — keyboard-operable, focus-managed, announced, server-rendered-first, lazy badges (§11).
+- [ ] **Defers to canon** — screen names from `NAVIGATION_MAP.md`, keys from `PERMISSION_CATALOG.md`, principles from `UI_GUIDELINES.md`.
 
 ---
 
