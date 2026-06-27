@@ -140,6 +140,47 @@ return new class extends TestCase {
         );
     }
 
+    // --- Per-state rules (docs/51 §5) --------------------------------------
+
+    public function test_allowed_actions_per_state(): void
+    {
+        $sm = $this->sm();
+        $this->assertTrue($sm->isActionAllowed('technical_assessment', 'ask_question'));
+        $this->assertFalse($sm->isActionAllowed('technical_assessment', 'archive'));
+        $this->assertTrue($sm->isActionAllowed('human_review', 'reject'));
+    }
+
+    public function test_entry_requirements_and_can_enter(): void
+    {
+        $sm = $this->sm();
+        // technical_assessment requires identity_verified + devices_ready.
+        $this->assertFalse($sm->canEnter('technical_assessment', []));
+        $this->assertSame(
+            ['identity_verified', 'devices_ready'],
+            $sm->unmetEntryRequirements('technical_assessment', [])
+        );
+        $this->assertTrue($sm->canEnter('technical_assessment', [
+            'identity_verified' => true,
+            'devices_ready'     => true,
+        ]));
+    }
+
+    public function test_timeout_rules(): void
+    {
+        $sm = $this->sm();
+        $this->assertSame(45, $sm->timeoutMinutes('technical_assessment'));
+        $this->assertSame('auto_advance', $sm->onTimeout('technical_assessment'));
+        $this->assertNull($sm->timeoutMinutes('archived'));
+    }
+
+    public function test_recovery_policy(): void
+    {
+        $sm = $this->sm();
+        $recovery = $sm->recoveryFor('technical_assessment');
+        $this->assertSame('resume', $recovery['on_disconnect']);
+        $this->assertSame(3, (int) $recovery['max_resumes']);
+    }
+
     /**
      * Build the minimal valid FK chain for one interview (workspace → job →
      * application → interview) and return its id. Rolled back with the test tx.

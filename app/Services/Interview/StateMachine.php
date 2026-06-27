@@ -32,9 +32,13 @@ final class StateMachine
     /** @var array<string, array<string, mixed>> key => state row */
     private array $states = [];
 
+    /** @var array<string, array<string, mixed>> key => rule set (config-driven) */
+    private array $rules = [];
+
     public function __construct(private readonly Database $db)
     {
         $this->loadStates();
+        $this->rules = (array) config('interview_states.rules', []);
     }
 
     /** Resolve via the container's connection by default. */
@@ -63,6 +67,107 @@ final class StateMachine
     public function isTerminal(string $key): bool
     {
         return isset($this->states[$key]) && (int) $this->states[$key]['is_terminal'] === 1;
+    }
+
+    // --- Per-state rules (docs/51 §5: Entry/Exit/Validation/Actions/Timeout/Recovery)
+
+    /**
+     * The full rule set for a state (merged: config defaults + the state row's
+     * `meta` override). Empty array if the state is unknown.
+     *
+     * @return array<string, mixed>
+     */
+    public function rulesFor(string $key): array
+    {
+        $config = $this->rules[$key] ?? [];
+
+        // A tenant/state row may override rules via interview_states.meta.rules.
+        $meta = $this->states[$key]['meta'] ?? null;
+        if (is_string($meta)) {
+            $meta = json_decode($meta, true);
+        }
+        $override = is_array($meta) && isset($meta['rules']) && is_array($meta['rules']) ? $meta['rules'] : [];
+
+        return array_replace($config, $override);
+    }
+
+    /** @return string[] Context flags required BEFORE entering the state. */
+    public function entryRequirements(string $key): array
+    {
+        return array_values((array) ($this->rulesFor($key)['entry'] ?? []));
+    }
+
+    /** @return string[] Context flags required BEFORE leaving the state. */
+    public function exitRequirements(string $key): array
+    {
+        return array_values((array) ($this->rulesFor($key)['exit'] ?? []));
+    }
+
+    /** @return array<string,mixed> Validation constraints for the state. */
+    public function validationRules(string $key): array
+    {
+        return (array) ($this->rulesFor($key)['validation'] ?? []);
+    }
+
+    /** @return string[] Actions permitted while in the state. */
+    public function allowedActions(string $key): array
+    {
+        return array_values((array) ($this->rulesFor($key)['actions'] ?? []));
+    }
+
+    public function isActionAllowed(string $key, string $action): bool
+    {
+        return in_array($action, $this->allowedActions($key), true);
+    }
+
+    /** Timeout in minutes for the state (null = no timeout). */
+    public function timeoutMinutes(string $key): ?int
+    {
+        $rule = $this->rulesFor($key)['timeout']['minutes'] ?? null;
+        if ($rule !== null) {
+            return (int) $rule;
+        }
+        // Fall back to the catalog's timeout_minutes column.
+        $col = $this->states[$key]['timeout_minutes'] ?? null;
+
+        return $col !== null ? (int) $col : null;
+    }
+
+    /** What to do on timeout: 'auto_advance' | 'pause' | 'fail' | 'none'. */
+    public function onTimeout(string $key): string
+    {
+        return (string) ($this->rulesFor($key)['timeout']['on_timeout'] ?? 'none');
+    }
+
+    /** @return array<string,mixed> Recovery policy for the state. */
+    public function recoveryFor(string $key): array
+    {
+        return (array) ($this->rulesFor($key)['recovery'] ?? ['on_disconnect' => 'resume', 'max_resumes' => 3]);
+    }
+
+    /**
+     * Entry requirements not satisfied by $context (a flag is satisfied when present
+     * and truthy). Empty array means the state may be entered.
+     *
+     * @param array<string,mixed> $context
+     * @return string[]
+     */
+    public function unmetEntryRequirements(string $key, array $context): array
+    {
+        $unmet = [];
+        foreach ($this->entryRequirements($key) as $flag) {
+            if (empty($context[$flag])) {
+                $unmet[] = $flag;
+            }
+        }
+
+        return $unmet;
+    }
+
+    /** Whether $context satisfies the state's entry requirements. */
+    public function canEnter(string $key, array $context): bool
+    {
+        return $this->unmetEntryRequirements($key, $context) === [];
     }
 
     /**
