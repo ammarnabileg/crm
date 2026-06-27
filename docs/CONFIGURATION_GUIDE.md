@@ -11,16 +11,14 @@ This document designs the **configuration system** of HaHireAI: how settings are
 declared, layered, resolved, and accessed, and how secrets are kept out of the
 repository. It is **design on paper**; the runtime lives in the **Configuration
 Loader** and **Environment Loader** of the Core Kernel (`ARCHITECTURE.md` §6,
-Phase 7). Illustrative code is **EXAMPLE ONLY** and is not source.
+Phase 7). Illustrative code is **EXAMPLE ONLY**, not source.
 
-**Supremacy.** This guide defers to `PROJECT_CONSTITUTION.md` and
-`PROJECT_STRUCTURE.md`; on any conflict those win (Constitution §0). It governs
-**system/application configuration**. **Per-workspace settings** — tenant-facing
-preferences stored in the database — are a different thing and are owned by the
-**Settings module** and `WORKSPACE_MODEL.md` (see §10).
-
-**Interpretation keywords.** **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**,
-**MAY** per [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+This guide defers to `PROJECT_CONSTITUTION.md` and `PROJECT_STRUCTURE.md`; on
+conflict those win (Constitution §0). It governs **system/application
+configuration**; **per-workspace settings** — tenant-facing preferences stored in
+the database — are a different thing, owned by the **Settings module** and
+`WORKSPACE_MODEL.md` (see §10). **MUST**, **MUST NOT**, **SHOULD**, **SHOULD
+NOT**, **MAY** per [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 ## 1. Design Principles
 

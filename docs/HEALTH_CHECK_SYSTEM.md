@@ -10,27 +10,22 @@
 The **Health Checker** is the Core Kernel component (`ARCHITECTURE.md` §6) that
 answers one operational question — *is this installation sound, right now?* — by
 running a set of independent **probes** and aggregating their results into a
-single, machine-readable status. It is **pluggable, not a monolithic check**: the
-kernel ships no hard-coded list of things to verify. Each concern (PHP version,
-database, mail, AI providers, disk) is a self-contained probe that **registers
-itself**, exactly as modules register routes and permissions.
-
-This document specifies the **design on paper** of that system: the probe
-contract, how probes register, how results aggregate, where the checker is
-invoked, and the authoritative **probe catalog**. It is design documentation, not
-implementation; code fragments are **illustrative only** and are not source.
+single, machine-readable status. It is **pluggable, not a monolithic check**: each
+concern (PHP version, database, mail, AI providers, disk) is a self-contained
+probe that **registers itself**, exactly as modules register routes and
+permissions. This document is the **design on paper** — the probe contract,
+registration, aggregation, usage, and the authoritative **probe catalog**; code
+fragments are **illustrative only** and are not source.
 
 **Supremacy.** This guide defers to `ARCHITECTURE.md` §6 and the
-`PROJECT_CONSTITUTION.md`. Where any statement here conflicts, those win.
+`PROJECT_CONSTITUTION.md`; where any statement here conflicts, those win.
 Interpretation keywords (**MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**,
 **MAY**) follow [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119); a
-**MUST / MUST NOT** rule is binding.
-
-**Boundary.** The Health Checker *produces* and *aggregates* probe results. It
-does **not** own dashboards, alerting, time-series retention, or incident
-lifecycle — those belong to the **Observability** module in Phase 15
-(`OBSERVABILITY.md`, `HEALTH_CENTER.md`). The kernel publishes the probe surface;
-Phase 15 consumes it.
+**MUST / MUST NOT** rule is binding. **Boundary:** the Health Checker *produces*
+and *aggregates* probe results; it does **not** own dashboards, alerting,
+time-series retention, or incident lifecycle — those belong to the
+**Observability** module in Phase 15 (`OBSERVABILITY.md`, `HEALTH_CENTER.md`). The
+kernel publishes the probe surface; Phase 15 consumes it.
 
 ---
 
@@ -41,33 +36,28 @@ Phase 15 consumes it.
    remediation. A single `isHealthy()` god-method is a defect.
 2. **Pluggable like modules.** A probe is **registered**, never discovered by
    filesystem guessing (`ARCHITECTURE.md` §6; mirrors the Module Registry). Adding
-   a probe is additive registration and MUST require no change to the checker, the
-   aggregator, or other probes.
-3. **No business logic, no side effects.** Probes live in the Core Kernel layer
-   and contain **no business behavior** (`PROJECT_STRUCTURE.md` §5). A probe
-   **MUST** be read-only: it observes, it does not mutate state, write tenant
-   data, or send anything outbound.
-4. **Fail safe, never fail loud.** A probe that itself throws is treated as a
-   `critical` failure for that probe — it **MUST NOT** crash the checker or take
-   down the page that invoked it. One broken probe degrades one result, not the run.
-5. **Bounded and fast.** Every probe **MUST** be time-boxed (per-probe timeout)
-   so the aggregate run is bounded. A slow dependency surfaces as a `warning`,
-   never as a hung request.
-6. **Safe output.** Probe output is operator-facing and **MUST NOT** leak
-   secrets, credentials, connection strings, or PII (`SECURITY_GUIDE.md` §6;
-   `CODING_STANDARD.md` §7). "MySQL reachable" — never the password it used.
-7. **Tenant-agnostic by default.** Probes assess **platform** health and run in
-   the Platform Context. They do not read workspace rows and are not
-   workspace-scoped; per-workspace usage views are a separate Phase 15 concern
-   (`OBSERVABILITY.md` §2).
+   a probe is additive and MUST require no change to the checker, the aggregator,
+   or other probes (`ARCHITECTURE.md` §9).
+3. **No business logic, read-only.** Probes live in the Core Kernel layer with
+   **no business behavior** (`PROJECT_STRUCTURE.md` §5) and **MUST** be read-only —
+   they observe; they never mutate state, write tenant data, or send outbound.
+4. **Fail safe, never fail loud.** A probe that itself throws is recorded as a
+   failed result — it **MUST NOT** crash the checker or the page that invoked it.
+   Every probe is **time-boxed**, so a slow dependency surfaces as a degraded
+   result, never a hung request.
+5. **Safe output.** Probe output is operator-facing and **MUST NOT** leak secrets,
+   credentials, connection strings, or PII (`SECURITY_GUIDE.md` §6;
+   `CODING_STANDARD.md` §7) — "MySQL reachable", never the password it used.
+6. **Tenant-agnostic.** Probes assess **platform** health in the Platform Context;
+   they do not read workspace rows. Per-workspace usage views are a separate Phase
+   15 concern (`OBSERVABILITY.md` §2).
 
 ---
 
 ## 2. Anatomy of a Probe
 
-Every probe is a small object exposing a uniform shape. Conceptually, a probe
-declares its identity and severity, performs one bounded check, and returns a
-typed result.
+Every probe is a small object exposing a uniform shape: it declares its identity
+and severity, performs one bounded check, and returns a typed result.
 
 | Field | Meaning |
 |---|---|

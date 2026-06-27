@@ -9,19 +9,16 @@
 
 This document designs the **routing system** of HaHireAI: how an incoming HTTP
 request is matched to the controller that handles it, and how every module
-declares its routes without touching any other module. It is **design on paper**;
-the runtime lives in the **Router + Dispatcher** of the Core Kernel
-(`ARCHITECTURE.md` §6, Phase 7). Illustrative code below is **EXAMPLE ONLY** and
-is not source.
+declares its routes without touching another. It is **design on paper**; the
+runtime lives in the **Router + Dispatcher** of the Core Kernel
+(`ARCHITECTURE.md` §6, Phase 7). Illustrative code is **EXAMPLE ONLY**, not source.
 
-**Supremacy.** This guide defers to `PROJECT_CONSTITUTION.md`, `ARCHITECTURE.md`,
-`PROJECT_STRUCTURE.md`, and `API_GUIDELINES.md`; on any conflict those win
-(Constitution §0). External REST API rules (versioning policy, error envelope,
-auth, pagination) are owned by `API_GUIDELINES.md` — this guide governs only how
-those endpoints are *wired*.
-
-**Interpretation keywords.** **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**,
-**MAY** per [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+This guide defers to `PROJECT_CONSTITUTION.md`, `ARCHITECTURE.md`,
+`PROJECT_STRUCTURE.md`, and `API_GUIDELINES.md`; on conflict those win
+(Constitution §0). External REST policy (versioning, error envelope, auth,
+pagination) is owned by `API_GUIDELINES.md` — this guide governs only how those
+endpoints are *wired*. **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY**
+per [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 ## 1. Design Principles
 
@@ -120,28 +117,26 @@ surfaces are organized and how cross-cutting concerns attach without repetition.
 - Dynamic segments are written in braces: `/jobs/{jobId}` (camelCase token name).
 - Path identifiers are **ULIDs** unless stated otherwise (`API_GUIDELINES.md`
   §B3; `DATABASE_ARCHITECTURE.md`). A route **MAY** constrain a parameter with a
-  simple, documented pattern (e.g. a ULID shape); constraints are kept minimal —
-  deep validation belongs in the Application layer, not the router.
+  simple, documented pattern; constraints stay minimal — deep validation belongs
+  in the Application layer, not the router.
 - Matched parameters are passed to the controller action as typed arguments by
   the Dispatcher; controllers **MUST NOT** read the raw path themselves.
 - **Nesting is shallow.** Express ownership at most one level deep
   (`/jobs/{jobId}/applications`); beyond that, filter on the top-level collection
-  (`API_GUIDELINES.md` §B3).
-- Optional segments **SHOULD** be avoided; prefer two explicit routes for
-  clarity over one ambiguous pattern.
+  (`API_GUIDELINES.md` §B3). Optional segments **SHOULD** be avoided — prefer two
+  explicit routes over one ambiguous pattern.
 
 ## 6. Named Routes & URL Generation
 
-- Every route **SHOULD** carry a **stable name**, formed from the module name
-  prefix plus the action: `jobs.show`, `api.v1.applications.create`. Names are the
-  **only** sanctioned way to refer to a route elsewhere.
-- The Kernel exposes a **URL generator** that builds paths from a route name plus
-  parameters. Code, views, and redirects **MUST** generate URLs by name — they
-  **MUST NOT** hard-code path strings (this is the routing corollary of "no
-  constants in code"; `CONFIGURATION_GUIDE.md`). Hard-coded paths break silently
-  when a URL changes; named generation does not.
-- Generating a URL with a missing/extra parameter, or for an unknown name, is a
-  defect surfaced at generation time.
+- Every route **SHOULD** carry a **stable name** = module prefix + action
+  (`jobs.show`, `api.v1.applications.create`). Names are the **only** sanctioned
+  way to refer to a route elsewhere.
+- The Kernel exposes a **URL generator** that builds paths from a name plus
+  parameters. Code, views, and redirects **MUST** generate URLs by name and
+  **MUST NOT** hard-code path strings — the routing corollary of "no constants in
+  code" (`CONFIGURATION_GUIDE.md`). Hard-coded paths break silently when a URL
+  changes; named generation fails loudly on a missing/extra parameter or unknown
+  name.
 - Absolute-URL generation uses the configured app base URL from the Config loader
   (`CONFIGURATION_GUIDE.md`), never a hard-coded host.
 
