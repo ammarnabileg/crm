@@ -83,8 +83,18 @@ Create Job → Publish → Apply → Review/Move → Assign Recruiter → Schedu
 Run AI Interview → Generate Report → Create Offer → Accept Offer → Reject another →
 Archive Job — all green.
 
+## Web layer (dashboard, no terminal)
+Shipped on top of the service layer (`App\Controllers\Ats`, gated by
+`recruitment.view`/`recruitment.manage`): the **Recruiter Workspace** dashboard,
+**Jobs** list + create (with the default pipeline) + publish/close/archive, the
+**Kanban pipeline board** (applications grouped by stage with a server-rendered move),
+and the **application detail + candidate timeline**. Nav entries are permission-gated;
+forms carry CSRF; verified by `tests/Feature/AtsWebTest` (each page renders 200).
+
+Remaining UI polish (additive, no schema change): drag-and-drop + bulk actions on the
+board, per-role dashboards (HR manager / department manager / owner), offer PDF +
+e-signature, calendar export, and rejection email delivery.
+
 ## Backward compatibility
 Additive only — no recruitment table, relationship or service was renamed or removed;
-the migration is idempotent and guarded. Pending UI work (Kanban board, recruiter
-dashboards per role, offer PDF/e-sign, calendar export, rejection email delivery) sits
-on top of this service layer without further schema change.
+the migration is idempotent and guarded.
