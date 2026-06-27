@@ -271,18 +271,25 @@ final class Validator
 
     private function defaultMessage(string $label, string $rule, array $parameters): string
     {
+        // The whole template map is built before one entry is selected, so EVERY
+        // parameter slot is interpolated regardless of the failing rule. Read them
+        // defensively — a no-parameter rule (url/email/integer/…) would otherwise hit
+        // an "Undefined array key" and turn a friendly validation error into a 500.
+        $p0 = $parameters[0] ?? '';
+        $p1 = $parameters[1] ?? '';
+
         $messages = [
             'required'  => "The {$label} field is required.",
             'email'     => "The {$label} must be a valid email address.",
-            'min'       => "The {$label} must be at least {$parameters[0]}.",
-            'max'       => "The {$label} may not be greater than {$parameters[0]}.",
-            'between'   => "The {$label} must be between {$parameters[0]} and {$parameters[1]}.",
+            'min'       => "The {$label} must be at least {$p0}.",
+            'max'       => "The {$label} may not be greater than {$p0}.",
+            'between'   => "The {$label} must be between {$p0} and {$p1}.",
             'numeric'   => "The {$label} must be a number.",
             'integer'   => "The {$label} must be an integer.",
             'boolean'   => "The {$label} field must be true or false.",
             'confirmed' => "The {$label} confirmation does not match.",
-            'same'      => "The {$label} must match {$parameters[0]}.",
-            'different'  => "The {$label} must be different from {$parameters[0]}.",
+            'same'      => "The {$label} must match {$p0}.",
+            'different'  => "The {$label} must be different from {$p0}.",
             'in'        => "The selected {$label} is invalid.",
             'not_in'    => "The selected {$label} is invalid.",
             'alpha'     => "The {$label} may only contain letters.",
