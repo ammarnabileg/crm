@@ -235,7 +235,7 @@ all addable without redesigning the architecture.
 9. Anti-Cheating updates the confidence score from collected signals.
 10. Observability logs the full trace + cost; State Machine transitions.
 
-## Data model (D11 blueprint extension — pending ERD approval before migration)
+## Data model (D11 blueprint extension — P1 & P2 realized; remainder pending ERD approval)
 
 Builds on D7 (`interviews`, `interview_sessions`, `interview_messages`,
 `interview_questions`, `interview_answers`, `interview_scores`,
@@ -245,15 +245,24 @@ Builds on D7 (`interviews`, `interview_sessions`, `interview_messages`,
 uuid + timestamps, config-driven statuses, **no ENUMs**; per the
 [Database Bible](database/00-Database-Bible.md), migrated only after ERD sign-off):
 
-- **State machine:** `interview_states` (catalog: key/label/order/entry/exit/timeout
-  rules), `interview_state_transitions` (per-interview audit; also mirrored in
-  `status_histories`). `interviews` gains `state_id`.
+- **State machine — ✅ REALIZED (migration 0033, P1):** `interview_states` (catalog:
+  key/label/order/initial/terminal/timeout/color; system rows + per-tenant
+  overrides), `interview_state_transitions` (append-only per-interview audit).
+  `interviews` gained `state_id`. Engine: `App\Services\Interview\StateMachine`.
 - **Blueprints:** `interview_blueprints`, `blueprint_sections`,
   `blueprint_section_rules`; `blueprint_versions`.
 - **Workflows (builder):** `interview_workflows`, `workflow_nodes`, `workflow_edges`,
   `workflow_versions`, `workflow_runs`, `workflow_run_steps`.
-- **Evaluation:** `evaluation_templates`, `evaluation_template_criteria`,
-  `evaluation_template_versions`; `decision_records` (+ `decision_factors`).
+- **Evaluation — ✅ REALIZED (migration 0034, P2):** the evaluation template IS the
+  existing D9 configurable scorecard, REUSED to avoid a parallel system (anti-
+  duplication, docs/50): `evaluation_forms` = the weighted, thresholded rubric;
+  `evaluation_form_fields` = its weighted criteria. New: `evaluation_form_versions`
+  (immutable published snapshot scored against), `decision_records` (the Decision
+  Engine's aggregated, explainable output — distinct from `application_decisions`,
+  which audits pipeline moves) and `decision_factors` (per-criterion breakdown).
+  Engines: `App\Services\Evaluation\EvaluationTemplate` + `DecisionEngine`; starter
+  rubrics in `config/evaluation_templates.php`. (Supersedes the originally-planned
+  `evaluation_templates`/`evaluation_template_criteria` tables.)
 - **Question bank:** `question_bank`, `question_tags`, `question_taggables`,
   `question_reference_answers`, `question_follow_ups`.
 - **Agents:** `ai_agents` (registry/config per type), `agent_runs` (per-turn results).
@@ -301,10 +310,13 @@ Each phase = one 16-stage feature cycle ([49](49-Development-Workflow.md)) + an 
 gate ([50](50-Continuous-Project-Audit.md)). **Top-3 first** (the highest-value,
 explicitly prioritized): State Machine, Evaluation Templates, Workflow Builder.
 
-1. **P1 — Interview State Machine** + the `interviews.state` model, transitions,
-   pause/resume/recover. (Backbone.)
-2. **P2 — Evaluation Templates** (seeded role templates + tenant editing + versioning)
-   and the Decision Engine skeleton that consumes weights.
+1. **P1 — Interview State Machine** + `interviews.state_id`, transitions,
+   pause/resume/recover. (Backbone.) — ✅ **DONE** (migration 0033, `StateMachine`,
+   11 tests).
+2. **P2 — Evaluation Templates** (role-family starter rubrics + tenant editing +
+   immutable versioning) and the Decision Engine that consumes weights into an
+   explainable decision. — ✅ **DONE** (migration 0034, `EvaluationTemplate` +
+   `DecisionEngine`, 16 tests).
 3. **P3 — Workflow Builder** (graph model + runtime + a minimal visual editor).
 4. **P4 — Provider abstraction + Model Router + Fallback + Prompt Guard + Token
    Optimizer** (the safe model-call core; needs tenant keys).
