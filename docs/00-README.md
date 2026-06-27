@@ -13,7 +13,7 @@ The entry point and single source of truth for HalaOps. This `/docs` folder — 
 
 ## Purpose (الهدف)
 
-This document explains what the `/docs` folder is, how to use it, the conventions every doc follows, and how all 53 numbered documents (00–51, 53) fit together. It is the map; the other documents are the territory. Read this first.
+This document explains what the `/docs` folder is, how to use it, the conventions every doc follows, and how all 54 numbered documents (00–51, 53, 54) fit together. It is the map; the other documents are the territory. Read this first.
 
 ## Why It Exists (سبب وجوده)
 
@@ -88,7 +88,7 @@ The documentation process itself follows a few rules (the platform's product/bus
 
 Mandatory section template for every doc (H2 headings, in order): Purpose, Why It Exists, Architecture, Workflow, Business Rules, Database Relations, Permissions, Validation, Edge Cases, Security, Performance, Testing, Future Expansion, Open Questions. Files are typically 150–400+ lines and reference real paths under `/home/user/crm` (e.g. `app/Core/Model.php`, `config/rbac.php`, `database/migrations/0010_create_subscriptions_table.php`).
 
-### The complete document set (53 documents)
+### The complete document set (54 documents)
 
 | # | Document | One-line description |
 |---|----------|----------------------|
@@ -145,9 +145,10 @@ Mandatory section template for every doc (H2 headings, in order): Purpose, Why I
 | 50 | [50-Continuous-Project-Audit](50-Continuous-Project-Audit.md) | Binding quality gate: after every phase, audit the WHOLE project (broken pages/routes/buttons, unused APIs, missing permissions, multi-tenant/RBAC/security/performance/DB/UI issues, doc↔code drift) and fix before the next phase |
 | 51 | [51-AI-Interview-Engine](51-AI-Interview-Engine.md) | Enterprise AI Interview Platform architecture: Orchestrator, 9-agent layer, Memory Engine, Interview State Machine, Blueprint Engine + Library, Workflow Builder, Decision Engine, Evaluation Templates, Question Bank, Knowledge Engine, model routing/fallback, prompt-injection protection, explainable AI, anti-cheating, observability, versioning/sandbox/benchmark, phased roadmap |
 | 53 | [53-ATS-Recruitment-Workflow](53-ATS-Recruitment-Workflow.md) | The core ATS engine: per-job pipelines + stages, application lifecycle + movement (status-history audited), offers, interview scheduling, talent pool, advanced search, candidate timeline, recruiter tasks, rejection — all event-emitting into the Automation Engine, with the AI Interview Engine as interview stages |
+| 54 | [54-Continuous-Development-Protocol](54-Continuous-Development-Protocol.md) | Binding standing protocol for every change: read-before-modify, impact analysis, minimal change, extend-don't-rewrite, no duplication, document-first, regression always, no dead code, consistency, root-cause fixes, keep-clean, final validation — make it better not bigger (sits atop 49/50) |
 | — | [CHANGELOG](CHANGELOG.md) | Versioned record of changes (Keep a Changelog) |
 
-That is 53 numbered documents (00–51, 53) plus the CHANGELOG.
+That is 54 numbered documents (00–51, 53, 54) plus the CHANGELOG.
 
 ### Database blueprint (`/docs/database/`)
 
@@ -233,7 +234,7 @@ To keep the docs trustworthy, every document is validated against:
 
 ## Testing
 
-- A docs linter (CI) checks: every numbered file (00–51 and 53) plus CHANGELOG exists; each has the mandatory sections; internal links resolve; Mermaid blocks parse.
+- A docs linter (CI) checks: every numbered file (00–51, 53 and 54) plus CHANGELOG exists; each has the mandatory sections; internal links resolve; Mermaid blocks parse.
 - A consistency check verifies that table/column/permission names used in docs exist in the canonical schema.
 - A "no placeholder" check fails the build on `TODO`, `coming soon`, or empty sections.
 
