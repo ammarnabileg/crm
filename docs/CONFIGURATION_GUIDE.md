@@ -22,25 +22,23 @@ NOT**, **MAY** per [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 ## 1. Design Principles
 
-- **NO constants in code, NO globals.** Configuration values **MUST** be obtained
-  through the **Config loader**. Defining business/config values as PHP
-  `const`/`define()` or reading them from global state is **forbidden**
-  (Constitution §6; `ARCHITECTURE.md` §6). Genuine code constants (enum cases,
-  immutable class constants that are part of a type's definition, e.g.
-  `MAX_UPLOAD_BYTES` as documented in Constitution §7) are not "configuration"
-  and are out of scope — *tunable* values are.
-- **Secrets come ONLY from the environment.** No secret, credential, key, or
-  token is ever committed to the repository or placed in `config/`
-  (Constitution §5, §10; `PROJECT_STRUCTURE.md` §5).
+- **NO constants in code, NO globals.** Tunable values **MUST** be obtained through
+  the **Config loader**; defining them as `const`/`define()` or reading global
+  state is **forbidden** (Constitution §6; `ARCHITECTURE.md` §6). Genuine code
+  constants that are part of a type (enum cases, class constants like
+  `MAX_UPLOAD_BYTES`, Constitution §7) are not "configuration" — *tunable* values
+  are.
+- **Secrets come ONLY from the environment.** No secret, credential, key, or token
+  is ever committed or placed in `config/` (Constitution §5, §10;
+  `PROJECT_STRUCTURE.md` §5).
 - **Declarative config, no logic.** `config/` and module `Config/` files return
-  plain arrays. They **MUST NOT** open connections, perform I/O, or branch on
+  plain arrays; they **MUST NOT** open connections, perform I/O, or branch on
   runtime data beyond reading env values.
-- **Typed, explicit access.** Callers read configuration through a typed accessor
-  with an explicit key and (where appropriate) a default; missing required values
-  fail loudly (§7, §9).
-- **Dependencies are injected.** Configuration is resolved at boot and provided to
-  services via the container (`SERVICE_CONTAINER.md`); business logic **MUST NOT**
-  reach for a global config singleton (no service locator — `ARCHITECTURE.md` §6).
+- **Typed, explicit, injected access.** Callers read config through a typed accessor
+  with an explicit key and (where apt) a default; required values fail loudly
+  (§7, §9). Config is resolved at boot and provided via the container
+  (`SERVICE_CONTAINER.md`); business logic **MUST NOT** reach a global config
+  singleton (no service locator — `ARCHITECTURE.md` §6).
 
 ## 2. Layered Configuration Model
 
@@ -97,18 +95,17 @@ when keys collide. From lowest precedence (base) to highest (override):
 
 ## 4. The "NO constants / NO globals" Rule
 
-- **All tunable values flow through the Config loader.** A magic number, a path, a
-  feature toggle, a limit, a provider name, or an external URL **MUST** be a
-  configuration key — not an inline literal, a `define()`, a `const` used as a
-  setting, or a `$GLOBALS` entry (Constitution §6; `DIRECTORY_STANDARD.md` §5
-  prohibits ad-hoc dumping grounds).
-- **No env access outside config assembly.** Calling `getenv()`/`$_ENV` from a
-  controller, service, or domain class is forbidden; those layers receive typed
-  config via injection. This keeps the env surface auditable in one place and
-  lets layer 4 override cleanly.
-- **Why.** Centralizing values makes them testable, overridable per environment
-  and per workspace, cacheable (§5), and free of hidden global coupling — the
-  same rationale as named-route URL generation in `ROUTING_GUIDE.md`.
+- **Every tunable is a config key.** A magic number, path, feature toggle, limit,
+  provider name, or external URL **MUST** be a configuration key — not an inline
+  literal, a `define()`, a `const` used as a setting, or a `$GLOBALS` entry
+  (Constitution §6).
+- **No env access outside config assembly.** `getenv()`/`$_ENV` from a controller,
+  service, or domain class is forbidden; those layers receive typed config via
+  injection. This keeps the env surface auditable in one place and lets layer 4
+  override cleanly.
+- **Why.** Centralizing values makes them testable, overridable per environment and
+  per workspace, cacheable (§5), and free of hidden global coupling — the same
+  rationale as named-route URL generation (`ROUTING_GUIDE.md`).
 
 ## 5. Configuration Caching (later phase)
 
@@ -242,19 +239,16 @@ namespaced under `modules.jobs.*` by the loader (e.g. `'max-active-postings' =>
 
 ## 12. Self-Review (Phase 6 gate)
 
-- [ ] No tunable value is a `const`/`define()`/global — all flow through the
-      Config loader.
+- [ ] No tunable value is a `const`/`define()`/global — all flow through the Config
+      loader; `getenv()`/`$_ENV` is read only during config assembly.
 - [ ] No secret appears in `config/`, module `Config/`, or the repo; secrets come
       only from env; `.env.example` lists every required key.
-- [ ] `getenv()`/`$_ENV` is read only during config assembly, never in modules or
-      domain code.
-- [ ] Layer precedence is honored: workspace/runtime > module `Config/` >
-      `config/` > env default.
-- [ ] Required env vars are validated at boot with a fast, secret-safe failure.
+- [ ] Layer precedence holds: workspace/runtime > module `Config/` > `config/` >
+      env default; required env vars are validated at boot with a secret-safe fail.
 - [ ] System config and per-workspace settings are separated; workspace settings
       live in the Settings module/DB, tenant-isolated by `workspace_id`.
-- [ ] Config access is typed and injected; the config tree is read-only at
-      runtime; the design permits a later config cache (layers 1–3 only).
+- [ ] Config access is typed and injected; the tree is read-only at runtime; the
+      design permits a later config cache (layers 1–3 only).
 
 ---
 

@@ -74,19 +74,14 @@ the collector; they **MUST NOT** instantiate controllers or the kernel.
 
 ### 3.2 Aggregation by `/routes`
 
-The root `/routes` directory holds the **global registration** that the Kernel
-loads at boot (`PROJECT_STRUCTURE.md` §3). It iterates the **enabled** modules
-from the **Module Registry** (`ARCHITECTURE.md` §6) and loads each module's
-`Routes/web.php` and `Routes/api.php`. Concretely, `/routes` typically contains:
-
-- `web.php` — opens the web group and pulls in every enabled module's web routes.
-- `api.php` — opens the `/api/v1` group and pulls in every enabled module's API
-  routes.
-
-Because aggregation is driven by the registry, a **disabled** module contributes
-no routes and degrades gracefully (Constitution §9). Manifest data in
-`module.php` (which declares the module's routes — `PROJECT_STRUCTURE.md` §4)
-governs what is eligible.
+The root `/routes` directory holds the **global registration** loaded at boot
+(`PROJECT_STRUCTURE.md` §3). Its `web.php` opens the web group and its `api.php`
+opens the `/api/v1` group; both iterate the **enabled** modules from the **Module
+Registry** (`ARCHITECTURE.md` §6) and pull in each module's `Routes/web.php` and
+`Routes/api.php`. Because aggregation is registry-driven, a **disabled** module
+contributes no routes and degrades gracefully (Constitution §9); `module.php`
+(which declares the module's routes — `PROJECT_STRUCTURE.md` §4) governs
+eligibility.
 
 ### 3.3 Collision policy
 
@@ -152,21 +147,17 @@ and tenant resolution lands in later phases (`ARCHITECTURE.md` §6–§8).
   concatenation in that order; the response unwinds in reverse.
 - Middleware is referenced by a **name/alias** resolved from the container
   (`SERVICE_CONTAINER.md`), never by hard-coded class strings in the route file.
-- Reserved middleware names are designed up front so route files can declare
-  intent today:
-  - Web: `session`, `csrf`, `locale`, `auth.web`.
-  - API: `auth.token`, `rate-limit`, `json`, `idempotency` (`API_GUIDELINES.md`
-    §B6, §B8, §B9).
-  - Both: `permission:<key>` to bind a route to a **permission key**
-    (deny-by-default; never a role — Constitution §4; `PERMISSION_MODEL.md`).
+- Reserved names are designed up front so route files can declare intent today —
+  web: `session`, `csrf`, `locale`, `auth.web`; API: `auth.token`, `rate-limit`,
+  `json`, `idempotency` (`API_GUIDELINES.md` §B6, §B8, §B9); both:
+  `permission:<key>` binding a route to a **permission key** (deny-by-default,
+  never a role — Constitution §4; `PERMISSION_MODEL.md`).
 - **Authorization placement.** Permission checks belong at the **Application
   boundary** (`ARCHITECTURE.md` §8); route-level `permission:` middleware is a
-  first gate and a declaration of intent, not a replacement for the use-case
-  check.
-- **Tenant resolution.** API/web requests resolve to a workspace via middleware;
-  all downstream data access is workspace-scoped (Constitution §5;
-  `WORKSPACE_MODEL.md`). This middleware is declared now and enforced in its
-  phase.
+  first gate, not a replacement for the use-case check.
+- **Tenant resolution.** Requests resolve to a workspace via middleware; all
+  downstream data access is workspace-scoped (Constitution §5;
+  `WORKSPACE_MODEL.md`). Declared now, enforced in its phase.
 
 ## 8. Web Routes vs API Routes
 
@@ -260,14 +251,12 @@ return static function (RouteCollector $routes): void {
 
 ## 12. Self-Review (Phase 6 gate)
 
-- [ ] Every URL path segment is kebab-case; no underscores/camelCase in paths.
-- [ ] Each module declares its own routes under `Routes/`; `/routes` only
-      aggregates from the Module Registry.
+- [ ] Every URL path segment is kebab-case; modules declare routes under `Routes/`
+      and `/routes` only aggregates from the Module Registry.
 - [ ] Adding a module wires its routes without editing another module's files.
-- [ ] Web routes use sessions + CSRF; API routes use tokens (never sessions).
-- [ ] State-changing web routes declare CSRF; sensitive routes declare a
-      `permission:<key>`.
-- [ ] All cross-references use route **names**; no hard-coded path strings.
+- [ ] Web routes use sessions + CSRF; API routes use tokens (never sessions);
+      state-changing/sensitive routes declare CSRF and a `permission:<key>`.
+- [ ] Cross-references use route **names**, never hard-coded paths.
 - [ ] 404 vs 405 are distinguished; 405 returns an `Allow` header; errors never
       leak internals.
 
