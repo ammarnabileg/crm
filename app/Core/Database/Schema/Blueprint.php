@@ -112,7 +112,17 @@ final class Blueprint
     public function index(string|array $columns, ?string $name = null): void
     {
         $columns = (array) $columns;
-        $this->indexes[] = ['name' => $name ?? $this->indexName('idx', $columns), 'columns' => $columns];
+        $name ??= $this->indexName('idx', $columns);
+
+        // Avoid duplicate-named indexes (e.g. an explicit index plus the
+        // implicit index that foreign() adds for the same column).
+        foreach ($this->indexes as $existing) {
+            if ($existing['name'] === $name) {
+                return;
+            }
+        }
+
+        $this->indexes[] = ['name' => $name, 'columns' => $columns];
     }
 
     public function foreign(
