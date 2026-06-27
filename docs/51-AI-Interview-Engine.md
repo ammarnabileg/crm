@@ -328,7 +328,13 @@ explicitly prioritized): State Machine, Evaluation Templates, Workflow Builder.
    tests; deterministic execution with zero model calls). Visual editor UI pending a
    later UI phase.
 4. **P4 — Provider abstraction + Model Router + Fallback + Prompt Guard + Token
-   Optimizer** (the safe model-call core; needs tenant keys).
+   Optimizer** (the safe model-call core; needs tenant keys). — ✅ **CORE DONE**
+   (`AiProvider` contract, `PromptGuard`, `TokenOptimizer`, `ModelRouter`,
+   `AiGateway` guard→optimize→route→fallback→audit, `FakeProvider` sandbox; 16
+   tests, all offline). Live HTTP provider adapters (OpenAI/Claude/…) plug into the
+   registry and are wired when a workspace has added its own keys — they require
+   live keys + network to verify and so are an integration step, not part of the
+   tested core.
 5. **P5 — Orchestrator + Memory Engine + Knowledge Engine + Quality Control.**
 6. **P6 — Multi-Agent layer + Explainable AI** wired to the Decision Engine.
 7. **P7 — Question Bank + Blueprint Library** seeding.
