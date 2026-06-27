@@ -81,10 +81,18 @@ it, the Constitution wins.
 | `ARCHIVING_POLICY.md` | Archive / soft-delete / hard-delete | Adopted |
 | `VERSIONING_POLICY.md` | Entity version history | Adopted |
 
+### Phase 4 — Permission Matrix, Security Model & Access Control ✅
+| Document | Purpose | Status |
+|---|---|---|
+| `PERMISSION_CATALOG.md` | Authoritative permission-key registry | Adopted (Canon) |
+| `SYSTEM_PERMISSIONS.md` | `system.*` permissions detail | Adopted |
+| `WORKSPACE_PERMISSIONS.md` | Workspace permissions detail | Adopted |
+| `ROLE_BUILDER.md` | Roles-as-data (no reserved roles) | Adopted |
+| `ACCESS_POLICIES.md` | Per-action policy table | Adopted |
+| `SECURITY_MATRIX.md` | Screen/action × permission × policy | Adopted |
+| `AUDIT_EVENTS.md` | Authoritative audited-events catalog | Adopted |
+
 ### Planned (later phases)
-- **Phase 4 — Access Control:** `PERMISSION_CATALOG.md`, `SECURITY_MATRIX.md`,
-  `ROLE_BUILDER.md`, `ACCESS_POLICIES.md`, `SYSTEM_PERMISSIONS.md`,
-  `WORKSPACE_PERMISSIONS.md`, `AUDIT_EVENTS.md`.
 - **Phase 5 — Navigation & UX:** `NAVIGATION_ARCHITECTURE.md`,
   `SCREEN_CATALOG.md`, `USER_EXPERIENCE.md`, `LAYOUT_SYSTEM.md`,
   `SIDEBAR_MODEL.md`, `DASHBOARD_GUIDE.md`, `PAGE_STANDARDS.md`,

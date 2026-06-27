@@ -62,7 +62,7 @@ into one tenant's data is an explicit, permission-gated, audited **bypass**
 
 ### 1.4 Key reconciliations (catalog is authoritative)
 
-`NAVIGATION_MAP.md` is a Phase 2 draft and cites a few *representative* gates
+`NAVIGATION_MAP.md` is a Phase 2 draft that earlier cited a few *representative* gates
 that predate the canon catalog. This matrix uses the **exact** Phase 4 keys from
 `PERMISSION_CATALOG.md`:
 

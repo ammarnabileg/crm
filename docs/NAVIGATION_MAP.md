@@ -244,7 +244,7 @@ module" names the owner from `MODULES.md`. **Every** Workspace-Context row is
 
 | Screen | Required permission | Enabling module | Entry points |
 |---|---|---|---|
-| Overview | `system.workspaces.view` | System Administration | Context switch → Platform |
+| Overview | `system.dashboard.view` | System Administration | Context switch → Platform |
 | Companies / Workspaces | `system.workspaces.manage` | System Administration | Sidebar; Overview |
 | Workspace Detail | `system.workspaces.manage` | System Administration | Companies/Workspaces row |
 | Users | `system.users.manage` | System Administration | Sidebar |
@@ -254,18 +254,18 @@ module" names the owner from `MODULES.md`. **Every** Workspace-Context row is
 | Subscription Detail | `system.subscriptions.manage` | Subscriptions | Subscriptions list; Workspace Detail |
 | AI Providers | `system.ai.manage` | AI Engine | Sidebar |
 | Provider Detail | `system.ai.manage` | AI Engine | AI Providers row |
-| System Analytics | `system.analytics.view` | Reports / Analytics | Sidebar; Overview |
+| System Analytics | `system.observability.view` | Reports / Analytics | Sidebar; Overview |
 | Audit Logs | `system.audit.view` | Audit | Sidebar; any platform record |
 | Platform Settings | `system.settings.manage` | Settings | Sidebar |
 | Diagnostics | `system.diagnostics.run` | Observability | Sidebar; Overview |
-| Developer Tools | `system.developer.access` | System Administration | Sidebar **(hidden unless enabled)** |
+| Developer Tools | `system.dashboard.view` + feature flag | System Administration | Sidebar **(hidden unless enabled)** |
 
 ### 7.2 Workspace Context
 
 | Screen | Required permission | Enabling module | Entry points |
 |---|---|---|---|
 | Dashboard | `workspace.view` | Workspaces | Default landing; workspace switcher |
-| Recruitment ▸ Dashboard | `recruitment.view` | Recruitment | Sidebar; Dashboard |
+| Recruitment ▸ Dashboard | `job.view` | Recruitment | Sidebar; Dashboard |
 | Recruitment ▸ Jobs | `job.view` | Recruitment | Sidebar; Recruitment Dashboard |
 | Job Detail | `job.view` | Recruitment | Jobs row; Search; Notifications |
 | Job Detail ▸ Applications | `application.view` | Recruitment | Job Detail tab; Pipeline card |
@@ -281,7 +281,7 @@ module" names the owner from `MODULES.md`. **Every** Workspace-Context row is
 | Member Detail | `member.view` | Memberships | Members row; Audit entry |
 | Members ▸ Roles | `role.view` | Permissions | Members; Settings |
 | Reports | `report.view` | Reports / Analytics | Sidebar; Analytics |
-| Files | `file.view` | Files | Sidebar; Application (Documents) |
+| Files | `files.view` | Files | Sidebar; Application (Documents) |
 | Search | `workspace.view` | Search | Global top-bar (always present) |
 | Notifications | `workspace.view` | Notifications | Global top-bar (always present) |
 | Settings | `settings.view` | Settings | Sidebar |

@@ -52,6 +52,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Confirmed: ULID-only keys (no `AUTO_INCREMENT`), no MySQL `ENUM`, mandatory
   `workspace_id` tenant guard, no duplicated/derived data, acyclic FK ownership.
 
+### Added — Phase 4: Permission Matrix, Security Model & Access Control
+- `PERMISSION_CATALOG.md` — the single authoritative registry of every
+  permission key (workspace `resource.action` + platform `system.*`).
+- `SYSTEM_PERMISSIONS.md`, `WORKSPACE_PERMISSIONS.md` — detailed scoped views.
+- `ROLE_BUILDER.md` — roles as workspace data; zero reserved roles.
+- `ACCESS_POLICIES.md` — per-action Required-Permission/Dependencies/Denied
+  behaviour.
+- `SECURITY_MATRIX.md` — every screen/action mapped to its permission & policy.
+- `AUDIT_EVENTS.md` — the authoritative audited-events catalog.
+
+### Changed — Phase 4
+- Aligned `NAVIGATION_MAP.md` permission keys to the authoritative
+  `PERMISSION_CATALOG.md` (e.g. `file.view`→`files.view`,
+  `recruitment.view`→`job.view`, Platform Overview→`system.dashboard.view`),
+  resolving the only cross-document key drift found in self-review.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
