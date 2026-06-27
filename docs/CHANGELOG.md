@@ -99,6 +99,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   `bootstrap/`, `routes/`) and reconciled `PROJECT_CONSTITUTION.md` §8 (→ v1.1.0)
   and `ARCHITECTURE.md` §3 (→ v1.1.0) to match. Module DDD internals unchanged.
 
+### Added — Phase 7: Enterprise Core Kernel & Foundation (first code)
+- `app/Core/*` — the bespoke native-PHP kernel: DI `Container` (autowiring,
+  singleton/transient, `call()`), `Kernel` boot pipeline, `Config\Repository`
+  + `Config\Environment`, `Routing` (Router/Route/Dispatcher: verbs, params,
+  groups, named routes, 404/405), `Events\Dispatcher`, PSR-3 `Logging\Logger`,
+  `Errors\ErrorHandler` (dev/prod), `Modules` (Module + acyclic ModuleRegistry),
+  `Health` (HealthChecker + probes), `Providers` (ServiceProvider +
+  CoreServiceProvider), `Http\Request`/`Response`, and `Contracts\*`.
+- Project scaffolding: `composer.json` (PSR-4 `HaHireAI\` → `app/`),
+  `bootstrap/app.php`, `public/index.php`, `routes/web.php`, `config/app.php`,
+  `config/database.php`, `.env.example`, `.gitignore`, `storage/`.
+- Tests: `phpunit.xml` + unit/feature suites (30 tests / 48 assertions) and a
+  standalone `bin/smoke.php` acceptance runner (28 checks). Kernel boots,
+  routes, and serves `/`, `/up`, `/health` with no modules.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

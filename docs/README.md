@@ -123,11 +123,20 @@ it, the Constitution wins.
 
 ADRs: `adr/0001-project-structure.md`.
 
+### Phase 7 — Enterprise Core Kernel & Foundation ✅ (code)
+The bespoke native-PHP Core Kernel is implemented and verified:
+- `app/Core/` — Container (DI/autowiring), Kernel, Config + `.env` loaders,
+  Router/Route/Dispatcher, Event Dispatcher, Logger, Error Handler, Module
+  Registry, Health Checker (+ probes), Service Providers, Request/Response.
+- `bootstrap/app.php`, `public/index.php`, `routes/web.php`, `config/`.
+- Tests: `vendor/bin/phpunit` → **30 passing**; `php bin/smoke.php` → **28/28**.
+  The kernel boots, routes, and reports health with **zero modules**.
+
 ### Planned (later phases)
-- **Phases 7–16 — Implementation:** Core Kernel, Installer/DB/Auth/RBAC,
-  Workspace platform, Recruitment, AI Engine, Workflow Engine, Integration
-  Platform, Billing/Subscriptions, Observability, and Release certification —
-  each with its own documents and tests (see `MODULES.md`).
+- **Phases 8–16 — Implementation:** Installer/DB/Auth/RBAC, Workspace platform,
+  Recruitment, AI Engine, Workflow Engine, Integration Platform,
+  Billing/Subscriptions, Observability, and Release certification — each with
+  its own documents and tests (see `MODULES.md`).
 
 `/docs/adr/` holds Architecture Decision Records for significant decisions.
 
