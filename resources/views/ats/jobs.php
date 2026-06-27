@@ -9,9 +9,20 @@ $badge = static fn (string $s): string => match ($s) {
     default  => 'badge-red',
 };
 $canManage = can('recruitment.manage');
+$wsSlug = (string) (tenant()->workspace()?->getAttribute('slug') ?? '');
 ?>
 <div class="space-y-6">
-    <h1 class="text-2xl font-semibold text-slate-900">Jobs</h1>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-2xl font-semibold text-slate-900">Jobs</h1>
+        <?php if ($wsSlug !== ''): ?>
+            <a href="<?= e(url('careers/' . $wsSlug)) ?>" target="_blank" rel="noopener"
+               class="btn-secondary inline-flex items-center gap-1.5"
+               title="Opens your company's public careers page, where anyone can see and apply to published jobs">
+                View public careers page
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5h5m0 0v5m0-5L10 14M5 5h4M5 5v14h14v-4"/></svg>
+            </a>
+        <?php endif; ?>
+    </div>
 
     <?php if ($canManage): ?>
         <form method="post" action="<?= e(url('jobs')) ?>" class="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">

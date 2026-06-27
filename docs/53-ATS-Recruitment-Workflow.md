@@ -95,6 +95,40 @@ Remaining UI polish (additive, no schema change): drag-and-drop + bulk actions o
 board, per-role dashboards (HR manager / department manager / owner), offer PDF +
 e-signature, calendar export, and rejection email delivery.
 
+## Public Careers portal (the candidate-facing front door)
+The **unauthenticated** pages where the general public browses a company's openings
+and applies — `App\Controllers\Public\CareersController` + `App\Services\Careers\CareersService`,
+views `resources/views/public/careers/{index,show,applied}` (the public `guest`
+layout, not the app shell):
+
+- **Routes (no auth, no tenant):** `GET /careers/{workspace}` (the company's open
+  roles), `GET /careers/{workspace}/{job}` (a role + apply form), `POST
+  /careers/{workspace}/{job}/apply` (CSRF-protected + rate-limited `throttle:5,60`).
+  The workspace is resolved from the public **slug**, never from session/tenant.
+- **What's exposed:** ONLY an **active** (or trialing) workspace's **published**
+  (`job_statuses.open` + a `published_at`) non-deleted jobs. Drafts/paused/closed
+  jobs, suspended/unknown workspaces, and any **other** workspace's jobs are never
+  reachable — they 404, even by URL tampering (every read in `CareersService` is
+  filtered explicitly by the slug-resolved `workspace_id`; it is intentionally not
+  tenant-scoped because there is no logged-in tenant). Salary shows only when
+  `is_salary_public`.
+- **Applying:** find-or-create the candidate by email (the single `users` table — a
+  candidate is a `User`, mirroring `MemberDirectory`), optional CV via the existing
+  `FileService` (same mime/size/path-traversal guards), then the existing
+  `ApplicationFlow::apply` (initial pipeline stage + `application.submitted` event),
+  with `source = career_site`. The controller sets the tenant to the slug-resolved
+  workspace **before** the write so the tenant-scoped `Application`/`File` rows are
+  stamped with the correct `workspace_id`. Re-applying to the same job is idempotent
+  (reported as a duplicate — no second row, no enumeration of whether the email
+  pre-existed).
+- **Discoverability:** the internal **Jobs** page carries a "View public careers
+  page" link to the workspace's `/careers/{slug}` so an owner can find and share it.
+- **Verified:** `tests/Feature/CareersWebTest` (10 — published-only listing, draft
+  hidden, cross-workspace job 404, suspended/unknown workspace 404, apply creates
+  user+application scoped to the right workspace, idempotent re-apply, can't apply to
+  a draft) + a live HTTP smoke (browse 200, 404 isolation, CSRF apply → application
+  landed with `source=career_site`, tokenless POST rejected 419).
+
 ## Backward compatibility
 Additive only — no recruitment table, relationship or service was renamed or removed;
 the migration is idempotent and guarded.

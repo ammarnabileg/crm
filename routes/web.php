@@ -33,6 +33,7 @@ use App\Controllers\App\ProfileController;
 use App\Controllers\Auth\LoginController;
 use App\Controllers\Auth\PasswordController;
 use App\Controllers\Auth\RegisterController;
+use App\Controllers\Public\CareersController;
 use App\Controllers\Setup\InstallController;
 use App\Controllers\System\BackupController;
 use App\Controllers\System\HealthController;
@@ -101,6 +102,17 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
         $router->get('reset-password', [PasswordController::class, 'showReset'])->name('password.reset');
         $router->post('reset-password', [PasswordController::class, 'reset'])->middleware('throttle:5,60');
     });
+
+    // --- Public Careers portal (docs/53) — unauthenticated job browsing + apply.
+    // NOT behind auth/tenant: the workspace is resolved from the public slug and
+    // CareersService filters every read to that workspace's active, published jobs
+    // (no draft/closed/foreign jobs are ever reachable). The apply POST is
+    // CSRF-protected (this group) and rate-limited against spam. Not in the `guest`
+    // group, so a signed-in user can still browse a careers page.
+    $router->get('careers/{workspace}', [CareersController::class, 'index'])->name('careers.index');
+    $router->get('careers/{workspace}/{job}', [CareersController::class, 'show'])->name('careers.show');
+    $router->post('careers/{workspace}/{job}/apply', [CareersController::class, 'apply'])
+        ->middleware('throttle:5,60')->name('careers.apply');
 
     // --- Authenticated --------------------------------------------------
     $router->group(['middleware' => ['auth']], function ($router): void {
