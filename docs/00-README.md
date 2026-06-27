@@ -144,9 +144,10 @@ Mandatory section template for every doc (H2 headings, in order): Purpose, Why I
 | 49 | [49-Development-Workflow](49-Development-Workflow.md) | Binding development lifecycle: the 16-stage per-feature workflow, feature completeness, Definition of Done, self/regression testing, routing/DB/API/security/performance/refactoring rules, stop conditions, no fake completion |
 | 50 | [50-Continuous-Project-Audit](50-Continuous-Project-Audit.md) | Binding quality gate: after every phase, audit the WHOLE project (broken pages/routes/buttons, unused APIs, missing permissions, multi-tenant/RBAC/security/performance/DB/UI issues, doc↔code drift) and fix before the next phase |
 | 51 | [51-AI-Interview-Engine](51-AI-Interview-Engine.md) | Enterprise AI Interview Platform architecture: Orchestrator, 9-agent layer, Memory Engine, Interview State Machine, Blueprint Engine + Library, Workflow Builder, Decision Engine, Evaluation Templates, Question Bank, Knowledge Engine, model routing/fallback, prompt-injection protection, explainable AI, anti-cheating, observability, versioning/sandbox/benchmark, phased roadmap |
+| 53 | [53-ATS-Recruitment-Workflow](53-ATS-Recruitment-Workflow.md) | The core ATS engine: per-job pipelines + stages, application lifecycle + movement (status-history audited), offers, interview scheduling, talent pool, advanced search, candidate timeline, recruiter tasks, rejection — all event-emitting into the Automation Engine, with the AI Interview Engine as interview stages |
 | — | [CHANGELOG](CHANGELOG.md) | Versioned record of changes (Keep a Changelog) |
 
-That is 52 numbered documents (00–51) plus the CHANGELOG.
+That is 53 numbered documents (00–51, 53) plus the CHANGELOG.
 
 ### Database blueprint (`/docs/database/`)
 
