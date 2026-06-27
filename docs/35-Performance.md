@@ -87,7 +87,7 @@ sequenceDiagram
 1. **Every foreign key column is indexed.** No exceptions; FK constraints in InnoDB require/benefit from it and all tenant joins depend on it.
 2. **Every column used in `WHERE`, `ORDER BY`, or `GROUP BY` on a hot path is indexed**, preferably as a composite index that leads with `workspace_id` (e.g. `(workspace_id, job_status_id)`, `(workspace_id, application_status_id, current_stage_id)` per §11).
 3. **All multi-row list endpoints paginate** via `QueryBuilder::paginate()`. There is no unbounded "select all" rendered to a page.
-4. **No N+1 queries.** Related records for a collection are batch-loaded with a single `whereIn(...)` keyed by id, not fetched per row in a loop.
+4. **No N+1 queries.** Related records for a collection are batch-loaded with a single `whereIn(...)` keyed by id, not fetched per row in a loop. *Enforced:* `Database::getQueryCount()/resetQueryCount()` + `tests/Feature/PerformanceTest` assert hot list pages (e.g. the Jobs list, which now aggregates application counts in one `GROUP BY` instead of one query per job) issue a **constant** number of queries as rows grow; the Kanban board loads a capped, indexed slice (default 500) with a visible notice — never every application.
 5. **OPcache is enabled in production** so PHP is not recompiled per request; `validate_timestamps` is off in production and reset on deploy.
 6. **CSS is compiled ahead of time** to `public/assets/css/app.css`; there is no build step on the buyer's server, and assets are served with versioned URLs (`asset()` appends `?v=`).
 7. **One database connection per request.** `Database` opens PDO lazily and reuses it; code must never instantiate ad-hoc PDOs.

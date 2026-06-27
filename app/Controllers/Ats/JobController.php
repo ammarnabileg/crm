@@ -31,14 +31,24 @@ final class JobController extends Controller
             ->limit(100)
             ->get();
 
-        // Application counts per job (one grouped pass).
+        // Application counts for all listed jobs in ONE grouped query (no N+1).
         $counts = [];
-        foreach ($jobs as $job) {
-            $counts[(int) $job['id']] = $db->table('applications')
-                ->where('workspace_id', '=', $workspaceId)
-                ->where('job_id', '=', (int) $job['id'])
-                ->whereNull('deleted_at')
-                ->count();
+        $jobIds = array_map(static fn (array $j): int => (int) $j['id'], $jobs);
+        if ($jobIds !== []) {
+            $placeholders = implode(',', array_fill(0, count($jobIds), '?'));
+            $rows = $db->select(
+                "SELECT job_id, COUNT(*) AS total FROM applications
+                 WHERE workspace_id = ? AND job_id IN ({$placeholders}) AND deleted_at IS NULL
+                 GROUP BY job_id",
+                array_merge([$workspaceId], $jobIds)
+            );
+            foreach ($rows as $row) {
+                $counts[(int) $row['job_id']] = (int) $row['total'];
+            }
+        }
+        // Jobs with no applications still need a 0 so the view never misses a key.
+        foreach ($jobIds as $id) {
+            $counts[$id] ??= 0;
         }
 
         return $this->view('ats.jobs', [

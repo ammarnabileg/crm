@@ -7,12 +7,17 @@
  * @var array<int,array<int,array<string,mixed>>> $byStage
  */
 $canManage = can('recruitment.manage');
+$truncated = $truncated ?? false;
+$cap = $cap ?? 500;
 ?>
 <div class="space-y-4">
     <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-semibold text-slate-900">Pipeline — <?= e((string) $job->title) ?></h1>
+        <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">Pipeline — <?= e((string) $job->title) ?></h1>
         <a href="<?= e(url('jobs')) ?>" class="btn-secondary">All jobs</a>
     </div>
+    <?php if ($truncated): ?>
+        <?= component('alert', ['variant' => 'warning', 'message' => 'Showing the most recent ' . (int) $cap . ' applications. Use search or filters to narrow down the rest.']) ?>
+    <?php endif; ?>
 
     <div class="flex gap-4 overflow-x-auto pb-4">
         <?php foreach ($stages as $stage): ?>

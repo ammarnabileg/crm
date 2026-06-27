@@ -18,6 +18,14 @@ use App\Services\Ats\ApplicationFlow;
  */
 final class BoardController extends Controller
 {
+    /**
+     * Hard cap on applications loaded into the board in one render. A Kanban view of
+     * 100k applications would be useless and memory-heavy; beyond the cap the user is
+     * told to filter (no silent truncation). Scoped, indexed and ordered so the DB
+     * returns only the most recent slice.
+     */
+    private const BOARD_CAP = 500;
+
     public function show(Request $request): Response
     {
         $jobId = (int) $request->query('job', 0);
@@ -33,6 +41,7 @@ final class BoardController extends Controller
             ->orderBy('sort_order')
             ->get();
 
+        // Fetch one more than the cap so we can detect (and disclose) truncation.
         $rows = $db->table('applications')
             ->select('applications.*', 'users.name AS candidate_name', 'users.email AS candidate_email')
             ->leftJoin('users', 'users.id', '=', 'applications.user_id')
@@ -40,7 +49,13 @@ final class BoardController extends Controller
             ->where('applications.job_id', '=', $jobId)
             ->whereNull('applications.deleted_at')
             ->orderBy('applications.applied_at', 'desc')
+            ->limit(self::BOARD_CAP + 1)
             ->get();
+
+        $truncated = count($rows) > self::BOARD_CAP;
+        if ($truncated) {
+            $rows = array_slice($rows, 0, self::BOARD_CAP);
+        }
 
         // Group applications by their current stage.
         $byStage = [];
@@ -49,10 +64,12 @@ final class BoardController extends Controller
         }
 
         return $this->view('ats.board', [
-            'title'   => 'Pipeline — ' . (string) $job->title,
-            'job'     => $job,
-            'stages'  => $stages,
-            'byStage' => $byStage,
+            'title'     => 'Pipeline — ' . (string) $job->title,
+            'job'       => $job,
+            'stages'    => $stages,
+            'byStage'   => $byStage,
+            'truncated' => $truncated,
+            'cap'       => self::BOARD_CAP,
         ]);
     }
 

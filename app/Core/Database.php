@@ -111,11 +111,28 @@ final class Database
 
     public function unprepared(string $sql): bool
     {
+        $this->queryCount++;
+
         return $this->pdo()->exec($sql) !== false;
+    }
+
+    /** Lightweight per-process query counter — lets tests assert no N+1 regressions. */
+    private int $queryCount = 0;
+
+    public function getQueryCount(): int
+    {
+        return $this->queryCount;
+    }
+
+    public function resetQueryCount(): void
+    {
+        $this->queryCount = 0;
     }
 
     private function run(string $sql, array $bindings): \PDOStatement
     {
+        $this->queryCount++;
+
         try {
             $statement = $this->pdo()->prepare($sql);
             $statement->execute($this->normalizeBindings($bindings));
