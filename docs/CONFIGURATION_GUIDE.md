@@ -81,15 +81,13 @@ when keys collide. From lowest precedence (base) to highest (override):
 ## 3. Environment Layer (`.env`)
 
 - `.env` holds environment-specific values and secrets and is **git-ignored**. A
-  committed **`.env.example`** (`PROJECT_STRUCTURE.md` §2) documents every
-  required key with safe placeholder values and **MUST** be kept in sync — a new
-  required variable without an `.env.example` entry is a defect.
+  committed **`.env.example`** (`PROJECT_STRUCTURE.md` §2) documents every required
+  key with safe placeholders and **MUST** be kept in sync — a new required variable
+  without an `.env.example` entry is a defect.
 - The Environment Loader parses `.env` **once at boot**, before configuration is
-  assembled (`ARCHITECTURE.md` §7), and applies declared **defaults** and basic
-  **type coercion** (e.g. `"true"`→bool, numeric strings→int).
-- In production the real **process environment** is the source of truth; `.env` is
-  primarily a local-development convenience. Behavior is identical regardless of
-  source.
+  assembled (`ARCHITECTURE.md` §7), applying declared **defaults** and basic **type
+  coercion** (`"true"`→bool, numeric strings→int). In production the real **process
+  environment** is the source of truth; behavior is identical regardless of source.
 - Environment values are read **only** by `config/` (and where unavoidable, the
   bootstrap). Modules and business code read configuration, never `getenv()`.
 
@@ -109,17 +107,17 @@ when keys collide. From lowest precedence (base) to highest (override):
 
 ## 5. Configuration Caching (later phase)
 
-- Assembling configuration from many files on every request is wasteful. The
-  Kernel **MAY** compile the merged **layers 1–3** into a single cached artifact
-  in `storage/` (git-ignored; `PROJECT_STRUCTURE.md` §2) to satisfy the
-  performance budgets (Constitution §11). **Caching is implemented in a later
-  phase**; the design simply must not preclude it.
+- Assembling config from many files on every request is wasteful, so the Kernel
+  **MAY** compile the merged **layers 1–3** into a single cached artifact in
+  `storage/` (git-ignored; `PROJECT_STRUCTURE.md` §2) to meet the performance
+  budgets (Constitution §11). **Caching lands in a later phase**; the design must
+  not preclude it.
 - **Cacheable layers only.** Layers 1–3 are static for the life of a deploy and
-  are safe to cache. **Layer 4 (runtime/workspace) is request-scoped and MUST
-  NOT be baked into the static cache** — it is resolved live per request/tenant.
-- The config cache is **invalidated on deploy** (and via an explicit clear step);
-  stale config is a defect. Because secrets are read from the environment at boot,
-  a cached artifact **MUST NOT** persist secret material to disk in plaintext.
+  safe to cache; **layer 4 (runtime/workspace) is request-scoped and MUST NOT be
+  baked into the static cache** — it is resolved live per request/tenant.
+- The cache is **invalidated on deploy** (and via an explicit clear); stale config
+  is a defect. Because secrets are read from the environment at boot, a cached
+  artifact **MUST NOT** persist secret material to disk in plaintext.
 
 ## 6. Resolution & Precedence Rules
 

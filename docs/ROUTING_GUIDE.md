@@ -23,19 +23,17 @@ per [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 ## 1. Design Principles
 
 - **No complex DSL.** Routing is a thin, explicit map from `(method, path)` to a
-  controller action. We do **not** build a fluent macro language, route
-  annotations, or controller auto-discovery. A reader **MUST** be able to find
-  the handler for any URL by reading a route file.
-- **Modules own their routes.** Every module declares its own routes under its
-  `Routes/` directory (`PROJECT_STRUCTURE.md` §4). The root `/routes` directory
-  only **aggregates** them; it contains no feature routes of its own.
-- **Additive registration.** Adding a module **MUST NOT** require editing another
-  module's route files (`ARCHITECTURE.md` §9). Registration is discovery-driven
-  via the Module Registry.
+  controller action — no fluent macro language, route annotations, or controller
+  auto-discovery. A reader **MUST** be able to find the handler for any URL by
+  reading a route file.
+- **Modules own their routes.** Every module declares routes under its `Routes/`
+  directory (`PROJECT_STRUCTURE.md` §4); the root `/routes` only **aggregates**
+  them and contains no feature routes of its own. Adding a module **MUST NOT**
+  require editing another module's route files (`ARCHITECTURE.md` §9).
 - **Single front controller.** Only `public/index.php` is web-exposed
   (Constitution §4); all routing flows through it.
 - **Routes are declarations, not logic.** A route file maps URLs to handlers and
-  middleware. It **MUST NOT** contain business logic, queries, or rendering.
+  middleware; it **MUST NOT** contain business logic, queries, or rendering.
 
 ## 2. Supported HTTP Verbs
 
@@ -51,12 +49,11 @@ The Router **MUST** support exactly these verbs, each with standard semantics
 | `DELETE` | Remove a resource. | no | yes |
 
 - `HEAD` and `OPTIONS` are handled by the Kernel generically (HEAD mirrors GET
-  without a body; OPTIONS reports allowed methods). Modules **SHOULD NOT** declare
-  them by hand.
-- A registration for any other verb is a defect.
-- State-changing verbs (`POST`/`PUT`/`PATCH`/`DELETE`) on **web** routes
-  **MUST** be guarded by CSRF middleware (Constitution §10; §7 below). The **API**
-  surface is token-authenticated and stateless (`API_GUIDELINES.md` §B9).
+  without a body; OPTIONS reports allowed methods); modules **SHOULD NOT** declare
+  them by hand. A registration for any other verb is a defect.
+- State-changing verbs (`POST`/`PUT`/`PATCH`/`DELETE`) on **web** routes **MUST**
+  be guarded by CSRF middleware (Constitution §10; §7); the **API** surface is
+  token-authenticated and stateless (`API_GUIDELINES.md` §B9).
 
 ## 3. Route Registration
 
@@ -93,19 +90,16 @@ the same way.
 ## 4. Route Groups
 
 Groups apply shared attributes — a **path prefix**, a **middleware stack**, and a
-**name prefix** — to a set of routes, and **MAY** nest. Groups are how the two
-surfaces are organized and how cross-cutting concerns attach without repetition.
+**name prefix** — to a set of routes, and **MAY** nest. They organize the two
+surfaces and attach cross-cutting concerns without repetition:
 
-- **Web group:** root prefix `/`, web middleware (session, CSRF, locale), name
-  prefix per module (e.g. `jobs.`).
-- **API group:** prefix `/api/v1`, API middleware (token auth, rate limit, JSON),
-  name prefix `api.v1.`.
-- Nested groups **compose**: prefixes concatenate, middleware stacks append
-  (outer runs first), name prefixes concatenate.
-
-> **EXAMPLE — nesting (illustrative only):** an API group `/api/v1` containing a
-> module group `/jobs` produces base path `/api/v1/jobs`, the API middleware
-> stack plus any module middleware, and name prefix `api.v1.jobs.`.
+- **Web group:** prefix `/`, middleware (session, CSRF, locale), per-module name
+  prefix (e.g. `jobs.`).
+- **API group:** prefix `/api/v1`, middleware (token auth, rate limit, JSON), name
+  prefix `api.v1.`.
+- Nested groups **compose** — prefixes and name prefixes concatenate, middleware
+  stacks append (outer runs first). E.g. an `/api/v1` group around a `/jobs` group
+  yields base path `/api/v1/jobs` and name prefix `api.v1.jobs.`.
 
 ## 5. URL Parameters
 

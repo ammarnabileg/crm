@@ -8,14 +8,11 @@
 ## 0. Purpose & Scope
 
 This guide specifies how HaHireAI **handles failure**: how throwables are caught
-centrally, how they are classified, what the user and an API client see, what is
-logged, and how the platform recovers. It elaborates the Core Kernel **Error
-Handler** (`ARCHITECTURE.md` §6) and the error rules in `CODING_STANDARD.md` §7
-into a single, binding design.
-
-It is **design documentation, not implementation**; code fragments are
-**illustrative only** and are not source files. The normative content is the
-prose rules.
+centrally, classified, mapped to HTTP, logged, surfaced to users and API clients,
+and recovered from. It elaborates the Core Kernel **Error Handler**
+(`ARCHITECTURE.md` §6) and the error rules in `CODING_STANDARD.md` §7 into a
+single, binding design. It is **design documentation, not implementation**; code
+fragments are **illustrative only** and are not source files.
 
 **Supremacy.** This guide defers to `ARCHITECTURE.md` and the
 `PROJECT_CONSTITUTION.md`; on any conflict, those win. Interpretation keywords
@@ -35,32 +32,26 @@ operators.
 
 A single **global handler**, installed by the Core Kernel during bootstrap
 (`ARCHITECTURE.md` §7, *bootstrap → error handler*; `Core_Kernel.md` §2), is the
-**last line of defense**. It registers the PHP exception handler, error handler,
-and shutdown handler so that **no** unhandled throwable — and no fatal error —
-escapes unformatted.
-
-Responsibilities:
+**last line of defense**. It registers the PHP exception, error, and shutdown
+handlers so that **no** unhandled throwable — and no fatal error — escapes
+unformatted. Its responsibilities:
 
 - **Catch every uncaught throwable** at the top of the request lifecycle and
-  convert it into a controlled **Response** (`ARCHITECTURE.md` §7;
-  `Core_Kernel.md` §4).
-- **Convert PHP errors/warnings/notices** into typed throwables (error-to-exception
-  promotion) so they flow through the same path; the codebase runs under
-  `strict_types=1` (`CODING_STANDARD.md` §1).
-- **Catch fatal/shutdown errors** via a shutdown handler and still render a safe
-  response rather than a blank page or a server default error.
+  convert it into a controlled **Response** (`Core_Kernel.md` §4); **promote** PHP
+  errors/warnings/notices into typed throwables so they flow through the same path
+  (`strict_types=1` — `CODING_STANDARD.md` §1); and **catch fatal/shutdown errors**
+  to render a safe response rather than a blank page.
 - **Classify** the throwable (§4), **map** it to an HTTP status (§5), **log** it
   with safe context (§6), and **render** the right surface (§7) — HTML page or API
   envelope, dev or prod.
-- **Emit `kernel.exception.captured`** on the Event Bus when an unhandled
-  throwable is captured (`Core_Kernel.md` §7), so Observability can react
-  (`OBSERVABILITY.md`, `ERROR_TRACKING.md`) without the kernel knowing about
-  monitoring.
+- **Emit `kernel.exception.captured`** on the Event Bus (`Core_Kernel.md` §7) so
+  Observability can react (`OBSERVABILITY.md`, `ERROR_TRACKING.md`) without the
+  kernel knowing about monitoring.
 
-The handler itself contains **no business logic** and **no module knowledge**
-(`PROJECT_STRUCTURE.md` §5); it is cross-cutting plumbing. It depends on the
-PSR-3 **Logger** and the **Configuration** loader by injection, never on a service
-locator (`CODING_STANDARD.md` §6).
+The handler contains **no business logic** and **no module knowledge**
+(`PROJECT_STRUCTURE.md` §5); it is cross-cutting plumbing, depending on the PSR-3
+**Logger** and the **Configuration** loader by injection, never a service locator
+(`CODING_STANDARD.md` §6).
 
 > **EXAMPLE — illustrative handler shape, not implementation:**
 > ```php
@@ -113,22 +104,19 @@ The handler is the safety net; correct **throwing** at the source is the first
 control. This restates `CODING_STANDARD.md` §7 as it pertains to handling.
 
 - **Exceptions for the exceptional.** Broken invariants, programming errors, and
-  infrastructure failures **throw**. Use specific exception classes, never bare
-  `\Exception` / `\RuntimeException` for domain meaning.
-- **Expected domain outcomes are modeled, not thrown.** Ordinary results a caller
-  is expected to handle (validation failed, transition not allowed, quota
-  exceeded) **SHOULD** use a typed **Result** object (`/shared`) or a narrow domain
-  exception caught deliberately — not a generic exception used as control flow.
+  infrastructure failures **throw** specific exception classes — never bare
+  `\Exception` / `\RuntimeException` for domain meaning. **Expected domain
+  outcomes are modeled, not thrown:** ordinary results a caller handles (validation
+  failed, transition not allowed, quota exceeded) **SHOULD** use a typed **Result**
+  (`/shared`) or a narrow domain exception, not an exception as control flow.
 - **Wrap, don't leak, infrastructure errors.** Infrastructure exceptions (e.g.
   PDO) **MUST** be wrapped into a module/domain exception at the Infrastructure
-  boundary; raw driver exceptions **MUST NOT** propagate upward
-  (`CODING_STANDARD.md` §7). This keeps SQL and connection detail out of upper
-  layers and out of any leaked output.
+  boundary; raw driver exceptions **MUST NOT** propagate upward, keeping SQL and
+  connection detail out of upper layers and out of any leaked output.
 - **Never swallow.** Empty `catch` blocks are forbidden; a catch handles,
   translates, or logs-and-rethrows (`CODING_STANDARD.md` §7, §10 *Silent failure*).
-- **Each module owns its exception types**, extending a shared base where useful;
-  domain exceptions live in `Domain/` and carry domain meaning, not transport
-  concerns.
+  Each module owns its exception types in `Domain/`, carrying domain meaning, not
+  transport concerns.
 
 ---
 
@@ -207,27 +195,22 @@ Every captured throwable is logged through the **PSR-3 Logger**
 | Infrastructure | `error` |
 | Unexpected / Programming | `critical` |
 
-**What is captured (structured context):**
-
-- The exception **type/class** and a **safe message**.
-- The full **stack trace** — in the **log only**, never in user output (§0, §2).
-- The **correlation `request_id`** (§8) for end-to-end tracing.
-- **Actor identity** as an **id reference** (user id), the **workspace_id**, and
-  the **request route/method** — enough to reproduce and to attribute.
-- The mapped **category**, **HTTP status**, and **`code`**.
+**What is captured (structured context):** the exception **type/class** and a
+**safe message**; the full **stack trace** (in the **log only**, never in user
+output — §0, §2); the correlation **`request_id`** (§8); **actor identity** as an
+**id reference** (user id), the **workspace_id**, and the **request route/method**
+— enough to reproduce and attribute; and the mapped **category**, **HTTP status**,
+and **`code`**.
 
 **What MUST NEVER be logged** (`CODING_STANDARD.md` §7; `SECURITY_GUIDE.md` §6,
-§10):
+§10): passwords, tokens, API keys, signing secrets, or session identifiers; **raw
+request bodies** or full PII payloads (candidate/employee personal data — log
+**ids**, not content); connection strings, decrypted secrets, or anything secret
+from the environment.
 
-- Passwords, tokens, API keys, signing secrets, session identifiers.
-- **Raw request bodies** or full PII payloads (candidate/employee personal data).
-  Log **references** (ids), not sensitive content.
-- Connection strings, decrypted secrets, or anything from the environment that is
-  secret.
-
-> Logs are operator-facing telemetry; they MUST be safe to read and to ship to
-> the Phase 15 **Log Explorer** without exposing secrets or PII
-> (`Observability.md` §2). When in doubt, log an id, not the value.
+> Logs are operator-facing telemetry; they MUST be safe to read and to ship to the
+> Phase 15 **Log Explorer** without exposing secrets or PII (`Observability.md`
+> §2). When in doubt, log an id, not the value.
 
 ---
 

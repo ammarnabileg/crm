@@ -84,6 +84,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Normalized illustrative permission shorthands in `SCREEN_CATALOG.md` to
   catalog keys (`system.diagnostics.run`, `system.maintenance.manage`).
 
+### Added — Phase 6: Project Structure, Build System & Installer
+- `PROJECT_STRUCTURE.md`, `DIRECTORY_STANDARD.md` — the authoritative project
+  layout and naming/placement rules.
+- Kernel design: `BOOTSTRAP_FLOW.md`, `SERVICE_CONTAINER.md`, `ROUTING_GUIDE.md`,
+  `CONFIGURATION_GUIDE.md`, `ERROR_HANDLING_GUIDE.md`, `HEALTH_CHECK_SYSTEM.md`.
+- Installer design: `INSTALLER_ARCHITECTURE.md`, `INSTALLATION_FLOW.md`
+  (zero-touch, browser-only, first System Owner).
+- Build/ops: `BUILD_SYSTEM.md`, `UPDATE_POLICY.md`, `BACKUP_POLICY.md`.
+- `adr/0001-project-structure.md`.
+
+### Changed — Phase 6 (amendment)
+- **Adopted the canonical project structure** (`app/{Core,Modules,Shared,…}`,
+  `bootstrap/`, `routes/`) and reconciled `PROJECT_CONSTITUTION.md` §8 (→ v1.1.0)
+  and `ARCHITECTURE.md` §3 (→ v1.1.0) to match. Module DDD internals unchanged.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

@@ -104,12 +104,26 @@ it, the Constitution wins.
 | `PAGE_STANDARDS.md` | Page anatomy & mandatory states | Adopted |
 | `DASHBOARD_GUIDE.md` | Dashboards as command centers | Adopted |
 
+### Phase 6 — Project Structure, Build System & Installer ✅
+| Document | Purpose | Status |
+|---|---|---|
+| `PROJECT_STRUCTURE.md` | Authoritative project layout | Adopted (Canon) |
+| `DIRECTORY_STANDARD.md` | Folder/file/namespace rules | Adopted (Canon) |
+| `BOOTSTRAP_FLOW.md` | Request lifecycle from index.php | Adopted |
+| `SERVICE_CONTAINER.md` | Bespoke DI container design | Adopted |
+| `ROUTING_GUIDE.md` | Routing system design | Adopted |
+| `CONFIGURATION_GUIDE.md` | Config/env loading | Adopted |
+| `INSTALLER_ARCHITECTURE.md` | Zero-touch installer | Adopted |
+| `INSTALLATION_FLOW.md` | Setup wizard steps | Adopted |
+| `HEALTH_CHECK_SYSTEM.md` | Pluggable health probes | Adopted |
+| `ERROR_HANDLING_GUIDE.md` | Global error handling | Adopted |
+| `BUILD_SYSTEM.md` | Build lifecycle | Adopted |
+| `UPDATE_POLICY.md` | Safe updates | Adopted |
+| `BACKUP_POLICY.md` | Backup/restore/recovery | Adopted |
+
+ADRs: `adr/0001-project-structure.md`.
+
 ### Planned (later phases)
-- **Phase 6 — Structure & Installer:** `PROJECT_STRUCTURE.md`,
-  `DIRECTORY_STANDARD.md`, `BOOTSTRAP_FLOW.md`, `SERVICE_CONTAINER.md`,
-  `ROUTING_GUIDE.md`, `CONFIGURATION_GUIDE.md`, `INSTALLER_ARCHITECTURE.md`,
-  `INSTALLATION_FLOW.md`, `HEALTH_CHECK_SYSTEM.md`, `BUILD_SYSTEM.md`,
-  `UPDATE_POLICY.md`, `BACKUP_POLICY.md`, `ERROR_HANDLING_GUIDE.md`.
 - **Phases 7–16 — Implementation:** Core Kernel, Installer/DB/Auth/RBAC,
   Workspace platform, Recruitment, AI Engine, Workflow Engine, Integration
   Platform, Billing/Subscriptions, Observability, and Release certification —
