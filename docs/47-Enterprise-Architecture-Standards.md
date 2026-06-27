@@ -12,6 +12,8 @@ scalable, testable, and sellable to thousands of companies.
 - [31-Backend-Architecture](31-Backend-Architecture.md), [41-Coding-Standards](41-Coding-Standards.md), [42-Code-Review-Checklist](42-Code-Review-Checklist.md)
 - [26-Notification-System](26-Notification-System.md), [27-Storage-System](27-Storage-System.md), [28-Search-System](28-Search-System.md), [16-AI-Architecture](16-AI-Architecture.md)
 - [38-Audit-System](38-Audit-System.md), [39-Testing-Strategy](39-Testing-Strategy.md)
+- [49-Development-Workflow](49-Development-Workflow.md) — the binding per-feature lifecycle every change follows
+- [50-Continuous-Project-Audit](50-Continuous-Project-Audit.md) — the whole-project audit gate run between phases
 
 ## Purpose (الهدف)
 
