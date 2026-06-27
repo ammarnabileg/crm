@@ -68,6 +68,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   `recruitment.view`→`job.view`, Platform Overview→`system.dashboard.view`),
   resolving the only cross-document key drift found in self-review.
 
+### Added — Phase 5: Navigation, UX & Screen Architecture
+- `NAVIGATION_ARCHITECTURE.md`, `SIDEBAR_MODEL.md` — the dynamic navigation
+  engine and the single permission/subscription/module-driven sidebar.
+- `SCREEN_CATALOG.md` — every screen (purpose, entry points, permissions,
+  actions, the six mandatory states, acceptance criteria).
+- `SCREEN_RELATIONSHIPS.md`, `USER_EXPERIENCE.md` — screen graph and UX
+  philosophy (one coherent product, unified search & notifications).
+- `LAYOUT_SYSTEM.md`, `PAGE_STANDARDS.md` — app shell, tokens, RTL/LTR, and the
+  standard page anatomy + mandatory states.
+- `DASHBOARD_GUIDE.md` — dashboards as command centers (platform-baseline
+  widgets in Phase 9; recruitment widgets in Phase 10).
+
+### Changed — Phase 5
+- Normalized illustrative permission shorthands in `SCREEN_CATALOG.md` to
+  catalog keys (`system.diagnostics.run`, `system.maintenance.manage`).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

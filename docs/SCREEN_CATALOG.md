@@ -344,8 +344,8 @@ data with no `workspace_id`. Entry to the whole console requires
 - **Dependencies:** Observability (owner); System Administration, Audit.
 - **Related Screens:** System Analytics, Platform Settings, Audit Logs.
 - **States:** *Empty:* no probe run yet → "run a check." *Loading:* probe
-  in-progress indicator. *[NP]* (e.g. holds `diagnostics.run` but not
-  `maintenance.manage` → maintenance controls hidden/denied). *Error:* probe
+  in-progress indicator. *[NP]* (e.g. holds `system.diagnostics.run` but not
+  `system.maintenance.manage` → maintenance controls hidden/denied). *Error:* probe
   failure shown with remediation hints, no internals leaked. *Success:* result
   panel + toast; maintenance/backup actions audited. *[OFF]*.
 - **Acceptance Criteria:**

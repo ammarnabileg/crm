@@ -15,15 +15,14 @@ breadcrumb model, the choice between a full page / modal / drawer / tab, and how
 transitions*, not visual layout.
 
 It **defers** to `NAVIGATION_MAP.md` (the authoritative screen tree and gates)
-and `SCREEN_CATALOG.md` (the authoritative per-screen specification). Where this
-file and either of those disagree, **they govern** and this file is corrected.
-Screen, context, tab, and module names are used **exactly** as in
-`NAVIGATION_MAP.md` and `MODULES.md`. Permission keys follow
-`PERMISSION_CATALOG.md` via `SECURITY_MATRIX.md`. Every relationship below is
-**gated**: a link renders only if permission **AND** subscription **AND** enabled
-module allow it, and only within the active workspace's data — no cross-tenant
-traversal (`NAVIGATION_MAP.md` §6, `SECURITY_MATRIX.md` §1.1, §1.3). Interpretation
-keywords follow RFC 2119.
+and `SCREEN_CATALOG.md` (the authoritative per-screen specification); where this
+file disagrees with either, **they govern**. Screen, context, tab, and module
+names are used **exactly** as in `NAVIGATION_MAP.md` and `MODULES.md`; permission
+keys follow `PERMISSION_CATALOG.md` via `SECURITY_MATRIX.md`. Every relationship
+below is **gated**: a link renders only if permission **AND** subscription **AND**
+enabled module allow it, and only within the active workspace's data — no
+cross-tenant traversal (`NAVIGATION_MAP.md` §6, `SECURITY_MATRIX.md` §1.1, §1.3).
+Keywords follow RFC 2119.
 
 **Legend.** `──▶` drill-down / forward navigation · `◀──▶` lateral cross-link
 (both directions) · `▸` a tab within an entity · `⇧` opens in a drawer ·

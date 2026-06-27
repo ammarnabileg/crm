@@ -10,15 +10,15 @@
 This document states the **user-experience philosophy** of HaHireAI: the
 cross-cutting principles that make every screen feel like one product rather than
 a stack of forms. It is binding at the level of *experience*, not pixels —
-component specifications, layout grids, and per-screen detail are owned by
-`SCREEN_CATALOG.md`, `LAYOUT_SYSTEM.md`, `PAGE_STANDARDS.md`, and `SIDEBAR_MODEL.md`.
+component specs, layout grids, and per-screen detail are owned by
+`SCREEN_CATALOG.md`, `LAYOUT_SYSTEM.md`, `PAGE_STANDARDS.md`, `SIDEBAR_MODEL.md`.
 
 It **defers** to `UI_GUIDELINES.md` (the Phase-1 UI law), `NAVIGATION_MAP.md`
 (which screens exist and how they nest), and `USER_JOURNEYS.md` (the end-to-end
-flows). Where this document summarizes a rule those files own, **they govern** and
-this file is corrected. Screen, context, and module names are used **exactly** as
-defined in `NAVIGATION_MAP.md` and `MODULES.md`. Interpretation keywords (**MUST**,
-**MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY**) follow RFC 2119.
+flows); where this file summarizes a rule they own, **they govern**. Screen,
+context, and module names are used **exactly** as defined in `NAVIGATION_MAP.md`
+and `MODULES.md`. Keywords (**MUST**, **MUST NOT**, **SHOULD**, **MAY**) follow
+RFC 2119.
 
 ---
 
@@ -74,23 +74,23 @@ section a user must navigate to.
   Reports, and Interviews**; results MUST be **grouped by entity type** so the
   user scans one coherent panel rather than seven scattered lists. (Offers and
   Talent Pool entries are reachable through their parent Application / Candidate
-  Profile per §3 of `SCREEN_RELATIONSHIPS.md`.)
+  Profile, `SCREEN_RELATIONSHIPS.md` §3.)
 - **System Owners also search Companies / Workspaces.** In the **Platform
-  Context**, the same search surface additionally exposes **Companies /
-  Workspaces** and the global **Users** directory — never tenant business data,
-  which stays inside its workspace (`SECURITY_MATRIX.md` §1.3).
+  Context**, the same surface additionally exposes **Companies / Workspaces** and
+  the global **Users** directory — never tenant business data, which stays inside
+  its workspace (`SECURITY_MATRIX.md` §1.3).
 - **Tenant-isolated by construction.** Every Workspace-Context result is scoped to
-  the active `workspace_id`; the index never returns another tenant's records,
-  nor the *existence* of a candidacy elsewhere (`SECURITY_MATRIX.md` §3.11,
+  the active `workspace_id`; the index never returns another tenant's records, nor
+  the *existence* of a candidacy elsewhere (`SECURITY_MATRIX.md` §3.11,
   `APPLICATION_FLOW.md` §6). Switching workspaces re-scopes search entirely.
-- **Results obey the target's gate.** A result row renders only if the user may
-  view that entity, and opening it routes through the target entity's own
-  permission gate (`NAVIGATION_MAP.md` §6, `SECURITY_MATRIX.md` §3.11). Search
-  MUST NOT become a side-channel around `*.view`.
+- **Results obey the target's gate.** A row renders only if the user may view that
+  entity, and opening it routes through the target's own permission gate
+  (`NAVIGATION_MAP.md` §6, `SECURITY_MATRIX.md` §3.11). Search MUST NOT become a
+  side-channel around `*.view`.
 - **Search is a way *to* an entity, not a place.** Selecting a result navigates
-  directly to that entity's canonical screen (e.g. a result under *Applications*
-  opens that Application; under *Interviews*, the Interview Detail). Search never
-  dead-ends in a results-only view the user must back out of manually.
+  directly to that entity's canonical screen (a result under *Applications* opens
+  that Application; under *Interviews*, the Interview Detail) — never a
+  results-only view the user must back out of manually.
 
 ---
 

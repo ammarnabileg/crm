@@ -92,11 +92,19 @@ it, the Constitution wins.
 | `SECURITY_MATRIX.md` | Screen/action × permission × policy | Adopted |
 | `AUDIT_EVENTS.md` | Authoritative audited-events catalog | Adopted |
 
+### Phase 5 — Navigation, UX & Screen Architecture ✅
+| Document | Purpose | Status |
+|---|---|---|
+| `NAVIGATION_ARCHITECTURE.md` | Dynamic navigation engine | Adopted |
+| `SIDEBAR_MODEL.md` | Single dynamic sidebar model | Adopted |
+| `SCREEN_CATALOG.md` | Every screen (purpose/states/AC) | Adopted |
+| `SCREEN_RELATIONSHIPS.md` | How screens connect | Adopted |
+| `USER_EXPERIENCE.md` | UX philosophy & patterns | Adopted |
+| `LAYOUT_SYSTEM.md` | App shell, grid, tokens, RTL/LTR | Adopted |
+| `PAGE_STANDARDS.md` | Page anatomy & mandatory states | Adopted |
+| `DASHBOARD_GUIDE.md` | Dashboards as command centers | Adopted |
+
 ### Planned (later phases)
-- **Phase 5 — Navigation & UX:** `NAVIGATION_ARCHITECTURE.md`,
-  `SCREEN_CATALOG.md`, `USER_EXPERIENCE.md`, `LAYOUT_SYSTEM.md`,
-  `SIDEBAR_MODEL.md`, `DASHBOARD_GUIDE.md`, `PAGE_STANDARDS.md`,
-  `SCREEN_RELATIONSHIPS.md`.
 - **Phase 6 — Structure & Installer:** `PROJECT_STRUCTURE.md`,
   `DIRECTORY_STANDARD.md`, `BOOTSTRAP_FLOW.md`, `SERVICE_CONTAINER.md`,
   `ROUTING_GUIDE.md`, `CONFIGURATION_GUIDE.md`, `INSTALLER_ARCHITECTURE.md`,

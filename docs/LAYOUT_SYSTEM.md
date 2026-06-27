@@ -195,7 +195,7 @@ Tokens are the **single source of truth** for visual values; Tailwind's theme is
 **derived from the tokens** so utilities and tokens never drift
 (`UI_GUIDELINES.md` §5). Components MUST consume **semantic** tokens and MUST NOT
 hard-code raw values. Semantic tokens resolve to a palette and, in turn, to the
-active theme (§9) — enabling per-workspace branding and dark mode by **token
+active theme (§8) — enabling per-workspace branding and dark mode by **token
 swap, not refactor**.
 
 ### 5.1 Color (semantic)
@@ -207,11 +207,11 @@ swap, not refactor**.
 | `color-border` / `color-border-strong` | dividers, control borders |
 | `color-primary` / `color-primary-contrast` | brand action, text on brand |
 | `color-success` / `color-warning` / `color-danger` / `color-info` | status families (each with a `-subtle` surface + `-contrast` text) |
-| `color-focus-ring` | focus indicator (AA-visible, §8, a11y) |
+| `color-focus-ring` | focus indicator (MUST stay AA-visible in every theme, §8) |
 
 Status MUST NOT be conveyed by color alone — pair with icon/text
 (`UI_GUIDELINES.md` §9). Brand-bearing tokens (`color-primary`) are the primary
-hooks per-workspace branding overrides (§8).
+hooks per-workspace branding overrides (§7).
 
 ### 5.2 Typography
 
@@ -231,12 +231,12 @@ Base body size MUST be ≥ 14 px; line length on text content SHOULD respect
 | Category | Tokens |
 |---|---|
 | **Radius** | `radius-sm` (4) · `radius-md` (8) · `radius-lg` (12) · `radius-full` (pill/avatar) |
-| **Elevation** | `shadow-0` (flat) · `shadow-1` (card) · `shadow-2` (popover/dropdown) · `shadow-3` (modal/drawer) — elevation MUST track the z-index layer (§7) |
+| **Elevation** | `shadow-0` (flat) · `shadow-1` (card) · `shadow-2` (popover/dropdown) · `shadow-3` (modal/drawer) — elevation MUST track the z-index layer (§6) |
 | **Motion** | `motion-fast` (~120 ms) · `motion-base` (~200 ms) · `motion-slow` (~320 ms); standard easing token. All motion MUST honor `prefers-reduced-motion` and degrade to instant. |
 
 ### 5.4 Z-index layers
 
-Stacking is a **fixed token ladder** (§7); no component may invent an arbitrary
+Stacking is a **fixed token ladder** (§6); no component may invent an arbitrary
 `z-index`.
 
 | Token | Band | Occupants |
@@ -287,30 +287,19 @@ Binding stacking rules:
 - Toasts MUST NOT obscure the primary action of the surface beneath; they sit
   clear of the inline-end edge and respect safe areas on mobile.
 
----
-
-## 7. Stacking Model (summary)
-
-The combined **paint order** of the shell, from back to front, is the single
-source for any new surface:
+The combined **paint order** of the shell (back → front) is the single source for
+any new surface; a new overlay MUST slot into an existing band, and adding a band
+requires updating this document and the token set (`UI_GUIDELINES.md` §5):
 
 ```
-content (z-base)
-  → sticky headers (z-sticky)
-    → top bar / sidebar (z-shell)
-      → menus / popovers / tooltips (z-dropdown)
-        → scrim (z-overlay)
-          → modal / drawer (z-modal)
-            → toasts (z-toast)
-              → [reserved diagnostics] (z-max)
+content (z-base) → sticky headers (z-sticky) → top bar / sidebar (z-shell)
+  → menus / popovers / tooltips (z-dropdown) → scrim (z-overlay)
+    → modal / drawer (z-modal) → toasts (z-toast) → [reserved] (z-max)
 ```
-
-Any new overlay MUST slot into an existing band; introducing a new band requires
-an update to this document and to the token set (`UI_GUIDELINES.md` §5).
 
 ---
 
-## 8. Density Modes & Per-Workspace Theming
+## 7. Density Modes & Per-Workspace Theming
 
 ### 8.1 Density modes
 
@@ -358,7 +347,7 @@ Each workspace owns its branding — logo, cover, colors, favicon, email brandin
 
 ---
 
-## 9. Dark Mode Readiness
+## 8. Dark Mode Readiness
 
 Dark mode is a **first-class readiness requirement**, even where full delivery is
 scheduled later (`UI_GUIDELINES.md` §5).
@@ -372,13 +361,13 @@ scheduled later (`UI_GUIDELINES.md` §5).
 - **Elevation in dark** uses surface-tint tokens (raised surfaces lighten) rather
   than relying solely on shadows; `shadow-*` tokens MUST remain meaningful in both
   themes.
-- Theme and **per-workspace brand** (§8.2) compose: brand tokens resolve within
-  the active theme, and both MUST preserve AA contrast (§5, a11y).
-- Dark mode MUST hold equally in RTL/LTR (§4) and in both density modes (§8.1).
+- Theme and **per-workspace brand** (§7.2) compose: brand tokens resolve within
+  the active theme, and both MUST preserve AA contrast (§5).
+- Dark mode MUST hold equally in RTL/LTR (§4) and in both density modes (§7.1).
 
 ---
 
-## 10. Self-Review Checklist (Layout gate)
+## 9. Self-Review Checklist (Layout gate)
 
 The per-section **MUST** rules above are binding; this checklist is the gate.
 
