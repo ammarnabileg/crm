@@ -46,6 +46,7 @@ return new class extends Migration {
         ['analytics', 'Analytics', 'Intelligence', 'line-chart', 19],
         ['billing', 'Billing', 'Billing', 'credit-card', 20],
         ['subscriptions', 'Subscriptions', 'Billing', 'repeat', 21],
+        ['system', 'System', 'Platform', 'server-cog', 22],
     ];
 
     public function up(Database $db): void

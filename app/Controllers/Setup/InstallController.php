@@ -11,9 +11,10 @@ use App\Services\Install\InstallManager;
 use Throwable;
 
 /**
- * The web installer. Renders the wizard and exposes one JSON endpoint per step
- * so the front-end can drive installation with a live console and resume from
- * the last completed step on failure. No CLI, ever.
+ * The web installer (Setup & Installer Bible). Renders the wizard and exposes one
+ * JSON endpoint per operation so the front-end drives installation with a live
+ * console + real progress bar, resumes from the last completed step on failure,
+ * and never asks the user to touch a terminal.
  */
 final class InstallController extends Controller
 {
@@ -25,8 +26,6 @@ final class InstallController extends Controller
     public function index(Request $request): Response
     {
         $manager = $this->manager();
-
-        // Already installed? Send people to the app rather than re-running setup.
         if ($manager->isInstalled()) {
             return $this->redirect(url('login'));
         }
@@ -35,6 +34,7 @@ final class InstallController extends Controller
             'state'      => $manager->state(),
             'nextStep'   => $manager->nextStep(),
             'steps'      => InstallManager::STEPS,
+            'progress'   => $manager->progress(),
             'phpVersion' => PHP_VERSION,
             'defaultUrl' => $this->guessAppUrl($request),
         ]);
@@ -57,6 +57,53 @@ final class InstallController extends Controller
             ]);
 
             return ['message' => 'Database connection verified and database ready.'];
+        });
+    }
+
+    public function environment(Request $request): Response
+    {
+        return $this->guard(function () {
+            $this->manager()->generateEnvironment();
+
+            return ['message' => 'Generated the application encryption key.'];
+        });
+    }
+
+    public function storage(Request $request): Response
+    {
+        return $this->guard(function () {
+            $results = $this->manager()->createStorage();
+            $made = count(array_filter($results, static fn ($r) => $r['ok']));
+
+            return ['message' => "Storage folders ready ({$made}/" . count($results) . ').', 'log' => array_map(
+                static fn ($r) => ['name' => $r['path'], 'ok' => $r['ok'], 'error' => $r['ok'] ? null : 'not created'],
+                $results
+            )];
+        });
+    }
+
+    public function permissions(Request $request): Response
+    {
+        return $this->guard(function () {
+            $res = $this->manager()->checkPermissions();
+            if (! $res['ok']) {
+                throw new \RuntimeException('Some storage folders are not writable. Click "Auto-Fix permissions" and try again.');
+            }
+
+            return ['message' => 'All storage folders are writable.'];
+        });
+    }
+
+    public function fixPermissions(Request $request): Response
+    {
+        return $this->guard(function () {
+            $res = $this->manager()->fixPermissions();
+
+            return [
+                'ok_fixed' => $res['ok'],
+                'message'  => $res['ok'] ? 'Permissions repaired — all folders are writable.' : 'Some folders are still not writable; please set them to 775 in your hosting file manager.',
+                'log'      => array_map(static fn ($d) => ['name' => $d['path'], 'ok' => $d['writable'], 'error' => $d['writable'] ? null : 'not writable'], $res['dirs']),
+            ];
         });
     }
 
@@ -86,7 +133,37 @@ final class InstallController extends Controller
         return $this->guard(function () {
             $this->manager()->runSeeders();
 
-            return ['message' => 'Seeded permissions, roles and the default plan.'];
+            return ['message' => 'Seeded reference data, lookups, modules, permissions, roles and the default plan.'];
+        });
+    }
+
+    public function mail(Request $request): Response
+    {
+        return $this->guard(function () use ($request) {
+            if ($request->input('skip')) {
+                $this->manager()->skipMail();
+
+                return ['message' => 'Mail step skipped — you can configure it later from the dashboard.'];
+            }
+
+            $this->manager()->configureMail([
+                'enabled'      => (bool) $request->input('mail_enabled', false),
+                'from_address' => (string) $request->input('mail_from_address', 'no-reply@halaops.local'),
+                'from_name'    => (string) $request->input('mail_from_name', 'HalaOps'),
+            ]);
+
+            return ['message' => 'Mail settings saved.'];
+        });
+    }
+
+    public function testMail(Request $request): Response
+    {
+        return $this->guard(function () use ($request) {
+            return $this->manager()->sendTestEmail((string) $request->input('test_email', ''), [
+                'enabled'      => (bool) $request->input('mail_enabled', false),
+                'from_address' => (string) $request->input('mail_from_address', 'no-reply@halaops.local'),
+                'from_name'    => (string) $request->input('mail_from_name', 'HalaOps'),
+            ]);
         });
     }
 
@@ -103,6 +180,11 @@ final class InstallController extends Controller
         });
     }
 
+    public function health(Request $request): Response
+    {
+        return $this->json($this->manager()->healthCheck());
+    }
+
     public function finalize(Request $request): Response
     {
         return $this->guard(function () use ($request) {
@@ -112,19 +194,14 @@ final class InstallController extends Controller
             ]);
 
             return [
-                'message'  => 'Installation complete.',
+                'message'  => 'Installation complete. Redirecting you to sign in...',
                 'redirect' => url('login'),
             ];
         });
     }
 
-    /**
-     * Run a step and normalise success/failure into the JSON envelope the
-     * installer console understands.
-     */
     private function guard(callable $callback): Response
     {
-        // Refuse to mutate anything once the lock is in place.
         if ($this->manager()->isInstalled()) {
             return $this->json(['ok' => false, 'message' => 'The application is already installed.'], 409);
         }

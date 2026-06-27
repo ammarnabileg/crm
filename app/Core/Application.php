@@ -268,14 +268,15 @@ final class Application
     {
         $path = $request->path();
 
-        // Allow the installer and its assets through; redirect everything else.
-        if (str_starts_with($path, '/install') || str_starts_with($path, '/assets')) {
+        // Allow the installer (/setup, legacy /install) and its assets through;
+        // redirect everything else to the setup wizard.
+        if (str_starts_with($path, '/setup') || str_starts_with($path, '/install') || str_starts_with($path, '/assets')) {
             $this->loadRoutes();
 
             return app('router')->dispatch($request);
         }
 
-        return Response::redirect(url('install'));
+        return Response::redirect(url('setup'));
     }
 
     // --- Error handling ----------------------------------------------------

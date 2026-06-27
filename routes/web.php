@@ -7,8 +7,8 @@ declare(strict_types=1);
  *
  * $router is the application Router (provided by the kernel when this file is
  * loaded). Middleware is referenced by the aliases declared in
- * config/middleware.php. Every web route runs through security headers + CSRF;
- * auth/guest/tenant/permission layer on top.
+ * config/middleware.php. Every web route runs through security headers + CSRF +
+ * maintenance gate; auth/guest/tenant/permission layer on top.
  *
  * @var \App\Core\Router $router
  */
@@ -21,22 +21,38 @@ use App\Controllers\Auth\LoginController;
 use App\Controllers\Auth\PasswordController;
 use App\Controllers\Auth\RegisterController;
 use App\Controllers\Setup\InstallController;
+use App\Controllers\System\BackupController;
+use App\Controllers\System\DiagnosticsController;
+use App\Controllers\System\EnvironmentController;
+use App\Controllers\System\LogViewerController;
+use App\Controllers\System\MaintenanceController;
+use App\Core\Response;
 
-$router->group(['middleware' => ['security', 'csrf']], function ($router): void {
+$router->group(['middleware' => ['security', 'csrf', 'maintenance']], function ($router): void {
 
     // --- Public ---------------------------------------------------------
     $router->get('/', [HomeController::class, 'index'])->name('home');
 
-    // --- Installer (served only while the app is not yet installed) ------
-    $router->group(['prefix' => 'install'], function ($router): void {
-        $router->get('/', [InstallController::class, 'index'])->name('install');
+    // --- Installer / Setup (served only while not yet installed) --------
+    // Canonical URL is /setup (Setup & Installer Bible); /install redirects to it.
+    $router->group(['prefix' => 'setup'], function ($router): void {
+        $router->get('/', [InstallController::class, 'index'])->name('setup');
         $router->post('requirements', [InstallController::class, 'requirements']);
         $router->post('database', [InstallController::class, 'database']);
+        $router->post('environment', [InstallController::class, 'environment']);
+        $router->post('storage', [InstallController::class, 'storage']);
+        $router->post('permissions', [InstallController::class, 'permissions']);
+        $router->post('permissions/fix', [InstallController::class, 'fixPermissions']);
         $router->post('migrate', [InstallController::class, 'migrate']);
         $router->post('seed', [InstallController::class, 'seed']);
+        $router->post('mail', [InstallController::class, 'mail']);
+        $router->post('mail/test', [InstallController::class, 'testMail']);
         $router->post('admin', [InstallController::class, 'admin']);
+        $router->post('health', [InstallController::class, 'health']);
         $router->post('finalize', [InstallController::class, 'finalize']);
     });
+    // Legacy alias.
+    $router->get('install', fn (): Response => Response::redirect(url('setup')))->name('install');
 
     // --- Guest-only auth ------------------------------------------------
     $router->group(['middleware' => ['guest']], function ($router): void {
@@ -66,6 +82,28 @@ $router->group(['middleware' => ['security', 'csrf']], function ($router): void 
         // Profile.
         $router->get('profile', [ProfileController::class, 'show'])->name('profile.show');
         $router->put('profile', [ProfileController::class, 'update'])->name('profile.update');
+
+        // System operations (platform-level, super-admin via system.manage).
+        // No terminal: diagnostics, maintenance, backup/restore, env editor, logs.
+        $router->group(['prefix' => 'system', 'middleware' => ['permission:system.manage']], function ($router): void {
+            $router->get('diagnostics', [DiagnosticsController::class, 'index'])->name('system.diagnostics');
+
+            $router->get('maintenance', [MaintenanceController::class, 'index'])->name('system.maintenance');
+            $router->post('maintenance', [MaintenanceController::class, 'update'])->name('system.maintenance.update');
+
+            $router->get('backups', [BackupController::class, 'index'])->name('system.backups');
+            $router->post('backups/database', [BackupController::class, 'createDatabase'])->name('system.backups.database');
+            $router->post('backups/files', [BackupController::class, 'createFiles'])->name('system.backups.files');
+            $router->get('backups/download', [BackupController::class, 'download'])->name('system.backups.download');
+            $router->delete('backups/delete', [BackupController::class, 'destroy'])->name('system.backups.delete');
+            $router->post('backups/restore', [BackupController::class, 'restore'])->name('system.backups.restore');
+
+            $router->get('environment', [EnvironmentController::class, 'index'])->name('system.environment');
+            $router->post('environment', [EnvironmentController::class, 'update'])->name('system.environment.update');
+
+            $router->get('logs', [LogViewerController::class, 'index'])->name('system.logs');
+            $router->post('logs/clear', [LogViewerController::class, 'clear'])->name('system.logs.clear');
+        });
 
         // Tenant-scoped application.
         $router->group(['middleware' => ['tenant']], function ($router): void {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Core\Middleware\SecurityHeaders;
 use App\Core\Middleware\VerifyCsrfToken;
 use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\CheckMaintenanceMode;
 use App\Http\Middleware\EnsureTenant;
 use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\RequirePermission;
@@ -20,7 +21,8 @@ return [
     'csrf'       => VerifyCsrfToken::class,
     'auth'       => Authenticate::class,
     'guest'      => RedirectIfAuthenticated::class,
-    'tenant'     => EnsureTenant::class,
-    'permission' => RequirePermission::class,
-    'throttle'   => ThrottleRequests::class,
+    'tenant'      => EnsureTenant::class,
+    'permission'  => RequirePermission::class,
+    'throttle'    => ThrottleRequests::class,
+    'maintenance' => CheckMaintenanceMode::class,
 ];

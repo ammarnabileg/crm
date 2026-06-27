@@ -4,12 +4,14 @@
 # Install lock & transient state
 /storage/framework/installed
 /storage/framework/install_state.json
+/storage/framework/maintenance.json
 
 # Runtime storage (keep the directories, ignore their contents)
 /storage/logs/*
 /storage/cache/*
 /storage/sessions/*
 /storage/app/*
+/storage/backups/*
 !/storage/**/.gitkeep
 
 # Dependencies / build

@@ -79,20 +79,20 @@ sequenceDiagram
     participant M as InstallManager
     participant DB as MySQL
 
-    U->>V: Open /install
-    V->>C: GET /install (index)
-    C->>M: isInstalled()? state() / nextStep()
+    U->>V: Open /setup
+    V->>C: GET /setup (index)
+    C->>M: isInstalled()? state() / nextStep() / progress()
     M-->>C: not installed, next=requirements
-    C-->>V: render wizard (forms + console)
-    V->>C: POST install/requirements (auto on load)
+    C-->>V: render 12-step wizard (forms + console + progress bar)
+    V->>C: POST setup/requirements (auto on load)
     C->>M: checkRequirements()
-    M-->>C: {checks[], passed}
-    C-->>V: JSON; console prints each check
-    U->>V: Fill DB + admin + app, click "Run installation"
-    V->>C: POST install/requirements (re-check)
+    M-->>C: {groups{}, passed} (+ solution per failure)
+    C-->>V: JSON; console prints each check + fixes
+    U->>V: Fill DB + mail + admin + app, click "Run installation"
+    V->>C: POST setup/requirements (re-check)
     C-->>V: passed=true
-    loop database → migrate → seed → admin → finalize
-        V->>C: POST install/<step> (FormData + CSRF)
+    loop database → environment → storage → permissions(+fix) → migrate → seed → mail → admin → health → finalize
+        V->>C: POST setup/<step> (FormData + CSRF)
         C->>M: guard(): isInstalled? then step method
         M->>DB: connect / DDL / inserts
         M->>M: markComplete(step, config)
@@ -105,27 +105,50 @@ sequenceDiagram
     V->>U: redirect to login after 1.2s
 ```
 
-### What each step does
+### The twelve wizard steps (Setup Bible)
 
-1. **requirements** — `InstallController::requirements()` calls `InstallManager::checkRequirements()`. It checks PHP ≥ 8.2; required extensions `pdo_mysql, mbstring, openssl, json, fileinfo, curl`; recommended extensions `gd, intl, zip`; that `storage`, `storage/logs`, `storage/cache`, `storage/sessions`, `storage/framework` exist and are writable (creating them at `0775` if missing via `ensureWritable()`); and that the project root is writable so `.env` can be written. Returns `{checks:[{name, ok, value, required}], passed}`. `passed` is true only when every **required** check is ok; recommended misses are informational. This step is read-only and is **not** recorded as completed — it is re-run every page load and again immediately before installation.
+The browser wizard presents twelve steps — **Welcome, System Check, Server Check,
+PHP Extensions, Database, Environment, Storage, Permissions, Mail, AI Providers,
+Create Super Admin, Final Health Check** — backed by the persisted operations in
+`InstallManager::STEPS` = `requirements, database, environment, storage,
+permissions, migrate, seed, mail, admin, finalize`. A **real progress bar** tracks
+completion (`InstallManager::progress()` = completed ÷ total). Every requirement
+failure carries a plain-language **solution** (never a stack trace).
 
-2. **database** — `configureDatabase()` trims and validates the inputs, rejecting an empty database name or one not matching `^[A-Za-z0-9_]+$` (defends against injection into the `CREATE DATABASE` DDL, which cannot be parameterized). It opens a server-level PDO connection (no DB selected, `ATTR_TIMEOUT => 5`, `ERRMODE_EXCEPTION`) to verify the credentials, then runs `CREATE DATABASE IF NOT EXISTS ... utf8mb4 / utf8mb4_unicode_ci` and `USE`. On success it calls `markComplete('database', ['db' => {host, port, database, username, password}])`, persisting the credentials to the state file for later steps and for `finalize`.
+1. **requirements** (System / Server / PHP Extensions) — `checkRequirements()` returns checks **grouped** as `Server`, `PHP Extensions`, `Storage`, each `{name, ok, value, required, solution}`. Server: PHP ≥ 8.2, `memory_limit` ≥ 128M, `max_execution_time` ≥ 30s (0/-1 = unlimited = ok), `upload_max_filesize`/`post_max_size` ≥ 8M, free disk space. PHP Extensions required: `pdo, pdo_mysql, mbstring, openssl, json, fileinfo, curl, xml`; recommended (warn-only): `gd, intl, zip, imagick, redis`. Storage: `storage`, `storage/logs`, `storage/cache`, `storage/framework` writable (auto-created) + project root writable for `.env`. `passed` requires every **required** check ok. Marked complete when passed.
 
-3. **migrate** — `runMigrations($report)` builds a `Database` from the saved DB config (`makeDatabase()`) and hands it to `database/Migrator.php`. The migrator ensures the `migrations` table exists, computes pending files from `database/migrations/*.php` (sorted, so `0001_…` runs before `0015_…`), and runs each: `require $file` → `$migration->up($db)` → record the row → invoke the `$report($name, $ok, $error)` callback. **Migrations do not run inside a transaction** because MySQL implicitly commits on DDL; instead each migration is recorded immediately after it succeeds, so a re-run skips already-applied migrations. The controller collects the per-migration log into the JSON response so the console can render a tick or cross per table. The step is marked complete only when `result.failed === null`.
+2. **database** — `configureDatabase()` validates the inputs (database name `^[A-Za-z0-9_]+$`), opens a server-level PDO connection (`ATTR_TIMEOUT=5`) to verify credentials, then `CREATE DATABASE IF NOT EXISTS … utf8mb4`. Persists creds to state for later steps + finalize. Friendly error on connection failure.
 
-4. **seed** — `runSeeders()` does `require database/seeders/DatabaseSeeder.php` and calls `->run($db)`. The seeder is fully idempotent: `RbacManager::syncPermissions()` upserts the permission catalogue, `ensureSuperAdminRole()` creates/returns the global `super-admin` role, and `seedDefaultPlan()` inserts the "Standard" plan (50.00 SAR, monthly, 14-day trial) only if a plan with slug `standard` does not already exist. Marked complete on success.
+3. **environment** — `generateEnvironment()` generates the `APP_KEY` (`Encrypter::generateKey()`) now and stores it in state; `finalize` writes it to `.env`.
 
-5. **admin** — `createAdmin()` validates name/email/password (valid email, password ≥ 8 chars), then **upserts**: if a user with that email already exists it updates name/password/status (recovery-friendly), otherwise it inserts an `active`, email-verified user with locale `en`. It then assigns the global super-admin role via `RbacManager::ensureSuperAdminRole()` + `assignGlobalRole()`. Stores `admin_user_id` and `admin_email` in state and marks complete.
+4. **storage** — `createStorage()` creates the full storage tree the platform expects: `logs, cache, sessions, framework, backups, app, app/uploads, app/exports, app/imports, app/temp, app/pdf, app/reports` (each with a protective `.gitignore`).
 
-6. **finalize** — `finalize()` first re-asserts that `database, migrate, seed, admin` are all complete (refusing to lock a half-configured install). It assembles the `.env` map — `APP_ENV=production`, `APP_DEBUG=false`, a freshly generated `APP_KEY` (`Encrypter::generateKey()`), `APP_URL`, `APP_TIMEZONE=Asia/Riyadh`, `APP_CURRENCY=SAR`, the DB block from saved state, and `SESSION_SECURE=true` when the URL is `https` — and writes it via `writeEnv()` (values quoted/escaped as needed). It then writes the lock file `storage/framework/installed`, marks `finalize` complete, and **deletes `install_state.json`** so the credentials no longer sit on disk. The response carries `redirect: /login`.
+5. **permissions** — `checkPermissions()` verifies every storage folder is writable. If not, the wizard calls **`fixPermissions()` (Auto-Fix)** which `mkdir`/`chmod 0775`s them — no terminal. Only when all are writable is the step complete.
+
+6. **migrate** — `runMigrations($report)` runs the full migration chain via `database/Migrator.php` (outside a transaction — MySQL auto-commits DDL — each recorded on success so re-runs skip applied ones). Per-migration log streams to the console.
+
+7. **seed** — `runSeeders()` runs `DatabaseSeeder` (idempotent): reference data + the lookup category registry (`ReferenceDataSeeder`, `LookupSeeder`), `system_modules`, the permission catalogue, the global `super-admin` role, and the default plan.
+
+8. **mail** *(optional)* — `configureMail()` stores `MAIL_ENABLED`/from-address/from-name; **Send Test Email** (`sendTestEmail()`) attempts delivery via the host `mail()` transport and always writes a copy to `storage/logs` so the pipeline is verifiable. `skipMail()` lets the buyer move on. (SMTP transport is pluggable without touching callers.)
+
+9. **AI Providers** — informational only: **no AI keys are entered here.** Each workspace adds its own encrypted provider keys after sign-in.
+
+10. **admin** — `createAdmin()` validates name/email/password (≥ 8 chars) and **upserts** an active, email-verified super-admin, assigning the global `super-admin` role.
+
+11. **Final Health Check** — `healthCheck()` (also a live JSON endpoint) verifies DB connectivity + schema (> 100 tables) + seeded permissions + an admin user, storage writability, disk space, the environment key, and mail config → PASS/FAIL per item.
+
+12. **finalize** — re-asserts `database, environment, storage, permissions, migrate, seed, admin` are complete, then runs the **real final validation** (`finalValidation()`): DB read, RBAC catalogue, configuration data, a **DB write that creates a workspace + user inside a rolled-back transaction**, a storage write probe, and a mail-pipeline probe. Only if validation passes does it write `.env` (incl. `APP_KEY`, DB and mail blocks, `APP_DEBUG=false`, `SESSION_SECURE` for https), place the `storage/framework/installed` lock, and delete `install_state.json`. Response carries `redirect: /login`.
 
 ## Business Rules
 
-- **BR-INSTALL-1 — One canonical step order.** Steps always run in the order of `InstallManager::STEPS`: `requirements, database, migrate, seed, admin, finalize`. `nextStep()` returns the first not-yet-completed step.
+- **BR-INSTALL-0 — Canonical URL `/setup`.** First run redirects every path to `/setup` (legacy `/install` redirects to it). No other page is reachable until installed (`Application::handleNotInstalled`).
+- **BR-INSTALL-1 — One canonical step order.** Steps always run in the order of `InstallManager::STEPS`: `requirements, database, environment, storage, permissions, migrate, seed, mail, admin, finalize`. `nextStep()` returns the first not-yet-completed step; `progress()` is the completion percentage.
 - **BR-INSTALL-2 — Installed means lock + env.** `isInstalled()` is true only when both `storage/framework/installed` and `.env` exist. Either one alone is not "installed".
 - **BR-INSTALL-3 — Installed app refuses setup.** Once installed, `index()` redirects to `/login` and every step endpoint returns HTTP 409 via `guard()`. The installer can never re-run destructively over a live install.
 - **BR-INSTALL-4 — Resume, never restart.** Completed steps are recorded in `install_state.json`; re-running installation skips completed steps (migrations are also individually skipped if already applied).
-- **BR-INSTALL-5 — No half-finalized state.** `finalize()` throws if any of `database, migrate, seed, admin` is incomplete, so the lock is never placed over an unusable install.
+- **BR-INSTALL-5 — No half-finalized state.** `finalize()` throws if any of `database, environment, storage, permissions, migrate, seed, admin` is incomplete, AND runs a real `finalValidation()` (DB read/write rolled back, RBAC, config data, storage + mail probes) — the lock is placed only after validation passes, so the wizard never reports success over an unusable install.
+- **BR-INSTALL-7 — Auto-repair before reporting.** Missing storage folders are created and non-writable ones are `chmod`-repaired automatically (`createStorage()` / `fixPermissions()`) before any failure is shown to the buyer.
+- **BR-INSTALL-8 — Friendly diagnostics.** Requirement failures always carry a `solution` string (how to fix it from the hosting panel), never a raw stack trace.
 - **BR-INSTALL-6 — Production defaults.** `finalize()` always writes `APP_ENV=production` and `APP_DEBUG=false`; debug is never on after a fresh install.
 - **BR-INSTALL-7 — Secrets are transient.** DB credentials live in `install_state.json` only between steps and are erased when `finalize()` unlinks the state file; the durable copy lives only in `.env`, which is web-inaccessible.
 - **BR-INSTALL-8 — First user is super-admin.** The `admin` step creates exactly the platform super-admin (global role, `company_id` NULL); it does not create a tenant. Companies are created later by users per [12-Workspace-Management].

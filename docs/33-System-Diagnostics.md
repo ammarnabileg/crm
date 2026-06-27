@@ -176,6 +176,23 @@ No new table is required; heartbeats can be stored as a small JSON file under `s
 - **Security:** a tenant admin without `platform.diagnostics` cannot reach any endpoint; the report never contains secret values; auto-fix writes an `activity_log` row; mail test is throttled.
 - **Resilience:** with the database forced down, the page still renders and the `db` panel is FAIL; with the queue heartbeat absent, the queue panel is WARN/FAIL and self-test recovers once a tick is written.
 
+## Post-Install Operations Suite (no terminal)
+
+The Setup & Installer Bible mandates that everything an administrator needs runs
+from the browser. Beyond Diagnostics, the platform ships a super-admin operations
+suite under `/system/*`, every page gated by the `system.manage` permission
+(held only by the super-admin role) — **no SSH, CLI, Composer or file editing**.
+
+- **Diagnostics** (`/system/diagnostics`, `System\DiagnosticsController` + `System\SystemDiagnostics`) — the read-only health report described above, runnable any time (mirrors the installer's Final Health Check).
+- **Maintenance mode** (`/system/maintenance`, `System\MaintenanceController` + `System\MaintenanceMode`) — toggles a flag at `storage/framework/maintenance.json` with a custom message and optional allow-IP. Enforced by `Http\Middleware\CheckMaintenanceMode` (alias `maintenance`, in the global stack): when enabled it returns a 503 maintenance page to everyone **except** the super-admin, the allow-IP, and the always-reachable `/system`, `/login`, `/logout`, `/assets` paths — so the site can always be brought back up from the browser.
+- **Backup & Restore** (`/system/backups`, `System\BackupController` + `System\BackupManager`) — pure-PHP database dumps (information_schema + `SHOW CREATE TABLE` + batched `INSERT`s, `FOREIGN_KEY_CHECKS=0/1`; **no mysqldump/CLI**) and `ZipArchive` file backups under `storage/backups`; list, download, delete, and restore (statement-by-statement) from the dashboard.
+- **Environment Editor** (`/system/environment`, `System\EnvironmentController` + `System\EnvFile`) — edit a whitelist of safe `.env` keys (app/mail/security) with atomic writes that preserve order/comments; secrets (`APP_KEY`, `DB_*`) are shown masked and read-only. Replaces hand-editing `.env`.
+- **Log Viewer** (`/system/logs`, `System\LogViewerController` + `System\LogReader`) — lists `storage/logs/*.log`, tails them with level-coloured lines, and annotates errors/warnings with **suggested fixes** for common patterns (missing table → re-run migrations; connection refused → check DB settings; not writable → run Permissions Auto-Fix; memory → raise `memory_limit`; missing extension → enable it).
+
+All five are reachable from the sidebar (rendered only when `can('system.manage')`),
+keeping the no-dead-links rule. Maintenance/backup/restore/log-clear are verified to
+block non-super-admins (HTTP 403) and to never lock the super-admin out.
+
 ## Future Expansion
 
 - **Scheduled health snapshots + alerting.** Persist periodic snapshots and email/notify super-admins (via [26-Notification-System]) when status degrades, instead of relying on someone opening the page.

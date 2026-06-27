@@ -13,6 +13,12 @@ $nav = [
     ['ai',        'AI Settings',        'ai.view',      false],
     ['billing',   'Billing',            'billing.view', false],
     ['settings',  'Workspace Settings',   'settings.view', false],
+    // System operations (super-admin only — gated by system.manage). No terminal.
+    ['system/diagnostics', 'Diagnostics',      'system.manage', true],
+    ['system/maintenance', 'Maintenance',      'system.manage', true],
+    ['system/backups',     'Backup & Restore', 'system.manage', true],
+    ['system/environment', 'Environment',      'system.manage', true],
+    ['system/logs',        'Logs',             'system.manage', true],
 ];
 $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || str_starts_with($current, '/' . trim($path, '/') . '/');
 ?>

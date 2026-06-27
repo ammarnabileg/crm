@@ -51,6 +51,9 @@ return [
         // Settings
         ['settings.view', 'View settings', 'settings', 'View workspace settings.'],
         ['settings.manage', 'Manage settings', 'settings', 'Change workspace settings.'],
+
+        // System operations (platform-level; held by super-admin only)
+        ['system.manage', 'Manage system operations', 'system', 'Diagnostics, maintenance mode, backups/restore, environment editor and log viewer.'],
     ],
 
     /*
