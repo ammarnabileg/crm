@@ -31,7 +31,7 @@ The vision is realized through a deliberately simple, dependency-free technical 
 ```mermaid
 flowchart LR
     subgraph Buyer[Buyer's hosting - no CLI]
-        I[Browser installer /install]
+        I[Browser installer /setup]
         APP[Pure PHP 8.2 app - no framework]
         DB[(MySQL InnoDB utf8mb4)]
     end
@@ -42,7 +42,7 @@ flowchart LR
     end
     APP --- DB
     I --> APP
-    T1 & T2 & Tn -->|row-level company_id isolation| APP
+    T1 & T2 & Tn -->|row-level workspace_id isolation| APP
     APP -->|per-tenant keys| AI[Tenant AI providers]
 ```
 
@@ -59,7 +59,7 @@ sequenceDiagram
     participant Recruiter
     participant Candidate
     participant AI as Tenant AI provider
-    Buyer->>Buyer: Upload package, open /install (no CLI)
+    Buyer->>Buyer: Upload package, open /setup (no CLI)
     Buyer->>Owner: Create account + company (becomes Owner)
     Owner->>Owner: Invite team, assign roles, add AI keys
     Recruiter->>Recruiter: Post a job (open)
@@ -136,11 +136,11 @@ flowchart TD
 The personas and pillars are expressed entirely through the identity and RBAC schema (full schema in [05-Database-Architecture](05-Database-Architecture.md)):
 
 - `users` (one global table) — every person, regardless of persona (BR-001).
-- `companies` — the tenant root; `owner_id` records the Owner persona.
-- `memberships` — a user's belonging to a company; the bridge that makes someone "in" a tenant.
-- `roles` / `permissions` / `permission_role` / `membership_role` / `user_role` — encode all persona capabilities; no persona is a column or table.
+- `workspaces` — the tenant root; `owner_id` records the Owner persona.
+- `memberships` — a user's belonging to a workspace; the bridge that makes someone "in" a tenant.
+- `roles` / `permissions` / `role_permissions` / `membership_roles` / `user_roles` — encode all persona capabilities; no persona is a column or table.
 - `plans` / `subscriptions` — encode the commercial model behind the value proposition.
-- `ai_credentials` — encodes the bring-your-own-keys pillar.
+- `tenant_ai_keys` — encodes the bring-your-own-keys pillar.
 
 No table named `candidate`, `recruiter`, `owner`, or `super_admin` exists — this is a defining architectural commitment.
 
@@ -155,7 +155,7 @@ Personas are realized as role→permission bundles (see [07-RBAC](07-RBAC.md), [
 - Recruiter → `jobs.*` (no delete), `applications.*`, `interviews.schedule`.
 - Hiring Manager → `applications.view`, `interviews.view`, `evaluations.view/create`.
 - Interviewer → `interviews.conduct`, `evaluations.create`.
-- Member → `dashboard.view`, `company.view`, `members.view`, baseline reads.
+- Member → `dashboard.view`, `workspace.view`, `members.view`, baseline reads.
 - Candidate → `candidate.apply`, `candidate.profile`.
 
 ## Validation
@@ -163,7 +163,7 @@ Personas are realized as role→permission bundles (see [07-RBAC](07-RBAC.md), [
 Vision-level guardrails that keep the product honest:
 
 - Every new feature must be expressible without adding a user-type column (validates BR-001).
-- Every tenant-bound feature must scope by `company_id` and fail closed (validates BR-040).
+- Every tenant-bound feature must scope by `workspace_id` and fail closed (validates BR-040).
 - Every AI feature must work only with tenant-supplied keys (validates BR-160).
 - Every installable artifact must be deployable with no CLI (validates the no-CLI pillar).
 - Every UI must render correctly in both LTR and RTL.

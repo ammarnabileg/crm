@@ -74,13 +74,13 @@ authentication.
 
 #### Phase 3 — Multi-tenancy, single users table, RBAC, authentication
 - **Single `users` table** — no per-type tables; capability is entirely role-derived.
-- **Row-level multi-tenancy** — tenant-scoped models auto-filter by `company_id` and **fail closed** (throw) when no tenant is active; `withoutTenantScope()` escape hatch for system/super-admin code (`app/Services/Tenancy/TenantManager.php`, `CompanyService.php`).
+- **Row-level multi-tenancy** — tenant-scoped models auto-filter by `workspace_id` and **fail closed** (throw) when no tenant is active; `withoutTenantScope()` escape hatch for system/super-admin code (`app/Services/Tenancy/TenantManager.php`, `CompanyService.php`).
 - **RBAC** — global permission catalogue, global and tenant roles with single-parent inheritance, policy gates (`app/Services/Rbac/AccessControl.php`, `RbacManager.php`); permissions and default tenant roles are data-driven in `config/rbac.php`.
 - **Authentication** — one login/register/forgot/reset for the whole platform (`app/Controllers/Auth/*`): Argon2id hashing with transparent rehash, login throttling (5 attempts / 900s lockout), anti-enumeration password reset (hashed tokens, 60-minute TTL), session regeneration on login.
 - **Company provisioning** — atomic creation of company, owner membership, default roles, owner role assignment, and a trial subscription; registrant becomes Owner.
-- **Database schema** — migrations `0001`–`0015`: `users`, `companies`, `memberships`, `roles`, `permissions`, `permission_role`, `membership_role`, `user_role`, `plans`, `subscriptions`, `ai_credentials`, `password_resets`, `settings`, `onboarding_progress`, `activity_log` (plus the `migrations` table). All InnoDB/utf8mb4 with real foreign keys and indexes.
+- **Database schema** — migrations `0001`–`0015`: `users`, `companies`, `memberships`, `roles`, `permissions`, `role_permissions`, `membership_roles`, `user_roles`, `plans`, `subscriptions`, `ai_credentials`, `password_resets`, `settings`, `onboarding_progress`, `activity_log` (plus the `migrations` table). All InnoDB/utf8mb4 with real foreign keys and indexes.
 - **Baseline seed data** (`database/seeders/DatabaseSeeder.php`, idempotent): full permission catalogue, the global `super-admin` role, and the single "Standard" plan (50.00 SAR, monthly, 14-day trial).
-- **Tenant AI credential storage** — `ai_credentials` table holding per-tenant, AES-256-GCM-encrypted provider keys (one row per provider, `UNIQUE(company_id, provider)`); the platform stores no AI keys of its own.
+- **Tenant AI credential storage** — `ai_credentials` table holding per-tenant, AES-256-GCM-encrypted provider keys (one row per provider, `UNIQUE(workspace_id, provider)`); the platform stores no AI keys of its own.
 - **Bilingual UI** — Arabic/English views and language files (`resources/lang/{en,ar}/`), full RTL/LTR support, compiled Tailwind CSS shipped at `public/assets/css/app.css` (no build step on the buyer's server).
 - **Audit logging** — `activity_log` records security/business events with actor, subject, IP, and user agent.
 

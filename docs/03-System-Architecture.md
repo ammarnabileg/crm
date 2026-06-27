@@ -117,13 +117,13 @@ flowchart TB
         AuthManager
         TenantManager
         AccessControl
-        CompanyService
+        WorkspaceService
         AiProviderManager
     end
 
     subgraph Models["app/Models"]
         User
-        Company
+        Workspace
         Membership
         Role
         Permission
@@ -160,15 +160,15 @@ flowchart TB
 | **Request / Response** | `app/Core/Request.php`, `Response.php` | Immutable-ish value objects over PHP superglobals; method spoofing, JSON detection, header extraction; buffered response with headers/cookies. |
 | **Middleware** | `app/Core/Middleware/*`, `app/Http/Middleware/*` | Cross-cutting concerns applied in a pipeline (security headers, CSRF, auth, tenancy, permissions, throttling). |
 | **Controllers** | `app/Controllers/**` | Thin HTTP adapters: validate input, call a service, return a `Response`. |
-| **Services** | `app/Services/**` | All business logic and orchestration (e.g. `CompanyService::create()` provisions a tenant atomically). |
+| **Services** | `app/Services/**` | All business logic and orchestration (e.g. `WorkspaceService::create()` provisions a tenant atomically). |
 | **Models** | `app/Models/**` | Active-record data access via `app/Core/Model`, with automatic tenant scoping. |
 | **View** | `app/Core/View.php` + `resources/views/**` | Plain-PHP templates with layout inheritance and sections; no compile step. |
 
 ### Where multi-tenancy, RBAC, and AI slot in
 
-- **Multi-tenancy** is enforced at the **model layer**, not sprinkled through controllers. `App\Services\Tenancy\TenantManager` holds the active company id for the request; `App\Core\Model::query()` consults it and injects `WHERE company_id = :active`, **failing closed** if a tenant-scoped model is queried with no active tenant. The kernel calls `tenant()->bootFor($user)` in `bootTenantContext()` right after authentication. See [08 — Multi-Tenant](08-Multi-Tenant.md).
+- **Multi-tenancy** is enforced at the **model layer**, not sprinkled through controllers. `App\Services\Tenancy\TenantManager` holds the active workspace id for the request; `App\Core\Model::query()` consults it and injects `WHERE workspace_id = :active`, **failing closed** if a tenant-scoped model is queried with no active tenant. The kernel calls `tenant()->bootFor($user)` in `bootTenantContext()` right after authentication. See [08 — Multi-Tenant](08-Multi-Tenant.md).
 - **RBAC** is enforced at the **middleware + service layer**. `App\Http\Middleware\RequirePermission` (`permission:...`) calls `access()->allows()`, and `App\Services\Rbac\AccessControl` computes the user's effective permission set (global roles ∪ tenant roles, expanded up the `parent_id` chain). See [07 — RBAC](07-RBAC.md).
-- **AI** is a **service module** (`app/Services/AI`) that resolves a provider strictly from the **current tenant's** `ai_credentials` — the platform holds no keys. See [16 — AI Architecture](16-AI-Architecture.md).
+- **AI** is a **service module** (`app/Services/AI`) that resolves a provider strictly from the **current tenant's** `tenant_ai_keys` — the platform holds no keys. See [16 — AI Architecture](16-AI-Architecture.md).
 
 ## Workflow
 
@@ -198,7 +198,7 @@ sequenceDiagram
     K->>S: session()->start()
     K->>K: resolveLocale() (?lang or session)
     alt not installed
-        K-->>U: redirect /install (or serve installer)
+        K-->>U: redirect /setup (or serve installer)
     else installed
         K->>T: bootTenantContext() → tenant()->bootFor(user)
         K->>R: loadRoutes() (routes/web.php) + dispatch()
@@ -207,7 +207,7 @@ sequenceDiagram
         MW->>MW: security → csrf → guest/auth → tenant → permission → throttle
         MW->>C: controller action(request, ...params)
         C->>C: validate(request, rules)
-        C->>Svc: business call (e.g. CompanyService::create)
+        C->>Svc: business call (e.g. WorkspaceService::create)
         Svc->>M: Model::query()/create() (+ tenant scope)
         M->>DB: prepared statement
         DB-->>M: rows
@@ -237,8 +237,8 @@ sequenceDiagram
 ## Business Rules
 
 1. **One entry point.** Every dynamic request is served by `public/index.php`. The root/`public` `.htaccess` rewrites all non-file requests to it. No controller is reachable except through the kernel and router.
-2. **Install gate is absolute.** Until `storage/framework/installed` **and** `.env` both exist (`Application::isInstalled()`), all traffic except `/install*` and `/assets*` is redirected to the installer.
-3. **Services own business logic; controllers do not.** A controller may validate, call one service, and return a response. Anything more (multi-step writes, cross-model orchestration) lives in a service. Example: `CompanyController::store()` delegates the whole provisioning transaction to `CompanyService::create()`.
+2. **Install gate is absolute.** Until `storage/framework/installed` **and** `.env` both exist (`Application::isInstalled()`), all traffic except `/setup*` (legacy `/install*` redirects to it) and `/assets*` is redirected to the installer.
+3. **Services own business logic; controllers do not.** A controller may validate, call one service, and return a response. Anything more (multi-step writes, cross-model orchestration) lives in a service. Example: `WorkspaceController::store()` delegates the whole provisioning transaction to `WorkspaceService::create()`.
 4. **Tenant scope is established once, centrally**, in `bootTenantContext()`, and enforced by the model layer for the rest of the request.
 5. **Singletons are shared per request.** `Container` caches shared bindings; each request gets a fresh process (PHP-FPM), so there is no cross-request state leakage.
 6. **Responses are objects, not echoes.** Controllers/handlers return a `Response`; only `Response::send()` (called once, from `index.php`) writes to the client. This lets middleware mutate the response (e.g. `SecurityHeaders` adds headers on the way out).
@@ -250,11 +250,11 @@ The architecture itself is schema-agnostic, but the kernel touches a few tables 
 
 - **`migrations`** — the kernel's `isInstalled()` does not read it, but the installer uses `Migrator` to populate it; the app assumes its presence post-install.
 - **`users`** — `auth()->user()` loads the authenticated `User` (global, not tenant-scoped).
-- **`companies`** — `TenantManager::company()` resolves the active `Company` (the tenant root; global table).
-- **`memberships`** — `TenantManager::bootFor()` and `userBelongsTo()` validate that the user has an **active** membership in the chosen company.
-- **`roles`, `permissions`, `permission_role`, `membership_role`, `user_role`** — read by `AccessControl` to compute effective permissions per request.
+- **`workspaces`** — `TenantManager::workspace()` resolves the active `Workspace` (the tenant root; global table).
+- **`memberships`** — `TenantManager::bootFor()` and `userBelongsTo()` validate that the user has an **active** membership in the chosen workspace.
+- **`roles`, `permissions`, `role_permissions`, `membership_roles`, `user_roles`** — read by `AccessControl` to compute effective permissions per request.
 
-Every tenant-bound table carries `company_id BIGINT UNSIGNED` (FK → `companies`, indexed). The model layer adds the `WHERE company_id = ?` filter to all of them automatically.
+Every tenant-bound table carries `workspace_id BIGINT UNSIGNED` (FK → `workspaces`, indexed). The model layer adds the `WHERE workspace_id = ?` filter to all of them automatically.
 
 ## Permissions
 
@@ -306,7 +306,7 @@ At the architectural seam, validation is the controller's first responsibility a
 - **Lazy services**: container singletons are built on first `make()`; the DB connection is opened lazily in `Database::pdo()` only when a query runs (the installer's requirements step never touches MySQL).
 - **Per-request permission cache** in `AccessControl` keyed by `userId:companyId` avoids recomputing the effective permission set within a request.
 - **Compiled CSS** (`public/assets/css/app.css`) and `defer`-loaded JS — no server-side build, no per-request asset compilation.
-- **Indexed tenant column** on every tenant table makes the injected `WHERE company_id` filter cheap.
+- **Indexed tenant column** on every tenant table makes the injected `WHERE workspace_id` filter cheap.
 - See [35 — Performance](35-Performance.md).
 
 ## Testing

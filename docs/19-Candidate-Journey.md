@@ -49,7 +49,7 @@ The candidate experience is a **distinct portal surface** layered on the same co
 Key architectural decisions:
 
 - **The candidate dashboard is the one place that deliberately spans tenants** for a single user. It is implemented as a query over `applications` filtered by `user_id = auth()->id()` using `Application::withoutTenantScope()`, never by selecting a tenant. This is safe because the filter is the *user's own* id, not another tenant's data.
-- **All interview/job reads inside a specific application are tenant-pinned** to that application's `company_id`, so a candidate viewing Application #5 at Company A cannot see Company B's pipeline or other candidates.
+- **All interview/job reads inside a specific application are tenant-pinned** to that application's `workspace_id`, so a candidate viewing Application #5 at Company A cannot see Company B's pipeline or other candidates.
 - The portal renders only what exists; no dead buttons (§2). "Take interview" appears only when an `interviews` row in status `scheduled` exists for the application.
 
 ## Workflow
@@ -111,13 +111,13 @@ flowchart TD
 | Profile | `/profile` (reused) | candidate | auth + `candidate.profile` |
 | Outcome | `/portal/applications/{id}` (offer/reject panel) | candidate | auth (own rows) |
 
-**Onboarding for the Candidate role.** First-time candidates get a 3-step `onboarding_progress` flow (`flow = 'candidate'`, `company_id` NULL because it is platform-wide for the person): (1) complete profile (name, phone, locale, optional avatar); (2) upload a default resume to reuse across applications; (3) set notification preferences (`notification_preferences`). The flow is dismissible and resumable; completion sets `is_completed = 1`. Onboarding never blocks applying — a candidate can apply before finishing it.
+**Onboarding for the Candidate role.** First-time candidates get a 3-step `onboarding_progress` flow (`flow = 'candidate'`, `workspace_id` NULL because it is platform-wide for the person): (1) complete profile (name, phone, locale, optional avatar); (2) upload a default resume to reuse across applications; (3) set notification preferences (`notification_preferences`). The flow is dismissible and resumable; completion sets `is_completed = 1`. Onboarding never blocks applying — a candidate can apply before finishing it.
 
 ## Business Rules
 
 1. The public job board lists only jobs with `status = 'open'` and whose owning company has `status IN ('trial','active')` (suspended/canceled companies disappear from the board).
 2. Applying requires authentication and the `candidate.apply` permission; an unauthenticated visitor is sent to login/register with a return URL back to the apply form.
-3. **One application per (company, job, candidate)** — enforced by `UQ(company_id, job_id, user_id)` on `applications`. A second attempt shows "You have already applied" and links to the existing application.
+3. **One application per (company, job, candidate)** — enforced by `UQ(workspace_id, job_id, user_id)` on `applications`. A second attempt shows "You have already applied" and links to the existing application.
 4. A new account created from the portal does **not** create a company (unlike staff self-registration in §7); the user becomes a pure candidate with no membership until/unless a company adds them.
 5. The candidate may **withdraw** an application while its `status NOT IN ('hired','rejected')`; this sets `status = 'withdrawn'` and writes an `application_events` row. Withdrawn applications are read-only thereafter.
 6. A candidate sees **only their own** applications, interviews, responses, and files — across all companies — and never any other candidate's data or the company's internal pipeline/scorecards.
@@ -132,9 +132,9 @@ flowchart TD
 Tables touched (all consistent with §11):
 
 - **users** (GLOBAL) — the candidate identity; `name, email, phone, avatar, locale, status`. No type column.
-- **applications** (tenant) — core record. `company_id`, `job_id` → `jobs`, `user_id` → `users` (the candidate), `current_stage_id` → `pipeline_stages`, `status`, `source`, `resume_file_id` → `files`, `cover_letter`, `score`, `applied_at`, `decided_at`. `UQ(company_id, job_id, user_id)`; `IDX(company_id, job_id, status, current_stage_id)`.
+- **applications** (tenant) — core record. `workspace_id`, `job_id` → `jobs`, `user_id` → `users` (the candidate), `current_stage_id` → `pipeline_stages`, `status`, `source`, `resume_file_id` → `files`, `cover_letter`, `score`, `applied_at`, `decided_at`. `UQ(workspace_id, job_id, user_id)`; `IDX(workspace_id, job_id, status, current_stage_id)`.
 - **application_events** (tenant) — audit trail of every status/stage change and the candidate's own actions (apply, withdraw). `application_id` → `applications` CASCADE; `actor_id` → `users` SET NULL.
-- **jobs** (tenant) — read for discovery and detail; only `status='open'` shown publicly. `UQ(company_id, slug)`.
+- **jobs** (tenant) — read for discovery and detail; only `status='open'` shown publicly. `UQ(workspace_id, slug)`.
 - **pipeline_stages** (tenant) — the candidate sees a simplified label of `current_stage_id`, not the full internal pipeline.
 - **interviews** (tenant) — `application_id`, `type[ai|human|panel]`, `mode[video|phone|onsite|ai_async]`, `status`, `scheduled_at`, `location_or_link`.
 - **interview_participants** (tenant) — the candidate is a participant with `role = 'candidate'`; gate on interview access checks this row.
@@ -183,7 +183,7 @@ The `candidate` tenant role (data-driven in `config/rbac.php`, added when the re
 
 ## Security
 
-- **Tenant isolation of PII**: an application read is authorized by the ownership gate (`user_id === auth id`) *and* pinned to its `company_id`; there is no code path where a candidate parameter selects another tenant's rows. Cross-company "my applications" uses `withoutTenantScope()` filtered strictly by the user's own id.
+- **Tenant isolation of PII**: an application read is authorized by the ownership gate (`user_id === auth id`) *and* pinned to its `workspace_id`; there is no code path where a candidate parameter selects another tenant's rows. Cross-company "my applications" uses `withoutTenantScope()` filtered strictly by the user's own id.
 - **IDOR protection**: every `/portal/applications/{id}` and `/portal/interviews/{id}` resolves the row, then asserts the ownership/participant gate before rendering; mismatches `abort(403)`.
 - **File access**: resumes are `private`; downloads stream through an authorizing controller that re-checks ownership/company membership — never a guessable public URL.
 - **CSRF** on all POST/PUT (apply, withdraw, response submit, profile update).
@@ -195,7 +195,7 @@ The `candidate` tenant role (data-driven in `config/rbac.php`, added when the re
 
 ## Performance
 
-- Public board uses `IDX(company_id, status)` on `jobs` plus FULLTEXT search (§28); results paginated (`QueryBuilder::paginate`) and safe to cache for anonymous users.
+- Public board uses `IDX(workspace_id, status)` on `jobs` plus FULLTEXT search (§28); results paginated (`QueryBuilder::paginate`) and safe to cache for anonymous users.
 - "My applications" uses `applications.user_id` (covered by the join indexes) and paginates; status/stage labels resolved with a single join to `pipeline_stages` to avoid N+1.
 - Resume thumbnails/metadata read from `files` by `resume_file_id` (indexed).
 - AI interview scoring is offloaded to the queue (`queued_jobs`, §12) so the candidate's submit returns immediately; the dashboard reflects results when the session completes.

@@ -72,7 +72,7 @@ flowchart TD
 | 3. Read replicas | DB read load | Route reads via `App\Core\Database` connection switch; writes to primary |
 | 4. Queue offloading | Blocking AI/email | DB-backed `queued_jobs` → Redis/broker; dedicated workers |
 | 5. Object storage | Local disk capacity | `files` disk abstraction → S3-compatible backend ([27 — Storage System](27-Storage-System.md)) |
-| 6. Tenant sharding | Single-DB write/size ceiling | Route a tenant to a DB shard by `company_id`; row-level isolation already makes tenants independent |
+| 6. Tenant sharding | Single-DB write/size ceiling | Route a tenant to a DB shard by `workspace_id`; row-level isolation already makes tenants independent |
 
 ## Workflow
 
@@ -99,21 +99,21 @@ sequenceDiagram
     participant TM as TenantManager
     participant SR as Shard resolver
     participant DB as Shard DB
-    Req->>TM: resolve active company_id (after auth)
-    TM->>SR: shardFor(company_id) (lookup table / hash)
+    Req->>TM: resolve active workspace_id (after auth)
+    TM->>SR: shardFor(workspace_id) (lookup table / hash)
     SR-->>TM: shard connection name
     TM->>DB: bind Database to that shard for the request
-    Note over DB: model tenant scope unchanged; queries still WHERE company_id = ?
+    Note over DB: model tenant scope unchanged; queries still WHERE workspace_id = ?
 ```
 
 ## Business Rules
 
 1. **The application tier must be stateless.** No request may depend on local disk state that another node lacks. Sessions, cache, and rate-limit counters move to a shared store (DB/Redis) before horizontal scaling.
 2. **All writes go to the primary; reads may go to a replica.** Code must not assume read-after-write on a replica without routing that read to the primary when freshness is required.
-3. **Tenant isolation is preserved at every stage.** Whether one DB or many shards, every tenant query is scoped by `company_id` via `App\Core\Model` and fails closed (see [08 — Multi-Tenant](08-Multi-Tenant.md)).
+3. **Tenant isolation is preserved at every stage.** Whether one DB or many shards, every tenant query is scoped by `workspace_id` via `App\Core\Model` and fails closed (see [08 — Multi-Tenant](08-Multi-Tenant.md)).
 4. **Long or external work is queued, not done in the request.** AI provider calls, transcription, scoring, and email are pushed to `queued_jobs` and processed by workers.
 5. **Files live behind the disk abstraction**, so moving from local disk to object storage is a configuration change, not a code change.
-6. **Sharding routes by `company_id`.** A single tenant lives entirely on one shard; cross-tenant platform reporting uses an aggregation path, not cross-shard joins in the request path.
+6. **Sharding routes by `workspace_id`.** A single tenant lives entirely on one shard; cross-tenant platform reporting uses an aggregation path, not cross-shard joins in the request path.
 7. **No global mutable singletons that assume one process.** Container singletons are per-request; anything shared across requests goes to the shared store.
 8. **Capacity is monitored.** Queue depth, replica lag, cache hit rate, and DB size are surfaced via diagnostics so scaling decisions are data-driven (see [33 — System Diagnostics](33-System-Diagnostics.md)).
 
@@ -121,14 +121,14 @@ sequenceDiagram
 
 Scaling leans on schema features defined in §11:
 
-- **company_id everywhere** (FK + index on every tenant table) — the single column that makes both read-replica routing and tenant sharding tractable, because each tenant's rows are already self-contained.
+- **workspace_id everywhere** (FK + index on every tenant table) — the single column that makes both read-replica routing and tenant sharding tractable, because each tenant's rows are already self-contained.
 - **queued_jobs** (queue, payload LONGTEXT, attempts, available_at, reserved_at) IDX(queue, available_at) — the offloading backbone; a worker claims due jobs.
 - **failed_jobs** (uuid UQ, payload, exception) — retry/inspection of failed background work.
 - **files** (disk, path, checksum, visibility) — `disk` column lets rows point at local or object storage transparently ([27 — Storage System](27-Storage-System.md)).
 - **sessions** (when moved to DB) — a sessions table replaces file storage for the stateless tier; the Redis driver supersedes it at higher scale.
 - **subscriptions / plans (limits JSON)** — per-plan limits cap a single tenant's footprint, protecting shared capacity.
 
-Sharding adds an operational **shard map** (tenant `company_id` → shard) maintained outside the per-tenant data; it is consulted by tenant resolution, not joined into queries.
+Sharding adds an operational **shard map** (tenant `workspace_id` → shard) maintained outside the per-tenant data; it is consulted by tenant resolution, not joined into queries.
 
 ## Permissions
 
@@ -141,7 +141,7 @@ Sharding adds an operational **shard map** (tenant `company_id` → shard) maint
 - **Plan limits** (`plans.limits JSON`) validate tenant resource usage (seats, jobs, AI calls) so one tenant cannot exhaust shared capacity (see [13 — Subscription System](13-Subscription-System.md)).
 - **Queue payloads** are validated and size-bounded before enqueue; oversized or malformed jobs are rejected rather than poisoning a worker.
 - **Upload size/MIME** validation (storage layer) bounds object-storage growth.
-- **Shard-resolution input** (`company_id`) is the already-validated active tenant id; an unknown shard mapping fails closed.
+- **Shard-resolution input** (`workspace_id`) is the already-validated active tenant id; an unknown shard mapping fails closed.
 
 ## Edge Cases
 
@@ -158,7 +158,7 @@ Sharding adds an operational **shard map** (tenant `company_id` → shard) maint
 
 Scaling out must not weaken any guarantee that holds on a single node — isolation, secrecy, and rate limits all have to survive distribution:
 
-- **Tenant isolation across replicas/shards** — the `company_id` row-level scope (and its fail-closed behaviour in `Model::query()`) is enforced in application code, so it holds identically on a primary, a read replica, or a shard. The shard map is keyed by `company_id`; a query can never be routed to a shard for a different tenant. Cross-tenant aggregation is fan-out + aggregate, never a cross-tenant JOIN (see [08 — Multi-Tenant](08-Multi-Tenant.md)).
+- **Tenant isolation across replicas/shards** — the `workspace_id` row-level scope (and its fail-closed behaviour in `Model::query()`) is enforced in application code, so it holds identically on a primary, a read replica, or a shard. The shard map is keyed by `workspace_id`; a query can never be routed to a shard for a different tenant. Cross-tenant aggregation is fan-out + aggregate, never a cross-tenant JOIN (see [08 — Multi-Tenant](08-Multi-Tenant.md)).
 - **Shared session/cache store** — when sessions and the rate limiter move off local disk (Stage 1→2) to a shared DB/Redis store, that store holds session ids and throttle counters and MUST be on a private network, authenticated, and TLS-encrypted; otherwise horizontal scaling would expose session material. A per-node rate limiter is *less* safe at scale (limits become N× looser), so the shared limiter is a security requirement, not just a correctness one.
 - **Secrets across nodes** — `APP_KEY` (which decrypts tenant `ai_credentials`) and DB credentials are distributed via the environment/secret manager, never baked into images or logs; all nodes share one key so encrypted data is portable, and key rotation is coordinated fleet-wide.
 - **Worker / internal endpoints** — the queue worker and the protected `/cron/run` URL authenticate with a secret token and are not exposed publicly; background jobs run with explicit tenant context, never an ambient one.
@@ -169,7 +169,7 @@ Scaling out must not weaken any guarantee that holds on a single node — isolat
 Scalability and performance are complementary: scale only *after* a node is efficient.
 
 - **Statelessness removes disk-IO contention** on sessions/cache and unlocks linear app scaling.
-- **Read replicas** offload the read-heavy recruiter/candidate browsing traffic from the write primary; with `company_id`-leading composite indexes ([35 — Performance](35-Performance.md)), replica reads stay cheap.
+- **Read replicas** offload the read-heavy recruiter/candidate browsing traffic from the write primary; with `workspace_id`-leading composite indexes ([35 — Performance](35-Performance.md)), replica reads stay cheap.
 - **Queues flatten latency**: the request returns immediately while AI/email run asynchronously, keeping p95 within budget even during provider slowness.
 - **Object storage** offloads large transcript/recording/file IO from app nodes and the DB.
 - **Sharding bounds per-DB table sizes**, keeping index depth and `COUNT`/scan costs low even at thousands of tenants.
@@ -181,7 +181,7 @@ Scalability and performance are complementary: scale only *after* a node is effi
 - **Statelessness test:** with the shared session/cache driver configured, a session created via one app instance is readable by another; no behaviour depends on local files.
 - **Read/write routing test:** writes hit the primary; reads use the replica connection; a freshness-critical read after write is pinned to primary and returns the new value.
 - **Queue tests:** enqueue → worker claims exactly once (`reserved_at`); failure path lands in `failed_jobs`; retried job is idempotent.
-- **Tenant isolation under sharding (security):** a request resolves to the correct shard; queries still carry `WHERE company_id`; no cross-tenant/cross-shard leakage.
+- **Tenant isolation under sharding (security):** a request resolves to the correct shard; queries still carry `WHERE workspace_id`; no cross-tenant/cross-shard leakage.
 - **Storage abstraction test:** the same upload/download code path works against local disk and an S3-compatible backend (mock) by switching `disk`.
 - **Capacity signal tests:** diagnostics report queue depth, cache availability, and cron heartbeat accurately (see [33 — System Diagnostics](33-System-Diagnostics.md)).
 - **Load/soak (manual):** representative concurrency holds the [35 — Performance](35-Performance.md) budgets across N nodes.
@@ -194,7 +194,7 @@ A staged outlook from launch to thousands of tenants:
 - **Year 2 — Statelessness + first horizontal step (low thousands).** Sessions/cache/rate-limiter on Redis; 2–3 app nodes behind a load balancer; dedicated queue worker; files moved to object storage.
 - **Year 3 — Read scaling (thousands).** One or more MySQL read replicas; reads routed off the primary; search moved to Meilisearch/Elasticsearch behind the search abstraction ([28 — Search System](28-Search-System.md)); CDN for assets and public job pages.
 - **Year 4 — Workload isolation.** Separate worker fleets per workload (AI, email, transcription); autoscaling app and worker tiers on queue depth and CPU; per-plan rate budgets for AI.
-- **Year 5 — Tenant sharding (many thousands).** Tenants routed to DB shards by `company_id`; a control plane manages the shard map and tenant migration; platform reporting via an aggregation/warehouse pipeline. The application code is unchanged because tenancy was row-level and fail-closed from day one.
+- **Year 5 — Tenant sharding (many thousands).** Tenants routed to DB shards by `workspace_id`; a control plane manages the shard map and tenant migration; platform reporting via an aggregation/warehouse pipeline. The application code is unchanged because tenancy was row-level and fail-closed from day one.
 
 Throughout, the **modular monolith is preserved**; module boundaries (auth, tenancy, RBAC, billing, AI, recruitment) remain the seams along which any future service extraction could occur if ever warranted (see [45 — Future Roadmap](45-Future-Roadmap.md)).
 

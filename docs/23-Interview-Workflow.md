@@ -31,7 +31,7 @@ Interviews are the highest-signal, highest-cost step in hiring, and HalaOps's di
 - **Standardise assessment** so every candidate for a role answers a comparable question set and is scored against the same criteria — reducing bias and improving defensibility.
 - **Support async at scale.** Recruiters cannot live-interview thousands of applicants; `ai_async` interviews let candidates respond on their schedule and let AI pre-score, surfacing the strongest candidates.
 - **Keep humans in control.** Per canonical §9, AI output is **advisory**; final hiring decisions are made by users with `evaluations.manage`. The schema separates machine output (`ai_*`, `interview_responses.ai_score`, `ai_interview_sessions.analysis`) from human judgement (`evaluations.rating`/`recommendation`).
-- **Use the tenant's own AI keys.** The platform holds no AI keys; every AI call resolves through `AiProviderManager` from the current tenant's `ai_credentials` (canonical §9).
+- **Use the tenant's own AI keys.** The platform holds no AI keys; every AI call resolves through `AiProviderManager` from the current tenant's `tenant_ai_keys` (canonical §9).
 - **Stay auditable.** Every scheduling, conducting, and decision step is recorded against the application timeline ([25 — Application Lifecycle](25-Application-Lifecycle.md)).
 
 ## 3. Architecture
@@ -65,7 +65,7 @@ flowchart TD
 | `AiSessionService` (`app/Services/AI/AiSessionService.php`, planned) | Creates and runs `ai_interview_sessions` via the queue; calls the tenant provider; stores transcript/analysis/score; handles failures/retries. |
 | `EvaluationService` (`app/Services/Recruitment/EvaluationService.php`, planned) | Persists human scorecards (`evaluations`) and recommendations. |
 | `ScoringService` | Blends AI session score, per-response `ai_score`, and human `evaluations.rating` into `applications.score`. |
-| `AiProviderManager` (`app/Services/AI/AiProviderManager.php`, built per canonical §9) | Resolves the active provider from the **tenant's** `ai_credentials` only. |
+| `AiProviderManager` (`app/Services/AI/AiProviderManager.php`, built per canonical §9) | Resolves the active provider from the **tenant's** `tenant_ai_keys` only. |
 
 All interview models are tenant-scoped (`$tenantScoped = true`), exactly like `app/Models/Membership.php`.
 
@@ -140,7 +140,7 @@ sequenceDiagram
     RC->>Q: enqueue AI scoring job (interview_id)
     Q->>AIS: run(interview)
     AIS->>AIS: INSERT ai_interview_sessions (status='running', provider, model)
-    AIS->>PM: provider() from tenant ai_credentials
+    AIS->>PM: provider() from tenant tenant_ai_keys
     PM-->>AIS: provider instance (no platform keys)
     AIS->>P: transcribe + score answers vs expected/criteria
     P-->>AIS: transcript, per-answer feedback, score
@@ -179,14 +179,14 @@ When an interview completes, the recruiter decides the next move on the applicat
 
 ## 6. Database Relations
 
-- **`interviews`** (#21): `application_id`→`applications` CASCADE, `job_id`→`jobs` CASCADE; `type`, `mode`, `status`, `scheduled_at`, `duration_minutes`, `location_or_link`, `created_by`→`users` SET NULL. `IDX(company_id, application_id, status)`.
+- **`interviews`** (#21): `application_id`→`applications` CASCADE, `job_id`→`jobs` CASCADE; `type`, `mode`, `status`, `scheduled_at`, `duration_minutes`, `location_or_link`, `created_by`→`users` SET NULL. `IDX(workspace_id, application_id, status)`.
 - **`interview_participants`** (#22): `interview_id`→`interviews` CASCADE, `user_id`→`users` CASCADE; `role` (`interviewer`/`observer`/`candidate`), `response` (`accepted`/`declined`/`tentative`). `UQ(interview_id, user_id)`.
 - **`interview_questions`** (#23): `interview_id`→`interviews` CASCADE (NULL = template); `text`, `type` (`text`/`video`/`mcq`/`coding`), `options` JSON, `expected` JSON, `ai_generated`, `sort_order`.
 - **`interview_responses`** (#24): `interview_id`→`interviews` CASCADE, `question_id`→`interview_questions` CASCADE, `user_id`→`users` CASCADE; `response_text`, `response_file_id`→`files` SET NULL, `ai_score`, `ai_feedback` JSON.
 - **`ai_interview_sessions`** (#25): `interview_id`→`interviews` CASCADE; `provider`, `model`, `status` (`pending`/`running`/`completed`/`failed`), `transcript` LONGTEXT, `analysis` JSON, `score` DECIMAL(5,2), `tokens_used`, `error`, `started_at`, `completed_at`.
-- **`evaluations`** (#26): `application_id`→`applications` CASCADE, `interview_id`→`interviews` SET NULL, `evaluator_id`→`users` SET NULL; `criteria` JSON, `rating` DECIMAL(3,1), `recommendation` (`strong_yes`…`strong_no`), `notes`. `IDX(company_id, application_id)`.
+- **`evaluations`** (#26): `application_id`→`applications` CASCADE, `interview_id`→`interviews` SET NULL, `evaluator_id`→`users` SET NULL; `criteria` JSON, `rating` DECIMAL(3,1), `recommendation` (`strong_yes`…`strong_no`), `notes`. `IDX(workspace_id, application_id)`.
 
-All tables carry `company_id` (FK→`companies`, indexed) and are tenant-scoped at the model layer.
+All tables carry `workspace_id` (FK→`workspaces`, indexed) and are tenant-scoped at the model layer.
 
 ## 7. Permissions
 
@@ -204,7 +204,7 @@ Default mapping ([11 — Permissions Matrix](11-Permissions-Matrix.md)): `owner`
 
 ## 8. Validation
 
-- **Schedule**: `type` `required|in:ai,human,panel`; `mode` `required|in:video,phone,onsite,ai_async`; `scheduled_at` `required_unless:mode,ai_async|date|after:now`; `duration_minutes` `nullable|integer|min:5|max:480`; `interviewer_ids` `required_if:type,panel|array`; for `type=ai`, an active `ai_credentials` row must exist.
+- **Schedule**: `type` `required|in:ai,human,panel`; `mode` `required|in:video,phone,onsite,ai_async`; `scheduled_at` `required_unless:mode,ai_async|date|after:now`; `duration_minutes` `nullable|integer|min:5|max:480`; `interviewer_ids` `required_if:type,panel|array`; for `type=ai`, an active `tenant_ai_keys` row must exist.
 - **Participants**: each `user_id` `exists:users,id` and an active member of the tenant; candidate auto-added.
 - **Questions**: `text` `required|min:3`; `type` `in:text,video,mcq,coding`; `mcq` requires non-empty `options`; `sort_order` integer.
 - **Responses**: `response_text` `required_without:response_file` for `text`; `response_file` `mimes:mp4,webm,mov,...|max:51200` for `video`; `mcq` answer must be one of `options`.
@@ -225,17 +225,17 @@ Default mapping ([11 — Permissions Matrix](11-Permissions-Matrix.md)): `owner`
 
 ## 10. Security
 
-- All interview tables are tenant-scoped → automatic `company_id` isolation, fail-closed (per `app/Core/Model.php`).
+- All interview tables are tenant-scoped → automatic `workspace_id` isolation, fail-closed (per `app/Core/Model.php`).
 - Candidate async access is via a **signed, expiring** link tied to the interview + candidate; opening it does not grant any recruiter permissions; the candidate sees only their own interview and questions.
-- AI keys never leave the tenant boundary; `AiProviderManager` reads encrypted `ai_credentials` (AES-256-GCM) and never platform keys.
+- AI keys never leave the tenant boundary; `AiProviderManager` reads encrypted `tenant_ai_keys` (AES-256-GCM) and never platform keys.
 - Response media files are `private`, tenant-scoped, served only via authorized signed download routes.
 - `interviews.conduct`/`evaluations.create` are restricted by policy gate to listed participants — an interviewer cannot score an interview they were not on.
 - CSRF on all writes; transcripts/PII in `ai_interview_sessions` are access-controlled by the same tenant scope and never exposed to candidates.
-- Every schedule/cancel/decision writes to the application timeline and `activity_log` for audit.
+- Every schedule/cancel/decision writes to the application timeline and `activity_logs` for audit.
 
 ## 11. Performance
 
-- `IDX(company_id, application_id, status)` drives "interviews for this candidate" and "today's interviews" queries.
+- `IDX(workspace_id, application_id, status)` drives "interviews for this candidate" and "today's interviews" queries.
 - AI execution is fully offloaded to the queue (`queued_jobs`) so the candidate's submit returns instantly and the web tier is never blocked on a provider round-trip.
 - Reminders and `no_show` sweeps are batched queue jobs.
 - `interview_responses` and `interview_questions` for an interview are batch-loaded (`whereIn`) to avoid N+1 when rendering the interview page.

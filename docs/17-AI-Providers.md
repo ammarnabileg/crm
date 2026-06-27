@@ -220,7 +220,7 @@ sequenceDiagram
     U->>Ctrl: submit api_key (+ base_url/deployment if required)
     Ctrl->>Reg: requiredFields(provider)
     Ctrl->>Ctrl: validate required present + formats
-    Ctrl->>Cred: encryptSecrets({...}) -> save (company_id, provider)
+    Ctrl->>Cred: encryptSecrets({...}) -> save (workspace_id, provider)
     Ctrl->>Mgr: for(firstCapability).validateConnection()
     Mgr->>Vendor: cheap probe (list models / tiny request)
     alt success
@@ -260,7 +260,7 @@ All providers share the single tenant-scoped table **`ai_credentials`** (see [05
 - `provider` — the registry key (`openai` … `heygen`).
 - `credentials` — encrypted JSON whose shape varies by provider (`api_key` always; `base_url`, `deployment`, `api_version`, `anthropic_version`, `avatar_id`, `voice_id` as needed).
 - `meta` — non-secret per-provider config: `default_model`, `region`, soft token cap, default HeyGen avatar/voice.
-- `UNIQUE (company_id, provider)` guarantees one configuration per provider per tenant.
+- `UNIQUE (workspace_id, provider)` guarantees one configuration per provider per tenant.
 
 Downstream, the chosen provider/model is recorded on **`ai_interview_sessions`** (`provider`, `model`, `tokens_used`) so each session is auditable to the exact vendor that processed it.
 

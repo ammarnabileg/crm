@@ -6,7 +6,7 @@ Invoices, payments, KSA VAT (15%), billing cycles, dunning, receipts and refunds
 
 - [13 — Subscription System](13-Subscription-System.md) — the lifecycle states that billing events drive (`active`, `past_due`, …).
 - [15 — Payment Gateways](15-Payment-Gateways.md) — pluggable gateways and webhooks that actually move money and confirm payments.
-- [12 — Company Management](12-Workspace-Management.md) — companies are the billed tenant; cancellation/deletion lifecycle.
+- [12 — Workspace Management](12-Workspace-Management.md) — workspaces are the billed tenant; cancellation/deletion lifecycle.
 - [05 — Database Architecture](05-Database-Architecture.md) — canonical `invoices`, `payments`, `payment_methods` schema.
 - [07 — RBAC](07-RBAC.md) — `billing.view` / `billing.manage` gate billing operations.
 
@@ -72,7 +72,7 @@ Invoice numbers are human-readable, monotonic and unique (`invoices.number UNIQU
 
 ### Invoice statuses
 
-`invoices.status ENUM('draft','open','paid','void','uncollectible')`:
+`invoices.invoice_status_id` → `invoice_statuses` (config-driven; `key`s `draft`, `open`, `paid`, `void`, `uncollectible`):
 
 | Status | Meaning |
 |--------|---------|
@@ -116,12 +116,12 @@ On `paid`, a **receipt** (إيصال) is generated and made downloadable, and a 
 
 Consistent with [§11 of the canonical schema](05-Database-Architecture.md):
 
-- **`invoices`** (tenant): `id`, `company_id → companies(id) ON DELETE CASCADE`, `subscription_id → subscriptions(id) ON DELETE SET NULL`, `number VARCHAR UNIQUE`, `status ENUM('draft','open','paid','void','uncollectible')`, `subtotal DECIMAL`, `tax DECIMAL`, `total DECIMAL`, `currency`, `due_at`, `paid_at`, `line_items JSON`, timestamps.
-- **`payments`** (tenant): `id`, `company_id → companies(id) ON DELETE CASCADE`, `invoice_id → invoices(id) ON DELETE SET NULL`, `gateway`, `gateway_reference`, `amount DECIMAL`, `currency`, `status ENUM('pending','succeeded','failed','refunded')`, `paid_at`, `raw JSON`, timestamps. Index `payments(company_id, gateway_reference)`.
-- **`payment_methods`** (tenant): `id`, `company_id → companies(id) ON DELETE CASCADE`, `gateway`, `token`, `brand`, `last4`, `exp_month`, `exp_year`, `is_default`, timestamps. (Detail in [15](15-Payment-Gateways.md).)
+- **`invoices`** (tenant): `id`, `workspace_id → workspaces(id) ON DELETE CASCADE`, `subscription_id → subscriptions(id) ON DELETE SET NULL`, `number VARCHAR UNIQUE`, `invoice_status_id → invoice_statuses(id) ON DELETE RESTRICT` (config-driven; `key`s `draft`/`open`/`paid`/`void`/`uncollectible`), `subtotal DECIMAL`, `tax DECIMAL`, `total DECIMAL`, `currency`, `due_at`, `paid_at`, `line_items JSON`, timestamps.
+- **`payments`** (tenant): `id`, `workspace_id → workspaces(id) ON DELETE CASCADE`, `invoice_id → invoices(id) ON DELETE SET NULL`, `gateway`, `gateway_reference`, `amount DECIMAL`, `currency`, `payment_status_id → payment_statuses(id) ON DELETE RESTRICT` (config-driven; `key`s `pending`/`succeeded`/`failed`/`refunded`), `paid_at`, `raw JSON`, timestamps. Index `payments(workspace_id, gateway_reference)`.
+- **`payment_methods`** (tenant): `id`, `workspace_id → workspaces(id) ON DELETE CASCADE`, `gateway`, `token`, `brand`, `last4`, `exp_month`, `exp_year`, `is_default`, timestamps. (Detail in [15](15-Payment-Gateways.md).)
 - Upstream: **`subscriptions`** ([13](13-Subscription-System.md)); downstream raw webhook log **`gateway_events`** ([15](15-Payment-Gateways.md)).
 
-`line_items` and `raw` are JSON (gateway-agnostic): `line_items` holds the human-readable breakdown (plan charge, proration credit, etc.); `raw` stores the gateway's verbatim response for reconciliation/audit. The composite index on `(company_id, gateway_reference)` makes webhook→payment lookups fast.
+`line_items` and `raw` are JSON (gateway-agnostic): `line_items` holds the human-readable breakdown (plan charge, proration credit, etc.); `raw` stores the gateway's verbatim response for reconciliation/audit. The composite index on `(workspace_id, gateway_reference)` makes webhook→payment lookups fast.
 
 ## Permissions
 
@@ -159,15 +159,15 @@ Consistent with [§11 of the canonical schema](05-Database-Architecture.md):
 - **No client-trusted money**: all amounts/VAT/totals are computed server-side; the client may only reference an `invoice_id` to pay.
 - **PCI scope minimised**: no card PAN/CVV is ever stored — only gateway **tokens** in `payment_methods` and non-sensitive `brand`/`last4` (see [15](15-Payment-Gateways.md), [34 — Security](34-Security.md)).
 - **Webhook integrity**: payment confirmations are verified and processed idempotently through `gateway_events`; raw payloads stored for audit ([15](15-Payment-Gateways.md)).
-- **CSRF** on all billing writes; **audit** to `activity_log` for invoice issue, payment, refund and write-off, with actor and amount.
+- **CSRF** on all billing writes; **audit** to `activity_logs` for invoice issue, payment, refund and write-off, with actor and amount.
 - **Authorization**: only the Owner (`billing.manage`) can pay/refund/change plan; viewing requires `billing.view`.
 - **Output escaping** of company-supplied fields (e.g. VAT number, name) on rendered invoices.
 
 ## Performance
 
-- **Hot path — renewal sweep**: the cron job selects due subscriptions via the indexed `subscriptions(status, ends_at)` and issues invoices in batches; invoice insert + payment is a short transaction.
-- **Webhook → payment lookup**: served by the composite index `payments(company_id, gateway_reference)` and `gateway_events(gateway, reference)`.
-- **Invoice listing** (billing page): paginated, ordered by `created_at DESC`, filtered by the tenant's `company_id` (indexed FK).
+- **Hot path — renewal sweep**: the cron job selects due subscriptions via the indexed `subscriptions(subscription_status_id, ends_at)` and issues invoices in batches; invoice insert + payment is a short transaction.
+- **Webhook → payment lookup**: served by the composite index `payments(workspace_id, gateway_reference)` and `gateway_events(gateway, reference)`.
+- **Invoice listing** (billing page): paginated, ordered by `created_at DESC`, filtered by the tenant's `workspace_id` (indexed FK).
 - **JSON `line_items`/`raw`** avoid extra tables on the read path and are decoded only when an invoice/payment is opened.
 - Heavy work (PDF rendering, email receipts, gateway calls) is offloaded to the queue so the request path stays fast.
 

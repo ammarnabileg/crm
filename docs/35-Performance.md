@@ -26,7 +26,7 @@ The guiding rule: **be fast on a single small box first.** Most buyers run on sh
 Performance is a product feature for a recruiting platform: recruiters live in candidate lists and pipelines, candidates abandon slow application forms, and AI interview flows already pay a latency tax to external providers — so the application around them must add as little as possible. Three constraints make a deliberate strategy necessary:
 
 1. **Shared-hosting reality.** Limited CPU/RAM, often MySQL on the same host, no Redis by default, and no build step on the buyer's server. Optimisations must work *without* extra infrastructure, while leaving a clean upgrade path.
-2. **Multi-tenancy.** Every tenant query carries a `WHERE company_id = ?`. Done right (FK + composite indexes leading with `company_id`) this *partitions* the working set and keeps each tenant fast regardless of total platform size; done wrong it is a full-table-scan trap.
+2. **Multi-tenancy.** Every tenant query carries a `WHERE workspace_id = ?`. Done right (FK + composite indexes leading with `workspace_id`) this *partitions* the working set and keeps each tenant fast regardless of total platform size; done wrong it is a full-table-scan trap.
 3. **Growth to thousands of tenants.** Tables like `applications`, `interview_responses`, `notifications`, and `activity_log` grow without bound. Indexing, pagination, and retention must be designed in, not retrofitted.
 
 ## Architecture
@@ -66,8 +66,8 @@ sequenceDiagram
     participant DB as MySQL
     U->>C: GET /jobs?page=3&status=open
     C->>Q: Job::query()->where('status','open')->paginate(20, page=3)
-    Note over Q: auto WHERE company_id = active tenant
-    Q->>DB: SELECT ... LIMIT 20 OFFSET 40 (uses idx company_id,status)
+    Note over Q: auto WHERE workspace_id = active tenant
+    Q->>DB: SELECT ... LIMIT 20 OFFSET 40 (uses idx workspace_id,status)
     Q->>DB: SELECT COUNT(*) ... (same WHERE, index-covered)
     DB-->>Q: page rows + total
     C->>Q: batch-load related (createdBy users) by id IN (...)  // avoid N+1
@@ -78,14 +78,14 @@ sequenceDiagram
 
 1. Identify a query in the slow-query log or via diagnostics that exceeds the budget.
 2. Run `EXPLAIN` — confirm it is hitting a full scan or filesort.
-3. Add a **composite index leading with `company_id`** then the filter/sort columns, in a new migration (DDL runs outside a transaction — see `Database` note).
+3. Add a **composite index leading with `workspace_id`** then the filter/sort columns, in a new migration (DDL runs outside a transaction — see `Database` note).
 4. Re-`EXPLAIN`; verify `type` is `ref`/`range` and `Extra` no longer shows `Using filesort`/`Using temporary` where avoidable.
 5. Record the before/after in the PR (see [42 — Code Review Checklist](42-Code-Review-Checklist.md)).
 
 ## Business Rules
 
 1. **Every foreign key column is indexed.** No exceptions; FK constraints in InnoDB require/benefit from it and all tenant joins depend on it.
-2. **Every column used in `WHERE`, `ORDER BY`, or `GROUP BY` on a hot path is indexed**, preferably as a composite index that leads with `company_id` (e.g. `(company_id, status)`, `(company_id, job_id, status, current_stage_id)` per §11).
+2. **Every column used in `WHERE`, `ORDER BY`, or `GROUP BY` on a hot path is indexed**, preferably as a composite index that leads with `workspace_id` (e.g. `(workspace_id, status)`, `(workspace_id, job_id, status, current_stage_id)` per §11).
 3. **All multi-row list endpoints paginate** via `QueryBuilder::paginate()`. There is no unbounded "select all" rendered to a page.
 4. **No N+1 queries.** Related records for a collection are batch-loaded with a single `whereIn(...)` keyed by id, not fetched per row in a loop.
 5. **OPcache is enabled in production** so PHP is not recompiled per request; `validate_timestamps` is off in production and reset on deploy.
@@ -114,14 +114,14 @@ sequenceDiagram
 
 Performance is largely a property of the schema (§11). Key indexed access paths the design relies on:
 
-- **applications** — IDX(company_id, job_id, status, current_stage_id): powers the recruiter pipeline board and per-job candidate lists without scans; UQ(company_id, job_id, user_id) also prevents duplicate apply.
-- **jobs** — IDX(company_id, status): job board filtering by open/closed within a tenant.
-- **interviews** — IDX(company_id, application_id, status): interview lists per application.
+- **applications** — IDX(workspace_id, job_id, status, current_stage_id): powers the recruiter pipeline board and per-job candidate lists without scans; UQ(workspace_id, job_id, user_id) also prevents duplicate apply.
+- **jobs** — IDX(workspace_id, status): job board filtering by open/closed within a tenant.
+- **interviews** — IDX(workspace_id, application_id, status): interview lists per application.
 - **notifications** — IDX(user_id, read_at): the unread-badge query is index-covered.
-- **activity_log** — IDX(company_id, user_id, action): audit views filter quickly; large table, so paginate + retention apply (see [38 — Audit System](38-Audit-System.md)).
-- **memberships** — IDX(user_id, status) + UQ(company_id, user_id): fast "my companies" and membership lookups during tenant resolution.
-- **payments** — IDX(company_id, gateway_reference): webhook reconciliation lookups.
-- All FK columns (`company_id`, `job_id`, `user_id`, `application_id`, `interview_id`, …) carry indexes by rule #1.
+- **activity_log** — IDX(workspace_id, user_id, action): audit views filter quickly; large table, so paginate + retention apply (see [38 — Audit System](38-Audit-System.md)).
+- **memberships** — IDX(user_id, status) + UQ(workspace_id, user_id): fast "my companies" and membership lookups during tenant resolution.
+- **payments** — IDX(workspace_id, gateway_reference): webhook reconciliation lookups.
+- All FK columns (`workspace_id`, `job_id`, `user_id`, `application_id`, `interview_id`, …) carry indexes by rule #1.
 
 For search, MySQL **FULLTEXT** indexes back jobs/applications now behind a search abstraction so Meilisearch/Elasticsearch can replace them later without touching call sites (see [28 — Search System](28-Search-System.md)).
 
@@ -159,7 +159,7 @@ Performance and security intersect in several concrete ways; the platform treats
 - **Resource-exhaustion / DoS** — every list endpoint is paginated with a hard `per_page` cap, so a client cannot request unbounded rows. Expensive endpoints (login, password reset, AI calls, search) are rate-limited via `App\Support\RateLimiter` and the `throttle:n,seconds` middleware. Heavy work (AI scoring, email) is pushed to `queued_jobs` so a request thread is never tied up.
 - **Query-cost as an attack surface** — all filtering/sorting goes through the parameterised `QueryBuilder`; user input never reaches raw SQL, and only allow-listed columns are sortable, preventing attacker-chosen full-table scans. Slow-query budgets (below) double as an abuse signal.
 - **ReDoS** — validation regexes (`Validator`) are kept linear and bounded; no user-supplied pattern is ever compiled.
-- **Cache isolation** — every cache key is namespaced by `company_id` so a faster cache path can never serve one tenant's data to another (see [08 — Multi-Tenant](08-Multi-Tenant.md)). Cache entries that derive from authorization decisions are keyed by `userId:companyId`, mirroring `AccessControl`'s per-request cache.
+- **Cache isolation** — every cache key is namespaced by `workspace_id` so a faster cache path can never serve one tenant's data to another (see [08 — Multi-Tenant](08-Multi-Tenant.md)). Cache entries that derive from authorization decisions are keyed by `userId:companyId`, mirroring `AccessControl`'s per-request cache.
 - **Timing side-channels** — authentication compares secrets in constant time (`hash_equals`, `password_verify`) and equalises the "user not found" path, so response-time optimisation must never reintroduce a timing oracle (see [34 — Security](34-Security.md), [09 — Authentication](09-Authentication.md)).
 - **No information leak via errors** — with `APP_DEBUG=false`, slow/failed queries are logged server-side ([37 — Logging](37-Logging.md)) but never surfaced to the client; profiling output is dev-only.
 
@@ -167,7 +167,7 @@ Performance and security intersect in several concrete ways; the platform treats
 
 (The whole document is about performance; this section summarises the hot-path checklist that reviewers apply per feature.)
 
-- Indexes: FK + every filter/sort column, composite leading with `company_id`. Verified with `EXPLAIN`.
+- Indexes: FK + every filter/sort column, composite leading with `workspace_id`. Verified with `EXPLAIN`.
 - Pagination: every list uses `paginate()`; page size bounded; deep lists use keyset.
 - N+1: collections batch-load relations via `whereIn`; no per-row queries in loops or templates.
 - Selectivity: select only needed columns; never `SELECT *` for heavy/JSON columns on lists.

@@ -87,12 +87,12 @@ This mirrors the existing `routes/web.php` style exactly (groups with `prefix`/`
 
 ### Authentication — `api_tokens`
 
-Tokens are stored in the **`api_tokens`** table (canonical §11.34): `id, user_id→users(CASCADE), company_id(NULL), name, token_hash(UQ), abilities JSON, last_used_at, expires_at, created_at`.
+Tokens are stored in the **`api_tokens`** table (canonical §11.34): `id, user_id→users(CASCADE), workspace_id(NULL), name, token_hash(UQ), abilities JSON, last_used_at, expires_at, created_at`.
 
 - A token is a random secret (`str_random(64)`-style) shown **once** at creation; only its **hash** is stored (`token_hash`), so a DB leak does not expose usable tokens.
 - The client sends it as `Authorization: Bearer <token>` (`Request::bearerToken()` already extracts this).
-- `AuthenticateApiToken` (planned) hashes the presented token, looks it up by `token_hash`, rejects if missing/expired, loads the owning `User` into `AuthManager`, updates `last_used_at`, and — when the token carries a `company_id` — sets the active tenant via `TenantManager::setById()`.
-- A token may be **company-scoped** (`company_id` set ⇒ acts within exactly one tenant) or **user-scoped** (`company_id` NULL ⇒ the caller selects a tenant per request via an `X-Company-Id` header, validated against the user's active memberships, exactly as the web `companies/switch` flow validates).
+- `AuthenticateApiToken` (planned) hashes the presented token, looks it up by `token_hash`, rejects if missing/expired, loads the owning `User` into `AuthManager`, updates `last_used_at`, and — when the token carries a `workspace_id` — sets the active tenant via `TenantManager::setById()`.
+- A token may be **company-scoped** (`workspace_id` set ⇒ acts within exactly one tenant) or **user-scoped** (`workspace_id` NULL ⇒ the caller selects a tenant per request via an `X-Company-Id` header, validated against the user's active memberships, exactly as the web `companies/switch` flow validates).
 
 ### Authorization — same RBAC
 
@@ -100,7 +100,7 @@ The API does **not** invent a permission model. After `AuthenticateApiToken` est
 
 ### Tenant scoping — same fail-closed model
 
-Every API data query runs through `App\Core\Model`, so the `WHERE company_id = ?` filter is automatic and **fail-closed**: a tenant-scoped query with no active tenant throws. A company-scoped token has its tenant set at auth time; a user-scoped token must supply a valid `X-Company-Id`, or tenant-scoped endpoints return `409 no_active_company` (the same signal `EnsureTenant` gives the web app). Cross-tenant access is impossible through the API — there is no exposed `withoutTenantScope()` path. See [08 — Multi-Tenant](08-Multi-Tenant.md).
+Every API data query runs through `App\Core\Model`, so the `WHERE workspace_id = ?` filter is automatic and **fail-closed**: a tenant-scoped query with no active tenant throws. A company-scoped token has its tenant set at auth time; a user-scoped token must supply a valid `X-Company-Id`, or tenant-scoped endpoints return `409 no_active_company` (the same signal `EnsureTenant` gives the web app). Cross-tenant access is impossible through the API — there is no exposed `withoutTenantScope()` path. See [08 — Multi-Tenant](08-Multi-Tenant.md).
 
 ## Workflow
 
@@ -123,15 +123,15 @@ sequenceDiagram
     K->>TH: rate-limit by token/IP
     TH->>TOK: ok
     TOK->>DB: lookup api_tokens by token_hash
-    DB-->>TOK: row (user_id, company_id, abilities, expires_at)
-    TOK->>TOK: load User → AuthManager; setById(company_id); touch last_used_at
+    DB-->>TOK: row (user_id, workspace_id, abilities, expires_at)
+    TOK->>TOK: load User → AuthManager; setById(workspace_id); touch last_used_at
     TOK->>TEN: next
     TEN->>PERM: tenant active → next
     PERM->>PERM: access()->allows('jobs.view') ∧ token ability
     PERM->>Ctrl: index(request)
     Ctrl->>Svc: list jobs (filters, pagination)
-    Svc->>M: Job::query()->paginate(...)  (company_id auto-applied)
-    M->>DB: prepared SELECT ... WHERE company_id = ?
+    Svc->>M: Job::query()->paginate(...)  (workspace_id auto-applied)
+    M->>DB: prepared SELECT ... WHERE workspace_id = ?
     DB-->>M: rows
     M-->>Svc: data
     Svc-->>Ctrl: paginator
@@ -186,11 +186,11 @@ This reuses the kernel's existing JSON error behaviour: `ValidationException →
 
 ## Database Relations
 
-- **`api_tokens`** (canonical §11.34) — the auth store: `user_id` (FK → `users`, CASCADE), `company_id` (NULL = user-scoped), `name`, `token_hash` (UNIQUE), `abilities` JSON, `last_used_at`, `expires_at`, `created_at`. Indexed on `token_hash` for O(1) lookup.
+- **`api_tokens`** (canonical §11.34) — the auth store: `user_id` (FK → `users`, CASCADE), `workspace_id` (NULL = user-scoped), `name`, `token_hash` (UNIQUE), `abilities` JSON, `last_used_at`, `expires_at`, `created_at`. Indexed on `token_hash` for O(1) lookup.
 - **`users`** — the principal a token acts as.
 - **`memberships`** — validates that a user-scoped token's `X-Company-Id` is a company the user actively belongs to (same check as `TenantManager::userBelongsTo()`).
-- **`roles`/`permissions`/`permission_role`/`membership_role`/`user_role`** — read by `AccessControl` for API authorization (unchanged from the web path).
-- **All tenant-bound domain tables** (`jobs`, `applications`, `interviews`, `evaluations`, …) are accessed through tenant-scoped models, so every API read/write carries the `company_id` filter automatically.
+- **`roles`/`permissions`/`role_permissions`/`membership_roles`/`user_roles`** — read by `AccessControl` for API authorization (unchanged from the web path).
+- **All tenant-bound domain tables** (`jobs`, `applications`, `interviews`, `evaluations`, …) are accessed through tenant-scoped models, so every API read/write carries the `workspace_id` filter automatically.
 - **`gateway_events`** (canonical §11.33) — log for inbound payment webhooks (below).
 - **`activity_log`** — API mutations are audited here.
 

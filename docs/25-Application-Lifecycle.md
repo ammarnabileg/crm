@@ -31,7 +31,7 @@ The application is where hiring actually happens, so it must be rigorous:
 
 - **Two complementary axes.** `status` is the coarse business state (for reporting, candidate-facing messaging, and analytics); `current_stage_id` is the fine-grained position in *this job's* configurable pipeline. Recruiters reorder pipeline stages freely; the high-level `status` stays stable, so dashboards and SLAs do not break when a tenant customises its pipeline.
 - **An immutable timeline.** Hiring decisions can be challenged (legally and internally). `application_events` records who moved a candidate, when, from which stage to which, and why — providing defensible audit.
-- **No double-counting.** The `UQ(company_id, job_id, user_id)` constraint guarantees one application per candidate per job, keeping pipeline metrics honest.
+- **No double-counting.** The `UQ(workspace_id, job_id, user_id)` constraint guarantees one application per candidate per job, keeping pipeline metrics honest.
 - **Privacy by design.** Candidate data is personal data under GDPR and PDPL; the lifecycle defines retention, withdrawal, export, and erasure so the platform is compliant by default.
 
 ## 3. Architecture
@@ -59,7 +59,7 @@ flowchart LR
 | `ScoringService` (`app/Services/Recruitment/ScoringService.php`, planned) | Combines `ai_interview_sessions.score`, `interview_responses.ai_score`, and human `evaluations.rating` into `applications.score`. |
 | Candidate portal controller | Lets a candidate create, view status of, and withdraw their own applications via the `candidate.*` permissions. |
 
-The `Application` model mirrors `app/Models/Membership.php`: `$tenantScoped = true`, so `Application::query()` auto-scopes to `company_id` and fails closed without a tenant.
+The `Application` model mirrors `app/Models/Membership.php`: `$tenantScoped = true`, so `Application::query()` auto-scopes to `workspace_id` and fails closed without a tenant.
 
 ## 4. Workflow
 
@@ -123,7 +123,7 @@ sequenceDiagram
     AC->>AC: require permission candidate.apply
     AC->>AS: apply(job, user, payload)
     AS->>DB: assert job.status='open'
-    AS->>DB: INSERT applications (UQ company_id,job_id,user_id)
+    AS->>DB: INSERT applications (UQ workspace_id,job_id,user_id)
     alt duplicate
         DB-->>AS: unique violation
         AS-->>AC: "you have already applied"
@@ -144,7 +144,7 @@ sequenceDiagram
 
 ## 5. Business Rules
 
-1. One application per `(company_id, job_id, user_id)` — enforced by DB unique key and re-checked in the service.
+1. One application per `(workspace_id, job_id, user_id)` — enforced by DB unique key and re-checked in the service.
 2. A candidate may only apply to a job whose `status = open` (re-validated at write time).
 3. `status` is derived from the destination pipeline-stage `type`; the two are never set independently.
 4. **Every** mutation appends an `application_events` row (`applied`, `stage_changed`, `status_changed`, `note_added`, `interview_scheduled`, `evaluation_added`, `score_updated`, `rejected`, `withdrawn`, `hired`). Events are append-only and never edited or deleted.
@@ -164,7 +164,7 @@ Primary table — **`applications`** (tenant, planned #19):
 | Column | Type / Notes |
 | --- | --- |
 | `id` | BIGINT UNSIGNED PK |
-| `company_id` | FK → `companies(id)` CASCADE (tenant scope) |
+| `workspace_id` | FK → `companies(id)` CASCADE (tenant scope) |
 | `job_id` | FK → `jobs(id)` CASCADE |
 | `user_id` | FK → `users(id)` CASCADE — the candidate |
 | `current_stage_id` | FK → `pipeline_stages(id)` SET NULL |
@@ -176,7 +176,7 @@ Primary table — **`applications`** (tenant, planned #19):
 | `applied_at`, `decided_at` | TIMESTAMP NULL |
 | `created_at`, `updated_at` | TIMESTAMP NULL |
 
-Keys/indexes: `UQ(company_id, job_id, user_id)` (de-dup); `IDX(company_id, job_id, status, current_stage_id)` (drives the Kanban board and stage counts).
+Keys/indexes: `UQ(workspace_id, job_id, user_id)` (de-dup); `IDX(workspace_id, job_id, status, current_stage_id)` (drives the Kanban board and stage counts).
 
 **`application_events`** (tenant, planned #20): `application_id` → `applications(id)` CASCADE; `actor_id` → `users(id)` SET NULL; `type`, `from_stage_id`, `to_stage_id`, `note`, `properties` JSON, `created_at`. `IDX(application_id)`. Append-only timeline.
 
@@ -239,7 +239,7 @@ Default mapping ([11 — Permissions Matrix](11-Permissions-Matrix.md)): `owner`
 
 ## 11. Performance
 
-- `IDX(company_id, job_id, status, current_stage_id)` powers the Kanban board (per-stage counts) and filtered lists without table scans.
+- `IDX(workspace_id, job_id, status, current_stage_id)` powers the Kanban board (per-stage counts) and filtered lists without table scans.
 - Kanban columns are paginated/virtualised per stage; counts come from a single grouped query (`GROUP BY current_stage_id`).
 - `application_events` is read newest-first via `IDX(application_id)` with `ORDER BY created_at DESC LIMIT`.
 - Score recomputation is debounced/queued so adding one evaluation does not block the request.

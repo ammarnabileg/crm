@@ -8,7 +8,7 @@ A pluggable payment-gateway layer behind a single `PaymentGatewayInterface` with
 - [13 — Subscription System](13-Subscription-System.md) — charges keep subscriptions `active`; failures trigger `past_due`/dunning.
 - [34 — Security](34-Security.md) — PCI, secret encryption (AES-256-GCM), webhook verification.
 - [05 — Database Architecture](05-Database-Architecture.md) — canonical `payments`, `payment_methods`, `gateway_events` schema.
-- [12 — Company Management](12-Workspace-Management.md) — per-tenant gateway configuration via company settings.
+- [12 — Workspace Management](12-Workspace-Management.md) — per-tenant gateway configuration via workspace settings.
 
 ---
 
@@ -114,7 +114,7 @@ The card is collected by the gateway's hosted fields / SDK on the client and exc
 
 ### Per-tenant sandbox/live configuration
 
-Each company stores its own gateway credentials and mode (`sandbox`/`live`) in company `settings` (encrypted secret keys via `Encrypter`, AES-256-GCM), mirroring how AI keys are stored per tenant ([16 — AI Architecture](16-AI-Architecture.md)). Public/publishable keys are stored plainly; secret keys are encrypted at rest. A platform-default gateway can also be configured for tenants that don't bring their own.
+Each workspace stores its own gateway credentials and mode (`sandbox`/`live`) in workspace `settings` (encrypted secret keys via `Encrypter`, AES-256-GCM), mirroring how AI keys are stored per tenant ([16 — AI Architecture](16-AI-Architecture.md)). Public/publishable keys are stored plainly; secret keys are encrypted at rest. A platform-default gateway can also be configured for tenants that don't bring their own.
 
 ## Business Rules
 
@@ -134,8 +134,8 @@ Each company stores its own gateway credentials and mode (`sandbox`/`live`) in c
 
 Consistent with [§11 of the canonical schema](05-Database-Architecture.md):
 
-- **`payment_methods`** (tenant): `id`, `company_id → companies(id) ON DELETE CASCADE`, `gateway`, `token`, `brand`, `last4`, `exp_month`, `exp_year`, `is_default`, timestamps. The `token` is the gateway's reusable reference — **not** a card number.
-- **`payments`** (tenant): `id`, `company_id → companies(id) ON DELETE CASCADE`, `invoice_id → invoices(id) ON DELETE SET NULL`, `gateway`, `gateway_reference`, `amount`, `currency`, `status ENUM('pending','succeeded','failed','refunded')`, `paid_at`, `raw JSON`, timestamps. Index `payments(company_id, gateway_reference)`.
+- **`payment_methods`** (tenant): `id`, `workspace_id → workspaces(id) ON DELETE CASCADE`, `gateway`, `token`, `brand`, `last4`, `exp_month`, `exp_year`, `is_default`, timestamps. The `token` is the gateway's reusable reference — **not** a card number.
+- **`payments`** (tenant): `id`, `workspace_id → workspaces(id) ON DELETE CASCADE`, `invoice_id → invoices(id) ON DELETE SET NULL`, `gateway`, `gateway_reference`, `amount`, `currency`, `payment_status_id → payment_statuses(id) ON DELETE RESTRICT` (config-driven; `key`s `pending`/`succeeded`/`failed`/`refunded`), `paid_at`, `raw JSON`, timestamps. Index `payments(workspace_id, gateway_reference)`.
 - **`gateway_events`** (GLOBAL webhook log): `id`, `gateway`, `event_type`, `reference`, `payload JSON`, `processed`, `received_at`. Index `gateway_events(gateway, reference)` — the idempotency key.
 - Upstream: **`invoices`**/**`subscriptions`** ([14](14-Billing-System.md), [13](13-Subscription-System.md)). Tenant gateway credentials live in **`settings`** (encrypted).
 
@@ -183,11 +183,11 @@ Platform-level gateway defaults/diagnostics use `platform.diagnostics` (see [22 
 - **Transport security**: all gateway calls over TLS; the webhook endpoint is HTTPS-only.
 - **Tenant isolation**: `payments`/`payment_methods` are tenant-scoped and fail closed; the global `gateway_events` log is reconciled to a tenant only through verified references.
 - **Authorization**: charging/refunding/configuring requires `billing.manage` (owner); the webhook route is machine-authenticated by signature, not by a user session.
-- **Audit**: every charge, refund, method change and gateway (re)configuration is recorded in `activity_log`; secrets are redacted in logs.
+- **Audit**: every charge, refund, method change and gateway (re)configuration is recorded in `activity_logs`; secrets are redacted in logs.
 
 ## Performance
 
-- **Webhook hot path**: verify → upsert `gateway_events` (unique key) → update the referenced `payment`/`invoice`, all served by `gateway_events(gateway, reference)` and `payments(company_id, gateway_reference)`; respond `200` fast and defer heavy follow-up (receipts/emails) to the queue.
+- **Webhook hot path**: verify → upsert `gateway_events` (unique key) → update the referenced `payment`/`invoice`, all served by `gateway_events(gateway, reference)` and `payments(workspace_id, gateway_reference)`; respond `200` fast and defer heavy follow-up (receipts/emails) to the queue.
 - **Charge calls are network-bound**: executed from the queued renewal worker, not the user request path, so dunning sweeps don't block web traffic.
 - **Token reuse** avoids re-collecting cards and keeps renewals to a single gateway round-trip.
 - **Registry resolution** is an in-memory map lookup; gateway objects are lightweight and constructed on demand.

@@ -291,7 +291,7 @@ Every state-changing form/route includes `csrf_field()` and passes through the `
 - **Classes**: `StudlyCase`, noun phrases (`CompanyService`, `RequirePermission`).
 - **Methods/functions/variables**: `camelCase`, verb phrases for methods (`provisionCompanyRoles`, `effectivePermissions`).
 - **Constants**: `UPPER_SNAKE_CASE` (`self::STEPS`, `self::OPERATORS`).
-- **DB columns / config keys / permission keys**: `snake_case` / dotted (`company_id`, `auth.max_login_attempts`, `jobs.publish`).
+- **DB columns / config keys / permission keys**: `snake_case` / dotted (`workspace_id`, `auth.max_login_attempts`, `jobs.publish`).
 - **Interfaces**: `*Interface` (`MiddlewareInterface`, `AiProviderInterface`, `PaymentGatewayInterface`).
 - **Booleans**: read as a question (`isActive()`, `hasTenant()`, `shouldScope()`).
 - Names say what something is/does; no abbreviations like `$usr`, `$mgr`, `$tmp1`.
@@ -389,11 +389,11 @@ try {
 
 Coding standards interact with the schema (§11) through these rules:
 
-- Every tenant-bound table has `company_id` (FK→`companies`, indexed); models for them set `$tenantScoped = true` and `$tenantColumn = 'company_id'` (the default).
-- `$fillable` on each model lists mass-assignable columns; `company_id`, `created_at`, `updated_at` are always allowed by the base `Model::filterFillable()`, so never add user-controlled `company_id` to `$fillable`.
+- Every tenant-bound table has `workspace_id` (FK→`companies`, indexed); models for them set `$tenantScoped = true` and `$tenantColumn = 'workspace_id'` (the default).
+- `$fillable` on each model lists mass-assignable columns; `workspace_id`, `created_at`, `updated_at` are always allowed by the base `Model::filterFillable()`, so never add user-controlled `workspace_id` to `$fillable`.
 - `$hidden` excludes secrets from array/JSON output (e.g. `User::$hidden = ['password', 'remember_token']`).
 - `$casts` declares types (`int`, `bool`, `array`/`json`, `float`) so JSON columns (`features`, `limits`, `settings`, `properties`) are decoded consistently.
-- Uniqueness that is per-tenant uses composite keys in migrations (`UQ(company_id, slug)`); code relies on this rather than re-checking in PHP where possible (with `unique:` validation for friendly messages).
+- Uniqueness that is per-tenant uses composite keys in migrations (`UQ(workspace_id, slug)`); code relies on this rather than re-checking in PHP where possible (with `unique:` validation for friendly messages).
 - Timestamps are written via the model (`now()` helper, `Y-m-d H:i:s`); do not hand-format dates inconsistently.
 
 ## Permissions
@@ -401,7 +401,7 @@ Coding standards interact with the schema (§11) through these rules:
 Authorization code must follow §6 and [07 — RBAC](07-RBAC.md):
 
 - Gate routes with `permission:key1,key2` middleware (any-of) and in-view/controller logic with `can('key')` / `access()->allows('key', $context)`.
-- Use the **exact permission keys** from the catalogue (`dashboard.view`, `company.update`, `members.invite`, `roles.manage`, `billing.manage`, `ai.manage`, `settings.manage`, and the domain keys `jobs.*`, `applications.*`, `interviews.*`, `evaluations.*`, etc.). Never invent an unused permission (dead permissions are forbidden).
+- Use the **exact permission keys** from the catalogue (`dashboard.view`, `workspace.update`, `members.invite`, `roles.manage`, `billing.manage`, `ai.manage`, `settings.manage`, and the domain keys `jobs.*`, `applications.*`, `interviews.*`, `evaluations.*`, etc.). Never invent an unused permission (dead permissions are forbidden).
 - Context-aware ("own record") checks go through a policy gate registered with `AccessControl::define()`, not ad-hoc `if` logic.
 - Super-admin bypass is handled centrally in `AccessControl::allows()`; never special-case super-admin in feature code.
 
@@ -444,7 +444,7 @@ The standards directly implement [34 — Security](34-Security.md):
 | Cross-tenant data leak | Rule 8 — `$tenantScoped` + fail-closed `query()`; explicit `withoutTenantScope()` |
 | Broken access control | Rule 9 — permissions/roles only, never user-type branches |
 | Secret exposure | Rule 16 — Argon2id hashing, AES-256-GCM for AI keys, secrets from `.env` |
-| Mass-assignment | DB Relations — `$fillable` allow-list; no user-controlled `company_id` |
+| Mass-assignment | DB Relations — `$fillable` allow-list; no user-controlled `workspace_id` |
 | Account enumeration | Rule 16 — timing-equalised auth, hashed reset tokens (see auth code) |
 | Brute force | Rule 16 — `throttle:` + login lockout |
 

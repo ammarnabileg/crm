@@ -176,9 +176,9 @@ The completed session surfaces in the application's interview view with: transcr
 
 ## 6. Database Relations
 
-All tables are tenant-scoped (carry `company_id`, FK → `companies`, indexed) per the canonical schema (§11):
+All tables are tenant-scoped (carry `workspace_id`, FK → `companies`, indexed) per the canonical schema (§11):
 
-- **`interviews`** (§11.21): `application_id`→applications, `job_id`→jobs, `type[ai|human|panel]`, `mode[video|phone|onsite|ai_async]`, `status[scheduled|in_progress|completed|canceled|no_show]`, `scheduled_at`, `duration_minutes`, `created_by`. IDX(`company_id,application_id,status`). The parent of an AI run.
+- **`interviews`** (§11.21): `application_id`→applications, `job_id`→jobs, `type[ai|human|panel]`, `mode[video|phone|onsite|ai_async]`, `status[scheduled|in_progress|completed|canceled|no_show]`, `scheduled_at`, `duration_minutes`, `created_by`. IDX(`workspace_id,application_id,status`). The parent of an AI run.
 - **`interview_questions`** (§11.23): `interview_id`→interviews (NULL = reusable template/bank), `text`, `type[text|video|mcq|coding]`, `options` JSON, `expected` JSON, `ai_generated`, `sort_order`. The generated/curated question set.
 - **`interview_responses`** (§11.24): `interview_id`→interviews, `question_id`→interview_questions, `user_id`→users (the candidate), `response_text`, `response_file_id`→files (recorded audio/video), `ai_score` DECIMAL, `ai_feedback` JSON. One row per answered question.
 - **`ai_interview_sessions`** (§11.25): `interview_id`→interviews, `provider`, `model`, `status[pending|running|completed|failed]`, `transcript` LONGTEXT, `analysis` JSON, `score` DECIMAL(5,2), `tokens_used`, `error`, `started_at`, `completed_at`. The run record + aggregate result.
@@ -235,7 +235,7 @@ The candidate's ability to answer is constrained by an `AccessControl` policy ga
 - **Evidence-linked scoring.** `ai_feedback` must cite the specific answer text justifying each score; unsupported scores are rejected. This makes the recommendation auditable and contestable.
 - **Consistent criteria.** All candidates for a job are scored against the identical criteria set and weights, enabling apples-to-apples comparison and downstream fairness review.
 - **Human override is binding.** The AI recommendation is labeled advisory in the UI; the `evaluations` row authored under `evaluations.manage` is the record of truth.
-- **Auditability.** Provider, model, and `tokens_used` are stored per session; question generation, scoring, and human overrides are logged to `activity_log` with actor + `company_id`.
+- **Auditability.** Provider, model, and `tokens_used` are stored per session; question generation, scoring, and human overrides are logged to `activity_log` with actor + `workspace_id`.
 
 **Data protection:**
 
@@ -252,7 +252,7 @@ The candidate's ability to answer is constrained by an `AccessControl` policy ga
 - **Per-answer scoring is parallelizable** across queue workers; the analyzer runs once all answers are scored.
 - **Prompt/transcript trimming** to the model's context window controls token cost and latency; `max_tokens` is always set on `ChatRequest`.
 - **Pre-emptive rate limiting** via `GuardedProvider` protects the tenant's quota and avoids 429 stalls ([16] §11).
-- **Indexes:** lookups use `interviews(company_id,application_id,status)`, `interview_responses(interview_id)`, and the `company_id` tenant filter; `ai_interview_sessions` is queried by `interview_id`. Transcripts (`LONGTEXT`) are fetched only on the detail view, not in lists.
+- **Indexes:** lookups use `interviews(workspace_id,application_id,status)`, `interview_responses(interview_id)`, and the `workspace_id` tenant filter; `ai_interview_sessions` is queried by `interview_id`. Transcripts (`LONGTEXT`) are fetched only on the detail view, not in lists.
 - **Caching:** generated template-bank questions are reusable across interviews (rows with `interview_id IS NULL`), avoiding repeat generation cost.
 
 ## 12. Testing

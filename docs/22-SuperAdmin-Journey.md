@@ -2,7 +2,7 @@
 
 End-to-end experience of a **user acting in the platform Super Admin role**: provisioning and suspending companies, assigning owners, managing plans, viewing platform-wide metrics, running diagnostics, exercising a controlled impersonation policy, and performing cross-tenant operations only through the one explicit, audited system path — with tenant-isolation safeguards that apply *even to super admins*.
 
-> **Personas are roles, not tables.** A "Super Admin" is a `users` row that holds the **global** `super-admin` role (a `roles` row with `company_id = NULL`, assigned via `user_role`). There is no super-admin table or `type` column; the capability is purely a global role grant (§2, §6).
+> **Personas are roles, not tables.** A "Super Admin" is a `users` row that holds the **global** `super-admin` role (a `roles` row with `workspace_id = NULL`, assigned via `user_roles`). There is no super-admin table or `type` column; the capability is purely a global role grant (§2, §6).
 
 ## Related Documents
 
@@ -37,8 +37,8 @@ The Super Admin uses a **platform-operations surface** distinct from any tenant.
 | Concern | Component | Notes |
 |---|---|---|
 | Platform dashboard | `App\Controllers\App\DashboardController` (platform branch) | Counts of companies/users/plans, recent companies (existing). |
-| Company provisioning | `App\Controllers\Platform\CompanyAdminController` (planned) + `CompanyService` | Reuses atomic `CompanyService::create()`; can assign any user as owner. |
-| Suspend/restore tenant | `CompanyAdminController` (planned) | Flips `companies.status`; `withoutTenantScope()`. |
+| Company provisioning | `App\Controllers\Platform\CompanyAdminController` (planned) + `WorkspaceService` | Reuses atomic `WorkspaceService::create()`; can assign any user as owner. |
+| Suspend/restore tenant | `CompanyAdminController` (planned) | Flips `workspaces.workspace_status_id`; `withoutTenantScope()`. |
 | Plan management | `App\Controllers\Platform\PlanController` (planned) | `plans` are data; CRUD without code (§8). |
 | Platform users | `App\Controllers\Platform\UserAdminController` (planned) | View/manage users, grant/revoke global roles. |
 | Diagnostics | `App\Controllers\Platform\DiagnosticsController` (planned, §33) | DB/storage/cache/queue/mail/cron health. |
@@ -47,11 +47,11 @@ The Super Admin uses a **platform-operations surface** distinct from any tenant.
 
 Architectural decisions:
 
-- **Super-admin = global role, resolved by `User::isSuperAdmin()`** — a join over `user_role`→`roles` where `slug='super-admin'` and `company_id IS NULL`. `AccessControl::allows()` short-circuits to `true` for super admins, but **only after** that explicit global-role check.
+- **Super-admin = global role, resolved by `User::isSuperAdmin()`** — a join over `user_roles`→`roles` where `slug='super-admin'` and `workspace_id IS NULL`. `AccessControl::allows()` short-circuits to `true` for super admins, but **only after** that explicit global-role check.
 - **No active tenant is a first-class state.** `TenantManager::bootFor()` leaves a super admin with no company if they have none; the app then operates platform-wide. Tenant-scoped queries still fail closed unless `withoutTenantScope()` is used.
 - **The escape hatch is the boundary.** `withoutTenantScope()` is the *only* way to read across tenants; it is confined to platform/system controllers and is the hook where audit logging is mandatory. Tenant staff code never calls it.
 - **Plans, roles, providers are data** (§2) so platform operations (e.g. launching a new plan) require no deploys.
-- **Impersonation is a service, not a back door.** It issues a clearly-marked, time-boxed session that records who impersonated whom and writes `activity_log` entries on entry and exit.
+- **Impersonation is a service, not a back door.** It issues a clearly-marked, time-boxed session that records who impersonated whom and writes `activity_logs` entries on entry and exit.
 
 ## Workflow
 
@@ -77,9 +77,9 @@ Detailed flow with screens and per-step permissions:
 ```mermaid
 flowchart TD
     A[Platform dashboard /platform] -->|platform.companies.view| B[Companies list /platform/companies]
-    B -->|platform.companies.manage| C[Provision company<br/>CompanyService.create + assign owner]
+    B -->|platform.companies.manage| C[Provision company<br/>WorkspaceService.create + assign owner]
     C --> D[Owner notified; tenant active]
-    B -->|platform.companies.manage| E[Suspend/restore<br/>companies.status via withoutTenantScope]
+    B -->|platform.companies.manage| E[Suspend/restore<br/>workspaces.workspace_status_id via withoutTenantScope]
     A -->|platform.plans.manage| F[Plans /platform/plans CRUD]
     A -->|platform.users.view| G[Users /platform/users]
     G -->|platform.users.manage| H[Grant/revoke global super-admin role]
@@ -102,34 +102,34 @@ flowchart TD
 | Diagnostics | `/platform/diagnostics` | `platform.diagnostics` |
 | Impersonate | action on user/company | `platform.users.manage` + impersonation policy |
 
-**Onboarding for the Super Admin role.** The first super admin is created during installation (`/install` admin step, §12/§32) — assigned the global `super-admin` role directly. There is no self-service path to become a super admin; the role is granted only by an existing super admin via `platform.users.manage` or by the installer. First-login onboarding (`flow='super-admin'`, `company_id` NULL) covers: (1) review diagnostics/health; (2) confirm at least one plan exists; (3) read the impersonation/cross-tenant access policy (acknowledgement recorded). The platform dashboard is the home; super admins are encouraged *not* to keep an active tenant unless operating on a specific company.
+**Onboarding for the Super Admin role.** The first super admin is created during installation (`/install` admin step, §12/§32) — assigned the global `super-admin` role directly. There is no self-service path to become a super admin; the role is granted only by an existing super admin via `platform.users.manage` or by the installer. First-login onboarding (`flow='super-admin'`, `workspace_id` NULL) covers: (1) review diagnostics/health; (2) confirm at least one plan exists; (3) read the impersonation/cross-tenant access policy (acknowledgement recorded). The platform dashboard is the home; super admins are encouraged *not* to keep an active tenant unless operating on a specific company.
 
 ## Business Rules
 
-1. Super-admin authority comes **only** from the global `super-admin` role (`company_id IS NULL` in `roles`, assigned via `user_role`). It is never inferred from email, a type column, or company ownership.
+1. Super-admin authority comes **only** from the global `super-admin` role (`workspace_id IS NULL` in `roles`, assigned via `user_roles`). It is never inferred from email, a type column, or company ownership.
 2. A super admin may operate with **no active tenant**; in that state they see the platform dashboard and platform-only screens, not any company's tenant data.
-3. **Provisioning** a company reuses the atomic `CompanyService::create()` (company row, owner membership, default roles, owner role assignment, trial subscription) and may assign *any existing user* as Owner (§8).
-4. **Suspending** a company sets `companies.status='suspended'`; suspended tenants' staff lose write access (and jobs vanish from the public board, §19) while data is retained; restore returns `status` to its prior active/trial value.
+3. **Provisioning** a company reuses the atomic `WorkspaceService::create()` (workspace row, owner membership, default roles, owner role assignment, trial subscription) and may assign *any existing user* as Owner (§8).
+4. **Suspending** a company sets `workspaces.workspace_status_id` to the `suspended` status; suspended tenants' staff lose write access (and jobs vanish from the public board, §19) while data is retained; restore returns the status to its prior active/trial value.
 5. **Plans are data**: super admins create/edit/retire plans (`plans`) without code changes; existing subscriptions keep their snapshotted `amount`/`currency` (§8).
-6. **Cross-tenant reads/writes happen only via `withoutTenantScope()`** in platform/system controllers; this is the single sanctioned boundary crossing and every use that touches tenant data must write an `activity_log` entry.
+6. **Cross-tenant reads/writes happen only via `withoutTenantScope()`** in platform/system controllers; this is the single sanctioned boundary crossing and every use that touches tenant data must write an `activity_logs` entry.
 7. **Impersonation** is policy-gated, time-boxed, and audited: a super admin may assume a tenant user's session for support, but entry and exit are logged with both identities, and impersonated sessions are visibly marked and cannot perform a configurable set of destructive actions (e.g. deleting the company, changing the Owner) without re-authentication.
 8. Granting/revoking the **global super-admin role** requires `platform.users.manage`; a super admin **cannot revoke their own** last super-admin grant (prevents platform lockout), and at least one super admin must always remain.
 9. Super admins **bypass tenant scoping by design** (§6) but are still expected to act through the explicit platform path; ad-hoc `withoutTenantScope()` outside platform/system code is a coding-standard violation (§14) caught in review.
-10. All platform operations (provision, suspend, plan change, role grant, impersonation, diagnostics that expose env) are recorded in `activity_log` with `company_id` NULL or the target company, actor, subject, and ip (§38).
+10. All platform operations (provision, suspend, plan change, role grant, impersonation, diagnostics that expose env) are recorded in `activity_logs` with `workspace_id` NULL or the target company, actor, subject, and ip (§38).
 
 ## Database Relations
 
 Consistent with §11 (note: platform operations frequently use `withoutTenantScope()`):
 
 - **users** (GLOBAL) — the super admin and all platform users; managed via `/platform/users`. No type column.
-- **roles** (`company_id IS NULL`) — the global `super-admin` role; `is_system=1`, high `priority`. Created/maintained by `RbacManager::ensureSuperAdminRole()` which grants it **every** permission.
-- **user_role** — the grant that makes a user a super admin; managed by `platform.users.manage`.
-- **companies** (GLOBAL/tenant root) — provisioned, suspended, restored; `owner_id`→users RESTRICT, `status[trial|active|suspended|canceled]`. `IDX(owner_id, status)`.
+- **roles** (`workspace_id IS NULL`) — the global `super-admin` role; `is_system=1`, high `priority`. Created/maintained by `RbacManager::ensureSuperAdminRole()` which grants it **every** permission.
+- **user_roles** — the grant that makes a user a super admin; managed by `platform.users.manage`.
+- **workspaces** (GLOBAL/tenant root) — provisioned, suspended, restored; `owner_id`→users RESTRICT, `workspace_status_id`→`workspace_statuses` (trial/active/suspended/canceled). `IDX(owner_id, workspace_status_id)`.
 - **memberships** — created during provisioning (owner membership); inspected during support.
 - **plans** (GLOBAL) — CRUD by super admins; `price`, `currency`, `interval`, `trial_days`, `features`/`limits` JSON, `is_active`, `is_public`.
 - **subscriptions** (tenant) — assigned/inspected via `withoutTenantScope()`; snapshotted amounts preserved.
-- **activity_log** — the spine of accountability; platform actions written with actor/subject/ip, `company_id` NULL for platform-wide events or the target company id for tenant-targeted ones. `IDX(company_id, user_id, action)`.
-- **onboarding_progress** — super-admin onboarding (`flow='super-admin'`, `company_id` NULL).
+- **activity_logs** — the spine of accountability; platform actions written with actor/subject/ip, `workspace_id` NULL for platform-wide events or the target company id for tenant-targeted ones. `IDX(workspace_id, user_id, action)`.
+- **onboarding_progress** — super-admin onboarding (`flow='super-admin'`, `workspace_id` NULL).
 - **(diagnostics)** read-only checks against `queued_jobs`/`failed_jobs`, storage, cache, mail, and a cron heartbeat (§33) — no persistent writes beyond logs.
 
 ## Permissions
@@ -151,7 +151,7 @@ These permissions belong to the global `super-admin` role (which, per `RbacManag
 
 - **Provision company**: `name required|min:2|max:150`; `owner_user_id required|exists:users,id`; the chosen owner must be an `active` user; slug auto-generated unique.
 - **Assign owner**: target user exists and is active; assigning ownership creates/ensures an owner membership + owner role for that user in the company.
-- **Suspend/restore**: target company exists; suspend requires a reason (stored in `activity_log.properties`); restore only from `suspended`.
+- **Suspend/restore**: target company exists; suspend requires a reason (stored in `activity_logs.properties`); restore only from `suspended`.
 - **Plan**: `name required`; `slug` unique; `price numeric|min:0`; `interval in:monthly,yearly`; `trial_days integer|min:0`; `features`/`limits` valid JSON.
 - **Grant/revoke global role**: target user exists; revoke blocked if it would remove the last super admin or the actor's own last grant.
 - **Impersonation**: requires policy acknowledgement, a reason, a time-box (max duration from config), and re-auth for protected actions.
@@ -171,29 +171,29 @@ These permissions belong to the global `super-admin` role (which, per `RbacManag
 
 ## Security
 
-- **Explicit, audited boundary**: cross-tenant access exists *only* through `withoutTenantScope()` in platform/system code; every such access that touches tenant data writes `activity_log` (actor, subject, ip, reason). There is no implicit cross-tenant read anywhere (§8).
+- **Explicit, audited boundary**: cross-tenant access exists *only* through `withoutTenantScope()` in platform/system code; every such access that touches tenant data writes `activity_logs` (actor, subject, ip, reason). There is no implicit cross-tenant read anywhere (§8).
 - **Fail-closed by default even for super admins**: tenant-scoped models throw without an active tenant; the platform path is deliberate, not accidental — a super admin cannot "leak into" a tenant by forgetting to scope.
 - **Least-privilege within god mode**: impersonation is time-boxed, marked, reason-logged, and blocks the most destructive actions without re-auth; this limits blast radius of a compromised platform account.
 - **No platform-held secrets exposure**: the platform holds no AI keys (§9); diagnostics redact env secrets; plaintext credentials are never displayed.
 - **Lockout prevention**: at least one super admin always remains; self-revoke of the last grant is blocked.
 - **CSRF** on provision/suspend/plan/role/impersonation actions.
-- **Strong audit**: `activity_log` is the accountability spine; platform events are queryable by `IDX(company_id, user_id, action)` for incident review (§38).
+- **Strong audit**: `activity_logs` is the accountability spine; platform events are queryable by `IDX(workspace_id, user_id, action)` for incident review (§38).
 - **Separation of duties (future)**: sensitive actions (suspend, impersonate) can require a second approver and/or step-up MFA.
 - **Output escaping** and prepared statements apply identically; super-admin status grants no SQL/escaping exemptions.
 
 ## Performance
 
 - Platform dashboard counts (companies/users/active plans) are simple aggregates; recent-companies list is `ORDER BY created_at DESC LIMIT n` (already implemented) and cacheable for short TTLs.
-- Cross-tenant admin lists paginate (`QueryBuilder::paginate`) and use the global indexes (`companies` `IDX(owner_id, status)`, `users` `IDX(status)`).
+- Cross-tenant admin lists paginate (`QueryBuilder::paginate`) and use the global indexes (`workspaces` `IDX(owner_id, workspace_status_id)`, `users` `IDX(status)`).
 - Diagnostics run lightweight, bounded health probes (§33), not full table scans; results cached briefly.
-- Audit-log queries for incident review use `IDX(company_id, user_id, action)` and time-bounded ranges.
+- Audit-log queries for incident review use `IDX(workspace_id, user_id, action)` and time-bounded ranges.
 - Bulk platform operations (e.g. mass plan migration) run on the queue (`queued_jobs`, §12) to avoid request timeouts.
 
 ## Testing
 
-- **Unit**: `isSuperAdmin()` true only for a global `super-admin` grant (`company_id IS NULL`); `AccessControl::allows()` bypass triggers only for that grant; last-super-admin self-revoke blocked.
+- **Unit**: `isSuperAdmin()` true only for a global `super-admin` grant (`workspace_id IS NULL`); `AccessControl::allows()` bypass triggers only for that grant; last-super-admin self-revoke blocked.
 - **Feature**: provision company creates the full atomic set and assigns the chosen owner; suspend blocks tenant writes and restore re-enables them; plan CRUD is data-only (no deploy); grant/revoke global role changes effective access on next request.
-- **Security**: a non-super-admin cannot reach `platform.*` routes (403); cross-tenant read attempted *without* `withoutTenantScope()` throws (fail-closed); every `withoutTenantScope()` platform action writes an `activity_log` row; impersonation entry/exit audited and destructive actions blocked without re-auth; impersonating a super admin denied.
+- **Security**: a non-super-admin cannot reach `platform.*` routes (403); cross-tenant read attempted *without* `withoutTenantScope()` throws (fail-closed); every `withoutTenantScope()` platform action writes an `activity_logs` row; impersonation entry/exit audited and destructive actions blocked without re-auth; impersonating a super admin denied.
 - **Diagnostics**: env report redacts secrets; health checks report db/storage/cache/queue/mail/cron status.
 - **Isolation regression**: ensure no tenant role can be granted `platform.*` and that suspended companies disappear from the public job board (§19).
 
@@ -205,7 +205,7 @@ These permissions belong to the global `super-admin` role (which, per `RbacManag
 - **Platform analytics**: MRR/churn, usage by plan, AI token consumption across tenants (aggregated, privacy-preserving).
 - **Tenant lifecycle automation**: scheduled suspension on non-payment via the billing system (§14), with notifications.
 - **Sharding / DB-per-tenant migration tooling** for large tenants, following the scalability path (§36) — the explicit-scope boundary makes this evolution safe.
-- **Tamper-evident audit** (hash-chained `activity_log`) for high-assurance compliance (§38).
+- **Tamper-evident audit** (hash-chained `activity_logs`) for high-assurance compliance (§38).
 
 ## Open Questions
 

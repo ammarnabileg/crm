@@ -21,7 +21,7 @@ The Storage System is HalaOps's single, uniform way to **persist, validate, secu
 Recruitment is file-heavy: every application carries a résumé, interviews produce recordings, companies upload logos. Letting modules write files ad hoc would scatter validation, leak files between tenants, and make backups, quotas, and cleanup impossible. The constraints make a dedicated system mandatory:
 
 - **No CLI / shared hosting**: the default disk must be a plain folder under `storage/app` writable by PHP — no object-store account required to run.
-- **Multi-tenant isolation**: a company must never read another company's files, so paths and DB rows are scoped by `company_id` and serving is authorized, never a guessable public URL by default.
+- **Multi-tenant isolation**: a company must never read another company's files, so paths and DB rows are scoped by `workspace_id` and serving is authorized, never a guessable public URL by default.
 - **Pluggable future**: large customers will outgrow local disk, so the same `files` rows and the same upload/serve API must transparently move to S3 by changing a `disk` value — not by rewriting callers.
 - **Cost control**: plans sell storage, so usage must be measurable and enforceable per tenant.
 
@@ -36,7 +36,7 @@ flowchart TD
     Disk -->|local| Local[LocalDisk<br/>storage/app/tenants/ID/...]
     Disk -->|s3| S3[S3Disk<br/>bucket/tenants/ID/...]
     Store --> Sum[sha256 checksum]
-    Store --> Row[(files row<br/>company_id, disk, path,<br/>mime, size, checksum, visibility)]
+    Store --> Row[(files row<br/>workspace_id, disk, path,<br/>mime, size, checksum, visibility)]
     Row --> Resp[Return file id + reference]
 
     Get[Serve request /files/{id}] --> Authz[Authorize: tenant + visibility + permission]
@@ -53,7 +53,7 @@ flowchart TD
 - **`LocalDisk`** — default driver writing under `storage/app` (outside the web root; never directly served by Apache). Honors a configurable base path.
 - **`S3Disk`** — future driver for any S3-compatible endpoint (AWS S3, MinIO, Wasabi), using signed requests; selected by `disk = 's3'`.
 - **`UploadValidator`** — enforces allowed MIME types, max size, extension/MIME agreement, and re-derives the real MIME from file content (never trusts the client header).
-- **`File` model** (`app/Models/File.php`) — `$tenantScoped = true`, `$tenantColumn = 'company_id'`; casts and helpers (`isImage()`, `humanSize()`, `download()` reference builder). Tenant scope guarantees a query only ever sees the active company's files.
+- **`File` model** (`app/Models/File.php`) — `$tenantScoped = true`, `$tenantColumn = 'workspace_id'`; casts and helpers (`isImage()`, `humanSize()`, `download()` reference builder). Tenant scope guarantees a query only ever sees the active company's files.
 - **`FileController`** — upload, serve/stream, delete endpoints, all gated by RBAC and tenant scope.
 - **Cleanup worker** — a queued job (`queued_jobs`) that removes orphaned blobs and enforces retention.
 
@@ -65,8 +65,8 @@ flowchart TD
 
 1. A request hits an upload endpoint with `multipart/form-data`. CSRF is verified ([34-Security.md](34-Security.md)); the user must have the relevant permission (`files.upload`, or a domain permission like `candidate.apply` for a résumé).
 2. `UploadValidator` checks the PHP upload error code, size against `max_upload_size` and the plan quota, the **content-derived MIME** (via `finfo`), and that the extension matches an allowed type for the category.
-3. `StorageManager::put()` computes a **tenant-scoped path** — `tenants/{company_id}/{yyyy}/{mm}/{ulid}.{ext}` — streams the bytes to the active disk, and computes a **SHA-256 checksum** while streaming.
-4. A `files` row is inserted: `company_id` (active tenant), `user_id` (uploader, SET NULL on user delete), `disk`, `path`, `original_name`, `mime`, `size`, `checksum`, `visibility`.
+3. `StorageManager::put()` computes a **tenant-scoped path** — `tenants/{workspace_id}/{yyyy}/{mm}/{ulid}.{ext}` — streams the bytes to the active disk, and computes a **SHA-256 checksum** while streaming.
+4. A `files` row is inserted: `workspace_id` (active tenant), `user_id` (uploader, SET NULL on user delete), `disk`, `path`, `original_name`, `mime`, `size`, `checksum`, `visibility`.
 5. The new `files.id` is returned to the caller, which links it (e.g. sets `applications.resume_file_id`).
 
 ### Serve / stream
@@ -99,7 +99,7 @@ sequenceDiagram
 
 ## Business Rules
 
-1. **Every file belongs to exactly one tenant.** `files.company_id` is required and is set from the active tenant on upload; cross-tenant access is impossible through the model.
+1. **Every file belongs to exactly one tenant.** `files.workspace_id` is required and is set from the active tenant on upload; cross-tenant access is impossible through the model.
 2. **The DB is the index; the disk holds bytes.** Code references files by `files.id`; raw paths are an implementation detail owned by `StorageManager`.
 3. **Visibility has three levels** (`files.visibility`):
    - `private` — only the uploader (and roles with explicit access, e.g. recruiters on that application) may read it. Default for résumés and recordings.
@@ -119,7 +119,7 @@ Primary table — **`files`** (TENANT, planned #27):
 | Column | Type | Notes |
 |--------|------|-------|
 | id | BIGINT UNSIGNED AI | PK |
-| company_id | BIGINT UNSIGNED | FK → `companies(id)` **CASCADE**; tenant scope |
+| workspace_id | BIGINT UNSIGNED | FK → `companies(id)` **CASCADE**; tenant scope |
 | user_id | BIGINT UNSIGNED NULL | FK → `users(id)` **SET NULL** (uploader) |
 | disk | VARCHAR | `local` / `s3` |
 | path | VARCHAR | tenant-scoped relative path |
@@ -130,7 +130,7 @@ Primary table — **`files`** (TENANT, planned #27):
 | visibility | ENUM(`private`,`company`,`public`) | access level |
 | created_at | TIMESTAMP NULL | append-only |
 
-**Indexes:** PK; KEY `(company_id, user_id)` for "my files / company files" lookups and quota sums.
+**Indexes:** PK; KEY `(workspace_id, user_id)` for "my files / company files" lookups and quota sums.
 
 **Referencing tables (SET NULL so files can be deleted without breaking owners):**
 - `applications.resume_file_id → files(id) SET NULL`
@@ -146,7 +146,7 @@ Governed by the Files permission group and domain policies (see [07-RBAC.md](07-
 - `files.upload` — upload new files.
 - `files.delete` — delete files (plus an ownership/policy gate so users can delete their own uploads).
 - Domain-specific gates layer on top: a candidate uploads a résumé under `candidate.apply`; recruiters read it under `applications.view`. A `private` interview recording requires `interviews.view` on that interview.
-- **Tenant scope is enforced regardless of permission** — even a user with `files.view` only sees files where `company_id` = the active tenant.
+- **Tenant scope is enforced regardless of permission** — even a user with `files.view` only sees files where `workspace_id` = the active tenant.
 - `public` files bypass authentication for read only, via a dedicated unguessable route; they still belong to a tenant for quota/cleanup.
 
 ## Validation
@@ -173,7 +173,7 @@ Governed by the Files permission group and domain policies (see [07-RBAC.md](07-
 ## Security
 
 - **No direct file URLs.** `storage/app` is outside the document root; all private/company reads go through `/files/{id}`, which authorizes tenant + visibility + permission before streaming ([34-Security.md](34-Security.md)).
-- **Tenant isolation** via the `files.company_id` scope (fail-closed) — cross-tenant ids return 404, not 403, to avoid existence leaks.
+- **Tenant isolation** via the `files.workspace_id` scope (fail-closed) — cross-tenant ids return 404, not 403, to avoid existence leaks.
 - **Content-type spoofing** is defeated by deriving MIME from content and serving with the correct `Content-Type` + `X-Content-Type-Options: nosniff`.
 - **Path traversal / arbitrary write** is impossible because callers never supply paths; names are generated.
 - **Executable upload protection**: PHP/script types are never in any allowlist, and the storage folder is not executable by the web server.
@@ -184,7 +184,7 @@ Governed by the Files permission group and domain policies (see [07-RBAC.md](07-
 ## Performance
 
 - **Streaming I/O** for both upload (checksum computed on the stream) and download (Range support), keeping memory flat regardless of file size.
-- **Index** `(company_id, user_id)` powers "my files", "company files", and `SUM(size)` quota checks without table scans.
+- **Index** `(workspace_id, user_id)` powers "my files", "company files", and `SUM(size)` quota checks without table scans.
 - **Quota caching**: per-company total size is cached (and updated on insert/delete) so uploads do not run a full `SUM` every time on large tenants.
 - **CDN/offload path**: with `s3`, public/company assets can be fronted by a CDN; `StorageManager::url()` returns the CDN/signed URL so the app never proxies those bytes.
 - **Cleanup runs off the request path** via `queued_jobs`, so user-facing requests are never blocked by reconciliation.

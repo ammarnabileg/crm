@@ -65,7 +65,7 @@ flowchart LR
 | `NotificationDispatcher` (`app/Services/Notifications/NotificationDispatcher.php`, planned) | Single entry point: `dispatch(eventKey, recipients, context)`. Resolves preferences, renders templates, enqueues per-channel delivery jobs. |
 | Event/notification classes (`app/Notifications/*`, planned) | One small class per event type defining its key, default channels, template keys, and `data` payload shape. |
 | Channel registry + `NotificationChannelInterface` (`app/Services/Notifications/Channels/`, planned) | `send(User $user, RenderedNotification $n)`. Implementations: `InAppChannel`, `EmailChannel`; future `SmsChannel`/`PushChannel`. Adding a channel = a new class + registry entry (data-driven, canonical §2/§12). |
-| `Notification` model (`app/Models/Notification.php`, planned) | Persists in-app notifications; `data` cast to array; `read_at` controls unread state. Tenant-aware (`company_id` nullable for platform-wide). |
+| `Notification` model (`app/Models/Notification.php`, planned) | Persists in-app notifications; `data` cast to array; `read_at` controls unread state. Tenant-aware (`workspace_id` nullable for platform-wide). |
 | `NotificationPreference` model (`app/Models/NotificationPreference.php`, planned) | Per-user/company/type/channel toggle. |
 | `Mailer` (`app/Core/Mailer.php`, built per canonical §4) | Sends email; the `EmailChannel` is a thin adapter over it. |
 | Queue worker (`queued_jobs`, canonical §12) | Executes delivery jobs asynchronously with retries via `failed_jobs`. |
@@ -123,7 +123,7 @@ The in-app inbox lists the current user's `notifications` (newest first) with an
 1. Services never deliver directly; they call `NotificationDispatcher::dispatch(eventKey, recipients, context)`.
 2. A notification is delivered on a channel **only if** that `(user, company, type, channel)` is enabled (or has no explicit row — defaults apply).
 3. Defaults: every catalogued event has sensible default channels (e.g. `in_app` always on; `email` on for important events). A user override row in `notification_preferences` wins over defaults.
-4. `notifications.company_id` is set for tenant events and **NULL** for platform-wide events (e.g. super-admin broadcasts); the in-app inbox shows both the user's tenant and platform notifications.
+4. `notifications.workspace_id` is set for tenant events and **NULL** for platform-wide events (e.g. super-admin broadcasts); the in-app inbox shows both the user's tenant and platform notifications.
 5. In-app notifications persist with `read_at = NULL` until read; email "notifications" rows are delivery records (no unread semantics).
 6. Delivery is asynchronous via `queued_jobs`; a request that triggers an event must not block on sending.
 7. Failed deliveries retry with backoff; permanent failures land in `failed_jobs` and (for critical events) raise a diagnostic alert.
@@ -140,7 +140,7 @@ The in-app inbox lists the current user's `notifications` (newest first) with an
 | Column | Type / Notes |
 | --- | --- |
 | `id` | BIGINT UNSIGNED PK |
-| `company_id` | FK → `companies(id)` CASCADE, **NULL** = platform-wide |
+| `workspace_id` | FK → `companies(id)` CASCADE, **NULL** = platform-wide |
 | `user_id` | FK → `users(id)` CASCADE — recipient |
 | `type` | VARCHAR — the event key, e.g. `application.moved` |
 | `title`, `body` | VARCHAR / TEXT (rendered, localized) |
@@ -151,17 +151,17 @@ The in-app inbox lists the current user's `notifications` (newest first) with an
 
 Index: `IDX(user_id, read_at)` — powers the inbox and unread count.
 
-**`notification_preferences`** (planned #29): `user_id` → `users(id)` CASCADE; `company_id` NULL (global default for the user) or set (per-tenant override); `type`, `channel`, `enabled`. `UQ(user_id, company_id, type, channel)` — one explicit toggle per combination.
+**`notification_preferences`** (planned #29): `user_id` → `users(id)` CASCADE; `workspace_id` NULL (global default for the user) or set (per-tenant override); `type`, `channel`, `enabled`. `UQ(user_id, workspace_id, type, channel)` — one explicit toggle per combination.
 
 Supporting: **`queued_jobs`** / **`failed_jobs`** (#35/#36) carry delivery jobs; **`files`** referenced via `data` for attachments; `activity_log` records that critical notifications (e.g. decisions) were dispatched.
 
-> Note: `notifications` is intentionally **not** tenant-scoped at the model layer (it is keyed by `user_id` and may be platform-wide with `company_id = NULL`); access is always filtered by `user_id = auth()->id()`, which provides the isolation a candidate/member needs across the companies they belong to.
+> Note: `notifications` is intentionally **not** tenant-scoped at the model layer (it is keyed by `user_id` and may be platform-wide with `workspace_id = NULL`); access is always filtered by `user_id = auth()->id()`, which provides the isolation a candidate/member needs across the companies they belong to.
 
 ## 7. Permissions
 
 - **`notifications.view`** — view the in-app inbox/bell. Granted broadly (every authenticated role, including `candidate`, holds it) because notifications are inherently personal — a user only ever sees rows where `user_id = auth()->id()`.
 - **Managing one's own preferences** is governed by ownership (you may edit only your own `notification_preferences`), enforced by a policy gate, not a separate permission.
-- **Platform broadcasts** (creating a platform-wide `company_id = NULL` notification to many users) require a super-admin platform permission (`platform.diagnostics` / a dedicated `platform.broadcast` if added) — ordinary tenant users cannot create notifications for other users; they can only *trigger* catalogued domain events through their normal permissioned actions.
+- **Platform broadcasts** (creating a platform-wide `workspace_id = NULL` notification to many users) require a super-admin platform permission (`platform.diagnostics` / a dedicated `platform.broadcast` if added) — ordinary tenant users cannot create notifications for other users; they can only *trigger* catalogued domain events through their normal permissioned actions.
 
 No notification is ever readable by a user other than its `user_id` recipient, regardless of permissions.
 
@@ -180,9 +180,9 @@ No notification is ever readable by a user other than its `user_id` recipient, r
 - **Duplicate events** (e.g. double-click moving a card) → debounced at the dispatcher by an idempotency key derived from `(type, subject, actor, minute)` to avoid double notifications.
 - **Huge fan-out** (e.g. notify 1,000 candidates a job closed) → recipients chunked into multiple queue jobs.
 - **Locale missing a string** → falls back to English, then to the raw default template.
-- **Platform-wide broadcast** (`company_id = NULL`) → appears in every targeted user's inbox regardless of active tenant.
+- **Platform-wide broadcast** (`workspace_id = NULL`) → appears in every targeted user's inbox regardless of active tenant.
 - **Digest with zero pending events** → the scheduled digest job sends nothing.
-- **Candidate not in any company** → still receives candidate notifications (their `notifications` rows may have `company_id` of the hiring company while they have no membership there).
+- **Candidate not in any company** → still receives candidate notifications (their `notifications` rows may have `workspace_id` of the hiring company while they have no membership there).
 
 ## 10. Security
 

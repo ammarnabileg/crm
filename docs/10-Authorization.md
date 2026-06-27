@@ -49,7 +49,7 @@ It also separates the two questions cleanly. Authentication is binary and global
 | Controller checks | `can($key, $ctx)`, `access()->allows()`, `abort_unless()`, `findOrFail()` | `app/Controllers/**`, `app/Support/helpers.php` | **403** / 404 |
 | Policy gates | `access()->define($ability, fn(User, $ctx) => bool)` | `app/Services/Rbac/AccessControl.php` | gate returns false → deny |
 | View gating | `<?php if (can('key')): ?> … <?php endif; ?>` | `resources/views/**` | element hidden (cosmetic only) |
-| Model tenant scope | `Model::query()` auto `WHERE company_id = :active`, fail-closed | `app/Core/Model.php`, `app/Services/Tenancy/TenantManager.php` | 404 (not found) / `RuntimeException` if no tenant |
+| Model tenant scope | `Model::query()` auto `WHERE workspace_id = :active`, fail-closed | `app/Core/Model.php`, `app/Services/Tenancy/TenantManager.php` | 404 (not found) / `RuntimeException` if no tenant |
 
 All five route every decision through the **same** `AccessControl` instance (container alias `access`), so the super-admin bypass, role union, inheritance, and policy gates behave identically everywhere — there is one authorization brain.
 
@@ -71,7 +71,7 @@ flowchart TD
     CCHK -- Yes --> MODEL["Model::query() on tenant data"]
     MODEL --> SCOPE{"active tenant set?"}
     SCOPE -- No --> THROW["RuntimeException (fail closed)"]
-    SCOPE -- Yes --> ROWS["WHERE company_id = :active<br/>(other tenants' rows invisible → 404)"]
+    SCOPE -- Yes --> ROWS["WHERE workspace_id = :active<br/>(other tenants' rows invisible → 404)"]
     ROWS --> RENDER["View renders;<br/>can() hides unauthorised affordances"]
 
     subgraph ENGINE["AccessControl (one engine for every check)"]
@@ -95,10 +95,10 @@ A typical authorized action (e.g. updating the company profile) traverses the la
 
 1. **`auth`** confirms a session user exists (else redirect to `login`, remembering the intended URL).
 2. **`tenant`** (`EnsureTenant`) confirms an active company (or super admin) for tenant-scoped routes; otherwise routes to company selection.
-3. **`permission:company.update`** (`RequirePermission`) calls `access()->allows('company.update')`. The engine applies the super-admin bypass, else resolves effective permissions for the active tenant (union of global + membership roles, expanded up `parent_id`) and checks the key. Any-of semantics if several keys are listed. Failure → **403**.
-4. **Controller** may add a finer check, e.g. `abort_unless(can('company.update'), 403)` or a context check for object-level rules, then loads the record with the **tenant-scoped** `Model::findOrFail()` — which can only find rows in the active company.
-5. **Model** writes through `Model::query()`, which re-applies `WHERE company_id = :active`, so even a permitted write cannot touch another tenant.
-6. **View** renders, using `can('company.update')` to show the "Edit" button only to users who actually have it — purely cosmetic, never the security boundary.
+3. **`permission:workspace.update`** (`RequirePermission`) calls `access()->allows('workspace.update')`. The engine applies the super-admin bypass, else resolves effective permissions for the active tenant (union of global + membership roles, expanded up `parent_id`) and checks the key. Any-of semantics if several keys are listed. Failure → **403**.
+4. **Controller** may add a finer check, e.g. `abort_unless(can('workspace.update'), 403)` or a context check for object-level rules, then loads the record with the **tenant-scoped** `Model::findOrFail()` — which can only find rows in the active company.
+5. **Model** writes through `Model::query()`, which re-applies `WHERE workspace_id = :active`, so even a permitted write cannot touch another tenant.
+6. **View** renders, using `can('workspace.update')` to show the "Edit" button only to users who actually have it — purely cosmetic, never the security boundary.
 
 ### Worked example — middleware (from `routes/web.php`)
 
@@ -134,7 +134,7 @@ Here a flat permission flag cannot express "edit *your own* profile"; the gate i
 1. **Deny by default.** Every layer returns deny unless something explicitly allows. `RequirePermission` 403s unless a listed key matches; `AccessControl` returns false for guests and absent keys.
 2. **Authentication precedes authorization.** `RequirePermission` itself first checks `auth()->check()` and redirects guests, so permission checks only run for authenticated users.
 3. **`permission:a,b` is any-of.** The request is allowed if the user holds *any* listed key.
-4. **Authorization is tenant-relative.** The same user can be authorized for an action in company A and denied in company B, because tenant roles resolve against the active `company_id`.
+4. **Authorization is tenant-relative.** The same user can be authorized for an action in company A and denied in company B, because tenant roles resolve against the active `workspace_id`.
 5. **Policy gates beat flat permissions** for the same ability and are the mechanism for object-level ("own record", "in my company") rules.
 6. **Super admins are authorized for everything** (engine bypass) — but cross-tenant *data* still requires `withoutTenantScope()` ([08 — Multi-Tenant](08-Multi-Tenant.md)), so the bypass grants permission, not silent cross-tenant reads through scoped models.
 7. **View checks are cosmetic.** Hiding a button is UX, never enforcement; the controller/middleware/model are the real boundaries.
@@ -148,16 +148,16 @@ Authorization reads from the RBAC and tenancy tables (consistent with §11; full
 
 | Table | Used for |
 |-------|----------|
-| `user_role` | global role grants (super-admin and other platform roles). |
+| `user_roles` | global role grants (super-admin and other platform roles). |
 | `memberships` (`status='active'`) | which tenant roles apply for the active company. |
-| `membership_role` | tenant role grants. |
-| `roles` (`parent_id`, `company_id`, `is_system`) | inheritance + global/tenant distinction. |
-| `permission_role` + `permissions.key` | the keys each role grants; the final allow/deny lookup. |
-| every tenant table's `company_id` | the model scope that bounds *what data* an authorized action can touch. |
+| `membership_roles` | tenant role grants. |
+| `roles` (`parent_id`, `workspace_id`, `is_system`) | inheritance + global/tenant distinction. |
+| `role_permissions` + `permissions.key` | the keys each role grants; the final allow/deny lookup. |
+| every tenant table's `workspace_id` | the model scope that bounds *what data* an authorized action can touch. |
 
 ## Permissions
 
-This document is about *enforcing* permissions rather than defining new ones; the keys it references are the built catalogue from [07 — RBAC](07-RBAC.md) (`dashboard.view`, `company.view/update`, `members.view/invite/update/remove`, `roles.view/manage`, `billing.view/manage`, `ai.view/manage`, `settings.view/manage`) plus the planned domain groups. The authoritative mapping of every key to every role lives in [11 — Permissions Matrix](11-Permissions-Matrix.md). Enforcement contracts to remember:
+This document is about *enforcing* permissions rather than defining new ones; the keys it references are the built catalogue from [07 — RBAC](07-RBAC.md) (`dashboard.view`, `workspace.view/update`, `members.view/invite/update/remove`, `roles.view/manage`, `billing.view/manage`, `ai.view/manage`, `settings.view/manage`) plus the planned domain groups. The authoritative mapping of every key to every role lives in [11 — Permissions Matrix](11-Permissions-Matrix.md). Enforcement contracts to remember:
 
 - A route guarded by `permission:X` requires `X` (or super-admin).
 - A controller calling `can('X', $obj)` requires `X` **or** a passing gate for `X` with `$obj`.
@@ -197,7 +197,7 @@ Authorization composes with input validation but is separate:
 ## Performance
 
 - **Single resolution per request:** `AccessControl` caches the effective permission map per `userId:companyId`, so middleware + multiple controller checks + dozens of view `can()` calls share **one** resolution ([07 — RBAC](07-RBAC.md)).
-- **Cheap enforcement points:** middleware and `can()` are array lookups after the first resolution; the model scope is a single indexed `WHERE company_id = ?`.
+- **Cheap enforcement points:** middleware and `can()` are array lookups after the first resolution; the model scope is a single indexed `WHERE workspace_id = ?`.
 - **No redundant DB work across layers:** because all layers hit the same cached engine, adding checks (defence in depth) is nearly free.
 - **Hot paths:** dashboards/list views that gate many elements benefit most from the cache; keep object-level gate closures cheap (avoid per-call queries; resolve the object once and pass it as context).
 

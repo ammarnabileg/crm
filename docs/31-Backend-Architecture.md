@@ -22,7 +22,7 @@ This document specifies the **backend layering and patterns** of HalaOps: the re
 
 A no-framework codebase has no opinionated structure to fall back on, so the discipline has to be written down and followed. The layered approach exists to:
 
-- **Keep business rules in one place.** If logic lived in controllers, the same rule (e.g. "creating a company provisions roles + a trial subscription") would be duplicated across self-service registration, the in-app flow, and super-admin provisioning. Putting it in `CompanyService::create()` means one implementation, one place to test, one place to change.
+- **Keep business rules in one place.** If logic lived in controllers, the same rule (e.g. "creating a workspace provisions roles + a trial subscription") would be duplicated across self-service registration, the in-app flow, and super-admin provisioning. Putting it in `WorkspaceService::create()` means one implementation, one place to test, one place to change.
 - **Make tenancy and security structural.** Tenant scoping in the model layer and RBAC in middleware mean a developer cannot *forget* to scope a query or check a permission — the architecture does it.
 - **Stay testable without a framework.** Thin controllers + injected singletons + pure-ish services are easy to exercise in isolation.
 - **Preserve the upload-only deployment** by depending only on first-party core classes.
@@ -43,7 +43,7 @@ flowchart TB
     end
     subgraph L3["Models — app/Models (data + tenant scope)"]
         direction LR
-        M1["active record"] --> M2["auto company_id"] --> M3["casts/fillable"]
+        M1["active record"] --> M2["auto workspace_id"] --> M3["casts/fillable"]
     end
     subgraph L4["Core — app/Core (infrastructure)"]
         direction LR
@@ -58,8 +58,8 @@ flowchart TB
 
 | Layer | Base / example | Must do | Must NOT do |
 |---|---|---|---|
-| **Controller** | `App\Core\Controller`; `App\Controllers\App\CompanyController` | Read/validate request, call **one** service, pick a `Response` (view/json/redirect), flash messages. | Contain SQL, multi-model orchestration, transactions, or business rules. |
-| **Service** | `App\Services\Tenancy\CompanyService`, `App\Services\Rbac\AccessControl` | Encode business rules, orchestrate multiple models, run transactions, call external systems (AI providers, mail). | Touch superglobals or render views; depend on HTTP. |
+| **Controller** | `App\Core\Controller`; `App\Controllers\App\WorkspaceController` | Read/validate request, call **one** service, pick a `Response` (view/json/redirect), flash messages. | Contain SQL, multi-model orchestration, transactions, or business rules. |
+| **Service** | `App\Services\Tenancy\WorkspaceService`, `App\Services\Rbac\AccessControl` | Encode business rules, orchestrate multiple models, run transactions, call external systems (AI providers, mail). | Touch superglobals or render views; depend on HTTP. |
 | **Model** | `App\Core\Model`; `App\Models\User` | Map a table to objects, scope tenant queries, cast/fillable/hidden, table-specific query helpers. | Hold cross-aggregate business logic. |
 | **Core** | `App\Core\*` | Provide framework plumbing (container, router, DB, validation, view, session, encryption). | Know anything about the domain. |
 
@@ -73,15 +73,15 @@ flowchart TB
 - `withSuccess($msg)` / `withError($msg)` — flash for the next request.
 - `fail($field, $message, $input)` — throw a field-bound `ValidationException` (used e.g. for failed login).
 
-A canonical thin controller (`CompanyController::store()`):
+A canonical thin controller (`WorkspaceController::store()`):
 
 ```php
 public function store(Request $request): Response
 {
     $data = $this->validate($request, ['name' => 'required|min:2|max:150']);
-    $company = (new CompanyService())->create(auth()->user(), $data['name']);
-    tenant()->setTenant($company);
-    $this->withSuccess('Company "' . $company->name . '" created. You are the owner.');
+    $workspace = (new WorkspaceService())->create(auth()->user(), $data['name']);
+    tenant()->setTenant($workspace);
+    $this->withSuccess('Workspace "' . $workspace->name . '" created. You are the owner.');
     return $this->redirect(url('dashboard'));
 }
 ```
@@ -90,20 +90,20 @@ Validate → one service call → set tenant → flash → redirect. No SQL, no 
 
 ### The service layer
 
-Services are plain `final` classes constructed directly (`new CompanyService()`) or resolved from the container for the shared ones (`auth`, `tenant`, `access`). They own the **transaction boundary** and the **business invariants**. `CompanyService::create()` is the exemplar:
+Services are plain `final` classes constructed directly (`new WorkspaceService()`) or resolved from the container for the shared ones (`auth`, `tenant`, `access`). They own the **transaction boundary** and the **business invariants**. `WorkspaceService::create()` is the exemplar:
 
 - Opens a transaction via `Database::transaction()`.
-- Inserts the company, owner membership, default roles (via `RbacManager`), assigns the Owner role, starts a trial subscription, and writes an `ActivityLog` entry — **atomically**.
-- Uses **explicit `company_id`** with the raw connection (not the tenant scope) because the company being created is, by definition, not yet the active tenant.
+- Inserts the workspace, owner membership, default roles (via `RbacManager`), assigns the Owner role, starts a trial subscription, and writes an `ActivityLog` entry — **atomically**.
+- Uses **explicit `workspace_id`** with the raw connection (not the tenant scope) because the workspace being created is, by definition, not yet the active tenant.
 
 ### The model layer
 
 `App\Core\Model` is a compact active-record base. Its defining feature is **tenant isolation**:
 
-- `static::$tenantScoped` + `static::$tenantColumn = 'company_id'` mark tenant-bound models.
-- `Model::query()` returns a `QueryBuilder` pre-scoped with `WHERE company_id = ?` whenever the model is tenant-scoped and a tenant is active; if it is scoped but **no tenant is set, it throws** — fail closed.
+- `static::$tenantScoped` + `static::$tenantColumn = 'workspace_id'` mark tenant-bound models.
+- `Model::query()` returns a `QueryBuilder` pre-scoped with `WHERE workspace_id = ?` whenever the model is tenant-scoped and a tenant is active; if it is scoped but **no tenant is set, it throws** — fail closed.
 - `withoutTenantScope()` is the only escape hatch, reserved for super-admin/system/installer paths.
-- `create()` auto-stamps `company_id` and timestamps; `filterFillable()` enforces mass-assignment allow-lists; `castAttribute()` applies `int`/`bool`/`float`/`array` casts; `$hidden` strips secrets from `toArray()`.
+- `create()` auto-stamps `workspace_id` and timestamps; `filterFillable()` enforces mass-assignment allow-lists; `castAttribute()` applies `int`/`bool`/`float`/`array` casts; `$hidden` strips secrets from `toArray()`.
 
 ### The core / infrastructure layer
 
@@ -132,7 +132,7 @@ sequenceDiagram
         V-->>C: validated data
         C->>Svc: businessMethod(data)
         Svc->>DB: transaction(fn)
-        DB->>M: insert/update (company_id stamped)
+        DB->>M: insert/update (workspace_id stamped)
         M->>DB: prepared statement(s)
         DB-->>M: ids / rows
         Svc->>Log: ActivityLog::record(...)
@@ -185,10 +185,10 @@ A top-level `set_exception_handler` is also registered so even a failure *before
 
 The backend touches the schema only through `Model` → `QueryBuilder` → `Database` (full schema in canonical §11). Backend-relevant invariants:
 
-- **Tenant tables** carry `company_id BIGINT UNSIGNED` (FK → `companies`, indexed): `memberships`, `subscriptions`, `ai_credentials`, `settings`, `activity_log` (nullable), and all planned domain tables (`jobs`, `applications`, `interviews`, …). The model layer injects `WHERE company_id = ?` for these.
-- **Global tables** (`users`, `companies`, `roles` with NULL `company_id`, `permissions`, `plans`) are **not** tenant-scoped and use `withoutTenantScope()`/plain queries.
-- **Join tables** (`permission_role`, `membership_role`, `user_role`) are read directly by `AccessControl` to compute effective permissions.
-- **`activity_log`** is written by services for audit (e.g. `company.created`), with actor, subject, ip, and JSON `properties`.
+- **Tenant tables** carry `workspace_id BIGINT UNSIGNED` (FK → `workspaces`, indexed): `memberships`, `subscriptions`, `tenant_ai_keys`, `settings`, `activity_logs` (nullable), and all planned domain tables (`jobs`, `applications`, `interviews`, …). The model layer injects `WHERE workspace_id = ?` for these.
+- **Global tables** (`users`, `workspaces`, `roles` with NULL `workspace_id`, `permissions`, `plans`) are **not** tenant-scoped and use `withoutTenantScope()`/plain queries.
+- **Join tables** (`role_permissions`, `membership_roles`, `user_roles`) are read directly by `AccessControl` to compute effective permissions.
+- **`activity_logs`** is written by services for audit (e.g. `workspace.created`), with actor, subject, ip, and JSON `properties`.
 
 All access is via prepared statements with backtick-quoted identifiers (`QueryBuilder`); raw SQL is never interpolated.
 
@@ -197,7 +197,7 @@ All access is via prepared statements with backtick-quoted identifiers (`QueryBu
 - Route-level: `RequirePermission` (`permission:dashboard.view`) — **any-of** semantics across a comma list.
 - Service-level: `access()->allows($key, $context)` / `can($key)` for context-aware checks the route gate cannot express (e.g. "edit *own* profile", "manage application *in my company*"), defined via `AccessControl::define()`.
 - **Super Admin bypass:** `AccessControl::allows()` returns `true` for `isSuperAdmin()` users before any permission lookup.
-- Effective permissions = global roles (`user_role`) ∪ tenant roles on the active membership (`membership_role`), each expanded up its `parent_id` chain, cached per `userId:companyId` for the request. See [07 — RBAC](07-RBAC.md) and [11 — Permissions Matrix](11-Permissions-Matrix.md).
+- Effective permissions = global roles (`user_roles`) ∪ tenant roles on the active membership (`membership_roles`), each expanded up its `parent_id` chain, cached per `userId:workspaceId` for the request. See [07 — RBAC](07-RBAC.md) and [11 — Permissions Matrix](11-Permissions-Matrix.md).
 
 ## Validation
 
@@ -214,13 +214,13 @@ All access is via prepared statements with backtick-quoted identifiers (`QueryBu
 | Service throws mid-transaction | `Database::transaction()` calls `rollBack()` and rethrows; no partial writes persist. |
 | Nested transaction inner failure | `ROLLBACK TO SAVEPOINT`; outer transaction may still commit or roll back as a whole. |
 | Tenant-scoped model used with no active tenant | `Model::query()` throws a descriptive `RuntimeException` (fail closed). |
-| `findOrFail($id)` for a missing/foreign row | Throws `HttpException(404)` → rendered as `errors.404`. Because of tenant scoping, a row in *another* company is simply "not found" (no leakage). |
+| `findOrFail($id)` for a missing/foreign row | Throws `HttpException(404)` → rendered as `errors.404`. Because of tenant scoping, a row in *another* workspace is simply "not found" (no leakage). |
 | Update affecting zero rows | `Model::update()` returns `true` when `affectingStatement() >= 0` (idempotent updates don't error). |
 | Mass-assignment of a non-fillable field | Silently dropped by `filterFillable()`. |
 | Empty `whereIn([])` | Compiled to `1 = 0` (matches nothing) / `1 = 1` for `NOT IN` — never invalid `IN ()` SQL. |
 | Unknown operator passed to `where()` | `InvalidArgumentException` from `QueryBuilder` (developer error). |
 | DB connection failure | `Database::connect()` wraps PDO errors in a `RuntimeException` → logged → 500 (or debug page). |
-| Concurrent company creation by two requests | Each runs its own transaction; uniqueness (`companies.slug`, `memberships (company_id,user_id)`) enforced at the DB. |
+| Concurrent workspace creation by two requests | Each runs its own transaction; uniqueness (`workspaces.slug`, `memberships (workspace_id,user_id)`) enforced at the DB. |
 
 ## Security
 
@@ -230,13 +230,13 @@ All access is via prepared statements with backtick-quoted identifiers (`QueryBu
 - **Output escaping** is the template layer's job (`e()`); the backend never builds HTML.
 - **Secrets**: passwords hashed with Argon2id (`Hash`, transparent rehash on login); AI credentials encrypted with AES-256-GCM (`Encrypter`) and `$hidden` from serialization.
 - **CSRF** enforced before any write reaches a controller (`VerifyCsrfToken`).
-- **Audit**: security/business events recorded in `activity_log` via services.
+- **Audit**: security/business events recorded in `activity_logs` via services.
 - **Least privilege** in code organisation: only system code can reach `withoutTenantScope()`. See [34 — Security](34-Security.md).
 
 ## Performance
 
 - **Lazy singletons + lazy PDO**: nothing connects to MySQL until a query runs; the container builds services on first use.
-- **Per-request RBAC cache** (`AccessControl::$cache` keyed `userId:companyId`) avoids recomputing the permission set within a request.
+- **Per-request RBAC cache** (`AccessControl::$cache` keyed `userId:workspaceId`) avoids recomputing the permission set within a request.
 - **N+1 avoidance**: services should batch with `whereIn()`/joins rather than per-row queries; `QueryBuilder` supports `join`/`leftJoin`/`pluck`/aggregates and `paginate()`.
 - **Indexes**: every FK and every status/filter column is indexed (canonical §11), keeping the injected tenant filter and list queries cheap.
 - **Transactions kept short** — open, write, commit; no external/network calls inside a transaction.
@@ -244,17 +244,17 @@ All access is via prepared statements with backtick-quoted identifiers (`QueryBu
 
 ## Testing
 
-- **Unit (core):** `QueryBuilder` SQL compilation (where/in/null/join/order/limit/paginate, identifier quoting); `Model` tenant scoping (throws with no tenant, stamps `company_id`, `filterFillable`, casts); `Container` resolution; `Validator` rules.
+- **Unit (core):** `QueryBuilder` SQL compilation (where/in/null/join/order/limit/paginate, identifier quoting); `Model` tenant scoping (throws with no tenant, stamps `workspace_id`, `filterFillable`, casts); `Container` resolution; `Validator` rules.
 - **Unit (services):** `AccessControl` effective-permission union + inheritance + super-admin bypass + cache; `TenantManager::bootFor()` preference order and membership validation.
-- **Integration:** `CompanyService::create()` provisions company + membership + roles + Owner assignment + trial subscription atomically; assert full rollback when any step throws; nested-transaction savepoint behaviour.
-- **Feature (HTTP):** thin-controller flows (create company → redirect to dashboard; profile update; failed login → field error via `fail()`).
+- **Integration:** `WorkspaceService::create()` provisions workspace + membership + roles + Owner assignment + trial subscription atomically; assert full rollback when any step throws; nested-transaction savepoint behaviour.
+- **Feature (HTTP):** thin-controller flows (create workspace → redirect to dashboard; profile update; failed login → field error via `fail()`).
 - **Security:** cross-tenant `findOrFail` returns 404 not foreign data; CSRF rejection; permission middleware denial → 403; mass-assignment guard.
 - See [39 — Testing Strategy](39-Testing-Strategy.md) and [42 — Code Review Checklist](42-Code-Review-Checklist.md).
 
 ## Future Expansion
 
 - **API controllers** ([29](29-API-Architecture.md)) reuse the same services and models; only the auth (token vs session) and the response shape (JSON envelope) differ — the service layer is transport-agnostic by design.
-- **Domain services** for Jobs, Applications, Interviews, Evaluations, Billing slot into `app/Services/<Domain>/`, each owning its transactions and rules, exactly like `CompanyService`.
+- **Domain services** for Jobs, Applications, Interviews, Evaluations, Billing slot into `app/Services/<Domain>/`, each owning its transactions and rules, exactly like `WorkspaceService`.
 - **Provider interfaces** (`AiProviderInterface`, future `PaymentGatewayInterface`) keep external integrations behind a contract + registry so new vendors are drop-in.
 - **Queue offload**: long operations (AI scoring, bulk email) move behind `queued_jobs`, with services enqueuing instead of executing inline; a worker (invoked via a protected cron URL) drains the queue.
 - **Read replicas / sharding**: because all SQL funnels through `Database`, routing reads to a replica or sharding by tenant can be added in one place. See [36 — Scalability](36-Scalability.md).

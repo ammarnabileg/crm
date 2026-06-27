@@ -47,7 +47,7 @@ The recruiter works inside the **authenticated staff shell** (`resources/views/l
 
 Architectural decisions:
 
-- **Tenant scope is automatic.** `Job`, `Application`, `Interview`, `Evaluation` models are `tenantScoped = true`; `query()` adds `WHERE company_id = :active` and throws if no tenant is active (§4). A recruiter literally cannot query another company's data through the normal model path.
+- **Tenant scope is automatic.** `Job`, `Application`, `Interview`, `Evaluation` models are `tenantScoped = true`; `query()` adds `WHERE workspace_id = :active` and throws if no tenant is active (§4). A recruiter literally cannot query another company's data through the normal model path.
 - **The pipeline is data-driven.** Stages come from `pipeline_stages` (per-job, or a company default template when `job_id IS NULL`), so a company can reshape its hiring funnel without code (§2).
 - **AI results are read-only artifacts.** `ai_interview_sessions.analysis` / `score` render in a clearly-labelled "AI insight" panel; the recruiter's own input lives in `evaluations`. The two are never merged silently.
 - **Every state change is logged.** Moves/rejections/schedules write `application_events` and `activity_log`, giving an auditable history per candidate.
@@ -131,15 +131,15 @@ flowchart TD
 
 Consistent with §11:
 
-- **jobs** (tenant) — `company_id`, `title`, `slug`, `description`, `department`, `location`, `employment_type`, `status[draft|open|paused|closed|archived]`, `openings`, `salary_min/max`, `currency`, `is_remote`, `created_by`→users, `published_at`, `closed_at`. `UQ(company_id, slug)`, `IDX(company_id, status)`.
-- **pipeline_stages** (tenant) — `job_id` (NULL = company default), `name`, `type[applied|screening|interview|offer|hired|rejected]`, `sort_order`. `IDX(company_id, job_id)`.
-- **applications** (tenant) — the records being worked; `current_stage_id`→`pipeline_stages`, `status`, `score`, `resume_file_id`, `cover_letter`, `applied_at`, `decided_at`. `UQ(company_id, job_id, user_id)`, `IDX(company_id, job_id, status, current_stage_id)`.
+- **jobs** (tenant) — `workspace_id`, `title`, `slug`, `description`, `department`, `location`, `employment_type`, `status[draft|open|paused|closed|archived]`, `openings`, `salary_min/max`, `currency`, `is_remote`, `created_by`→users, `published_at`, `closed_at`. `UQ(workspace_id, slug)`, `IDX(workspace_id, status)`.
+- **pipeline_stages** (tenant) — `job_id` (NULL = company default), `name`, `type[applied|screening|interview|offer|hired|rejected]`, `sort_order`. `IDX(workspace_id, job_id)`.
+- **applications** (tenant) — the records being worked; `current_stage_id`→`pipeline_stages`, `status`, `score`, `resume_file_id`, `cover_letter`, `applied_at`, `decided_at`. `UQ(workspace_id, job_id, user_id)`, `IDX(workspace_id, job_id, status, current_stage_id)`.
 - **application_events** (tenant) — append-only history of moves/rejects/notes; `actor_id`→users SET NULL, `from_stage_id`, `to_stage_id`, `note`, `properties`. `IDX(application_id)`.
-- **interviews** (tenant) — `application_id`, `job_id`, `type[ai|human|panel]`, `mode[video|phone|onsite|ai_async]`, `status`, `scheduled_at`, `duration_minutes`, `location_or_link`, `created_by`. `IDX(company_id, application_id, status)`.
+- **interviews** (tenant) — `application_id`, `job_id`, `type[ai|human|panel]`, `mode[video|phone|onsite|ai_async]`, `status`, `scheduled_at`, `duration_minutes`, `location_or_link`, `created_by`. `IDX(workspace_id, application_id, status)`.
 - **interview_participants** (tenant) — staff + candidate links; `role`, `response[accepted|declined|tentative]`. `UQ(interview_id, user_id)`.
 - **interview_questions** / **interview_responses** (tenant) — question bank and captured answers (with `ai_score`, `ai_feedback`).
 - **ai_interview_sessions** (tenant) — `provider`, `model`, `status`, `transcript`, `analysis`, `score`, `tokens_used` — the advisory artifact the recruiter reads.
-- **evaluations** (tenant) — scorecards; `interview_id`, `evaluator_id`, `criteria JSON`, `rating`, `recommendation[strong_yes|yes|neutral|no|strong_no]`, `notes`. `IDX(company_id, application_id)`.
+- **evaluations** (tenant) — scorecards; `interview_id`, `evaluator_id`, `criteria JSON`, `rating`, `recommendation[strong_yes|yes|neutral|no|strong_no]`, `notes`. `IDX(workspace_id, application_id)`.
 - **files** (tenant) — candidate resumes (read), interview attachments.
 - **notifications** (§26) — fired to candidate/interviewers on publish, move, schedule, decision.
 - **activity_log** — every recruiter action with actor + ip.
@@ -193,8 +193,8 @@ The default `recruiter` tenant role (data-driven in `config/rbac.php`) maps to `
 
 ## Security
 
-- **Tenant isolation**: all reads/writes go through tenant-scoped models that fail closed; a recruiter cannot reach another company's jobs/applications even by guessing ids (the `WHERE company_id` filter plus `abort(403)` on cross-tenant ids).
-- **IDOR**: `/applications/{id}`, `/interviews/{id}`, `/jobs/{id}` resolve then assert the row's `company_id === tenant()->id()` and the relevant permission/gate.
+- **Tenant isolation**: all reads/writes go through tenant-scoped models that fail closed; a recruiter cannot reach another company's jobs/applications even by guessing ids (the `WHERE workspace_id` filter plus `abort(403)` on cross-tenant ids).
+- **IDOR**: `/applications/{id}`, `/interviews/{id}`, `/jobs/{id}` resolve then assert the row's `workspace_id === tenant()->id()` and the relevant permission/gate.
 - **Least privilege**: recruiters get exactly the recruitment permissions; no members/roles/billing access. Final-decision authority is a separate permission (`evaluations.manage`).
 - **CSRF** on publish/move/reject/schedule/evaluate.
 - **Audit**: every status/stage change, schedule, and decision is in `application_events` + `activity_log` with actor and ip — supporting compliance and dispute resolution.
@@ -204,10 +204,10 @@ The default `recruiter` tenant role (data-driven in `config/rbac.php`) maps to `
 
 ## Performance
 
-- Pipeline board reads applications by `IDX(company_id, job_id, status, current_stage_id)`; stage columns rendered from a single grouped query (no N+1 per card).
-- Job lists use `IDX(company_id, status)` and pagination.
+- Pipeline board reads applications by `IDX(workspace_id, job_id, status, current_stage_id)`; stage columns rendered from a single grouped query (no N+1 per card).
+- Job lists use `IDX(workspace_id, status)` and pagination.
 - AI analysis and transcription run on the queue (`queued_jobs`, §12); the recruiter UI shows a "processing" state and updates when `ai_interview_sessions` completes.
-- Scorecard aggregation computed with one query over `evaluations` keyed by `IDX(company_id, application_id)`.
+- Scorecard aggregation computed with one query over `evaluations` keyed by `IDX(workspace_id, application_id)`.
 - Search via tenant-filtered FULLTEXT (§28) behind a search abstraction for later Meilisearch/Elasticsearch swap.
 - Notification fan-out queued so recruiter actions stay snappy.
 

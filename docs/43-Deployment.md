@@ -157,7 +157,7 @@ Deployment is largely infrastructural, but these tables (from [05-Database-Archi
 - `migrations` — the runner records applied files here; updates compare pending vs applied. The full initial schema is migrations `0001`–`0015`.
 - `queued_jobs` / `failed_jobs` (planned) — drained by the cron URL; their backlog and the heartbeat freshness feed Diagnostics.
 - `settings` / `storage/framework` heartbeat — store the queue/cron last-tick timestamps and the maintenance flag.
-- `activity_log` — update/migration/maintenance actions are audited here (`company_id` NULL for platform actions).
+- `activity_log` — update/migration/maintenance actions are audited here (`workspace_id` NULL for platform actions).
 
 ## Permissions
 

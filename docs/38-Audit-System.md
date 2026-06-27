@@ -1,12 +1,12 @@
 # 38 — Audit System (نظام التدقيق)
 
-The audit trail of HalaOps, backed by the `activity_log` table and written through `App\Models\ActivityLog::record()`: a tamper-evident, tenant-scoped record of who did what and when — authentication events, role and permission changes, company/AI/billing changes, and hiring decisions — capturing actor, subject, properties, IP, and user agent, with defined retention, viewing/exporting, and a clear relationship to operational logging.
+The audit trail of HalaOps, backed by the `activity_logs` table and written through `App\Models\ActivityLog::record()`: a tamper-evident, tenant-scoped record of who did what and when — authentication events, role and permission changes, workspace/AI/billing changes, and hiring decisions — capturing actor, subject, properties, IP, and user agent, with defined retention, viewing/exporting, and a clear relationship to operational logging.
 
 ## Related Documents
 
 - [07 — RBAC](07-RBAC.md)
 - [08 — Multi-Tenant](08-Multi-Tenant.md)
-- [12 — Company Management](12-Workspace-Management.md)
+- [12 — Workspace Management](12-Workspace-Management.md)
 - [14 — Billing System](14-Billing-System.md)
 - [25 — Application Lifecycle](25-Application-Lifecycle.md)
 - [34 — Security](34-Security.md)
@@ -16,7 +16,7 @@ The audit trail of HalaOps, backed by the `activity_log` table and written throu
 
 ## Purpose (الهدف)
 
-This document defines the **business and security audit trail** of HalaOps: a durable, queryable record of significant actions taken in the system. Where [37 — Logging](37-Logging.md) captures *operational* events for engineers in transient files, the audit system answers the *accountability* questions — **who** performed **what** action on **which** subject, **when**, and **from where** — and stores them in the database (`activity_log`) so they survive, can be filtered, scoped per tenant, exported, and used for compliance, dispute resolution, and incident investigation.
+This document defines the **business and security audit trail** of HalaOps: a durable, queryable record of significant actions taken in the system. Where [37 — Logging](37-Logging.md) captures *operational* events for engineers in transient files, the audit system answers the *accountability* questions — **who** performed **what** action on **which** subject, **when**, and **from where** — and stores them in the database (`activity_logs`) so they survive, can be filtered, scoped per tenant, exported, and used for compliance, dispute resolution, and incident investigation.
 
 Every entry is created through the single, deliberate API `App\Models\ActivityLog::record()`, so auditing is consistent and centralised rather than scattered.
 
@@ -35,11 +35,11 @@ The audit system exists to provide:
 
 ```mermaid
 flowchart TD
-    A[Service / Controller action<br/>auth, role, company, AI, billing, decision] --> B[ActivityLog::record(...)]
+    A[Service / Controller action<br/>auth, role, workspace, AI, billing, decision] --> B[ActivityLog::record(...)]
     B --> C[withoutTenantScope()->insert]
-    C --> D[(activity_log table)]
-    D --> E[Tenant audit viewer<br/>scoped to active company_id]
-    D --> F[Super-admin platform audit<br/>cross-tenant + company_id NULL events]
+    C --> D[(activity_logs table)]
+    D --> E[Tenant audit viewer<br/>scoped to active workspace_id]
+    D --> F[Super-admin platform audit<br/>cross-tenant + workspace_id NULL events]
     D --> G[Export CSV/JSON]
     H[App\Core\Logger files] -. separate operational path .-> I[storage/logs]
 ```
@@ -51,11 +51,11 @@ flowchart TD
 - **subject** — `subject_type` + `subject_id` (the entity acted upon),
 - **description** — optional human-readable summary,
 - **properties** — `JSON` of contextual details (e.g. old/new role, from/to stage),
-- **company_id** — the tenant the event belongs to (NULL for platform-level events),
+- **workspace_id** — the tenant the event belongs to (NULL for platform-level events),
 - **ip** + **user_agent** — captured from the current request (user-agent truncated to 255 chars),
 - **created_at** — event time.
 
-It deliberately uses `withoutTenantScope()->insert()` so the writer can stamp the correct `company_id` explicitly (including platform events with NULL) rather than relying on the auto tenant scope. `timestamps` is off because the table has only `created_at` (entries are immutable — there is no `updated_at`).
+It deliberately uses `withoutTenantScope()->insert()` so the writer can stamp the correct `workspace_id` explicitly (including platform events with NULL) rather than relying on the auto tenant scope. `timestamps` is off because the table has only `created_at` (entries are immutable — there is no `updated_at`).
 
 ## Workflow
 
@@ -66,10 +66,10 @@ sequenceDiagram
     participant HRM as User (evaluations.manage)
     participant App as Application service
     participant AL as ActivityLog
-    participant DB as activity_log
+    participant DB as activity_logs
     HRM->>App: Reject application #501 (reason)
     App->>App: update application status + stage
-    App->>AL: record('applications.reject', company_id, user_id,
+    App->>AL: record('applications.reject', workspace_id, user_id,
     App-->>AL: subject=Application/501, properties={from_stage, reason, ai_recommendation})
     AL->>DB: INSERT immutable row (ip, user_agent, created_at)
     Note over DB: trail shows the human made the final call
@@ -81,10 +81,10 @@ sequenceDiagram
 sequenceDiagram
     participant U as User (with view permission)
     participant C as Audit controller
-    participant DB as activity_log
+    participant DB as activity_logs
     U->>C: GET /audit?action=roles.assign&page=1
-    C->>DB: SELECT ... WHERE company_id = active tenant AND action = ? ORDER BY created_at DESC LIMIT 20
-    Note over DB: IDX(company_id, user_id, action)
+    C->>DB: SELECT ... WHERE workspace_id = active tenant AND action = ? ORDER BY created_at DESC LIMIT 20
+    Note over DB: IDX(workspace_id, user_id, action)
     DB-->>C: page of entries
     C-->>U: rendered, escaped, paginated; export option
 ```
@@ -95,7 +95,7 @@ sequenceDiagram
    - **Authentication**: `auth.login`, `auth.login_failed`, `auth.logout`, `auth.password_reset_requested`, `auth.password_reset`.
    - **Authorization / roles**: `roles.create`, `roles.update`, `roles.delete`, `roles.assign`, `roles.revoke`, permission changes.
    - **Membership**: `members.invite`, `members.update`, `members.remove`.
-   - **Company**: `company.create`, `company.update`, `company.suspend`, settings changes.
+   - **Workspace**: `workspace.create`, `workspace.update`, `workspace.suspend`, settings changes.
    - **AI credentials**: `ai.credential.create`, `ai.credential.update`, `ai.credential.delete` (never the key value).
    - **Billing/subscription**: `subscription.create`, `subscription.cancel`, `invoice.paid`, `invoice.void`, `payment.succeeded`, `payment.failed`.
    - **Recruitment decisions**: `applications.move`, `applications.reject`, `applications.hire`, `interviews.schedule`, `evaluations.create`.
@@ -103,19 +103,19 @@ sequenceDiagram
 3. **Audit entries are immutable.** There is no update or delete path in normal application flow; the table has `created_at` only and is append-only.
 4. **Actor and subject are always recorded** where known: `user_id` (NULL only for system/anonymous events such as a failed login on an unknown email), and `subject_type`/`subject_id` for the affected entity.
 5. **Never store secrets in `properties`.** AI keys, passwords, tokens, and full PII are excluded; record references (ids) and non-sensitive deltas (e.g. role slug, old→new status) instead — same rule as [37 — Logging](37-Logging.md).
-6. **Tenant scoping of audit data.** Tenant events carry `company_id`; viewers within a tenant see only their company's entries; platform events use NULL and are visible only to super admins.
+6. **Tenant scoping of audit data.** Tenant events carry `workspace_id`; viewers within a tenant see only their workspace's entries; platform events use NULL and are visible only to super admins.
 7. **IP and user agent are captured** from the request for forensic value; user agent is truncated to 255 chars.
 8. **Retention is bounded but long** (default 12 months for general events; security/financial events retained longer per policy), then archived/pruned.
 9. **Auditing must not block the action's success path** unduly; a failed audit insert is itself logged via `Logger` rather than failing the user's operation.
 
 ## Database Relations
 
-The audit trail is the **activity_log** table (§11, migration 0015):
+The audit trail is the **activity_logs** table (§11, migration 0015):
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | id | BIGINT UNSIGNED PK | |
-| company_id | BIGINT UNSIGNED, FK→companies (CASCADE), NULL | tenant scope; NULL = platform event |
+| workspace_id | BIGINT UNSIGNED, FK→workspaces (CASCADE), NULL | tenant scope; NULL = platform event |
 | user_id | BIGINT UNSIGNED, FK→users (SET NULL) | actor; survives user deletion |
 | action | VARCHAR | dotted event key |
 | subject_type | VARCHAR, NULL | entity class acted upon |
@@ -126,11 +126,11 @@ The audit trail is the **activity_log** table (§11, migration 0015):
 | user_agent | VARCHAR(255), NULL | truncated UA |
 | created_at | TIMESTAMP | event time; immutable |
 
-Index: **IDX(company_id, user_id, action)** supports the common filters (by tenant, by actor, by action type). FK behaviour is chosen so audit history is preserved: `company_id` cascades with the company (when a tenant is fully deleted its audit goes too), while `user_id` is SET NULL so deleting a user does not erase the record of their actions. Subjects are referenced loosely by `subject_type`/`subject_id` (polymorphic) rather than hard FKs, so an entry survives the subject's deletion.
+Index: **IDX(workspace_id, user_id, action)** supports the common filters (by tenant, by actor, by action type). FK behaviour is chosen so audit history is preserved: `workspace_id` cascades with the workspace (when a tenant is fully deleted its audit goes too), while `user_id` is SET NULL so deleting a user does not erase the record of their actions. Subjects are referenced loosely by `subject_type`/`subject_id` (polymorphic) rather than hard FKs, so an entry survives the subject's deletion.
 
 ## Permissions
 
-- **Viewing tenant audit**: gated by a tenant permission (e.g. `settings.view`/an audit-view permission within the §6 catalogue); always **scoped to the active `company_id`** so one tenant cannot read another's history.
+- **Viewing tenant audit**: gated by a tenant permission (e.g. `settings.view`/an audit-view permission within the §6 catalogue); always **scoped to the active `workspace_id`** so one tenant cannot read another's history.
 - **Platform audit (cross-tenant + NULL events)**: `platform.diagnostics` / super-admin only, using `withoutTenantScope()`.
 - **No one can edit or delete audit entries through the UI**; retention/archival is an operator process, not a user permission. This separation is itself a control: even an administrator cannot quietly rewrite history.
 - **Writing audit entries** is performed by the application on the user's behalf during permitted actions; it is not a directly user-invokable operation.
@@ -139,7 +139,7 @@ Index: **IDX(company_id, user_id, action)** supports the common filters (by tena
 
 - **action** is constrained to known dotted keys (validated against the catalogue) so the trail stays queryable and consistent.
 - **properties** is validated to be JSON-serialisable and **scrubbed of sensitive keys** (`password`, `token`, `api_key`, `credentials`, `secret`) before encoding (`json_encode(..., JSON_UNESCAPED_UNICODE)`), mirroring the logging redaction rule.
-- **company_id / user_id / subject_id** are integers or NULL; an invalid actor/tenant is recorded as NULL rather than fabricated.
+- **workspace_id / user_id / subject_id** are integers or NULL; an invalid actor/tenant is recorded as NULL rather than fabricated.
 - **user_agent** is truncated to 255 characters before insert (as in `ActivityLog::record`).
 - **Filter/sort inputs** on the audit viewer are validated against indexed, allow-listed columns (`action`, `user_id`, date range) — never interpolated (see [34 — Security](34-Security.md)).
 
@@ -147,7 +147,7 @@ Index: **IDX(company_id, user_id, action)** supports the common filters (by tena
 
 - **Deleted actor** → `user_id` becomes NULL (SET NULL); the entry remains, optionally with a cached display name in `properties` so the trail is still readable.
 - **Deleted subject** → polymorphic `subject_type`/`subject_id` may dangle; the viewer shows the recorded type/id even if the entity is gone.
-- **Platform (no tenant) events** → `company_id` NULL; excluded from tenant views, included in super-admin platform audit.
+- **Platform (no tenant) events** → `workspace_id` NULL; excluded from tenant views, included in super-admin platform audit.
 - **Failed login on an unknown email** → recorded as `auth.login_failed` with `user_id` NULL and the attempted email kept out of plaintext-sensitive fields (or stored as a non-identifying property per policy), preserving anti-enumeration ([34 — Security](34-Security.md)).
 - **Audit insert fails** (e.g. DB hiccup) → the action still succeeds and the failure is sent to `Logger` (`error`), so an audit outage degrades gracefully rather than blocking business.
 - **High-volume actions** (e.g. bulk application moves) → may be summarised into a single entry with counts in `properties` to avoid flooding; or queued for batch insert at scale (see Future Expansion).
@@ -162,17 +162,17 @@ Index: **IDX(company_id, user_id, action)** supports the common filters (by tena
 
 ## Performance
 
-- **Single indexed insert per event** — cheap; `IDX(company_id, user_id, action)` also serves the read filters (see [35 — Performance](35-Performance.md)).
+- **Single indexed insert per event** — cheap; `IDX(workspace_id, user_id, action)` also serves the read filters (see [35 — Performance](35-Performance.md)).
 - **Reads are always paginated** and tenant-scoped, so the viewer stays fast even as the table grows.
-- **Large table management** — `activity_log` grows unbounded over time; retention pruning/archival and (at scale) partitioning by date keep it healthy; heavy `COUNT(*)` is avoided/approximated.
+- **Large table management** — `activity_logs` grows unbounded over time; retention pruning/archival and (at scale) partitioning by date keep it healthy; heavy `COUNT(*)` is avoided/approximated.
 - **No hot-path coupling** — auditing adds one insert to consequential actions only (not to every read), and can be moved to the queue if write volume warrants (see [36 — Scalability](36-Scalability.md)).
 
 ## Testing
 
 (See [39 — Testing Strategy](39-Testing-Strategy.md).)
 
-- **Recording tests:** each consequential action (login, role assign, member remove, AI credential change, subscription cancel, application reject/hire) writes exactly one `activity_log` row with correct `action`, actor, subject, and `company_id`.
-- **Tenant scoping (security):** a tenant's audit query returns only its own `company_id` rows; user A cannot read user B's company audit; platform NULL events are hidden from tenants.
+- **Recording tests:** each consequential action (login, role assign, member remove, AI credential change, subscription cancel, application reject/hire) writes exactly one `activity_logs` row with correct `action`, actor, subject, and `workspace_id`.
+- **Tenant scoping (security):** a tenant's audit query returns only its own `workspace_id` rows; user A cannot read user B's workspace audit; platform NULL events are hidden from tenants.
 - **No-secrets test:** recording an AI credential change stores no key material in `properties`; redaction strips sensitive keys.
 - **Immutability test:** there is no code path to update/delete an entry; the table has no `updated_at`.
 - **Actor-deletion test:** deleting a user nulls `user_id` on their entries (SET NULL) and the rows remain.

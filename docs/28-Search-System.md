@@ -31,22 +31,22 @@ flowchart TD
     UI[Search box / filters] --> Ctrl[Controller<br/>RequirePermission jobs.view / applications.view]
     Ctrl --> SVC[SearchManager]
     SVC --> IFACE{SearchInterface}
-    IFACE -->|default| MY[MysqlFulltextDriver<br/>MATCH ... AGAINST + WHERE company_id]
+    IFACE -->|default| MY[MysqlFulltextDriver<br/>MATCH ... AGAINST + WHERE workspace_id]
     IFACE -->|future| MEILI[MeilisearchDriver]
     IFACE -->|future| ES[ElasticsearchDriver]
     MY --> DB[(MySQL FULLTEXT indexes<br/>jobs, applications)]
     MEILI --> MIDX[(Meili index per tenant/prefixed)]
-    ES --> EIDX[(ES index, company_id filter)]
+    ES --> EIDX[(ES index, workspace_id filter)]
     SVC --> RES[Ranked, paginated results<br/>tenant-scoped]
     RES --> UI
 ```
 
 **Components and responsibilities:**
 
-- **`SearchInterface`** (`app/Services/Search/SearchInterface.php`) — the contract: `search(string $index, string $query, array $opts): SearchResult` plus index maintenance hooks `index(string $index, array $doc)`, `delete(string $index, string|int $id)`, `flush(string $index)`. `$opts` carries `company_id` (mandatory), `filters`, `sort`, `page`, `perPage`. `$index` is a logical name (`jobs`, `applications`).
-- **`SearchManager`** (`app/Services/Search/SearchManager.php`) — the façade callers use. Resolves the configured driver, **injects the active tenant's `company_id`**, normalizes the query, and returns a uniform `SearchResult` (items + total + paging). It is the only thing controllers talk to.
-- **`MysqlFulltextDriver`** — the default. Builds a parameterized `SELECT … WHERE company_id = :company AND MATCH(<cols>) AGAINST(:q IN BOOLEAN MODE)` via the `QueryBuilder`, ordered by relevance, with `LIMIT/OFFSET`. Uses the FULLTEXT indexes declared on `jobs` and `applications`.
-- **`MeilisearchDriver` / `ElasticsearchDriver`** (future) — implement the same interface; documents are pushed on write and queried with a hard `company_id` filter; they add typo-tolerance, facets, and synonyms.
+- **`SearchInterface`** (`app/Services/Search/SearchInterface.php`) — the contract: `search(string $index, string $query, array $opts): SearchResult` plus index maintenance hooks `index(string $index, array $doc)`, `delete(string $index, string|int $id)`, `flush(string $index)`. `$opts` carries `workspace_id` (mandatory), `filters`, `sort`, `page`, `perPage`. `$index` is a logical name (`jobs`, `applications`).
+- **`SearchManager`** (`app/Services/Search/SearchManager.php`) — the façade callers use. Resolves the configured driver, **injects the active tenant's `workspace_id`**, normalizes the query, and returns a uniform `SearchResult` (items + total + paging). It is the only thing controllers talk to.
+- **`MysqlFulltextDriver`** — the default. Builds a parameterized `SELECT … WHERE workspace_id = :company AND MATCH(<cols>) AGAINST(:q IN BOOLEAN MODE)` via the `QueryBuilder`, ordered by relevance, with `LIMIT/OFFSET`. Uses the FULLTEXT indexes declared on `jobs` and `applications`.
+- **`MeilisearchDriver` / `ElasticsearchDriver`** (future) — implement the same interface; documents are pushed on write and queried with a hard `workspace_id` filter; they add typo-tolerance, facets, and synonyms.
 - **`SearchResult`** — a small DTO: `items[]`, `total`, `page`, `perPage`, `query`, `tookMs`.
 - **Indexer hooks** — model lifecycle events on `Job`/`Application` call `SearchManager::index()/delete()` so external engines stay in sync; for the MySQL driver this is a no-op because the FULLTEXT index is maintained by the database itself.
 
@@ -57,12 +57,12 @@ flowchart TD
 ### Query flow (MySQL FULLTEXT, default)
 
 1. User submits a query and optional filters (status, department, stage) from a list screen. The controller checks the right permission (`jobs.view` or `applications.view`).
-2. `SearchManager::search('jobs', $q, $opts)` normalizes the term, enforces `min_query_length`, and **sets `$opts['company_id']` from `TenantManager`** (ignoring any client-supplied value).
+2. `SearchManager::search('jobs', $q, $opts)` normalizes the term, enforces `min_query_length`, and **sets `$opts['workspace_id']` from `TenantManager`** (ignoring any client-supplied value).
 3. `MysqlFulltextDriver` builds:
    ```sql
    SELECT *, MATCH(title, description) AGAINST(:q IN BOOLEAN MODE) AS score
    FROM jobs
-   WHERE company_id = :company
+   WHERE workspace_id = :company
      AND status IN (:statuses)            -- optional filters
      AND MATCH(title, description) AGAINST(:q IN BOOLEAN MODE)
    ORDER BY score DESC, published_at DESC
@@ -82,9 +82,9 @@ sequenceDiagram
 
     U->>C: q="senior riyadh", page=1
     C->>S: search("jobs", q, {filters,page})
-    S->>T: active company_id
-    S->>D: search(index, q, opts+company_id)
-    D->>DB: SELECT ... WHERE company_id=? AND MATCH(...) AGAINST(? IN BOOLEAN MODE) LIMIT/OFFSET
+    S->>T: active workspace_id
+    S->>D: search(index, q, opts+workspace_id)
+    D->>DB: SELECT ... WHERE workspace_id=? AND MATCH(...) AGAINST(? IN BOOLEAN MODE) LIMIT/OFFSET
     DB-->>D: ranked rows + score
     D-->>S: SearchResult(items,total,page)
     S-->>C: SearchResult
@@ -93,14 +93,14 @@ sequenceDiagram
 
 ### Indexing flow (for external engines)
 
-1. On create/update of a `Job` or `Application`, the model fires a hook → `SearchManager::index('jobs', $doc)` where `$doc` includes `id`, `company_id`, and the searchable fields.
+1. On create/update of a `Job` or `Application`, the model fires a hook → `SearchManager::index('jobs', $doc)` where `$doc` includes `id`, `workspace_id`, and the searchable fields.
 2. On delete, `SearchManager::delete('jobs', $id)` removes the document.
 3. A reindex command (admin/diagnostics) can `flush()` and rebuild an index from the database — used on engine switch or schema change.
 4. For the **MySQL driver these hooks are no-ops**: FULLTEXT indexes update transactionally with the row, so there is nothing to push.
 
 ## Business Rules
 
-1. **Every search is tenant-scoped.** `company_id` is injected by `SearchManager` from the active tenant and added as a hard filter (or per-tenant index for external engines). A search with no active tenant fails closed (no results / error), never returns cross-tenant rows.
+1. **Every search is tenant-scoped.** `workspace_id` is injected by `SearchManager` from the active tenant and added as a hard filter (or per-tenant index for external engines). A search with no active tenant fails closed (no results / error), never returns cross-tenant rows.
 2. **The engine is pluggable, the API is fixed.** Callers depend only on `SearchInterface`/`SearchManager`; switching to Meilisearch/Elasticsearch is a config change plus a reindex.
 3. **Default searchable fields**: `jobs` → `title`, `description` (with `department`/`location` filterable); `applications` → candidate name (joined from `users`), `cover_letter`, `source`. The searchable map is config-driven so fields can be added without touching drivers.
 4. **Boolean mode** is used for MySQL FULLTEXT so users can do `+required -excluded "exact phrase"`; bare terms are OR-ed and ranked by relevance.
@@ -113,11 +113,11 @@ sequenceDiagram
 
 Search reads existing domain tables; it adds **FULLTEXT indexes**, not new tables:
 
-- **`jobs`** (TENANT, planned #17): FULLTEXT index on `(title, description)`; filtered by `company_id` and `status` (which already has `KEY (company_id, status)`).
-- **`applications`** (TENANT, planned #19): FULLTEXT index on `(cover_letter)` and a join to `users(name)` for candidate-name search; filtered by `company_id`, `job_id`, `status`, `current_stage_id` (covered by `KEY (company_id, job_id, status, current_stage_id)`).
-- **`users`** (GLOBAL): joined for candidate name on application search; matching is still constrained to the tenant via the `applications.company_id` filter, so global `users` rows are only reachable through a tenant's applications.
+- **`jobs`** (TENANT, planned #17): FULLTEXT index on `(title, description)`; filtered by `workspace_id` and `status` (which already has `KEY (workspace_id, status)`).
+- **`applications`** (TENANT, planned #19): FULLTEXT index on `(cover_letter)` and a join to `users(name)` for candidate-name search; filtered by `workspace_id`, `job_id`, `status`, `current_stage_id` (covered by `KEY (workspace_id, job_id, status, current_stage_id)`).
+- **`users`** (GLOBAL): joined for candidate name on application search; matching is still constrained to the tenant via the `applications.workspace_id` filter, so global `users` rows are only reachable through a tenant's applications.
 
-These FULLTEXT indexes are declared in the `jobs`/`applications` migrations (see [06-ERD.md](06-ERD.md)). MySQL maintains them transactionally with row writes. For external engines, the per-tenant documents mirror these fields plus `company_id`.
+These FULLTEXT indexes are declared in the `jobs`/`applications` migrations (see [06-ERD.md](06-ERD.md)). MySQL maintains them transactionally with row writes. For external engines, the per-tenant documents mirror these fields plus `workspace_id`.
 
 ## Permissions
 
@@ -126,8 +126,8 @@ Search inherits the permission model of the data it searches (see [07-RBAC.md](0
 - **Job search** requires `jobs.view`.
 - **Application search** requires `applications.view`.
 - **Candidate self-service** searching their own applications is gated by `candidate.profile`/`candidate.apply` and scoped to their own `user_id`.
-- **Super admin** platform-wide search (across tenants) is a distinct capability under `platform.*` and uses `withoutTenantScope()`; it is the only path that may omit the `company_id` filter and is never reachable by tenant users.
-- Regardless of permission, the tenant `company_id` filter is always applied for tenant users.
+- **Super admin** platform-wide search (across tenants) is a distinct capability under `platform.*` and uses `withoutTenantScope()`; it is the only path that may omit the `workspace_id` filter and is never reachable by tenant users.
+- Regardless of permission, the tenant `workspace_id` filter is always applied for tenant users.
 
 ## Validation
 
@@ -140,7 +140,7 @@ Search inherits the permission model of the data it searches (see [07-RBAC.md](0
 
 ## Edge Cases
 
-1. **No active tenant** → `SearchManager` refuses to run a tenant search (fail closed); only `platform.*` paths may search without a `company_id`.
+1. **No active tenant** → `SearchManager` refuses to run a tenant search (fail closed); only `platform.*` paths may search without a `workspace_id`.
 2. **Empty / too-short query** → return an empty result with a hint, or a simple recent/filtered list, rather than a full scan.
 3. **MySQL FULLTEXT min token length** (`innodb_ft_min_token_size`, default 3) means very short tokens may not match; the driver falls back to a prefix `LIKE` on the indexed column for such tokens and documents the limitation.
 4. **Stopwords** — common words may be ignored by FULLTEXT; boolean mode and the prefix fallback mitigate this for the buyer's default install.
@@ -152,7 +152,7 @@ Search inherits the permission model of the data it searches (see [07-RBAC.md](0
 
 ## Security
 
-- **Tenant isolation is the top search threat**; it is mitigated by injecting `company_id` inside `SearchManager` (clients cannot override it) and, for external engines, per-tenant indexes or mandatory `company_id` filters ([08-Multi-Tenant.md](08-Multi-Tenant.md)).
+- **Tenant isolation is the top search threat**; it is mitigated by injecting `workspace_id` inside `SearchManager` (clients cannot override it) and, for external engines, per-tenant indexes or mandatory `workspace_id` filters ([08-Multi-Tenant.md](08-Multi-Tenant.md)).
 - **SQL injection** is prevented by always binding the query and filter values as parameters through `QueryBuilder` — even FULLTEXT `AGAINST(:q ...)` uses a placeholder.
 - **No information leakage**: search honors per-record permissions/visibility, so a user cannot infer the existence of records they may not see.
 - **DoS resistance**: minimum length, page caps, and (optionally) rate limiting on the search endpoint via `ThrottleRequests` prevent expensive query floods.
@@ -162,17 +162,17 @@ Search inherits the permission model of the data it searches (see [07-RBAC.md](0
 ## Performance
 
 - **FULLTEXT indexes** turn free-text search from an O(n) `LIKE '%...%'` scan into an index lookup; they are the core performance lever for the default driver.
-- **Composite filter indexes** already on `jobs (company_id, status)` and `applications (company_id, job_id, status, current_stage_id)` let the `company_id`/status filters use indexes alongside the FULLTEXT match.
+- **Composite filter indexes** already on `jobs (workspace_id, status)` and `applications (workspace_id, job_id, status, current_stage_id)` let the `workspace_id`/status filters use indexes alongside the FULLTEXT match.
 - **Pagination** (`LIMIT/OFFSET`) bounds every response; deep paging can later move to keyset pagination if needed.
-- **Result/count caching**: identical (tenant, query, filters, page) tuples can be cached briefly to absorb repeated typing/paging; cache keys include `company_id` so tenants never share cached results.
+- **Result/count caching**: identical (tenant, query, filters, page) tuples can be cached briefly to absorb repeated typing/paging; cache keys include `workspace_id` so tenants never share cached results.
 - **Query budget**: search endpoints target a small, indexed query count (one search + one count, optionally cached); N+1 is avoided by joining `users` for candidate names instead of per-row lookups.
 - **Offload at scale**: moving to Meilisearch/Elasticsearch removes search load from the primary MySQL, adds typo-tolerance/faceting, and scales horizontally — all behind the same `SearchInterface`.
 - **Async indexing** for external engines runs through `queued_jobs` so writes are not slowed by index pushes.
 
 ## Testing
 
-- **Unit**: `SearchManager` always injects the active `company_id` and ignores client-supplied tenant ids; query normalization and boolean-mode sanitization behave as specified; `min_query_length` fallback works.
-- **Driver**: `MysqlFulltextDriver` builds a parameterized `MATCH … AGAINST` with the `company_id` filter and correct ordering/paging; future `Meilisearch`/`Elasticsearch` drivers satisfy the same `SearchInterface` contract tests.
+- **Unit**: `SearchManager` always injects the active `workspace_id` and ignores client-supplied tenant ids; query normalization and boolean-mode sanitization behave as specified; `min_query_length` fallback works.
+- **Driver**: `MysqlFulltextDriver` builds a parameterized `MATCH … AGAINST` with the `workspace_id` filter and correct ordering/paging; future `Meilisearch`/`Elasticsearch` drivers satisfy the same `SearchInterface` contract tests.
 - **Feature**: searching `jobs`/`applications` returns relevant, ranked, paginated results; filters (status/department/stage) narrow correctly; empty query returns a sensible empty/recent result.
 - **Security/isolation**: a user in company A never receives company B's jobs/applications via search (including via the `users` join); search with no active tenant fails closed; injection-style queries are safely parameterized; result fields are escaped.
 - **i18n**: Arabic queries return expected matches after normalization; RTL terms work; the documented FULLTEXT min-token/stopword limitations are covered by the prefix fallback test.

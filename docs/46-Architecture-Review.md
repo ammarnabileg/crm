@@ -77,7 +77,7 @@ documentation-first delivery.
 |---|----------|---------|------------|
 | 1 | Medium | `35-Performance`, `36-Scalability`, `37-Logging` were missing the mandatory **Security** section (§15). | Added a substantive, topic-specific Security section to each (resource-exhaustion/DoS, cache isolation, secrets across nodes, log redaction, etc.). Re-verified: all docs now have 15/15 headings. |
 | 2 | Low (false positive) | `applications.score` appeared outside the permission catalogue. | Confirmed it is the `applications.score` **column**, not a permission. No change needed. |
-| 3 | Low (false positive) | Granular `roles.create/update/delete/assign/revoke`, `company.suspend` outside the catalogue. | Confirmed these are **audit action keys** in [38-Audit-System](38-Audit-System.md) (gated by the real `roles.manage`/`company.update` permissions). No change needed. |
+| 3 | Low (false positive) | Granular `roles.create/update/delete/assign/revoke`, `company.suspend` outside the catalogue. | Confirmed these are **audit action keys** in [38-Audit-System](38-Audit-System.md) (gated by the real `roles.manage`/`workspace.update` permissions). No change needed. |
 | 4 | Low | `platform.broadcast` referenced as a possible permission. | Already hedged in-doc as "if added", with `platform.diagnostics` as the current gate. Left as a documented future option. |
 
 No contradictions, no broken links, and no enum/role drift were found beyond the
@@ -94,8 +94,8 @@ and [06-ERD](06-ERD.md). Findings:
 - Foreign-key on-delete behaviour is consistent across docs (`CASCADE` for child
   rows, `SET NULL` for optional refs, `RESTRICT` for `companies.owner_id` and
   `subscriptions.plan_id`).
-- Every tenant-scoped table carries an indexed `company_id`; per-company
-  uniqueness (e.g. `UNIQUE(company_id, slug)`, `UNIQUE(company_id, provider)`) is
+- Every tenant-scoped table carries an indexed `workspace_id`; per-company
+  uniqueness (e.g. `UNIQUE(workspace_id, slug)`, `UNIQUE(workspace_id, provider)`) is
   used consistently.
 - No document references a table or column absent from the ERD; column-style
   tokens that resemble permissions (e.g. `applications.score`,
@@ -140,8 +140,8 @@ files pass.
 1. **Row-level tenancy is only as strong as query discipline.** The fail-closed
    model protects model-routed queries, but the raw builder (`app('db')->table()`)
    bypasses scoping by design (used in `CompanyService`/`RbacManager` with
-   explicit `company_id`). A future contributor using the raw builder on a tenant
-   table without a `company_id` filter would leak. Mitigation exists
+   explicit `workspace_id`). A future contributor using the raw builder on a tenant
+   table without a `workspace_id` filter would leak. Mitigation exists
    ([41](41-Coding-Standards.md)/[42](42-Code-Review-Checklist.md) make this a
    blocking review item), but it is a discipline control, not a compiler
    guarantee.
@@ -244,8 +244,8 @@ without a rewrite:
 - **Years 1–2 (1,000s):** make the tier stateless (sessions/cache/rate-limiter
   to a shared store), scale web nodes behind a load balancer, add a read replica,
   move files to object storage, run dedicated queue workers.
-- **Years 2–5 (10,000s):** shard by `company_id`. Because tenancy is already
-  keyed on `company_id` end-to-end, sharding is an infrastructure/routing change,
+- **Years 2–5 (10,000s):** shard by `workspace_id`. Because tenancy is already
+  keyed on `workspace_id` end-to-end, sharding is an infrastructure/routing change,
   not a data-model change — the single most important reason the current design
   is 5-year-viable. Search and analytics move to dedicated engines
   ([28](28-Search-System.md)) behind their existing interfaces.

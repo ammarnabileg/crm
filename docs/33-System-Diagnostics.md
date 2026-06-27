@@ -124,7 +124,7 @@ Diagnostics mostly probes infrastructure, but it reads/writes a few tables from 
 - `migrations` — read for applied-vs-pending count (the `db` check and the environment report).
 - `queued_jobs` (planned) — read for backlog depth and the queue heartbeat freshness.
 - `failed_jobs` (planned) — read for the failed-job count; auto-fix may retry/flush rows.
-- `activity_log` — written on every auto-fix (`company_id` NULL for platform actions, `action='diagnostics.fix'`, the check key in `properties`).
+- `activity_log` — written on every auto-fix (`workspace_id` NULL for platform actions, `action='diagnostics.fix'`, the check key in `properties`).
 - `settings` / a `storage/framework` heartbeat file — read for the cron/queue last-tick timestamps and any diagnostics thresholds.
 
 No new table is required; heartbeats can be stored as a small JSON file under `storage/framework/` or as platform-level `settings` keys.

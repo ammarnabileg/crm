@@ -9,7 +9,7 @@ End-to-end specification for how a **job posting** (`jobs`) is created, configur
 - [23 — Interview Workflow](23-Interview-Workflow.md) — interviews are attached to applications on a job.
 - [06 — ERD](06-ERD.md) — full entity-relationship view of `jobs` / `pipeline_stages`.
 - [11 — Permissions Matrix](11-Permissions-Matrix.md) — the `jobs.*` permission keys used here.
-- [08 — Multi-Tenant](08-Multi-Tenant.md) — `company_id` scoping that isolates every job.
+- [08 — Multi-Tenant](08-Multi-Tenant.md) — `workspace_id` scoping that isolates every job.
 - [02 — Business Rules](02-Business-Rules.md) — global recruitment business rules.
 
 ---
@@ -59,7 +59,7 @@ flowchart LR
 | `PipelineStage` model (`app/Models/PipelineStage.php`, planned) | Tenant-scoped; ordered by `sort_order`. |
 | Public careers controller (`app/Controllers/Public/CareersController.php`, planned) | Renders open jobs via `withoutTenantScope()` filtered explicitly by the requested company slug — the one place a job is read outside the logged-in tenant context, still company-bounded. |
 
-The `Job` model follows the same shape as `app/Models/Membership.php`: `protected static bool $tenantScoped = true;` so `Job::query()` automatically appends `WHERE company_id = :active` and fails closed when no tenant is active.
+The `Job` model follows the same shape as `app/Models/Membership.php`: `protected static bool $tenantScoped = true;` so `Job::query()` automatically appends `WHERE workspace_id = :active` and fails closed when no tenant is active.
 
 ## 4. Workflow
 
@@ -137,7 +137,7 @@ When an application transitions to `hired` (see [25 — Application Lifecycle](2
 6. `reopen` (from `closed`) requires both `jobs.update` and `jobs.publish`; it returns the job to `open` and re-exposes it publicly.
 7. `archive` is a soft retirement: archived jobs are hidden from all default lists, are read-only, and cannot be reopened (must be cloned instead).
 8. `openings` must be `>= 1`. "Remaining openings" = `openings − hired count`; it may reach 0 but the job is not force-closed automatically.
-9. A job's `slug` is unique per company (`UQ(company_id, slug)`), generated from the title and de-collided with a numeric suffix.
+9. A job's `slug` is unique per company (`UQ(workspace_id, slug)`), generated from the title and de-collided with a numeric suffix.
 10. Deleting (hard) a job is **not** a normal operation; `jobs.delete` performs *archive*. True deletion is reserved for super-admin tooling and cascades to applications/interviews/evaluations via FK `ON DELETE CASCADE`.
 11. A job must have at least one `pipeline_stage` of type `applied` and one terminal stage (`hired` or `rejected`) before it can be published.
 12. Every status transition writes an `activity_log` entry (`action` = `job.published`, `job.paused`, `job.closed`, `job.reopened`, `job.archived`, `job.cloned`).
@@ -150,9 +150,9 @@ Primary table — **`jobs`** (tenant, planned #17):
 | Column | Type / Notes |
 | --- | --- |
 | `id` | BIGINT UNSIGNED PK |
-| `company_id` | FK → `companies(id)` ON DELETE CASCADE, indexed (tenant scope) |
+| `workspace_id` | FK → `companies(id)` ON DELETE CASCADE, indexed (tenant scope) |
 | `title`, `description` | VARCHAR / TEXT |
-| `slug` | VARCHAR — `UQ(company_id, slug)` |
+| `slug` | VARCHAR — `UQ(workspace_id, slug)` |
 | `department`, `location` | VARCHAR NULL |
 | `employment_type` | ENUM(`full_time`,`part_time`,`contract`,`intern`,`remote`) |
 | `status` | ENUM(`draft`,`open`,`paused`,`closed`,`archived`) DEFAULT `draft` |
@@ -163,12 +163,12 @@ Primary table — **`jobs`** (tenant, planned #17):
 | `published_at`, `closed_at` | TIMESTAMP NULL |
 | `created_at`, `updated_at` | TIMESTAMP NULL |
 
-Indexes: `UQ(company_id, slug)`, `IDX(company_id, status)` (drives both the dashboard job list and the careers-page query).
+Indexes: `UQ(workspace_id, slug)`, `IDX(workspace_id, status)` (drives both the dashboard job list and the careers-page query).
 
 Related tables:
 
-- **`pipeline_stages`** (#18): `job_id` → `jobs(id)` ON DELETE CASCADE; `job_id = NULL` rows are the **company default template** cloned into every new job. `type` ENUM(`applied`,`screening`,`interview`,`offer`,`hired`,`rejected`); ordered by `sort_order`. `IDX(company_id, job_id)`.
-- **`applications`** (#19): `job_id` → `jobs(id)` ON DELETE CASCADE. The `UQ(company_id, job_id, user_id)` constraint enforces one application per candidate per job.
+- **`pipeline_stages`** (#18): `job_id` → `jobs(id)` ON DELETE CASCADE; `job_id = NULL` rows are the **company default template** cloned into every new job. `type` ENUM(`applied`,`screening`,`interview`,`offer`,`hired`,`rejected`); ordered by `sort_order`. `IDX(workspace_id, job_id)`.
+- **`applications`** (#19): `job_id` → `jobs(id)` ON DELETE CASCADE. The `UQ(workspace_id, job_id, user_id)` constraint enforces one application per candidate per job.
 - **`interviews`** (#21) and **`evaluations`** (#26) reference `job_id` / `application_id` and cascade from the job.
 
 ## 7. Permissions
@@ -202,7 +202,7 @@ Policy gates (`AccessControl::define`) add context: a `hiring-manager` may `jobs
 ## 9. Edge Cases
 
 - **Publish with empty pipeline** → blocked with a validation error pointing at pipeline configuration.
-- **Two recruiters create the same slug concurrently** → DB `UQ(company_id, slug)` rejects the second; service catches the duplicate-key error and retries with an incremented suffix.
+- **Two recruiters create the same slug concurrently** → DB `UQ(workspace_id, slug)` rejects the second; service catches the duplicate-key error and retries with an incremented suffix.
 - **Applicant submits to a job that was paused/closed mid-session** → application endpoint re-checks `status = open` at write time and returns a friendly "this position is no longer accepting applications" error.
 - **Closing a job with open interviews** → allowed; interviews and decisions continue. Closing only stops *new* applications and public exposure.
 - **Deleting a pipeline stage that has applications** → blocked; the user must first move applications to another stage (`PipelineService` checks `applications.current_stage_id`).
@@ -212,7 +212,7 @@ Policy gates (`AccessControl::define`) add context: a `hiring-manager` may `jobs
 
 ## 10. Security
 
-- Every read/write goes through the tenant-scoped `Job` model → automatic `company_id` filter, fail-closed when no tenant (per `app/Core/Model.php`).
+- Every read/write goes through the tenant-scoped `Job` model → automatic `workspace_id` filter, fail-closed when no tenant (per `app/Core/Model.php`).
 - The careers page is the only unauthenticated read path; it uses `withoutTenantScope()` but **must** bind to the resolved company id from the requested slug and `status = open`, never returning drafts, paused, closed, archived, or other tenants' jobs.
 - All state-changing routes are POST with CSRF tokens (`csrf_field()`), gated by `permission:` middleware.
 - Status is never mass-assigned from request input (kept out of `$fillable`-driven create paths for client data); transitions are explicit service calls — prevents a forged `status=open` field from bypassing publish rules.
@@ -220,7 +220,7 @@ Policy gates (`AccessControl::define`) add context: a `hiring-manager` may `jobs
 
 ## 11. Performance
 
-- `IDX(company_id, status)` makes both the tenant job list (`WHERE company_id=? AND status=?`) and the careers-page query covering and fast.
+- `IDX(workspace_id, status)` makes both the tenant job list (`WHERE workspace_id=? AND status=?`) and the careers-page query covering and fast.
 - Job lists are paginated via `QueryBuilder::paginate`.
 - The careers page is a high-traffic public hot path: cache the rendered open-jobs list per company with a short TTL, invalidated on any job transition.
 - `pipeline_stages` are few per job (typically 4–7) and eager-loaded in a single `WHERE job_id IN (...)` query to avoid N+1 when rendering a job board.

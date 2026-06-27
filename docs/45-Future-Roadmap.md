@@ -60,7 +60,7 @@ sequenceDiagram
 The roadmap is constrained by the platform's invariants (full list in [02-Business-Rules](02-Business-Rules.md)):
 
 - Every new capability is expressed as roles/permissions, never a user-type column (BR-001, BR-060).
-- Every tenant feature scopes by `company_id` and fails closed (BR-040).
+- Every tenant feature scopes by `workspace_id` and fails closed (BR-040).
 - New AI providers are additive behind the provider interface (BR-163).
 - New payment gateways are additive behind the gateway interface (BR-182) and never hard-coded.
 - Plans/limits stay data-driven so monetization changes need no migrations (BR-070, BR-074).
@@ -84,7 +84,7 @@ Row-level tenant isolation (fail-closed in `app/Core/Model.php`), the single `us
 - Backed entirely by existing tables; no schema changes for the core flows.
 
 #### Phase 5 — Tenant AI provider layer (settings UI)
-- Settings screens to add/rotate per-tenant credentials in `ai_credentials` (encrypted AES-256-GCM), choose a default per provider (`(company_id, provider)` unique), and test connectivity (`ai.view/manage`).
+- Settings screens to add/rotate per-tenant credentials in `ai_credentials` (encrypted AES-256-GCM), choose a default per provider (`(workspace_id, provider)` unique), and test connectivity (`ai.view/manage`).
 - Implements provider classes behind `AiProviderInterface` for OpenAI, Anthropic, Gemini, DeepSeek, Azure OpenAI, and HeyGen. See [17-AI-Providers](17-AI-Providers.md).
 
 #### Phase 6 — Recruitment domain & AI interview engine
@@ -126,8 +126,8 @@ Row-level tenant isolation (fail-closed in `app/Core/Model.php`), the single `us
 
 The roadmap adds tables in dependency order; all are already specified as **planned** in [05-Database-Architecture](05-Database-Architecture.md) and [06-ERD](06-ERD.md):
 
-- Phase 6 introduces the recruitment cluster, all tenant-scoped (`company_id` FK + index): `jobs` → `applications` (`UNIQUE(company_id, job_id, user_id)`) → `interviews` → `evaluations`, with `application_events` for audit and `ai_interview_sessions` for AI runs.
-- Phase 7 introduces the billing cluster: `invoices` (`UNIQUE(number)`), `payments` (`IDX(company_id, gateway_reference)`), `payment_methods`, and the webhook log `gateway_events` (`IDX(gateway, reference)`).
+- Phase 6 introduces the recruitment cluster, all tenant-scoped (`workspace_id` FK + index): `jobs` → `applications` (`UNIQUE(workspace_id, job_id, user_id)`) → `interviews` → `evaluations`, with `application_events` for audit and `ai_interview_sessions` for AI runs.
+- Phase 7 introduces the billing cluster: `invoices` (`UNIQUE(number)`), `payments` (`IDX(workspace_id, gateway_reference)`), `payment_methods`, and the webhook log `gateway_events` (`IDX(gateway, reference)`).
 - Phase 8 introduces `api_tokens` (`token_hash` unique) and the queue tables `queued_jobs`/`failed_jobs`.
 - No phase modifies a built table's identity; additions are new columns/tables only, preserving migration history.
 
@@ -144,7 +144,7 @@ Each phase adds only data-driven permissions to `config/rbac.php`, consistent wi
 
 Roadmap-level guardrails before any phase is accepted:
 
-- New tables follow schema conventions (InnoDB, utf8mb4, FK + index on `company_id`, per-company uniqueness where relevant).
+- New tables follow schema conventions (InnoDB, utf8mb4, FK + index on `workspace_id`, per-company uniqueness where relevant).
 - New permissions are actually enforced somewhere (no unused permissions, BR-066).
 - New providers/gateways register without touching unrelated code (additive, BR-163/BR-182).
 - New features render in both LTR and RTL and pass the [40-QA-Checklist](40-QA-Checklist.md).

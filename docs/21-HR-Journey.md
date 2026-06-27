@@ -37,19 +37,19 @@ HR works in the authenticated staff shell (`resources/views/layouts/app.php`); t
 
 | Concern | Component | Notes |
 |---|---|---|
-| Company profile/settings | `App\Controllers\App\CompanyController` (+ settings, planned) | `company.*`, `settings.*`. |
-| Members & invitations | `App\Controllers\App\MemberController` (planned) | `members.*`; manages `memberships` + `membership_role`. |
-| Roles & permissions | `App\Controllers\App\RoleController` (planned) | `roles.*`; edits `roles`/`permission_role` (data-driven, §6). |
+| Company profile/settings | `App\Controllers\App\WorkspaceController` (+ settings, planned) | `workspace.*`, `settings.*`. |
+| Members & invitations | `App\Controllers\App\MemberController` (planned) | `members.*`; manages `memberships` + `membership_roles`. |
+| Roles & permissions | `App\Controllers\App\RoleController` (planned) | `roles.*`; edits `roles`/`role_permissions` (data-driven, §6). |
 | Oversight of jobs/apps | reuses `Job`/`Application` models (read) | `jobs.view`, `applications.view` across the tenant. |
 | Reports | `App\Controllers\App\ReportController` (planned) | Aggregates over recruitment + activity data. |
-| AI oversight | `App\Services\AI\AiProviderManager` + `ai_credentials` | `ai.view`/`ai.manage`. |
+| AI oversight | `App\Services\AI\AiProviderManager` + `tenant_ai_keys` | `ai.view`/`ai.manage`. |
 | Billing visibility | reads `subscriptions`/`invoices` | `billing.view` (not `billing.manage` by default). |
 | Audit | `ActivityLog` model (§38) | HR reviews actor/subject/ip history. |
 
 Architectural decisions:
 
 - **HR is a tenant role, fully data-driven** in `config/rbac.php`. Its permission set is editable per company; nothing in code says "if HR." Effective permissions resolve through `AccessControl` (§6).
-- **Oversight reads are tenant-scoped automatically** — `Job`/`Application` models add `WHERE company_id` and fail closed (§4). HR sees *all* of its company's recruitment data and *none* of any other company's.
+- **Oversight reads are tenant-scoped automatically** — `Job`/`Application` models add `WHERE workspace_id` and fail closed (§4). HR sees *all* of its company's recruitment data and *none* of any other company's.
 - **Role editing respects system flags.** `roles.is_system` (Owner, Admin, Member, and the recruitment system roles) cannot be deleted; HR can create/edit custom roles and assign permissions from the catalogue (§6).
 - **Billing is view-by-default for HR.** `billing.manage` (changing plans, ownership) stays with the Owner; HR sees status/invoices so they can flag issues without being able to alter the subscription.
 
@@ -85,10 +85,10 @@ flowchart TD
     E -->|members.invite| F[Invite -> membership status=invited]
     F --> G[Invitation email/notification]
     G -->|invitee accepts| H[membership status=active]
-    E -->|members.update| I[Assign/change membership_role]
+    E -->|members.update| I[Assign/change membership_roles]
     E -->|members.remove| J[Remove member -> membership deleted/suspended]
     B -->|ai.view| K[AI Settings /ai]
-    K -->|ai.manage| L[Add/update ai_credentials - encrypted]
+    K -->|ai.manage| L[Add/update tenant_ai_keys - encrypted]
     A -->|jobs.view + applications.view| M[Oversight: all jobs & pipelines]
     M --> N[Reports /reports]
     A -->|billing.view| O[Billing status & invoices - read]
@@ -98,7 +98,7 @@ flowchart TD
 
 | Step | Page | Permission |
 |---|---|---|
-| Company settings | `/settings`, `/company` | `settings.view`/`settings.manage`, `company.view`/`company.update` |
+| Company settings | `/settings`, `/workspace` | `settings.view`/`settings.manage`, `workspace.view`/`workspace.update` |
 | Roles | `/roles`, `/roles/{id}/edit` | `roles.view` / `roles.manage` |
 | Members | `/members` | `members.view` |
 | Invite member | `/members/invite` | `members.invite` |
@@ -113,33 +113,33 @@ flowchart TD
 
 ## Business Rules
 
-1. HR can view and edit **company profile and settings** (`company.update`, `settings.manage`) but cannot change the subscription plan or transfer ownership (those require `billing.manage` / owner).
+1. HR can view and edit **company profile and settings** (`workspace.update`, `settings.manage`) but cannot change the subscription plan or transfer ownership (those require `billing.manage` / owner).
 2. **Invitations** create a `memberships` row with `status='invited'`, `invited_by`, `invited_at`; acceptance flips it to `active` and sets `joined_at`. A pending invite to an existing platform user links to their account; a brand-new email provisions a user on acceptance (§7).
-3. **Role assignment** attaches `membership_role` rows; a member may hold multiple roles, and effective permissions are the union expanded up `parent_id` (§6).
+3. **Role assignment** attaches `membership_roles` rows; a member may hold multiple roles, and effective permissions are the union expanded up `parent_id` (§6).
 4. **System roles** (`is_system=1`: owner, admin, member, and recruitment system roles) cannot be deleted or have their slug changed; HR may create custom roles and assign any permission from the catalogue.
 5. HR **cannot remove or demote the Owner**, and cannot remove themselves if doing so would leave the company without an Owner (owner protection).
 6. HR has **company-wide oversight**: it can view every job and application in the tenant regardless of which recruiter created them, but performing pipeline actions still requires the corresponding `applications.*`/`interviews.*` permissions.
-7. **AI oversight**: HR can add/update `ai_credentials` (encrypted, one row per provider, §9); switching the default provider affects all subsequent AI interviews. HR never sees plaintext stored keys after save.
+7. **AI oversight**: HR can add/update `tenant_ai_keys` (encrypted, one row per provider, §9); switching the default provider affects all subsequent AI interviews. HR never sees plaintext stored keys after save.
 8. **Billing visibility**: HR sees subscription status, trial end, and invoices read-only; changing plans is escalated to the Owner.
-9. All HR administrative actions (invite, role change, removal, settings change, AI credential change) are written to `activity_log` for audit (§38).
+9. All HR administrative actions (invite, role change, removal, settings change, AI credential change) are written to `activity_logs` for audit (§38).
 10. Everything HR does is **scoped to the active company**; switching companies (topbar) changes the entire administrative context.
 
 ## Database Relations
 
 Consistent with §11:
 
-- **companies** (GLOBAL/tenant root) — `name`, `slug`, `owner_id`, `logo`, `locale`, `timezone`, `status[trial|active|suspended|canceled]`, `settings JSON`. HR edits profile fields; cannot change `owner_id`.
-- **memberships** (tenant) — `company_id`, `user_id`, `status[active|invited|suspended]`, `title`, `invited_by`→users, `invited_at`, `joined_at`. `UQ(company_id, user_id)`, `IDX(user_id, status)`.
-- **roles** (tenant) — `company_id`, `parent_id`, `name`, `slug`, `description`, `is_system`, `priority`. `UQ(company_id, slug)`, `IDX(parent_id)`.
-- **permissions** (GLOBAL) + **permission_role** — the catalogue and role grants HR edits via the role editor.
-- **membership_role** — links members to roles (HR assigns).
+- **workspaces** (GLOBAL/tenant root) — `name`, `slug`, `owner_id`, `logo`, `locale`, `timezone`, `workspace_status_id`→`workspace_statuses` (trial/active/suspended/canceled), `settings JSON`. HR edits profile fields; cannot change `owner_id`.
+- **memberships** (tenant) — `workspace_id`, `user_id`, `membership_status_id`→`lookup_values` (active/invited/suspended), `title`, `invited_by`→users, `invited_at`, `joined_at`. `UQ(workspace_id, user_id)`, `IDX(user_id, status)`.
+- **roles** (tenant) — `workspace_id`, `parent_id`, `name`, `slug`, `description`, `is_system`, `priority`. `UQ(workspace_id, slug)`, `IDX(parent_id)`.
+- **permissions** (GLOBAL) + **role_permissions** — the catalogue and role grants HR edits via the role editor.
+- **membership_roles** — links members to roles (HR assigns).
 - **settings** (tenant) — `key`/`value` per company; HR manages.
-- **ai_credentials** (tenant) — `provider`, `label`, `credentials` (encrypted), `meta`, `is_active`, `is_default`. `UQ(company_id, provider)`.
-- **subscriptions** (tenant) — read for billing visibility; `status`, `trial_ends_at`, `plan_id`.
+- **tenant_ai_keys** (tenant) — `provider`, `label`, `credentials` (encrypted), `meta`, `is_active`, `is_default`. `UQ(workspace_id, provider)`.
+- **subscriptions** (tenant) — read for billing visibility; `subscription_status_id`→`subscription_statuses`, `trial_ends_at`, `plan_id`.
 - **invoices** (tenant) — read-only list for HR; `number`, `status`, `total`, `due_at`, `paid_at`.
 - **jobs** / **applications** / **interviews** / **evaluations** (tenant) — read for oversight; actions need module permissions.
 - **onboarding_progress** — HR onboarding (`flow='hr-manager'`).
-- **activity_log** — HR reviews; every HR action recorded with actor/subject/ip.
+- **activity_logs** — HR reviews; every HR action recorded with actor/subject/ip.
 
 ## Permissions
 
@@ -153,8 +153,8 @@ Gated primarily by `members.*`, `roles.*`, `settings.*`, plus oversight read per
 | Remove members | `members.remove` |
 | View roles | `roles.view` |
 | Create/edit/delete custom roles | `roles.manage` |
-| View company | `company.view` |
-| Edit company profile | `company.update` |
+| View company | `workspace.view` |
+| Edit company profile | `workspace.update` |
 | View settings | `settings.view` |
 | Manage settings | `settings.manage` |
 | View AI providers | `ai.view` |
@@ -163,14 +163,14 @@ Gated primarily by `members.*`, `roles.*`, `settings.*`, plus oversight read per
 | Oversee jobs | `jobs.view` |
 | Oversee applications | `applications.view` |
 
-The default `hr-manager` tenant role (data-driven in `config/rbac.php`) maps to all of the above: `dashboard.view`, `company.view/update`, `members.view/invite/update/remove`, `roles.view/manage`, `settings.view/manage`, `ai.view/manage`, `billing.view`, plus oversight `jobs.view`/`applications.view` and `notifications.view`. It deliberately **excludes** `billing.manage` and ownership transfer (Owner-only). Policy gates (`AccessControl::define`) protect the Owner from removal/demotion and prevent self-lockout. Super admins bypass checks but operate via the platform path (§22).
+The default `hr-manager` tenant role (data-driven in `config/rbac.php`) maps to all of the above: `dashboard.view`, `workspace.view/update`, `members.view/invite/update/remove`, `roles.view/manage`, `settings.view/manage`, `ai.view/manage`, `billing.view`, plus oversight `jobs.view`/`applications.view` and `notifications.view`. It deliberately **excludes** `billing.manage` and ownership transfer (Owner-only). Policy gates (`AccessControl::define`) protect the Owner from removal/demotion and prevent self-lockout. Super admins bypass checks but operate via the platform path (§22).
 
 ## Validation
 
 - **Company profile**: `name required|min:2|max:150`; `locale in:en,ar`; `timezone` valid IANA zone; `logo nullable|image|max:2MB`; `slug` unique per platform (auto-managed).
-- **Invitation**: `email required|email|max:190`; `role_id exists:roles,id` and the role must belong to this company; cannot invite an already-active member (caught by `UQ(company_id, user_id)`).
+- **Invitation**: `email required|email|max:190`; `role_id exists:roles,id` and the role must belong to this company; cannot invite an already-active member (caught by `UQ(workspace_id, user_id)`).
 - **Role create/edit**: `name required|min:2|max:80`; `slug` unique per company; `permissions[]` each `exists:permissions,key`; cannot edit `is_system` slug; `parent_id` must be a role in the same company and must not create a cycle.
-- **AI credential**: `provider in:openai,anthropic,gemini,deepseek,azure,heygen`; `credentials` validated by the provider adapter before save; stored encrypted (AES-256-GCM, §9); `UQ(company_id, provider)`.
+- **AI credential**: `provider in:openai,anthropic,gemini,deepseek,azure,heygen`; `credentials` validated by the provider adapter before save; stored encrypted (AES-256-GCM, §9); `UQ(workspace_id, provider)`.
 - **Settings**: per-key validation against the settings schema.
 - CSRF on all writes; server-side validation authoritative.
 
@@ -188,22 +188,22 @@ The default `hr-manager` tenant role (data-driven in `config/rbac.php`) maps to 
 
 ## Security
 
-- **Tenant isolation**: all HR data access is tenant-scoped and fails closed; HR cannot read or modify another company's members/roles/settings/AI even by id (model-layer `WHERE company_id` + `abort(403)`).
+- **Tenant isolation**: all HR data access is tenant-scoped and fails closed; HR cannot read or modify another company's members/roles/settings/AI even by id (model-layer `WHERE workspace_id` + `abort(403)`).
 - **Privilege boundaries**: HR holds administrative-but-not-ownership power; `billing.manage` and ownership transfer are withheld so a compromised HR account cannot change the plan or seize ownership.
 - **System-role protection**: `is_system` roles cannot be deleted/renamed; the role editor only offers catalogue permissions (no arbitrary strings), preventing privilege injection.
 - **AI key confidentiality**: credentials encrypted at rest (AES-256-GCM); never returned in plaintext after save; decrypted only server-side at call time (§9).
 - **CSRF** on invites, role edits, removals, settings, AI changes.
-- **Audit**: every administrative mutation logged to `activity_log` with actor, subject, ip — supporting insider-threat detection and compliance (§38).
+- **Audit**: every administrative mutation logged to `activity_logs` with actor, subject, ip — supporting insider-threat detection and compliance (§38).
 - **Anti-lockout**: owner/last-admin protection prevents accidental or malicious removal of the only privileged account.
 - **Input escaping** (`e()`) on all rendered company/member-supplied text.
 
 ## Performance
 
-- Member lists read by `IDX(user_id, status)` / `UQ(company_id, user_id)` with pagination; roles joined once to avoid N+1 on the members table.
-- Role editor loads the permission catalogue (`permissions`, indexed by `group`) once; grant toggles diff against `permission_role`.
+- Member lists read by `IDX(user_id, status)` / `UQ(workspace_id, user_id)` with pagination; roles joined once to avoid N+1 on the members table.
+- Role editor loads the permission catalogue (`permissions`, indexed by `module_id` → `system_modules`) once; grant toggles diff against `role_permissions`.
 - Oversight dashboards aggregate `applications`/`jobs` by their composite indexes; heavy reports run on the queue (`queued_jobs`, §12) and cache results where safe.
 - AI credential reads are infrequent and cached per request; encryption/decryption is on-demand only.
-- Activity-log views paginate by `IDX(company_id, user_id, action)`.
+- Activity-log views paginate by `IDX(workspace_id, user_id, action)`.
 
 ## Testing
 

@@ -7,7 +7,7 @@ The provider-agnostic layer through which every AI call in HalaOps is routed, us
 - [17 — AI Providers](17-AI-Providers.md) — the concrete adapters (OpenAI, Anthropic, Gemini, DeepSeek, Azure OpenAI, HeyGen) that implement the interface defined here.
 - [18 — AI Interview Engine](18-AI-Interview-Engine.md) — the primary consumer of this layer.
 - [07 — RBAC](07-RBAC.md) — the `ai.view` / `ai.manage` permissions that gate credential management.
-- [08 — Multi-Tenant](08-Multi-Tenant.md) — the `company_id` row-level isolation this layer depends on.
+- [08 — Multi-Tenant](08-Multi-Tenant.md) — the `workspace_id` row-level isolation this layer depends on.
 - [34 — Security](34-Security.md) — encryption-at-rest, key handling, and threat model.
 
 ---
@@ -19,12 +19,12 @@ This document specifies the **Tenant AI Provider Layer** (طبقة مزوّد ا
 The layer lives at `app/Services/AI/` and consists of three parts:
 
 1. **`AiProviderInterface`** — a uniform contract every provider adapter implements (`chat()`, `completion()`, `embeddings()`, `transcription()`, plus capability flags).
-2. **`AiProviderManager`** — the resolver/factory that, given a *capability* (e.g. "chat"), loads the active tenant's credentials from `ai_credentials`, decrypts them, instantiates the right adapter, and returns it ready to call.
+2. **`AiProviderManager`** — the resolver/factory that, given a *capability* (e.g. "chat"), loads the active tenant's credentials from `tenant_ai_keys`, decrypts them, instantiates the right adapter, and returns it ready to call.
 3. **`Providers/`** — one final class per provider implementing the interface.
 
 The single most important rule this document encodes:
 
-> **HalaOps stores NO AI keys of its own. Every AI request is authenticated with the API key belonging to the company that is the active tenant for the request. There is no system-wide fallback key, no environment variable holding a provider key, and no code path that can call a provider without first reading that tenant's `ai_credentials` row.**
+> **HalaOps stores NO AI keys of its own. Every AI request is authenticated with the API key belonging to the workspace that is the active tenant for the request. There is no system-wide fallback key, no environment variable holding a provider key, and no code path that can call a provider without first reading that tenant's `tenant_ai_keys` row.**
 
 ## 2. Why It Exists (سبب وجوده)
 
@@ -43,11 +43,11 @@ Without this layer, AI calls would be scattered, hard-coded to one vendor, and w
 | Component | Path | Responsibility |
 |-----------|------|----------------|
 | `AiProviderInterface` | `app/Services/AI/AiProviderInterface.php` | The contract: `chat`, `completion`, `embeddings`, `transcription`, capability flags, `validateConnection`, identity. |
-| `AiProviderManager` | `app/Services/AI/AiProviderManager.php` | Resolves the active provider for a capability from the **current tenant's** `ai_credentials`; instantiates the adapter; central error handling, usage logging, and rate-limit gating. |
+| `AiProviderManager` | `app/Services/AI/AiProviderManager.php` | Resolves the active provider for a capability from the **current tenant's** `tenant_ai_keys`; instantiates the adapter; central error handling, usage logging, and rate-limit gating. |
 | `AiProviderRegistry` | `app/Services/AI/AiProviderRegistry.php` | Static map of provider key → adapter class + metadata (capabilities, required credential fields). Data-driven; adding a provider edits only this map. |
 | Provider adapters | `app/Services/AI/Providers/*.php` | One `final` class per vendor (`OpenAiProvider`, `AnthropicProvider`, `GeminiProvider`, `DeepSeekProvider`, `AzureOpenAiProvider`, `HeyGenProvider`). |
 | DTOs | `app/Services/AI/Dto/` | `ChatRequest`, `ChatResponse`, `EmbeddingResponse`, `TranscriptionResponse`, `AiUsage` — vendor-neutral value objects. |
-| `AiCredential` (model) | `app/Models/AiCredential.php` | Active-record over `ai_credentials`; owns `secrets()` (decrypt) and `encryptSecrets()` (encrypt). Tenant-scoped. |
+| `AiCredential` (model) | `app/Models/AiCredential.php` | Active-record over `tenant_ai_keys`; owns `secrets()` (decrypt) and `encryptSecrets()` (encrypt). Tenant-scoped. |
 | `AiException` | `app/Services/AI/AiException.php` | Typed failure (auth, rate-limit, timeout, capability-unsupported, no-provider, transport). |
 
 ### 3.2 The interface
@@ -237,7 +237,7 @@ classDiagram
 
 `GuardedProvider` centralizes everything that must happen on *every* call regardless of vendor:
 
-- **Rate limiting** via `App\Support\RateLimiter` keyed by `ai:{company_id}:{provider}:{capability}` (see §3.6 and [16] Performance).
+- **Rate limiting** via `App\Support\RateLimiter` keyed by `ai:{workspace_id}:{provider}:{capability}` (see §3.6 and [16] Performance).
 - **Usage tracking** — captures token counts / audio seconds / video credits from each `*Response` DTO into `AiUsage`, persisted by the calling engine into `ai_interview_sessions.tokens_used` and optionally an aggregate counter in `settings`.
 - **`last_used_at` stamping** on the `AiCredential` row for round-robin/default resolution.
 - **Error normalization** — any vendor exception is wrapped in `AiException` with a typed category so upstream code never sees vendor-specific exceptions.
@@ -294,7 +294,7 @@ sequenceDiagram
 
 1. User with `ai.manage` opens Settings → AI Settings.
 2. Picks a provider (e.g. Anthropic), enters `api_key` (and `base_url`/`deployment` if required by the registry's `requiredFields`).
-3. Controller validates required fields, then calls `AiCredential::encryptSecrets([...])` and writes/updates the `(company_id, provider)` row.
+3. Controller validates required fields, then calls `AiCredential::encryptSecrets([...])` and writes/updates the `(workspace_id, provider)` row.
 4. The controller immediately calls `validateConnection()` through the manager; on failure the row is saved as `is_active = 0` and the user is shown the typed error.
 5. On success the row is `is_active = 1`; if it is the tenant's first provider it is also set `is_default = 1`.
 
@@ -306,7 +306,7 @@ Every AI-touching feature must first ask `AiProviderManager::hasProviderFor($cap
 
 1. **No system keys, ever.** No `.env` variable, config value, or constant holds a provider key. The only source of a key is the active tenant's `ai_credentials.credentials` (encrypted). Code review and the test suite enforce this (§12).
 2. **Tenant binding is mandatory.** `AiProviderManager::for()` throws `AiException::noTenant()` if `TenantManager::hasTenant()` is false. AI is impossible without an active tenant; this fails closed exactly like the Model layer.
-3. **One row per provider per tenant** — enforced by the DB unique key `(company_id, provider)`.
+3. **One row per provider per tenant** — enforced by the DB unique key `(workspace_id, provider)`.
 4. **Exactly one default** per capability family per tenant; setting a new default clears the previous one in the same transaction.
 5. **Capability gating.** Callers must check `supports*()` / `hasProviderFor()` before invoking; calling an unsupported capability raises `AiException::unsupported()`.
 6. **Keys are never returned to the client.** Only `maskedKey()` is ever rendered; the decrypted secret exists only transiently in server memory during a call.
@@ -321,7 +321,7 @@ Primary table — **`ai_credentials`** (tenant-scoped), per [05 — Database-Arc
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | BIGINT UNSIGNED PK | |
-| `company_id` | BIGINT UNSIGNED | FK → `companies(id)` ON DELETE CASCADE; the tenant binding |
+| `workspace_id` | BIGINT UNSIGNED | FK → `companies(id)` ON DELETE CASCADE; the tenant binding |
 | `provider` | VARCHAR(40) | registry key: `openai`, `anthropic`, `gemini`, `deepseek`, `azure_openai`, `heygen` |
 | `label` | VARCHAR(120) NULL | tenant-friendly name |
 | `credentials` | TEXT NOT NULL | **AES-256-GCM** ciphertext of `{ "api_key": "...", "base_url": "...", ... }` |
@@ -331,7 +331,7 @@ Primary table — **`ai_credentials`** (tenant-scoped), per [05 — Database-Arc
 | `last_used_at` | TIMESTAMP NULL | stamped by `GuardedProvider` |
 | `created_at`/`updated_at` | TIMESTAMP NULL | |
 
-Constraints: `UNIQUE (company_id, provider)`, FK on `company_id`. Consuming tables that store the resolved provider/model and usage: **`ai_interview_sessions`** (`provider`, `model`, `tokens_used`) and **`interview_responses`** (`ai_score`, `ai_feedback`) — see §11 of the canonical schema and [18].
+Constraints: `UNIQUE (workspace_id, provider)`, FK on `workspace_id`. Consuming tables that store the resolved provider/model and usage: **`ai_interview_sessions`** (`provider`, `model`, `tokens_used`) and **`interview_responses`** (`ai_score`, `ai_feedback`) — see §11 of the canonical schema and [18].
 
 No new tables are introduced by this layer; usage aggregates reuse tenant `settings` rows.
 
@@ -377,19 +377,19 @@ Cross-field: the controller rejects a save if the registry's `requiredFields(pro
 - **Encryption at rest.** `credentials` is AES-256-GCM ciphertext produced by `App\Core\Encrypter` (12-byte IV + 16-byte GCM tag + ciphertext, base64) keyed by `APP_KEY`. GCM is authenticated, so tampering is detected on decrypt (`Unable to decrypt … tampered or wrong key`).
 - **No plaintext persistence or transit to the client.** Decryption happens only in `AiCredential::secrets()`, in-memory, for the duration of one call. The UI sees only `maskedKey()`.
 - **No system key surface.** Because no platform key exists, there is nothing to leak platform-wide; a breach of one tenant's row exposes only that tenant's key, and only if `APP_KEY` is also compromised.
-- **Tenant isolation.** `AiCredential` is `$tenantScoped`; queries auto-filter by `company_id` and **throw if no tenant is active**, so one tenant can never resolve another's key.
+- **Tenant isolation.** `AiCredential` is `$tenantScoped`; queries auto-filter by `workspace_id` and **throw if no tenant is active**, so one tenant can never resolve another's key.
 - **Least logging.** Keys are never written to `storage/logs`; `AiException` messages and `activity_log` entries carry provider + masked hint only.
-- **Audit.** Add/update/remove/test events are recorded in `activity_log` with actor, `company_id`, action, and masked metadata.
+- **Audit.** Add/update/remove/test events are recorded in `activity_log` with actor, `workspace_id`, action, and masked metadata.
 - **Outbound TLS.** All adapter HTTP calls require TLS verification on (no `CURLOPT_SSL_VERIFYPEER => false`).
 
 See [34 — Security](34-Security.md) for the platform-wide posture.
 
 ## 11. Performance
 
-- **Pre-emptive rate limiting** via the file-backed `App\Support\RateLimiter` (no Redis required), key `ai:{company_id}:{provider}:{capability}`, protects the tenant's vendor quota and smooths bursts before a 429 ever occurs.
+- **Pre-emptive rate limiting** via the file-backed `App\Support\RateLimiter` (no Redis required), key `ai:{workspace_id}:{provider}:{capability}`, protects the tenant's vendor quota and smooths bursts before a 429 ever occurs.
 - **Lazy resolution & adapter caching.** Adapters are instantiated only when a capability is actually requested; within one request the resolved credential is memoized.
 - **Heavy work is queued.** Long operations (full interview scoring, transcription of long audio, HeyGen video render) run via `queued_jobs`, keeping web requests fast — see [35 — Performance](35-Performance.md) and [36 — Scalability](36-Scalability.md).
-- **Indexes.** Resolution relies on `(company_id, provider)` (unique) and the implicit `company_id` filter; `is_active` / `is_default` are low-cardinality and filtered after the tenant scope, which is selective enough on a per-tenant working set.
+- **Indexes.** Resolution relies on `(workspace_id, provider)` (unique) and the implicit `workspace_id` filter; `is_active` / `is_default` are low-cardinality and filtered after the tenant scope, which is selective enough on a per-tenant working set.
 - **Token economy.** `ChatRequest` carries `max_tokens` and the engine trims prompts/transcripts to model context windows to control cost and latency.
 
 ## 12. Testing
@@ -415,7 +415,7 @@ See [34 — Security](34-Security.md) for the platform-wide posture.
 ## 13. Future Expansion
 
 - **More providers** — add a class in `Providers/` and one registry entry; nothing else changes (see [17]).
-- **Multiple keys per provider** — relax the unique key to `(company_id, provider, label)` to allow, e.g., separate dev/prod OpenAI keys with weighted routing.
+- **Multiple keys per provider** — relax the unique key to `(workspace_id, provider, label)` to allow, e.g., separate dev/prod OpenAI keys with weighted routing.
 - **Streaming responses** — add an optional `chatStream()` to the interface (capability-flagged) for token-by-token live interviews.
 - **Spend governance** — promote usage aggregates into a dedicated `ai_usage` table with monthly hard caps and alerts.
 - **Bring-your-own-endpoint** — the existing `base_url`/`meta` plumbing already supports self-hosted/OpenAI-compatible gateways; expose it as a generic "Custom (OpenAI-compatible)" provider.

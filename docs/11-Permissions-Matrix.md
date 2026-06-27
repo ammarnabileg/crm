@@ -30,10 +30,10 @@ Capabilities in HalaOps come only from roles ([07 — RBAC](07-RBAC.md)). For th
 The matrix is the human-readable projection of three data sources, all consistent with each other:
 
 - **`config/rbac.php`** — `permissions` (the catalogue) and `tenant_roles` (default grants) **as data**.
-- **Database** — `permissions`, `roles`, `permission_role` after `RbacManager` provisioning.
+- **Database** — `permissions`, `roles`, `role_permissions` after `RbacManager` provisioning.
 - **This document** — the canonical mapping, including planned keys not yet in `config/rbac.php`.
 
-Legend: **✓** = granted, **–** = not granted. `super-admin` is global (`company_id NULL`, assigned via `user_role`) and also bypasses every check; all others are **tenant** roles (assigned via `membership_role`). Inheritance (`parent_id`) and the union of global + tenant roles are described in [07 — RBAC](07-RBAC.md); the matrix shows each role's **direct** intended grant.
+Legend: **✓** = granted, **–** = not granted. `super-admin` is global (`workspace_id NULL`, assigned via `user_roles`) and also bypasses every check; all others are **tenant** roles (assigned via `membership_roles`). Inheritance (`parent_id`) and the union of global + tenant roles are described in [07 — RBAC](07-RBAC.md); the matrix shows each role's **direct** intended grant.
 
 ## The Matrix
 
@@ -45,8 +45,8 @@ Legend: **✓** = granted, **–** = not granted. `super-admin` is global (`comp
 | Permission key | Group | Status | SA | OWN | ADM | HRM | REC | HM | INT | MEM | CND |
 |----------------|-------|--------|----|----|----|----|----|----|----|----|----|
 | `dashboard.view` | Dashboard | Built | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – |
-| `company.view` | Company | Built | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – |
-| `company.update` | Company | Built | ✓ | ✓ | ✓ | – | – | – | – | – | – |
+| `workspace.view` | Workspace | Built | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – |
+| `workspace.update` | Workspace | Built | ✓ | ✓ | ✓ | – | – | – | – | – | – |
 | `members.view` | Members | Built | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ | – |
 | `members.invite` | Members | Built | ✓ | ✓ | ✓ | ✓ | – | – | – | – | – |
 | `members.update` | Members | Built | ✓ | ✓ | ✓ | ✓ | – | – | – | – | – |
@@ -59,8 +59,9 @@ Legend: **✓** = granted, **–** = not granted. `super-admin` is global (`comp
 | `ai.manage` | AI | Built | ✓ | ✓ | ✓ | – | – | – | – | – | – |
 | `settings.view` | Settings | Built | ✓ | ✓ | ✓ | ✓ | – | – | – | ✓ | – |
 | `settings.manage` | Settings | Built | ✓ | ✓ | ✓ | – | – | – | – | – | – |
+| `system.manage` | System | Built | ✓ | – | – | – | – | – | – | – | – |
 
-> The SA / OWN / ADM / MEM columns above reproduce `config/rbac.php` exactly: `owner` = `'*'` (all ✓); `admin` = all built keys **except** `billing.manage`; `member` = `dashboard.view`, `company.view`, `members.view`, `ai.view`, `settings.view`. HRM/REC/HM/INT are not yet present in config (today they would be modelled as `member` or custom roles); their values are the canonical target for when those templates are added.
+> The SA / OWN / ADM / MEM columns above reproduce `config/rbac.php` exactly: `owner` = `'*'` (all tenant ✓); `admin` = all built keys **except** `billing.manage` and `system.manage`; `member` = `dashboard.view`, `workspace.view`, `members.view`, `ai.view`, `settings.view`. `system.manage` is a **platform-level** capability exercised with no active tenant (it gates the `/system/*` operations console — diagnostics, maintenance, backups, env editor, log viewer); it is held by `super-admin` only. HRM/REC/HM/INT are not yet present in config (today they would be modelled as `member` or custom roles); their values are the canonical target for when those templates are added.
 
 ### Planned permissions — Jobs
 
@@ -135,15 +136,15 @@ These are **global** permissions, exercised in platform context (no tenant) and 
 
 ## Role intent (وصف الأدوار)
 
-Each role expresses a persona from §1. Personas are **role assignments**, never user types — the same person can be `owner` in one company and `candidate` in another.
+Each role expresses a persona from §1. Personas are **role assignments**, never user types — the same person can be `owner` in one workspace and `candidate` in another.
 
-- **super-admin (global, `is_system`)** — platform staff. Holds every permission *and* bypasses checks in `AccessControl::allows()`. Operates platform-wide (no tenant required) and reaches cross-tenant data only via `withoutTenantScope()` and the `platform.*` permissions. The only role with `company_id NULL`.
+- **super-admin (global, `is_system`)** — platform staff. Holds every permission *and* bypasses checks in `AccessControl::allows()`. Operates platform-wide (no tenant required) and reaches cross-tenant data only via `withoutTenantScope()` and the `platform.*` permissions. The only role with `workspace_id NULL`.
 
-- **owner (`is_system`)** — the company's founder/owner; grant template `'*'` (every tenant permission, including `billing.manage` and `roles.manage`). There is exactly one ownership concept per company (`companies.owner_id`); the `owner` role is protected from deletion so a company can never lock itself out.
+- **owner (`is_system`)** — the workspace's founder/owner; grant template `'*'` (every tenant permission, including `billing.manage` and `roles.manage`). There is exactly one ownership concept per workspace (`workspaces.owner_id`); the `owner` role is protected from deletion so a workspace can never lock itself out.
 
-- **admin (`is_system`)** — runs the company day to day. Everything the owner can do **except** `billing.manage` and ownership transfer. Manages members, roles, AI, settings, and (planned) the full recruitment domain.
+- **admin (`is_system`)** — runs the workspace day to day. Everything the owner can do **except** `billing.manage` and ownership transfer. Manages members, roles, AI, settings, and (planned) the full recruitment domain.
 
-- **hr-manager** — leads recruiting operations: manages jobs, the application pipeline, interviews and evaluations end to end, invites/edits members, and views settings/AI — but does **not** control billing, roles, ownership, or company profile editing. The senior recruitment persona below admin.
+- **hr-manager** — leads recruiting operations: manages jobs, the application pipeline, interviews and evaluations end to end, invites/edits members, and views settings/AI — but does **not** control billing, roles, ownership, or workspace profile editing. The senior recruitment persona below admin.
 
 - **recruiter** — does the hands-on hiring work: creates/updates/publishes jobs, moves and rejects applications, schedules and conducts interviews, writes and manages evaluations, exports pipelines. No member administration beyond viewing, no billing/roles/settings management.
 
@@ -151,9 +152,9 @@ Each role expresses a persona from §1. Personas are **role assignments**, never
 
 - **interviewer** — invited to conduct specific interviews and submit scorecards: `interviews.view/conduct`, `evaluations.view/create`, and view the jobs/applications/candidates they are interviewing. Cannot schedule/cancel, move applications, reject, or manage jobs — the narrowest recruitment role.
 
-- **member (`is_system`)** — a standard employee with no recruitment duties: `dashboard.view`, `company.view`, `members.view`, `ai.view`, `settings.view` (read-mostly), plus the universal `notifications.view`/`files.*` self-service. The default safe baseline for someone added to a company.
+- **member (`is_system`)** — a standard employee with no recruitment duties: `dashboard.view`, `workspace.view`, `members.view`, `ai.view`, `settings.view` (read-mostly), plus the universal `notifications.view`/`files.*` self-service. The default safe baseline for someone added to a workspace.
 
-- **candidate** — an external applicant using the candidate portal. Holds only `candidate.apply` and `candidate.profile` (plus universal notifications/files for their own materials). A candidate is a normal `users` row whose `applications` link them to a company's `jobs`; they hold **no** internal company permissions — `dashboard.view` is intentionally **–** because candidates use the portal, not the company dashboard.
+- **candidate** — an external applicant using the candidate portal. Holds only `candidate.apply` and `candidate.profile` (plus universal notifications/files for their own materials). A candidate is a normal `users` row whose `applications` link them to a workspace's `jobs`; they hold **no** internal workspace permissions — `dashboard.view` is intentionally **–** because candidates use the portal, not the workspace dashboard.
 
 ## Workflow
 
@@ -161,7 +162,7 @@ How a row in this matrix becomes a live grant:
 
 1. A permission key is added to `config/rbac.php`'s `permissions` (catalogue) **only when something enforces it** (no orphan permissions).
 2. The relevant `tenant_roles` templates list the key (or `'*'` for `owner`); `super-admin` always gets all keys via `ensureSuperAdminRole()`.
-3. `RbacManager::syncPermissions()` upserts the catalogue; `provisionCompanyRoles()` writes each role's `permission_role` rows per company; `ensureSuperAdminRole()` re-grants all to super-admin.
+3. `RbacManager::syncPermissions()` upserts the catalogue; `provisionWorkspaceRoles()` writes each role's `role_permissions` rows per workspace; `ensureSuperAdminRole()` re-grants all to super-admin.
 4. At runtime, `AccessControl` resolves a user's effective set (union of global + active-membership roles, expanded up `parent_id`) and the enforcement layers in [10 — Authorization](10-Authorization.md) check the key.
 5. Companies may diverge from the defaults via the role editor (gated by `roles.manage`) — this matrix documents the **defaults**, not a ceiling.
 
@@ -184,10 +185,10 @@ Consistent with §11 and [07 — RBAC](07-RBAC.md):
 
 | Table | Role in the matrix |
 |-------|--------------------|
-| `permissions` (`key` UNIQUE, `group`) | the rows of this matrix; one row per key. |
-| `roles` (`company_id`, `slug`, `is_system`, `parent_id`) | the columns; `super-admin` has `company_id NULL`, the rest are per-company. |
-| `permission_role` (PK `role_id,permission_id`) | each ✓ is a row here. |
-| `membership_role` / `user_role` | how a user receives a column's grants (tenant vs global). |
+| `permissions` (`key` UNIQUE, `module_id` → `system_modules`, `action`) | the rows of this matrix; one row per key. |
+| `roles` (`workspace_id`, `slug`, `is_system`, `parent_id`) | the columns; `super-admin` has `workspace_id NULL`, the rest are per-workspace. |
+| `role_permissions` (PK `role_id,permission_id`) | each ✓ is a row here. |
+| `membership_roles` / `user_roles` | how a user receives a column's grants (tenant vs global). |
 | `memberships` (`status='active'`) | only active memberships project their role's column onto a user. |
 
 ## Permissions
@@ -202,17 +203,17 @@ When applying or editing grants (seed/config or role editor):
 - `super-admin` must end up with the full catalogue (post-`ensureSuperAdminRole()` invariant — testable).
 - `owner` must resolve to the full **tenant** set (`'*'`).
 - No tenant role may be granted `platform.*` keys.
-- Role slugs are unique per company (`UNIQUE(company_id, slug)`); the nine default slugs are reserved.
+- Role slugs are unique per workspace (`UNIQUE(workspace_id, slug)`); the nine default slugs are reserved.
 - The matrix and `config/rbac.php` must agree for built keys (a test should diff them).
 
 ## Edge Cases
 
-- **A planned key referenced before its module ships** → it must first be added to the catalogue; until then no role can hold it (FK integrity in `permission_role`). The "Planned" rows here are the target, not yet live.
+- **A planned key referenced before its module ships** → it must first be added to the catalogue; until then no role can hold it (FK integrity in `role_permissions`). The "Planned" rows here are the target, not yet live.
 - **Custom company role overlapping a default** → allowed; this matrix describes defaults only. The role editor governs overrides.
 - **User with two roles granting overlapping keys** → union de-dupes; no conflict (a key is either present or not).
 - **`candidate` who is also an employee** → they hold *both* roles via memberships; effective permissions are the union, so an employee-applicant sees both portals appropriately.
 - **`hiring-manager` needing to reject** → by policy they request rejection through a recruiter/HR; if a company disagrees, it grants `applications.reject` to its own custom/edited role (not the default).
-- **Removing a built key from the catalogue** → forbidden until its enforcement is removed (no orphan permissions; would break `permission_role` references).
+- **Removing a built key from the catalogue** → forbidden until its enforcement is removed (no orphan permissions; would break `role_permissions` references).
 
 ## Security
 
@@ -225,9 +226,9 @@ When applying or editing grants (seed/config or role editor):
 
 ## Performance
 
-- The matrix has no runtime cost itself; it is realised as `permission_role` rows resolved by the cached `AccessControl` engine (one resolution per `userId:companyId` per request — see [07 — RBAC](07-RBAC.md)).
-- Keeping role grants reasonably small keeps the flatten-join (`permissions JOIN permission_role WHERE role_id IN (...)`) cheap; all involved columns are indexed (`permissions.key`, `permission_role` PK).
-- Grouping permissions by `permissions.group` (indexed) powers an efficient role-editor UI that renders the catalogue without scanning.
+- The matrix has no runtime cost itself; it is realised as `role_permissions` rows resolved by the cached `AccessControl` engine (one resolution per `userId:workspaceId` per request — see [07 — RBAC](07-RBAC.md)).
+- Keeping role grants reasonably small keeps the flatten-join (`permissions JOIN role_permissions WHERE role_id IN (...)`) cheap; all involved columns are indexed (`permissions.key`, `role_permissions` PK).
+- Grouping permissions by `permissions.module_id` (indexed, → `system_modules`) powers an efficient role-editor UI that renders the catalogue without scanning.
 
 ## Testing
 

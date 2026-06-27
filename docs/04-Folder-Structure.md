@@ -281,7 +281,7 @@ sequenceDiagram
 
 This document concerns the filesystem, not the schema, but two folders are schema-adjacent:
 
-- **`database/migrations/`** defines every table listed in the canonical schema (§11). Files are ordered `0001`–`0015` for the built tables (`users`, `companies`, `memberships`, `roles`, `permissions`, `permission_role`, `membership_role`, `user_role`, `plans`, `subscriptions`, `ai_credentials`, `password_resets`, `settings`, `onboarding_progress`, `activity_log`) plus the `migrations` tracking table.
+- **`database/migrations/`** defines every table listed in the canonical schema (§11). Files are ordered `0001`–`0015` for the built tables (`users`, `companies`, `memberships`, `roles`, `permissions`, `role_permissions`, `membership_roles`, `user_roles`, `plans`, `subscriptions`, `ai_credentials`, `password_resets`, `settings`, `onboarding_progress`, `activity_log`) plus the `migrations` tracking table.
 - **`database/seeders/`** populates the global `permissions` catalogue and default `roles` from `config/rbac.php`.
 
 See [05 — Database Architecture](05-Database-Architecture.md) and [06 — ERD](06-ERD.md).

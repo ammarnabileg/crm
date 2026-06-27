@@ -212,7 +212,7 @@ flowchart LR
 The checklist references these tables from [05-Database-Architecture] §11 as go-live evidence:
 
 - `migrations` — all expected migrations applied (Diagnostics "db" / environment report).
-- `users`, `roles`, `permissions`, `user_role` — super-admin exists with the global role (from install).
+- `users`, `roles`, `permissions`, `user_roles` — super-admin exists with the global role (from install).
 - `plans` — the "Standard" plan seeded and correct.
 - `ai_credentials` — per-tenant encrypted keys; platform holds none.
 - `invoices`, `payments`, `gateway_events` — live-mode payment produces real records.

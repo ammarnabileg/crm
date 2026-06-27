@@ -193,7 +193,7 @@ sequenceDiagram
 The frontend has no direct DB access — it renders data handed to it by controllers/services (the model layer enforces tenancy upstream). The few things templates read are already-resolved objects:
 
 - The **authenticated layout** reads `auth()->user()` (from `users`) and `tenant()->company()` (the active `companies` row) for the topbar, and `$user->companies()` (via `memberships`) to render the company switcher.
-- The **nav registry** is gated by `can($permission)`, which resolves against `roles`/`permissions`/`permission_role`/`membership_role`/`user_role` in `AccessControl` — but the template only ever sees the boolean. See [05 — Database Architecture](05-Database-Architecture.md) and [07 — RBAC](07-RBAC.md).
+- The **nav registry** is gated by `can($permission)`, which resolves against `roles`/`permissions`/`role_permissions`/`membership_roles`/`user_roles` in `AccessControl` — but the template only ever sees the boolean. See [05 — Database Architecture](05-Database-Architecture.md) and [07 — RBAC](07-RBAC.md).
 
 ## Permissions
 

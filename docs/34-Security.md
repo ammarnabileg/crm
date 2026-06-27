@@ -47,10 +47,10 @@ flowchart TD
     F --> G[VerifyCsrfToken<br/>constant-time token check on writes]
     G --> H[ThrottleRequests<br/>fixed-window rate limit per route+IP]
     H --> I[Authenticate<br/>auth-check, fail to login/401]
-    I --> J[EnsureTenant<br/>active company required, fail closed]
+    I --> J[EnsureTenant<br/>active workspace required, fail closed]
     J --> K[RequirePermission<br/>RBAC any-of permission gate]
     K --> L[Controller -> Service -> Model]
-    L --> M[Model tenant scope<br/>auto company_id, THROW if missing]
+    L --> M[Model tenant scope<br/>auto workspace_id, THROW if missing]
     M --> N[Database PDO<br/>prepared statements only, strict mode]
     N --> O[View engine<br/>output escaped via e]
     O --> P[Response + ActivityLog audit]
@@ -67,7 +67,7 @@ Component responsibilities:
 | CSRF | `App\Core\Middleware\VerifyCsrfToken` | Constant-time token check on all state-changing methods. |
 | Rate limiting | `App\Http\Middleware\ThrottleRequests` + `App\Support\RateLimiter` | Fixed-window abuse control, file-backed (Redis-ready). |
 | Authentication gate | `App\Http\Middleware\Authenticate` | Rejects guests. |
-| Tenant gate | `App\Http\Middleware\EnsureTenant` + `App\Core\Model` | Enforces an active company; fails closed. |
+| Tenant gate | `App\Http\Middleware\EnsureTenant` + `App\Core\Model` | Enforces an active workspace; fails closed. |
 | Authorization gate | `App\Http\Middleware\RequirePermission` + `App\Services\Rbac\AccessControl` | Permission/policy checks. |
 | Safe data access | `App\Core\Database`, `App\Core\QueryBuilder` | Prepared statements + backtick-quoted identifiers only. |
 | Output escaping | `e()` helper, `App\Core\View` | Contextual HTML escaping in templates. |
@@ -111,14 +111,14 @@ sequenceDiagram
     participant C as VerifyCsrfToken
     participant P as RequirePermission
     participant M as Model.query()
-    R->>C: PUT /companies/42 (_token)
+    R->>C: PUT /workspaces/42 (_token)
     C->>C: hash_equals(session token, provided)
     C-->>R: 419 if mismatch
-    C->>P: permission:company.update
-    P->>P: access()->allows('company.update')
+    C->>P: permission:workspace.update
+    P->>P: access()->allows('workspace.update')
     P-->>R: 403 if denied
-    P->>M: Company::findOrFail(42)
-    M->>M: WHERE company_id = active tenant
+    P->>M: Workspace::findOrFail(42)
+    M->>M: WHERE workspace_id = active tenant
     M-->>R: 404 if row not in tenant (no cross-tenant leak)
 ```
 
@@ -136,21 +136,21 @@ sequenceDiagram
 10. **Sessions regenerate on privilege change** (login) and are invalidated on logout, clearing the active tenant.
 11. **Security headers are applied to every response** and may not be removed by downstream code.
 12. **The platform holds no AI keys of its own** — a stolen platform credential cannot exfiltrate tenant AI usage (see [17 — AI Providers](17-AI-Providers.md)).
-13. **Security-relevant events are audited** to `activity_log` with actor, subject, IP, and user agent (see [38 — Audit System](38-Audit-System.md)).
+13. **Security-relevant events are audited** to `activity_logs` with actor, subject, IP, and user agent (see [38 — Audit System](38-Audit-System.md)).
 
 ## Database Relations
 
 Security touches these tables (consistent with §11 of the canonical context):
 
-- **users** — `password` (Argon2id/bcrypt hash), `remember_token`, `status` (active/suspended/pending gates login), `last_login_at`, `last_login_ip`, `email_verified_at`. IDX(status).
+- **users** — `password` (Argon2id/bcrypt hash), `remember_token`, `user_status_id` (FK → `lookup_values[user_status]`; active/suspended/pending gates login), `last_login_at`, `last_login_ip`, `email_verified_at`. IDX(user_status_id).
 - **password_resets** — `email` (PK), `token` (hashed), `created_at`; IDX(token). Hashed single-use, time-limited reset tokens.
-- **ai_credentials** — `credentials TEXT` holds the AES-256-GCM ciphertext (never plaintext); UQ(company_id, provider) enforces one credential set per provider per tenant.
+- **tenant_ai_keys** — `credentials TEXT` holds the AES-256-GCM ciphertext (never plaintext); UQ(workspace_id, provider) enforces one credential set per provider per tenant.
 - **api_tokens** — `token_hash` (UQ) stores only a hash of the API token, `abilities JSON` scopes it, `expires_at` bounds its life (see [29 — API Architecture](29-API-Architecture.md)).
-- **activity_log** — security audit: `action`, `user_id`, `company_id`, `ip`, `user_agent`, `properties JSON`; IDX(company_id, user_id, action).
+- **activity_logs** — security audit: `action`, `user_id`, `workspace_id`, `ip`, `user_agent`, `properties JSON`; IDX(workspace_id, user_id, action).
 - **gateway_events** — webhook payloads for signature verification and idempotency (see [15 — Payment Gateways](15-Payment-Gateways.md)).
-- **memberships / roles / permissions / permission_role / membership_role / user_role** — the authorization graph; tenant roles carry `company_id`, global roles are NULL.
+- **memberships / roles / permissions / role_permissions / membership_roles / user_roles** — the authorization graph; tenant roles carry `workspace_id`, global roles are NULL.
 
-Every tenant-bound table carries `company_id` with an FK + index, and uniqueness is per-company (e.g. `(company_id, slug)`), which is itself a security control: it makes cross-tenant collisions structurally impossible.
+Every tenant-bound table carries `workspace_id` with an FK + index, and uniqueness is per-workspace (e.g. `(workspace_id, slug)`), which is itself a security control: it makes cross-tenant collisions structurally impossible.
 
 ## Permissions
 
@@ -161,6 +161,7 @@ Security enforcement *is* the permission system. Relevant gates (from the §6 ca
 - `ai.view` / `ai.manage` — viewing (masked) and managing encrypted AI credentials.
 - `billing.view` / `billing.manage` — payment data access.
 - `settings.manage` — tenant configuration that can affect security posture.
+- `system.manage` — super-admin-only platform capability (no active tenant) that gates the `/system/*` operations console (diagnostics, maintenance, backups, env editor, log viewer).
 - `platform.diagnostics`, `platform.users.manage`, `platform.companies.manage` — super-admin-only, used with `withoutTenantScope()`.
 
 Rules: authentication runs before authorization (`Authenticate` precedes `RequirePermission`); `RequirePermission` is **any-of** (`permission:a,b`); super admin resolves to all permissions but cross-tenant data access still requires the explicit scope bypass; policy gates (`AccessControl::define`) add context-aware checks such as "edit own profile" / "manage application in my company".
@@ -169,7 +170,7 @@ Rules: authentication runs before authorization (`Authenticate` precedes `Requir
 
 - **All input is validated** through `App\Core\Validator` before it reaches business logic (`required, email, min, max, confirmed, unique, exists, in, regex`); failures throw `ValidationException` → flashed errors + old input, never raw error echoes.
 - **Type coercion at the boundary**: `Request::boolean()`, integer casts, `filter_var` for booleans, and model `$casts` keep types predictable and prevent type-juggling bugs.
-- **Mass-assignment is allow-listed** via `$fillable` in each model (`Model::filterFillable()`), so unexpected columns (e.g. `is_admin`, `company_id` override) cannot be injected through a form post.
+- **Mass-assignment is allow-listed** via `$fillable` in each model (`Model::filterFillable()`), so unexpected columns (e.g. `is_admin`, `workspace_id` override) cannot be injected through a form post.
 - **CSRF token** is itself validated on every write (`VerifyCsrfToken`).
 - **File uploads** validate MIME, extension, and size, compute a checksum, and store under tenant-scoped paths (see [27 — Storage System](27-Storage-System.md)).
 - **Redirect targets** from `url.intended` are app-relative; open-redirect is avoided by only redirecting to internal paths.
@@ -179,7 +180,7 @@ Rules: authentication runs before authorization (`Authenticate` precedes `Requir
 - **No active tenant on a tenant-scoped query** → `Model::query()` throws a `RuntimeException` (fail loud, fail closed) instead of leaking all tenants' rows.
 - **Tampered ciphertext** → GCM auth tag fails; `Encrypter::decrypt()` throws "tampered or wrong key"; callers (e.g. `AiCredential::secrets()`) catch and degrade to empty rather than crash a page.
 - **Expired/replayed CSRF token** → 419, prompting refresh; tokens are per-session and rotate on session regeneration.
-- **Suspended user / suspended company** → login and tenant resolution must reject; `users.status` and `companies.status` are checked.
+- **Suspended user / suspended workspace** → login and tenant resolution must reject; the config-driven status FKs `users.user_status_id` (→ `lookup_values[user_status]`) and `workspaces.workspace_status_id` (→ `workspace_statuses`) are checked.
 - **Concurrent login attempts brute force** → rate limiter + lockout window; failures are audited.
 - **Reset token guessing** → tokens are random 32-byte values stored hashed with TTL; expired tokens are rejected and identical responses prevent enumeration.
 - **Proxy-spoofed client IP** → `Request::ip()` reads `CF-Connecting-IP`/`X-Forwarded-For` then `REMOTE_ADDR`; deployments behind an untrusted edge must strip client-set forwarding headers at the trusted proxy (documented in [43 — Deployment](43-Deployment.md)).
@@ -192,7 +193,7 @@ This section maps the **OWASP Top 10 (2021)** to HalaOps controls, then gives th
 
 ### OWASP Top 10 coverage
 
-- **A01 Broken Access Control** — RBAC via `RequirePermission` + `AccessControl`; **fail-closed tenant isolation** in `Model` (auto `company_id`, throws when absent); per-company uniqueness; policy gates for ownership; `findOrFail` returns 404 for out-of-tenant rows so existence is not disclosed.
+- **A01 Broken Access Control** — RBAC via `RequirePermission` + `AccessControl`; **fail-closed tenant isolation** in `Model` (auto `workspace_id`, throws when absent); per-workspace uniqueness; policy gates for ownership; `findOrFail` returns 404 for out-of-tenant rows so existence is not disclosed.
 - **A02 Cryptographic Failures** — AES-256-GCM (`Encrypter`) for secrets at rest; Argon2id (`Hash`) for passwords; HTTPS/HSTS in transit; hashed reset tokens and hashed API tokens; `APP_KEY` (base64, 32 bytes) generated at install.
 - **A03 Injection** — prepared statements only (`Database`, `EMULATE_PREPARES=false`), parameterized `QueryBuilder` with backtick-quoted identifiers, MySQL `STRICT_TRANS_TABLES`; output escaping via `e()` defeats XSS; no shell-outs with user input.
 - **A04 Insecure Design** — least-privilege RBAC, fail-closed defaults, single auditable front controller, human-in-the-loop AI decisions, threat-modelled flows (this doc), no hard-coded user types.
@@ -200,20 +201,20 @@ This section maps the **OWASP Top 10 (2021)** to HalaOps controls, then gives th
 - **A06 Vulnerable & Outdated Components** — **zero runtime Composer dependencies** (pure PHP 8.2+), so the third-party runtime attack surface is essentially nil; only PHP itself and dev-only tooling need patching (see Dependency posture).
 - **A07 Identification & Authentication Failures** — Argon2id + rehash, login throttling + lockout, session regeneration on login, invalidation on logout, anti-enumeration reset, generic auth errors.
 - **A08 Software & Data Integrity Failures** — GCM authenticated encryption detects tampered secrets; payment **webhooks are signature-verified and idempotent** via `gateway_events`; CSRF protects state changes; installer integrity via lock file.
-- **A09 Security Logging & Monitoring Failures** — leveled logs (`Logger`) plus a structured audit trail (`activity_log`) capturing auth, role, billing, AI, and decision events with IP/UA; diagnostics surface health (see [33 — System Diagnostics](33-System-Diagnostics.md), [37 — Logging](37-Logging.md), [38 — Audit System](38-Audit-System.md)).
+- **A09 Security Logging & Monitoring Failures** — leveled logs (`Logger`) plus a structured audit trail (`activity_logs`) capturing auth, role, billing, AI, and decision events with IP/UA; diagnostics surface health (see [33 — System Diagnostics](33-System-Diagnostics.md), [37 — Logging](37-Logging.md), [38 — Audit System](38-Audit-System.md)).
 - **A10 Server-Side Request Forgery (SSRF)** — outbound calls are limited to **configured AI provider endpoints and payment gateways**; provider base URLs are validated/allow-listed in the provider layer (see [17 — AI Providers](17-AI-Providers.md)); user-supplied URLs are never fetched server-side without validation.
 
 ### Threat → mitigation table
 
 | # | Threat | Vector | Mitigation (HalaOps) | OWASP |
 | --- | --- | --- | --- | --- |
-| 1 | Cross-tenant data access | Tampering with `company_id`/IDs | Auto tenant scope in `Model::query()`, throws if no tenant; FK + per-company uniqueness; `findOrFail` → 404 | A01 |
+| 1 | Cross-tenant data access | Tampering with `workspace_id`/IDs | Auto tenant scope in `Model::query()`, throws if no tenant; FK + per-workspace uniqueness; `findOrFail` → 404 | A01 |
 | 2 | Privilege escalation | Calling a privileged route | `RequirePermission` + `AccessControl`; allow-listed permissions; `is_system` role protection | A01 |
 | 3 | SQL injection | Malicious form/query input | Prepared statements only; `EMULATE_PREPARES=false`; parameterized `QueryBuilder` | A03 |
 | 4 | Stored/reflected XSS | Candidate names, job text, notes | `e()` escaping in all templates (`ENT_QUOTES`); conservative CSP | A03 |
 | 5 | CSRF | Forged write from another site | `VerifyCsrfToken` constant-time check; SameSite=Lax cookies | A01 |
 | 6 | Credential theft at rest | DB dump / backup leak | Argon2id password hashes; AES-256-GCM secrets; hashed reset & API tokens | A02 |
-| 7 | AI key exfiltration | Reading `ai_credentials` | Encrypted blob, decrypt at use only, masked display, tenant-scoped, per-tenant keys | A02 |
+| 7 | AI key exfiltration | Reading `tenant_ai_keys` | Encrypted blob, decrypt at use only, masked display, tenant-scoped, per-tenant keys | A02 |
 | 8 | Brute force / credential stuffing | Repeated login | `ThrottleRequests` + lockout window; audited failures | A07 |
 | 9 | Username enumeration | Login/reset probing | Generic messages; identical reset responses; hashed TTL tokens | A07 |
 | 10 | Session fixation/hijack | Reusing a session id | `regenerate()` on login; HttpOnly+SameSite+Secure cookies; `invalidate()` on logout | A07 |
@@ -234,7 +235,7 @@ Security controls are designed to be cheap on the hot path:
 
 - **Argon2id is intentionally expensive** (a security feature) but runs only on login/registration/reset — not on every request. Parameters (64 MB / t=4 / p=2) balance resistance and shared-host RAM limits.
 - **CSRF and header middleware are O(1)** string operations; `hash_equals` is constant-time but trivial in cost.
-- **Tenant scoping adds a single indexed `WHERE company_id = ?`** to queries — backed by the FK index, it is effectively free and often *improves* plans by partitioning the row set.
+- **Tenant scoping adds a single indexed `WHERE workspace_id = ?`** to queries — backed by the FK index, it is effectively free and often *improves* plans by partitioning the row set.
 - **Rate limiting** uses a small per-key JSON file (`RateLimiter`); under load this moves to Redis with the same interface (see [35 — Performance](35-Performance.md), [36 — Scalability](36-Scalability.md)).
 - **Encryption** is invoked only when reading/writing secrets (AI keys), not on ordinary rows, so AES-GCM cost is negligible platform-wide.
 - Audit writes are single indexed inserts; high-volume security events can be batched/queued later (see [38 — Audit System](38-Audit-System.md)).
@@ -243,7 +244,7 @@ Security controls are designed to be cheap on the hot path:
 
 Security tests are first-class (see [39 — Testing Strategy](39-Testing-Strategy.md)). Write at least:
 
-- **Tenant isolation (security):** querying a tenant-scoped model with no active tenant throws; user A cannot read/update/delete user B's company rows; `findOrFail` of an out-of-tenant id returns 404; `withoutTenantScope()` is reachable only from platform code paths.
+- **Tenant isolation (security):** querying a tenant-scoped model with no active tenant throws; user A cannot read/update/delete user B's workspace rows; `findOrFail` of an out-of-tenant id returns 404; `withoutTenantScope()` is reachable only from platform code paths.
 - **CSRF:** POST/PUT/PATCH/DELETE without/with-wrong `_token` → 419; correct token passes; GET is exempt; header `X-CSRF-TOKEN` works.
 - **AuthN:** Argon2id hash verifies; wrong password fails; `needsRehash` triggers rehash on login; session id changes after login; logout invalidates session and clears tenant.
 - **Anti-enumeration:** login and password-reset return identical responses/timing-class for known vs unknown emails; expired reset token rejected; reset token is single-use.
@@ -260,7 +261,7 @@ Security tests are first-class (see [39 — Testing Strategy](39-Testing-Strateg
 - **Per-route CSP with nonces** to tighten the conservative default once inline scripts are eliminated.
 - **Key rotation / envelope encryption**: introduce a key-id prefix in `Encrypter` payloads to rotate `APP_KEY` and re-wrap secrets without downtime.
 - **Secrets backend abstraction**: move AI keys to an external KMS/secrets manager behind the same `encrypt_value()`/`decrypt_value()` seam on managed hosting.
-- **SIEM export** of `activity_log` and `Logger` output; anomaly detection on auth failures and cross-tenant 403s.
+- **SIEM export** of `activity_logs` and `Logger` output; anomaly detection on auth failures and cross-tenant 403s.
 - **Bot defence**: pluggable CAPTCHA/challenge on auth endpoints when abuse is detected by the rate limiter.
 - **API token rotation & scoping UI**, plus mTLS or signed requests for the REST API.
 - **Automated dependency & PHP-version monitoring** in CI as part of the production checklist.

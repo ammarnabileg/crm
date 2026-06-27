@@ -25,7 +25,7 @@ It exists to make reviews **consistent and complete** regardless of which engine
 
 A framework-free, multi-tenant SaaS selling to thousands of tenants has no safety net but its own discipline. Code review is the last human gate before a change reaches a tenant's data. Three reasons make this checklist non-negotiable:
 
-1. **The expensive bugs are invisible at a glance.** A missing `company_id` scope, a `withoutTenantScope()` used carelessly, or an unescaped echo looks fine in a diff. A structured checklist forces the reviewer to *look for* them rather than hope to notice them.
+1. **The expensive bugs are invisible at a glance.** A missing `workspace_id` scope, a `withoutTenantScope()` used carelessly, or an unescaped echo looks fine in a diff. A structured checklist forces the reviewer to *look for* them rather than hope to notice them.
 2. **Consistency across reviewers.** Without a checklist, review quality depends on who reviewed. With it, every PR clears the same bar.
 3. **Traceability.** Each item maps to a rule (§ in [41 — Coding Standards](41-Coding-Standards.md)) and, where relevant, a required test (in [39 — Testing Strategy](39-Testing-Strategy.md)), so a reviewer can request a precise, justified change instead of a vague "please fix".
 
@@ -85,8 +85,8 @@ Each numbered group below is independent and actionable. A reviewer may approve 
 - [ ] New tenant-bound models set `protected static bool $tenantScoped = true;`.
 - [ ] Reads/writes of tenant data go through `Model::query()` (auto-scoped, fails closed) — **not** raw SQL or `withoutTenantScope()`.
 - [ ] Every `withoutTenantScope()` use is **justified in a comment** and confined to super-admin/system/installer code (never reachable from a normal tenant request).
-- [ ] No user-controlled `company_id` is ever trusted from the request; it comes from the active tenant.
-- [ ] New tenant tables (migrations) carry `company_id` (FK→`companies`, indexed) and per-tenant uniqueness where relevant.
+- [ ] No user-controlled `workspace_id` is ever trusted from the request; it comes from the active tenant.
+- [ ] New tenant tables (migrations) carry `workspace_id` (FK→`companies`, indexed) and per-tenant uniqueness where relevant.
 - [ ] Cross-tenant joins do not bypass the scope (joined tables are also tenant-filtered or intentionally global).
 - [ ] A tenant-isolation test exists for the new model/table (reads filtered + `query()` throws with no tenant) — see [39 — Testing Strategy](39-Testing-Strategy.md).
 
@@ -161,9 +161,9 @@ Each numbered group below is independent and actionable. A reviewer may approve 
 Review confirms schema changes (migrations) match §11 conventions:
 
 - New tables are InnoDB/utf8mb4; PK `id BIGINT UNSIGNED AUTO_INCREMENT`; timestamps present.
-- Tenant tables have `company_id` with a real FK to `companies` and an index; child rows `ON DELETE CASCADE`, optional refs `SET NULL`, deletion-blocking refs `RESTRICT`.
+- Tenant tables have `workspace_id` with a real FK to `companies` and an index; child rows `ON DELETE CASCADE`, optional refs `SET NULL`, deletion-blocking refs `RESTRICT`.
 - Indexes back every FK and every status/filter column the feature queries.
-- Per-tenant uniqueness uses composite unique keys (e.g. `(company_id, slug)`, `(company_id, job_id, user_id)`).
+- Per-tenant uniqueness uses composite unique keys (e.g. `(workspace_id, slug)`, `(workspace_id, job_id, user_id)`).
 - Migrations are reversible/idempotent where the migrator expects it and do not assume transactional DDL (MySQL auto-commits DDL — see §4).
 - Model `$fillable`/`$hidden`/`$casts` are consistent with the columns (no secret in `$fillable`, JSON columns cast to `array`).
 

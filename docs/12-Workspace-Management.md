@@ -4,7 +4,7 @@ Companies are the tenants of HalaOps; this document defines how a company is cre
 
 ## Related Documents
 
-- [08 — Multi-Tenant Architecture](08-Multi-Tenant.md) — how `company_id` isolation is enforced at the model layer.
+- [08 — Multi-Tenant Architecture](08-Multi-Tenant.md) — how `workspace_id` isolation is enforced at the model layer.
 - [13 — Subscription System](13-Subscription-System.md) — the trial subscription attached at company creation and the plan limits a company runs under.
 - [07 — RBAC](07-RBAC.md) — the roles (`owner`, `admin`, `member`, …) and permissions that gate company operations.
 - [14 — Billing System](14-Billing-System.md) — invoices/payments tied to a company's subscription.
@@ -25,7 +25,7 @@ The single implementation that creates a company lives in `app/Services/Tenancy/
 
 ## Why It Exists (سبب وجوده)
 
-HalaOps is sold to thousands of companies on shared infrastructure. The company object is what makes "multi-tenant" concrete: it is the value that every tenant-scoped query filters on (`WHERE company_id = :active`), the unit a subscription is billed against, and the boundary a Super Admin manages.
+HalaOps is sold to thousands of companies on shared infrastructure. The company object is what makes "multi-tenant" concrete: it is the value that every tenant-scoped query filters on (`WHERE workspace_id = :active`), the unit a subscription is billed against, and the boundary a Super Admin manages.
 
 Provisioning a tenant is not a single INSERT. A usable tenant needs, all at once: the company row, the creator's active membership, the default role set for that company, the Owner role assigned to the creator, and a trial subscription so billing state is never null. If any of these steps fails, a half-created company would leave a user "in" a company they cannot administer, or a company with no billing state. Centralising this in one atomic service (one source of truth, run identically for self-service registration, the in-app "new company" flow, and Super Admin provisioning) is the reason `CompanyService` exists.
 
@@ -35,7 +35,7 @@ Provisioning a tenant is not a single INSERT. A usable tenant needs, all at once
 |-----------|------|----------------|
 | `CompanyService` | `app/Services/Tenancy/CompanyService.php` | Atomic tenant provisioning (`create()`), trial subscription bootstrap (`startTrialSubscription()`). |
 | `CompanyController` | `app/Controllers/App/CompanyController.php` | HTTP: `create()` form, `store()`, `select()`, `switch()`. |
-| `TenantManager` | `app/Services/Tenancy/TenantManager.php` | Holds the active `company_id` for the request; `setTenant()`, `setById()`, `bootFor()`, `userBelongsTo()`, `clear()`. |
+| `TenantManager` | `app/Services/Tenancy/TenantManager.php` | Holds the active `workspace_id` for the request; `setTenant()`, `setById()`, `bootFor()`, `userBelongsTo()`, `clear()`. |
 | `Company` model | `app/Models/Company.php` | Global (non-tenant-scoped) model; `owner()`, `isActive()`, `activeSubscription()`, `membersCount()`, `uniqueSlug()`. |
 | `Membership` model | `app/Models/Membership.php` | Tenant-scoped user↔company link with `roles()`, `syncRoles()`. |
 | `RbacManager` | `app/Services/Rbac/RbacManager.php` | `provisionCompanyRoles()` and `assignMembershipRole()` from `config/rbac.php`. |
@@ -68,18 +68,18 @@ sequenceDiagram
     S->>DB: BEGIN
     S->>DB: INSERT companies (name, uniqueSlug, owner_id, locale, status='trial')
     DB-->>S: companyId
-    S->>DB: INSERT memberships (company_id, user_id, status='active', title='Owner', joined_at)
+    S->>DB: INSERT memberships (workspace_id, user_id, status='active', title='Owner', joined_at)
     DB-->>S: membershipId
     S->>R: provisionCompanyRoles(companyId)
-    R->>DB: INSERT roles (owner, admin, member) + permission_role rows
+    R->>DB: INSERT roles (owner, admin, member) + role_permissions rows
     R-->>S: {owner: id, admin: id, member: id}
     S->>R: assignMembershipRole(membershipId, ownerRoleId)
-    R->>DB: INSERT membership_role
+    R->>DB: INSERT membership_roles
     S->>DB: INSERT subscriptions (plan=first active, status='trialing', trial_ends_at=+trial_days)
     S->>DB: ActivityLog 'company.created'
     S->>DB: COMMIT
     S-->>C: Company
-    C->>T: setTenant(company)  %% session active_company_id = id
+    C->>T: setTenant(company)  %% session active_workspace_id = id
     C-->>U: redirect /dashboard (flash: "You are the owner")
 ```
 
@@ -91,14 +91,14 @@ A Super Admin can create a company for any existing user (the customer's primary
 
 ### 3. Company selection and switching
 
-After login, `TenantManager::bootFor($user)` resolves the active tenant in this order: (a) the `active_company_id` stored in the session, **if** the user still has an *active* membership there; otherwise (b) the user's most-recent company (`User::companies()` ordered by `companies.created_at DESC`). A user with no companies (e.g. a fresh Super Admin) has no active tenant and operates platform-wide.
+After login, `TenantManager::bootFor($user)` resolves the active tenant in this order: (a) the `active_workspace_id` stored in the session, **if** the user still has an *active* membership there; otherwise (b) the user's most-recent company (`User::companies()` ordered by `companies.created_at DESC`). A user with no companies (e.g. a fresh Super Admin) has no active tenant and operates platform-wide.
 
 - `GET /companies/select` → if the user belongs to no companies they are redirected to `/companies/create`; otherwise they pick from `auth()->user()->companies()`.
-- `POST /companies/switch` validates `company_id`, calls `TenantManager::userBelongsTo()`, and only then `setById()`. Switching rewrites `session.active_company_id` and redirects to the dashboard.
+- `POST /companies/switch` validates `workspace_id`, calls `TenantManager::userBelongsTo()`, and only then `setById()`. Switching rewrites `session.active_workspace_id` and redirects to the dashboard.
 
 ### 4. Members and invitations
 
-Membership rows link users to a company with a `status` of `active|invited|suspended`. Inviting a member creates (or reactivates) a `memberships` row with `status='invited'`, `invited_by`, and `invited_at`; accepting the invite flips it to `active` and stamps `joined_at`. Roles for the member are attached through `Membership::syncRoles()` which rewrites the `membership_role` pivot. (The invitation UI/controller is a planned module gated by `members.invite`; the data model is built today.)
+Membership rows link users to a company with a `status` of `active|invited|suspended`. Inviting a member creates (or reactivates) a `memberships` row with `status='invited'`, `invited_by`, and `invited_at`; accepting the invite flips it to `active` and stamps `joined_at`. Roles for the member are attached through `Membership::syncRoles()` which rewrites the `membership_roles` pivot. (The invitation UI/controller is a planned module gated by `members.invite`; the data model is built today.)
 
 ### 5. Ownership transfer
 
@@ -127,13 +127,13 @@ A company's `status` column (`trial|active|suspended|canceled`) drives access. S
 Consistent with [§11 of the canonical schema](05-Database-Architecture.md):
 
 - **`companies`** (GLOBAL): `id`, `name VARCHAR(150)`, `slug VARCHAR(160) UNIQUE`, `owner_id → users(id) ON DELETE RESTRICT`, `logo`, `locale`, `timezone DEFAULT 'Asia/Riyadh'`, `status ENUM('trial','active','suspended','canceled') DEFAULT 'trial'`, `settings JSON`, `created_at`, `updated_at`. Indexes: `companies_owner_id_index`, `companies_status_index`.
-- **`memberships`** (tenant): `id`, `company_id → companies(id) ON DELETE CASCADE`, `user_id → users(id) ON DELETE CASCADE`, `status ENUM('active','invited','suspended')`, `title`, `invited_by → users(id) ON DELETE SET NULL`, `invited_at`, `joined_at`. `UNIQUE(company_id, user_id)`, indexes on `user_id` and `status`.
-- **`roles`** (`company_id` set = tenant role) and pivots **`membership_role`** (membership↔role) and **`permission_role`** wire RBAC to the company.
+- **`memberships`** (tenant): `id`, `workspace_id → companies(id) ON DELETE CASCADE`, `user_id → users(id) ON DELETE CASCADE`, `status ENUM('active','invited','suspended')`, `title`, `invited_by → users(id) ON DELETE SET NULL`, `invited_at`, `joined_at`. `UNIQUE(workspace_id, user_id)`, indexes on `user_id` and `status`.
+- **`roles`** (`workspace_id` set = tenant role) and pivots **`membership_roles`** (membership↔role) and **`role_permissions`** wire RBAC to the company.
 - **`subscriptions`** (tenant): one row per company linking to `plans` (see [13](13-Subscription-System.md)).
-- **`settings`** (tenant): `UNIQUE(company_id, key)` for per-company key/value configuration.
-- **`activity_log`**: nullable `company_id` records company events.
+- **`settings`** (tenant): `UNIQUE(workspace_id, key)` for per-company key/value configuration.
+- **`activity_log`**: nullable `workspace_id` records company events.
 
-Because `owner_id` is `RESTRICT`, a user who owns a company cannot be deleted until ownership is transferred or the company is deleted. Because child tables CASCADE on `company_id`, deleting a company removes its memberships, roles, subscriptions, settings, and all domain data automatically.
+Because `owner_id` is `RESTRICT`, a user who owns a company cannot be deleted until ownership is transferred or the company is deleted. Because child tables CASCADE on `workspace_id`, deleting a company removes its memberships, roles, subscriptions, settings, and all domain data automatically.
 
 ## Permissions
 
@@ -141,8 +141,8 @@ Built permission groups gate company operations (from `config/rbac.php`):
 
 | Action | Permission | Default roles holding it |
 |--------|-----------|--------------------------|
-| View company profile | `company.view` | owner, admin, member |
-| Edit company / logo / locale | `company.update` | owner, admin |
+| View company profile | `workspace.view` | owner, admin, member |
+| Edit company / logo / locale | `workspace.update` | owner, admin |
 | View members | `members.view` | owner, admin, member |
 | Invite members | `members.invite` | owner, admin |
 | Edit member roles/details | `members.update` | owner, admin |
@@ -151,14 +151,14 @@ Built permission groups gate company operations (from `config/rbac.php`):
 | View settings | `settings.view` | owner, admin, member |
 | Manage settings | `settings.manage` | owner, admin |
 
-Ownership transfer, suspension, cancellation and deletion of one's own company are **Owner-only** (the `owner` role holds `'*'` — every tenant permission — and is the only tenant role with billing/ownership authority). Cross-company platform operations use the planned super-admin group `platform.companies.view` / `platform.companies.manage` (see [22 — Super Admin Journey](22-SuperAdmin-Journey.md)). Permissions are enforced by `RequirePermission` middleware (`permission:company.update`) and `access()->allows()`.
+Ownership transfer, suspension, cancellation and deletion of one's own company are **Owner-only** (the `owner` role holds `'*'` — every tenant permission — and is the only tenant role with billing/ownership authority). Cross-company platform operations use the planned super-admin group `platform.companies.view` / `platform.companies.manage` (see [22 — Super Admin Journey](22-SuperAdmin-Journey.md)). Permissions are enforced by `RequirePermission` middleware (`permission:workspace.update`) and `access()->allows()`.
 
 ## Validation
 
 - **Company name** (`store()`): `required|min:2|max:150`. Trimmed before insert.
 - **Slug**: not user-supplied; generated and de-duplicated by `Company::uniqueSlug()`.
 - **`locale`**: inherited from the owner's `locale` (fallback `en`); when editable it is constrained to `in:en,ar`.
-- **`company_id`** (switch): `required|integer`, then membership-validated via `userBelongsTo()` (defence in depth — validation alone is not authorization).
+- **`workspace_id`** (switch): `required|integer`, then membership-validated via `userBelongsTo()` (defence in depth — validation alone is not authorization).
 - **Logo upload** (settings): `mimes:png,jpg,jpeg,svg`, max size, stored through the files/storage abstraction (see [27 — Storage System](27-Storage-System.md)).
 - **Ownership transfer**: target `user_id` must be an existing **active member** of the company (`exists` against `memberships` with `status='active'`).
 - **Settings keys**: constrained to a known allow-list per the settings module; values length-limited.
@@ -167,17 +167,17 @@ Ownership transfer, suspension, cancellation and deletion of one's own company a
 
 1. **Concurrent creation with the same name** — the slug uniqueness loop plus the `UNIQUE(slug)` constraint serialise the conflict; a duplicate insert raises a PDO exception that rolls back the transaction and the user can retry.
 2. **No active plan at creation** — `startTrialSubscription()` returns early; the company exists with no subscription. Surfaced as "no subscription" in billing and resolved by an admin assigning a plan.
-3. **Switching to a company where membership was just revoked** — `userBelongsTo()` re-checks the live membership status, so a stale session `active_company_id` cannot be used; `bootFor()` falls back to the most-recent valid company or none.
+3. **Switching to a company where membership was just revoked** — `userBelongsTo()` re-checks the live membership status, so a stale session `active_workspace_id` cannot be used; `bootFor()` falls back to the most-recent valid company or none.
 4. **Super Admin with zero companies** — `EnsureTenant` lets them through with no active tenant; tenant-scoped models that are actually touched must use `withoutTenantScope()` or they fail closed.
 5. **Suspended/canceled company** — tenant routes are blocked for members while platform routes remain open to Super Admins; the user sees a clear "company suspended" state rather than a raw error.
 6. **Deleting a user who owns a company** — blocked by the `RESTRICT` FK; the system instructs the operator to transfer ownership or delete the company first.
 7. **Owner tries to leave their own company** — rejected with a message to transfer ownership first.
-8. **Re-inviting an already-active member** — the `UNIQUE(company_id, user_id)` constraint prevents a duplicate membership; the flow updates the existing row instead.
+8. **Re-inviting an already-active member** — the `UNIQUE(workspace_id, user_id)` constraint prevents a duplicate membership; the flow updates the existing row instead.
 
 ## Security
 
 - **Strict tenant isolation**: all tenant-bound reads/writes go through tenant-scoped models that fail closed when no tenant is active; cross-company access during provisioning is explicit (`withoutTenantScope()`), auditable, and confined to system/super-admin paths (see [08](08-Multi-Tenant.md), [34 — Security](34-Security.md)).
-- **Authorization vs validation**: `switch()` validates the id *and* verifies membership; permission middleware guards every mutating route. Never trust a `company_id` from the request as proof of access.
+- **Authorization vs validation**: `switch()` validates the id *and* verifies membership; permission middleware guards every mutating route. Never trust a `workspace_id` from the request as proof of access.
 - **CSRF**: all POST/PUT routes run through the `csrf` middleware (`VerifyCsrfToken`); forms emit `csrf_field()`.
 - **Audit trail**: creation, ownership transfer, suspension and deletion write `activity_log` rows with actor, subject, ip and user-agent for forensic review (see [38 — Audit System](38-Audit-System.md)).
 - **Least privilege**: only the `owner` role (and Super Admins) can perform destructive company-level actions; `admin` deliberately lacks billing/ownership.
@@ -185,11 +185,11 @@ Ownership transfer, suspension, cancellation and deletion of one's own company a
 
 ## Performance
 
-- **Hot path — tenant resolution per request**: `bootFor()` runs once (guarded by a `$booted` flag) and issues at most one indexed lookup on `memberships(user_id, company_id)`.
+- **Hot path — tenant resolution per request**: `bootFor()` runs once (guarded by a `$booted` flag) and issues at most one indexed lookup on `memberships(user_id, workspace_id)`.
 - **Company switcher**: `User::companies()` joins `companies`↔`memberships` filtered by `memberships.user_id` and `status='active'`, served by `memberships_user_id_index`.
-- **Member counts**: `Company::membersCount()` is a single `COUNT` on the indexed `(company_id, status)`; cache per company if shown on high-traffic pages.
+- **Member counts**: `Company::membersCount()` is a single `COUNT` on the indexed `(workspace_id, status)`; cache per company if shown on high-traffic pages.
 - **Provisioning** is a short transaction with a bounded number of inserts (company, membership, ≤3 roles × their permissions, one subscription); no N+1 because role/permission maps are loaded once in `RbacManager`.
-- All FKs (`owner_id`, `company_id`, `user_id`) are indexed, keeping joins and cascade deletes efficient.
+- All FKs (`owner_id`, `workspace_id`, `user_id`) are indexed, keeping joins and cascade deletes efficient.
 
 ## Testing
 
@@ -202,10 +202,10 @@ Ownership transfer, suspension, cancellation and deletion of one's own company a
 - `POST /companies` with valid name creates a company and sets the session tenant; redirects to `/dashboard` with the owner flash.
 - `GET /companies/select` redirects to `/companies/create` when the user has no companies.
 - `POST /companies/switch` to a company the user does not belong to returns 403.
-- Editing the company without `company.update` returns 403.
+- Editing the company without `workspace.update` returns 403.
 
 **Security**
-- A member of company A cannot read or mutate company B's data even by forging `company_id` (tenant scope fails closed).
+- A member of company A cannot read or mutate company B's data even by forging `workspace_id` (tenant scope fails closed).
 - Deleting an owner user is blocked by the `RESTRICT` FK.
 - All mutating routes reject requests without a valid CSRF token.
 - Super Admin can provision a company and assign an owner without an active tenant.
@@ -214,8 +214,8 @@ Ownership transfer, suspension, cancellation and deletion of one's own company a
 
 - **Company-level invitations module**: email-based invites with hashed, expiring tokens (mirrors password-reset anti-enumeration) layered on the existing `memberships(status='invited')` model.
 - **Multiple owners / co-owners**: model already supports many memberships; add an `is_owner` flag or rely on the `owner` role for several members, with `companies.owner_id` as the billing-responsible party.
-- **Workspaces/sub-tenants**: a future `parent_company_id` could express org hierarchies without breaking row-level isolation.
-- **DB-per-tenant migration path**: because every query is already `company_id`-scoped, a company can be relocated to a dedicated database/shard with minimal application change (see [36 — Scalability](36-Scalability.md)).
+- **Workspaces/sub-tenants**: a future `parent_workspace_id` could express org hierarchies without breaking row-level isolation.
+- **DB-per-tenant migration path**: because every query is already `workspace_id`-scoped, a company can be relocated to a dedicated database/shard with minimal application change (see [36 — Scalability](36-Scalability.md)).
 - **Soft-delete + scheduled hard-delete**: add `deleted_at` and a queue job to purge after the retention window (see Data Lifecycle below and [27](27-Storage-System.md)).
 
 ### Data Lifecycle (deletion)

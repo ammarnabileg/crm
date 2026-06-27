@@ -46,7 +46,7 @@ The existing **verification harnesses already proven by hand** — install (requ
 ```mermaid
 graph TD
     A["Security tests (~15%)<br/>tenant isolation · CSRF · authz · anti-enumeration"] 
-    B["Feature / HTTP tests (~25%)<br/>auth flows · installer · RBAC route gating · company provisioning"]
+    B["Feature / HTTP tests (~25%)<br/>auth flows · installer · RBAC route gating · workspace provisioning"]
     C["Unit tests (~60%)<br/>QueryBuilder · Model scope · AccessControl · Validator · Encrypter · Hash"]
     A --> B --> C
     style C fill:#1e3a5f,stroke:#4a90d9,color:#fff
@@ -66,7 +66,7 @@ tests/
   bootstrap.php                # loads autoloader, boots a test container, test .env
   TestCase.php                 # base assertions + helpers (assertTrue, assertThrows, ...)
   Support/
-    Factory.php                # builds users/companies/roles/memberships for tests
+    Factory.php                # builds users/workspaces/roles/memberships for tests
     DatabaseTransactions.php   # wrap each test in a rolled-back transaction
     FakeTenant.php             # set/clear the active tenant in tests
   Unit/
@@ -82,7 +82,7 @@ tests/
     PasswordResetTest.php
     InstallerTest.php
     RbacGatingTest.php
-    CompanyProvisioningTest.php
+    WorkspaceProvisioningTest.php
   Security/
     TenantIsolationTest.php
     CsrfTest.php
@@ -276,7 +276,7 @@ sequenceDiagram
 ## Business Rules
 
 1. **A change to `Model`, `QueryBuilder`, `AccessControl`, `TenantManager`, `Encrypter`, `Hash`, or any middleware MUST ship with tests** — enforced by [42 — Code Review Checklist](42-Code-Review-Checklist.md).
-2. **Every new tenant-scoped table/model gets a tenant-isolation test** proving (a) reads are filtered by `company_id` and (b) `query()` throws with no active tenant.
+2. **Every new tenant-scoped table/model gets a tenant-isolation test** proving (a) reads are filtered by `workspace_id` and (b) `query()` throws with no active tenant.
 3. **Every new permission-gated route gets an RBAC gating test** proving an unauthorised role receives 403 and an authorised role receives 200.
 4. **The CI build fails on any failing test** (exit code propagated); no merging red.
 5. **No test depends on real network, real email, or a real AI provider** — `Mailer` and `AiProviderInterface` are faked.
@@ -288,20 +288,20 @@ sequenceDiagram
 Tests exercise the full schema from §11 but concentrate on the isolation-critical tables:
 
 - **users** (global) — login/auth tests; `email` uniqueness; `status` gating in `AuthManager::user()`.
-- **companies** (tenant root) — provisioning tests; `(owner_id, status)` index; `slug` uniqueness.
-- **memberships** — `UQ(company_id, user_id)`, `status='active'` is the gate `TenantManager::userBelongsTo()` checks.
-- **roles / permissions / permission_role / membership_role / user_role** — the join chain `AccessControl::effectivePermissions()` resolves; tests assert the union + parent-chain expansion.
-- **subscriptions** — `CompanyService` provisioning test asserts a `trialing` row is created on the default plan.
-- **ai_credentials** — `UQ(company_id, provider)`; encryption round-trip and per-tenant isolation tests.
+- **workspaces** (tenant root) — provisioning tests; `(owner_id, workspace_status_id)` index; `slug` uniqueness.
+- **memberships** — `UQ(workspace_id, user_id)`, an `active` membership status is the gate `TenantManager::userBelongsTo()` checks.
+- **roles / permissions / role_permissions / membership_roles / user_roles** — the join chain `AccessControl::effectivePermissions()` resolves; tests assert the union + parent-chain expansion.
+- **subscriptions** — `WorkspaceService` provisioning test asserts a `trialing` row is created on the default plan.
+- **tenant_ai_keys** — `UQ(workspace_id, provider)`; encryption round-trip and per-tenant isolation tests.
 - **password_resets** — hashed token + TTL behaviour for anti-enumeration tests.
 
-Factories insert into these with **explicit `company_id`** (via `withoutTenantScope()` / raw builder) because the entity under construction is not yet the active tenant — mirroring `CompanyService::create()`.
+Factories insert into these with **explicit `workspace_id`** (via `withoutTenantScope()` / raw builder) because the entity under construction is not yet the active tenant — mirroring `WorkspaceService::create()`.
 
 ## Permissions
 
 Authorization tests assert the catalogue and resolution rules from §6 and [07 — RBAC](07-RBAC.md):
 
-- A **super-admin** (global `super-admin` role, `company_id NULL`) passes *every* `access()->allows()` check — assert `AccessControl::allows('anything.at.all')` is `true`.
+- A **super-admin** (global `super-admin` role, `workspace_id NULL`) passes *every* `access()->allows()` check — assert `AccessControl::allows('anything.at.all')` is `true`.
 - A tenant **owner** has all tenant permissions; **admin** has all except `billing.manage` and ownership actions; **recruiter** has `jobs.*`/`applications.*` subsets but **not** `roles.manage` or `billing.manage`.
 - **Inheritance**: a child role with `parent_id` inherits the parent's permissions — assert a role with parent `member` also resolves the member's keys.
 - **Any-of semantics** of `permission:a,b` middleware — assert a user with only `b` is allowed.
@@ -370,8 +370,8 @@ Tests must cover, at minimum:
 - **CSRF on a write with a missing/old token** → HTTP 419; GET/HEAD/OPTIONS are exempt.
 - **Throttle exceeded** → HTTP 429 with `Retry-After`; JSON requests get a JSON envelope.
 - **Installer finalize before prerequisite steps** → `RuntimeException` ("Cannot finalize: the 'migrate' step has not completed yet"); idempotent re-run of `createAdmin()` reuses the existing user rather than duplicating.
-- **Membership not active** → `TenantManager::userBelongsTo()` returns `false`, so a user with an `invited`/`suspended` membership cannot make that company the active tenant.
-- **Slug collision** on company creation → `Company::uniqueSlug()` produces a distinct slug; assert `UQ(company_id, slug)` is never violated.
+- **Membership not active** → `TenantManager::userBelongsTo()` returns `false`, so a user with an `invited`/`suspended` membership cannot make that workspace the active tenant.
+- **Slug collision** on workspace creation → `Workspace::uniqueSlug()` produces a distinct slug; assert `UQ(workspace_id, slug)` is never violated.
 
 ## Security
 
@@ -402,29 +402,29 @@ final class TenantIsolationTest extends TestCase
         });
     }
 
-    public function testReadsAreFilteredToActiveCompany(): void
+    public function testReadsAreFilteredToActiveWorkspace(): void
     {
-        [$companyA, $ownerA] = Factory::company('Alpha');
-        [$companyB, $ownerB] = Factory::company('Beta');
+        [$workspaceA, $ownerA] = Factory::workspace('Alpha');
+        [$workspaceB, $ownerB] = Factory::workspace('Beta');
 
-        Factory::subscriptionFor($companyA->getKey());
-        Factory::subscriptionFor($companyB->getKey());
+        Factory::subscriptionFor($workspaceA->getKey());
+        Factory::subscriptionFor($workspaceB->getKey());
 
-        app('tenant')->setById((int) $companyA->getKey());
+        app('tenant')->setById((int) $workspaceA->getKey());
         $rows = Subscription::all();
 
         foreach ($rows as $row) {
-            $this->assertSame((int) $companyA->getKey(), (int) $row->company_id,
-                'Tenant A query returned a row belonging to another company.');
+            $this->assertSame((int) $workspaceA->getKey(), (int) $row->workspace_id,
+                'Tenant A query returned a row belonging to another workspace.');
         }
     }
 
     public function testWithoutScopeIsTheOnlyCrossTenantPath(): void
     {
-        Factory::company('Alpha');
-        Factory::company('Beta');
+        Factory::workspace('Alpha');
+        Factory::workspace('Beta');
 
-        // Explicit opt-out (system/super-admin only) can see all companies.
+        // Explicit opt-out (system/super-admin only) can see all workspaces.
         $all = \App\Models\Subscription::withoutTenantScope()->count();
         $this->assertTrue($all >= 2);
     }
@@ -450,7 +450,7 @@ final class TenantIsolationTest extends TestCase
 - `AuthManager::validate()` performs a dummy `Hash::verify` when the email does not exist so response timing does not reveal account existence.
 - Password reset (`PasswordController`) returns the same response for known and unknown emails; tokens are stored **hashed** with a 60-minute TTL (config `auth.password_reset_ttl`).
 - Login throttling: after `auth.max_login_attempts` (5) failures the next attempt is rejected with a lockout message; a successful login clears the counter.
-- Session is regenerated on login (`Session::regenerate()`); logout invalidates the session and clears `active_company_id`.
+- Session is regenerated on login (`Session::regenerate()`); logout invalidates the session and clears `active_workspace_id`.
 
 ### 5. Injection & output
 
@@ -473,17 +473,17 @@ This document *is* the testing plan; the concrete suites to implement are:
 | Suite | File | Key assertions |
 | --- | --- | --- |
 | QueryBuilder | `tests/Unit/QueryBuilderTest.php` | bindings parameterised; `whereIn([])`→`1=0`; bad operator throws; `paginate()` shape |
-| Model scope | `tests/Unit/ModelTenantScopeTest.php` | scoped `query()` adds `company_id`; throws with no tenant; `withoutTenantScope()` bypasses; `create()` stamps `company_id` |
+| Model scope | `tests/Unit/ModelTenantScopeTest.php` | scoped `query()` adds `workspace_id`; throws with no tenant; `withoutTenantScope()` bypasses; `create()` stamps `workspace_id` |
 | AccessControl | `tests/Unit/AccessControlTest.php` | super-admin allows all; union of global+tenant roles; parent-chain inheritance; null user denies; per-request cache |
 | Validator | `tests/Unit/ValidatorTest.php` | each rule; `nullable`; first-failure-only; `validate()` throws |
 | Encrypter | `tests/Unit/EncrypterTest.php` | round-trip; tamper throws; `base64:` key normalisation; per-key isolation |
 | Hash | `tests/Unit/HashTest.php` | `make`/`verify`; `needsRehash` after cost change; empty hash → false |
 | Login | `tests/Feature/LoginTest.php` | valid login redirects to dashboard; invalid → flashed error; throttle → lockout; suspended user denied |
-| Register | `tests/Feature/RegisterTest.php` | creates user; optional company → Owner; duplicate email rejected |
+| Register | `tests/Feature/RegisterTest.php` | creates user; optional workspace → Owner; duplicate email rejected |
 | Password reset | `tests/Feature/PasswordResetTest.php` | hashed token issued; expired token rejected; same response for unknown email |
 | Installer | `tests/Feature/InstallerTest.php` | step ordering; finalize-before-prereqs throws; idempotent admin; lock file written |
 | RBAC gating | `tests/Feature/RbacGatingTest.php` | `permission:dashboard.view` denies role without it (403), allows with it |
-| Company provisioning | `tests/Feature/CompanyProvisioningTest.php` | atomic: company+membership+roles+trial; rollback on failure |
+| Workspace provisioning | `tests/Feature/WorkspaceProvisioningTest.php` | atomic: workspace+membership+roles+trial; rollback on failure |
 | Tenant isolation | `tests/Security/TenantIsolationTest.php` | fail-closed; cross-tenant read filtered; opt-out is the only escape |
 | CSRF | `tests/Security/CsrfTest.php` | 419 on missing/stale token; header path; read methods exempt |
 | Authorization | `tests/Security/AuthorizationTest.php` | 403 vs 200; guest redirect; gate override |
@@ -506,12 +506,12 @@ final class RbacGatingTest extends TestCase
 {
     public function testRoleWithoutPermissionGets403(): void
     {
-        [$company, $owner] = Factory::company('Alpha');
+        [$workspace, $owner] = Factory::workspace('Alpha');
         $user = Factory::user();                              // no roles
-        Factory::membership($company->getKey(), $user->getKey(), roles: []);
+        Factory::membership($workspace->getKey(), $user->getKey(), roles: []);
 
         app('auth')->login($user);
-        app('tenant')->setById((int) $company->getKey());
+        app('tenant')->setById((int) $workspace->getKey());
 
         $middleware = new RequirePermission('dashboard.view');
         $this->assertThrows(HttpException::class, function () use ($middleware): void {
@@ -521,9 +521,9 @@ final class RbacGatingTest extends TestCase
 
     public function testOwnerCanReachDashboard(): void
     {
-        [$company, $owner] = Factory::company('Alpha');     // owner role granted by Factory
+        [$workspace, $owner] = Factory::workspace('Alpha');     // owner role granted by Factory
         app('auth')->login($owner);
-        app('tenant')->setById((int) $company->getKey());
+        app('tenant')->setById((int) $workspace->getKey());
 
         $this->assertTrue(access()->allows('dashboard.view'));
     }
@@ -541,8 +541,8 @@ namespace Tests;
 
 use App\Core\Hash;
 use App\Models\User;
-use App\Models\Company;
-use App\Services\Tenancy\CompanyService;
+use App\Models\Workspace;
+use App\Services\Tenancy\WorkspaceService;
 
 final class Factory
 {
@@ -562,19 +562,19 @@ final class Factory
         return User::findOrFail($id);
     }
 
-    /** Build a fully-provisioned company (company + owner membership + roles + trial). */
-    public static function company(string $name = 'Acme'): array
+    /** Build a fully-provisioned workspace (workspace + owner membership + roles + trial). */
+    public static function workspace(string $name = 'Acme'): array
     {
         $owner = self::user();
-        $company = (new CompanyService())->create($owner, $name);
+        $workspace = (new WorkspaceService())->create($owner, $name);
 
-        return [$company, $owner];
+        return [$workspace, $owner];
     }
 
-    public static function subscriptionFor(int $companyId): void
+    public static function subscriptionFor(int $workspaceId): void
     {
         app('db')->table('subscriptions')->insert([
-            'company_id' => $companyId, 'plan_id' => 1, 'status' => 'trialing',
+            'workspace_id' => $workspaceId, 'plan_id' => 1, 'status' => 'trialing',
             'amount' => 50.00, 'currency' => 'SAR',
             'starts_at' => now(), 'created_at' => now(), 'updated_at' => now(),
         ]);

@@ -163,7 +163,7 @@ The **only** information returned by `sendReset()` is the uniform message "If th
 
 ### Logout
 
-`AuthManager::logout()` forgets `auth_user_id`, forgets `active_company_id` (clears the tenant), invalidates the session, and drops the in-memory user. `LoginController::logout()` then audits `auth.logout` and redirects to `/login`.
+`AuthManager::logout()` forgets `auth_user_id`, forgets `active_workspace_id` (clears the tenant), invalidates the session, and drops the in-memory user. `LoginController::logout()` then audits `auth.logout` and redirects to `/login`.
 
 ### Resolving the current user
 
@@ -252,7 +252,7 @@ All validation runs through the core `Validator`, which throws `ValidationExcept
 **Unit (`AuthManager`):**
 - `validate` returns the user for correct credentials, null otherwise; runs the dummy verify for unknown emails (timing).
 - `attempt` rejects inactive accounts; triggers rehash when `needsRehash` is true.
-- `login` regenerates the session and stores `auth_user_id`; `logout` clears `auth_user_id` + `active_company_id` and invalidates.
+- `login` regenerates the session and stores `auth_user_id`; `logout` clears `auth_user_id` + `active_workspace_id` and invalidates.
 - `user` forces logout when the account is missing/suspended.
 
 **Feature (HTTP flows):**

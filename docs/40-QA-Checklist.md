@@ -19,7 +19,7 @@ The per-feature checklist every HalaOps module must pass before it is called "do
 
 This document is the **acceptance gate** for any HalaOps feature. Automated tests (see [39 — Testing Strategy](39-Testing-Strategy.md)) prove the logic; this checklist proves the **experience** — that every page renders, every control works, every state (empty/loading/error) is handled, every permission is enforced in the UI, and the feature behaves under RTL/LTR and on mobile. A feature is not "done" until a tester (or the implementing engineer) has ticked the relevant boxes and recorded the result on the PR.
 
-It provides a **universal checklist** that applies to every feature, followed by **module-specific checklists** for the concrete HalaOps surfaces (auth, installer, dashboard, company, members, roles, billing, AI credentials, jobs, applications, interviews, evaluations, candidate portal, notifications, super-admin).
+It provides a **universal checklist** that applies to every feature, followed by **module-specific checklists** for the concrete HalaOps surfaces (auth, installer, dashboard, workspace, members, roles, billing, AI credentials, jobs, applications, interviews, evaluations, candidate portal, notifications, super-admin).
 
 ## Why It Exists (سبب وجوده)
 
@@ -106,14 +106,14 @@ graph LR
 - [ ] All data shown belongs to the active company only.
 - [ ] Switching the active company swaps the data set entirely (no bleed-through).
 - [ ] Directly requesting another tenant's record id returns 404/403, never that record.
-- [ ] Creating a record stamps the active `company_id`; it is invisible to other tenants.
+- [ ] Creating a record stamps the active `workspace_id`; it is invisible to other tenants.
 
 ### API (where the feature exposes one)
 - [ ] Endpoint requires a valid API token and enforces the same RBAC + tenant scope.
 - [ ] Success returns the documented JSON shape and status code.
 - [ ] Errors return the JSON envelope (`{ "message": ... }`) with the right status (401/403/404/409/422/429).
 - [ ] Rate limiting returns 429 with `Retry-After`.
-- [ ] No internal fields leak (e.g. `password`, raw `ai_credentials`).
+- [ ] No internal fields leak (e.g. `password`, raw `tenant_ai_keys`).
 
 ### Validation
 - [ ] Empty submit → required-field errors, no fatal.
@@ -148,14 +148,14 @@ graph LR
 - [ ] Login: valid credentials → redirect to `dashboard` (or intended URL); invalid → "These credentials do not match our records."
 - [ ] Login throttling: 5 failed attempts → lockout message with a countdown; success clears the counter.
 - [ ] Suspended/pending user cannot log in even with the correct password.
-- [ ] Register: creates the user; optional "create company" makes the registrant the Owner; duplicate email rejected.
+- [ ] Register: creates the user; optional "create workspace" makes the registrant the Owner; duplicate email rejected.
 - [ ] Forgot password: same response for known and unknown emails (anti-enumeration); email is sent for known.
 - [ ] Reset password: valid token within TTL works; expired/invalid token rejected; token is single-use.
 - [ ] Logout: session invalidated, active company cleared, redirect to `login`; back button does not restore the session.
 - [ ] Session regenerates on login (no fixation); cookies are `HttpOnly`/`SameSite=Lax` (secure on HTTPS).
 
 ### Installer ([32 — Setup / Installer](32-Setup-Installer.md))
-- [ ] `/install` is reachable only while not yet installed; after install it is gated.
+- [ ] `/setup` is reachable only while not yet installed; after install it is gated.
 - [ ] Requirements step lists PHP 8.2+, required extensions, and writable paths with pass/fail.
 - [ ] Database step validates credentials, creates the DB if missing, and surfaces connection errors clearly.
 - [ ] Migrate step runs all migrations with a live console; a failure is reported and resumable.
@@ -165,15 +165,15 @@ graph LR
 - [ ] Resuming after a mid-step failure continues from the last completed step (no restart, no double-create).
 
 ### Dashboard
-- [ ] Requires `dashboard.view` and an active tenant; guest → login, no-tenant → company select.
+- [ ] Requires `dashboard.view` and an active tenant; guest → login, no-tenant → workspace select.
 - [ ] Widgets/metrics are tenant-scoped and load (empty state when the tenant has no data yet).
 - [ ] No widget shows another company's figures after switching companies.
 
-### Company management ([12 — Company Management](12-Workspace-Management.md))
-- [ ] Create company: provisions company + owner membership + default roles + trial subscription atomically.
-- [ ] Company select/switch: lists only the user's **active** memberships; switching updates the active tenant.
-- [ ] A user with an `invited`/`suspended` membership cannot switch into that company.
-- [ ] Update company (name/logo/locale/timezone) gated by `company.update`; slug stays unique.
+### Workspace management ([12 — Workspace Management](12-Workspace-Management.md))
+- [ ] Create workspace: provisions workspace + owner membership + default roles + trial subscription atomically.
+- [ ] Workspace select/switch: lists only the user's **active** memberships; switching updates the active tenant.
+- [ ] A user with an `invited`/`suspended` membership cannot switch into that workspace.
+- [ ] Update workspace (name/logo/locale/timezone) gated by `workspace.update`; slug stays unique.
 - [ ] Owner-only actions are hidden/blocked for non-owners.
 
 ### Members & invitations ([11 — Permissions Matrix](11-Permissions-Matrix.md))
@@ -199,7 +199,7 @@ graph LR
 - [ ] Webhook-driven status changes (gateway_events) reflect in the UI; replayed webhooks are idempotent.
 
 ### AI credentials ([17 — AI Providers](17-AI-Providers.md))
-- [ ] AI settings gated by `ai.view`/`ai.manage`; each provider is one row per `(company_id, provider)`.
+- [ ] AI settings gated by `ai.view`/`ai.manage`; each provider is one row per `(workspace_id, provider)`.
 - [ ] Keys are stored **encrypted** (AES-256-GCM) and never echoed back in plaintext (masked).
 - [ ] "Test connection" uses the **current tenant's** credentials only — never platform keys.
 - [ ] Switching the default provider takes effect for subsequent AI calls.
@@ -209,13 +209,13 @@ graph LR
 - [ ] List/view gated by `jobs.view`; create/update/delete/publish gated by the matching `jobs.*` keys.
 - [ ] Status transitions (draft→open→paused→closed→archived) are valid; `published_at`/`closed_at` set correctly.
 - [ ] Publishing an open job makes it visible in the candidate portal; closing hides it.
-- [ ] Slug is unique per company; filters by status/department/location work; search is tenant-scoped.
+- [ ] Slug is unique per workspace; filters by status/department/location work; search is tenant-scoped.
 - [ ] Empty state ("No jobs yet") and a clear "Create job" path.
 
 ### Applications & pipeline ([25 — Application Lifecycle](25-Application-Lifecycle.md))
 - [ ] List/view gated by `applications.view`; move/reject/export gated by the matching keys.
 - [ ] Moving an application between stages records an `application_events` row and updates `current_stage_id`.
-- [ ] One application per `(company_id, job_id, user_id)` — duplicate apply is prevented.
+- [ ] One application per `(workspace_id, job_id, user_id)` — duplicate apply is prevented.
 - [ ] Rejecting sets status and (optionally) notifies the candidate.
 - [ ] Export of applications respects current filters, is tenant-scoped, and excludes hidden fields.
 - [ ] Pipeline board is usable on mobile and in RTL; drag/move has a non-drag fallback.
@@ -247,7 +247,7 @@ graph LR
 
 ### Super-admin / platform ([22 — SuperAdmin Journey](22-SuperAdmin-Journey.md), [33 — System Diagnostics](33-System-Diagnostics.md))
 - [ ] Platform surfaces require the global super-admin role; tenant roles are blocked.
-- [ ] Companies/users management uses `withoutTenantScope()` correctly (intended cross-tenant view).
+- [ ] Workspaces/users management uses `withoutTenantScope()` correctly (intended cross-tenant view).
 - [ ] Plans management is data-driven; creating a plan needs no code change.
 - [ ] Diagnostics shows DB/storage/cache/queue/mail/cron health and the app version.
 - [ ] Acting platform-wide with **no active tenant** works (super-admin path).
@@ -256,15 +256,15 @@ graph LR
 
 QA verifies the schema (§11) is honoured at the UI level:
 
-- **Tenant tables** (`companies`, `memberships`, `roles`, `subscriptions`, `ai_credentials`, `jobs`, `applications`, `interviews`, `evaluations`, `files`, `notifications`, `invoices`, `payments`, …) — every list/detail screen shows only the active `company_id`'s rows.
-- **Uniqueness** — UI prevents/handles duplicates that the DB enforces: `users.email`, `companies.slug`, `(company_id, slug)` for roles/jobs, `(company_id, user_id)` memberships, `(company_id, provider)` AI credentials, `(company_id, job_id, user_id)` applications, `invoices.number`.
+- **Tenant tables** (`workspaces`, `memberships`, `roles`, `subscriptions`, `tenant_ai_keys`, `jobs`, `applications`, `interviews`, `evaluations`, `files`, `notifications`, `invoices`, `payments`, …) — every list/detail screen shows only the active `workspace_id`'s rows.
+- **Uniqueness** — UI prevents/handles duplicates that the DB enforces: `users.email`, `workspaces.slug`, `(workspace_id, slug)` for roles/jobs, `(workspace_id, user_id)` memberships, `(workspace_id, provider)` AI credentials, `(workspace_id, job_id, user_id)` applications, `invoices.number`.
 - **Status enums** — filters/badges use the exact enum values from the schema (e.g. application `applied|in_review|interviewing|offer|hired|rejected|withdrawn`).
-- **Audit** — security/business actions appear in `activity_log` with actor + subject (spot-check after key actions).
+- **Audit** — security/business actions appear in `activity_logs` with actor + subject (spot-check after key actions).
 - **Cascade/SET NULL** — deleting a parent (e.g. a job) behaves as specified (children cascade; optional refs nulled) without orphaning visible data.
 
 ## Permissions
 
-QA must confirm the **exact** catalogue keys from §6 / [11 — Permissions Matrix](11-Permissions-Matrix.md) gate each surface, including: `dashboard.view`; `company.view/update`; `members.view/invite/update/remove`; `roles.view/manage`; `billing.view/manage`; `ai.view/manage`; `settings.view/manage`; `jobs.*`; `applications.*`; `interviews.*`; `evaluations.*`; `candidate.*`; `notifications.view`; `files.*`; and platform `platform.*` keys for super-admin. For each: the control is hidden without the permission, the route returns 403 without it, and the action succeeds with it.
+QA must confirm the **exact** catalogue keys from §6 / [11 — Permissions Matrix](11-Permissions-Matrix.md) gate each surface, including: `dashboard.view`; `workspace.view/update`; `members.view/invite/update/remove`; `roles.view/manage`; `billing.view/manage`; `ai.view/manage`; `settings.view/manage`; `jobs.*`; `applications.*`; `interviews.*`; `evaluations.*`; `candidate.*`; `notifications.view`; `files.*`; and platform `platform.*` keys for super-admin. For each: the control is hidden without the permission, the route returns 403 without it, and the action succeeds with it.
 
 ## Validation
 

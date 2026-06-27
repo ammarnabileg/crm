@@ -158,7 +158,7 @@ This standard adds cross-cutting columns/tables (see
 - **UUID:** core entities gain `uuid CHAR(36)` with a unique index; public URLs
   and API resources expose the UUID, never the numeric id.
 - **Audit:** `activity_log` carries `old_values JSON`, `new_values JSON`,
-  `device`, alongside `action`, `subject_type/id`, `user_id`, `company_id`, `ip`,
+  `device`, alongside `action`, `subject_type/id`, `user_id`, `workspace_id`, `ip`,
   `user_agent`, `created_at`.
 - **Settings/Feature flags:** the tenant `settings` table holds per-company
   settings and feature toggles; global defaults live in `config/` and are

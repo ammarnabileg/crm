@@ -14,7 +14,7 @@ The browser-based, no-CLI web installer that stands HalaOps up from an uploaded 
 
 ## Purpose (الهدف)
 
-The installer (`/install`) is the single, browser-driven path that turns a freshly uploaded HalaOps package into a running platform. A non-technical buyer uploads the files (via cPanel File Manager, FTP, or an unzip), opens the site in a browser, and clicks through a six-step wizard. There is **no SSH, no Composer, no Artisan, no npm, no Node, and no terminal** at any point — every action a CLI would normally perform is exposed as an idempotent JSON endpoint and orchestrated by `app/Services/Install/InstallManager.php`, surfaced through `app/Controllers/Setup/InstallController.php`, and rendered by `resources/views/setup/install.php`.
+The installer (`/setup`) is the single, browser-driven path that turns a freshly uploaded HalaOps package into a running platform. A non-technical buyer uploads the files (via cPanel File Manager, FTP, or an unzip), opens the site in a browser, and clicks through a twelve-step wizard. There is **no SSH, no Composer, no Artisan, no npm, no Node, and no terminal** at any point — every action a CLI would normally perform is exposed as an idempotent JSON endpoint and orchestrated by `app/Services/Install/InstallManager.php`, surfaced through `app/Controllers/Setup/InstallController.php`, and rendered by `resources/views/setup/install.php`.
 
 The six canonical steps (the public `InstallManager::STEPS` constant) are:
 
@@ -51,11 +51,11 @@ Two files live under `storage/framework/` and are **never web-served** (the root
 - `storage/framework/install_state.json` — the resume ledger. JSON of `{"completed": ["requirements", ...], "config": {...}}`. The `config` key transiently holds the DB credentials and admin metadata between steps.
 - `storage/framework/installed` — the **lock file**. Its presence (together with a present `.env`) means "installed". Written in `finalize()` with a timestamp.
 
-The front controller / `Application` consults `InstallManager::isInstalled()` (lock file **and** `.env` both present) during boot to decide whether to gate the whole app behind the installer or to serve the application normally. Routes (`routes/web.php`) expose the installer under the `/install` prefix: a `GET /install` plus six POST endpoints (`install/requirements`, `install/database`, `install/migrate`, `install/seed`, `install/admin`, `install/finalize`).
+The front controller / `Application` consults `InstallManager::isInstalled()` (lock file **and** `.env` both present) during boot to decide whether to gate the whole app behind the installer or to serve the application normally. Routes (`routes/web.php`) expose the installer under the canonical `/setup` prefix: a `GET /setup` plus thirteen POST endpoints (`setup/requirements`, `setup/database`, `setup/environment`, `setup/storage`, `setup/permissions`, `setup/permissions/fix`, `setup/migrate`, `setup/seed`, `setup/mail`, `setup/mail/test`, `setup/admin`, `setup/health`, `setup/finalize`). The legacy `GET /install` redirects to `/setup`.
 
 ```mermaid
 flowchart LR
-    Browser["Browser /install"] -->|"GET"| Index["InstallController::index"]
+    Browser["Browser /setup"] -->|"GET"| Index["InstallController::index"]
     Index --> View["setup/install.php\n(forms + live console)"]
     View -->|"POST per step"| Ctrl["InstallController\n(guard envelope)"]
     Ctrl --> Mgr["InstallManager"]
@@ -151,7 +151,7 @@ failure carries a plain-language **solution** (never a stack trace).
 - **BR-INSTALL-8 — Friendly diagnostics.** Requirement failures always carry a `solution` string (how to fix it from the hosting panel), never a raw stack trace.
 - **BR-INSTALL-6 — Production defaults.** `finalize()` always writes `APP_ENV=production` and `APP_DEBUG=false`; debug is never on after a fresh install.
 - **BR-INSTALL-7 — Secrets are transient.** DB credentials live in `install_state.json` only between steps and are erased when `finalize()` unlinks the state file; the durable copy lives only in `.env`, which is web-inaccessible.
-- **BR-INSTALL-8 — First user is super-admin.** The `admin` step creates exactly the platform super-admin (global role, `company_id` NULL); it does not create a tenant. Companies are created later by users per [12-Workspace-Management].
+- **BR-INSTALL-8 — First user is super-admin.** The `admin` step creates exactly the platform super-admin (global role, `workspace_id` NULL); it does not create a tenant. Workspaces are created later by users per [12-Workspace-Management].
 
 ## Database Relations
 
@@ -159,18 +159,18 @@ The installer is the **producer** of the baseline schema and seed rows; it touch
 
 - `migrations` (id, migration UQ, batch, executed_at) — created and populated by `Migrator`; one row per applied migration file.
 - `users` (GLOBAL) — the `admin` step inserts/updates the super-admin row (`status=active`, `email_verified_at` set).
-- `roles` (GLOBAL row, `company_id` NULL) — `ensureSuperAdminRole()` ensures the `super-admin` role (`is_system`).
-- `permissions` (GLOBAL) + `permission_role` — `syncPermissions()` upserts the catalogue and links it to the super-admin role.
-- `user_role` — `assignGlobalRole()` links the admin user to the super-admin role.
+- `roles` (GLOBAL row, `workspace_id` NULL) — `ensureSuperAdminRole()` ensures the `super-admin` role (`is_system`).
+- `permissions` (GLOBAL) + `role_permissions` — `syncPermissions()` upserts the catalogue and links it to the super-admin role.
+- `user_roles` — `assignGlobalRole()` links the admin user to the super-admin role.
 - `plans` (GLOBAL) — `seedDefaultPlan()` inserts the "Standard" plan when absent.
 
-Migrations `0001`–`0015` create the full built schema (users, companies, memberships, roles, permissions, permission_role, membership_role, user_role, plans, subscriptions, ai_credentials, password_resets, settings, onboarding_progress, activity_log) before any other step runs.
+Migrations `0001`–`0015` create the original built schema; the later cutover migrations (`0017` workspace rename, `0031` built→blueprint renames, `0032` no-ENUM status FKs) bring it to the realized state — `users`, `workspaces`, `memberships`, `roles`, `permissions`, `role_permissions`, `membership_roles`, `user_roles`, `plans`, `subscriptions`, `tenant_ai_keys`, `password_resets`, `settings`, `onboarding_progress`, `activity_logs`. The installer runs the entire chain (`0001`–`0032`, plus the D0–D10 blueprint migrations) before finalizing.
 
 ## Permissions
 
 The installer is **unauthenticated by design** — it runs before any user exists, so it cannot be gated by RBAC. Its access control is therefore environmental, not permission-based:
 
-- **Pre-install:** the app is gated so only `/install` and its assets are reachable; there are no users, so no permission checks apply.
+- **Pre-install:** the app is gated so only `/setup` and its assets are reachable; there are no users, so no permission checks apply.
 - **Post-install:** access is denied by `isInstalled()` (controller redirects to `/login`; endpoints return 409), not by a permission.
 - The first account the installer creates is the platform **super-admin** (global `super-admin` role → all permissions, per [07-RBAC]). Everything the buyer does afterward, including health checks via `platform.diagnostics` (see [33-System-Diagnostics]), is gated by RBAC from that point on.
 
@@ -184,12 +184,12 @@ The installer is **unauthenticated by design** — it runs before any user exist
 
 ## Edge Cases
 
-- **Mid-install timeout / connection drop.** State is written after each completed step, so reloading `/install` and clicking "Run installation" again resumes. Migrations already recorded are skipped; the seeder and admin steps are idempotent.
+- **Mid-install timeout / connection drop.** State is written after each completed step, so reloading `/setup` and clicking "Run installation" again resumes. Migrations already recorded are skipped; the seeder and admin steps are idempotent.
 - **A single migration fails.** `Migrator::run()` stops at the failing file, returns `{ran, failed}`, and the console prints a cross next to that table with the exact error. The `migrate` step is **not** marked complete, so a retry re-attempts only the remaining migrations (already-applied ones are skipped).
 - **Root not writable for `.env`.** The requirements check flags it; `writeEnv()` throws "Unable to write the .env file…" if it still fails at finalize. The fix is a control-panel permission change, after which finalize is retried.
 - **`storage/` not writable.** Requirements flags each subdirectory; `ensureWritable()` attempts to create them at `0775` first. If the host forbids it, the buyer fixes permissions and re-checks.
 - **Admin email already exists** (e.g. partial earlier run). `createAdmin()` updates the existing user instead of failing on the unique email constraint.
-- **Re-opening `/install` after success.** `index()` sees `isInstalled()` and redirects to `/login`; no setup UI is shown.
+- **Re-opening `/setup` after success.** `index()` sees `isInstalled()` and redirects to `/login`; no setup UI is shown.
 - **Direct POST to a step after install.** `guard()` returns HTTP 409 `{ok:false, message:"The application is already installed."}` before running anything.
 - **Unexpected non-JSON response** (e.g. host 500/HTML error page). The client's `call()` throws "Unexpected server response (HTTP n)" so the buyer is not left staring at a frozen spinner.
 - **Finalize attempted early.** Throws "Cannot finalize: the '<step>' step has not completed yet." — surfaced as 422 in the console.
@@ -217,7 +217,7 @@ The installer is **unauthenticated by design** — it runs before any user exist
 
 - **Unit (`InstallManager`):** `nextStep()` returns the first incomplete step; `markComplete()` is additive and de-duplicates; `isInstalled()` requires both lock and `.env`; `configureDatabase()` rejects empty and non-`[A-Za-z0-9_]` names; `finalize()` throws when a prerequisite step is incomplete; `finalize()` deletes `install_state.json` and writes `APP_DEBUG=false` + a non-empty `APP_KEY`.
 - **Unit (`Migrator`):** `pending()` excludes applied migrations; `run()` records each applied migration and stops at the first failure returning `failed`; a second `run()` applies nothing when up to date.
-- **Feature (HTTP):** `GET /install` renders the wizard when not installed and redirects to `/login` when installed; each POST step returns the `{ok, message}` envelope; posting a step after install returns 409; missing CSRF returns 419/403.
+- **Feature (HTTP):** `GET /setup` renders the wizard when not installed and redirects to `/login` when installed; each POST step returns the `{ok, message}` envelope; posting a step after install returns 409; missing CSRF returns 419/403.
 - **Feature (recovery):** simulate a failure after `migrate`, then re-run and assert `seed`/`admin`/`finalize` complete and the schema is intact.
 - **Security:** a non-whitelisted database name is rejected; `.env`, `storage/framework/install_state.json`, and the lock file are not retrievable over HTTP; the created admin has the global `super-admin` role and an Argon2id hash.
 
