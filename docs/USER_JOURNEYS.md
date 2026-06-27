@@ -8,20 +8,18 @@
 ## 0. About This Document
 
 This document maps the **end-to-end user journeys** of HaHireAI — the paths a
-real person walks through the product, from a first anonymous visit to running
-hiring as an operational discipline. It documents **flows**, not screens: each
+real person walks through the product. It documents **flows**, not screens: each
 journey is a numbered step sequence naming the **permission** and/or **state**
 touched at every step. The UI is a projection of these flows, never their
-definition (`SYSTEM_BLUEPRINT.md` §2); where a journey needs a screen, see Phase
-5's `SCREEN_CATALOG.md` / `NAVIGATION_MAP.md`.
+definition (`SYSTEM_BLUEPRINT.md` §2); for screens see Phase 5's `SCREEN_CATALOG.md`.
 
 This is a **companion deliverable** to `SYSTEM_BLUEPRINT.md` (§0 listing). It
-**defers** to `APPLICATION_FLOW.md` (the conceptual recruitment lifecycle),
+**defers** to `APPLICATION_FLOW.md` (the recruitment lifecycle),
 `STATE_DIAGRAMS.md` (the canonical state machines), and `DOMAIN_MODEL.md` (the
-ubiquitous language). Where this file summarizes a transition, the state machine
-in `STATE_DIAGRAMS.md` governs; if they ever disagree, that canon wins and this
-file is corrected. Interpretation keywords (**MUST**, **MUST NOT**, **SHOULD**,
-**MAY**) follow RFC 2119, as in `PROJECT_CONSTITUTION.md`.
+ubiquitous language). Where this file summarizes a transition, `STATE_DIAGRAMS.md`
+governs; if they disagree, that canon wins and this file is corrected.
+Interpretation keywords (**MUST**, **MUST NOT**, **SHOULD**, **MAY**) follow
+RFC 2119, as in `PROJECT_CONSTITUTION.md`.
 
 **Three rules govern every journey below** (`DOMAIN_MODEL.md` §6,
 `APPLICATION_FLOW.md` §2):
@@ -155,30 +153,21 @@ granted permissions allow.
 **Steps:**
 
 ```
-1. Receive invite ──▶ via email, shareable link, or join code
-       │        {Invitation: Pending}   (issued in Journey 1, step 7)
-       ▼
-2. Open the invite ──▶ if not authenticated, Register or Log in
-       │        Still ONE `User` identity — joining never duplicates a person.
-       ▼
-3. Accept the invitation
-       │        [perm: none beyond authenticated identity matching the invite]
-       │        {Invitation: Accepted (terminal)} (STATE_DIAGRAMS.md §8)
-       │        ──▶ creates/activates the link: {Membership: Active} (§7)
-       │        (Alternatively: reject → {Invitation: Rejected};
-       │         lapse → {Invitation: Expired}.)
-       ▼
-4. Join the workspace ──▶ workspace now appears in the user's workspace switcher
-       ▼
-5. See navigation PER ASSIGNED PERMISSIONS
-       │        Effective permissions = union of all granted Roles' permissions
-       │        (+ any direct grants) — PERMISSION_MODEL.md §4.
-       │        There is exactly ONE sidebar, generated dynamically from the
-       │        active context + permissions + subscription + enabled modules
-       │        (WORKSPACE_MODEL.md §7, SYSTEM_BLUEPRINT.md §8) — never one
-       │        sidebar per role. Items the member lacks permission for are
-       │        absent; hiding UI is NEVER a substitute for server-side checks
-       │        (PERMISSION_MODEL.md §5).
+1. Receive invite ──▶ via email, shareable link, or join code.
+   {Invitation: Pending} (issued in Journey 1, step 7).
+2. Open the invite ──▶ if not authenticated, Register or Log in. Still ONE `User`
+   — joining never duplicates a person.
+3. Accept the invitation. [authenticated identity must match the invite]
+   {Invitation: Accepted (terminal)} (STATE_DIAGRAMS.md §8) ──▶ creates/activates
+   {Membership: Active} (§7). (Else: reject → {Invitation: Rejected}; lapse →
+   {Invitation: Expired}.)
+4. Join the workspace ──▶ it now appears in the user's workspace switcher.
+5. See navigation PER ASSIGNED PERMISSIONS. Effective permissions = union of all
+   granted Roles' permissions (+ any direct grants) (PERMISSION_MODEL.md §4).
+   Exactly ONE sidebar, generated dynamically from active context + permissions +
+   subscription + enabled modules (WORKSPACE_MODEL.md §7, SYSTEM_BLUEPRINT.md §8)
+   — never one sidebar per role. Items the member lacks permission for are absent;
+   hiding UI is NEVER a substitute for server-side checks (PERMISSION_MODEL.md §5).
 ```
 
 **Outcome:** The member operates inside one workspace with precisely the
@@ -201,31 +190,25 @@ one account. `System Owner` is a capability (`system.*` permissions on a `User`)
 **Steps:**
 
 ```
-1. Log in ──▶ single `User` login (same credentials as any user)
-       ▼
-2. Enter the Platform Context
-       │        Available ONLY because the user holds `system.*` permissions
-       │        (SYSTEM_BLUEPRINT.md §8). The switcher offers it alongside the
-       │        user's own workspaces.
-       ▼
+1. Log in ──▶ single `User` login (same credentials as any user).
+2. Enter the Platform Context. Available ONLY because the user holds `system.*`
+   permissions (SYSTEM_BLUEPRINT.md §8); offered alongside the user's workspaces.
 3. Operate the platform (each action deny-by-default, system-scoped):
-       │        ├─ Manage workspaces (tenants)     [perm: system.workspaces.manage]
-       │        ├─ Manage users                    [perm: system.users.manage]
-       │        ├─ Manage subscriptions / plans    [perm: system.subscriptions.manage]
-       │        ├─ Manage AI providers (global)     [perm: system.ai.manage]
-       │        ├─ Run diagnostics                  [perm: system.diagnostics.run]
-       │        └─ View system audit                [perm: system.audit.view]
-       │        Platform Context data is platform-level + system audit; it does
-       │        NOT pierce tenant isolation of individual workspaces' business
-       │        data (SYSTEM_OVERVIEW.md §6, WORKSPACE_MODEL.md §3).
-       ▼
+     ├─ Manage workspaces (tenants)   [perm: system.workspaces.manage]
+     ├─ Manage users                  [perm: system.users.manage]
+     ├─ Manage subscriptions / plans  [perm: system.subscriptions.manage]
+     ├─ Manage AI providers (global)  [perm: system.ai.manage]
+     ├─ Run diagnostics               [perm: system.diagnostics.run]
+     └─ View system audit             [perm: system.audit.view]
+   Platform Context data is platform-level + system audit; it does NOT pierce
+   tenant isolation of workspaces' business data (SYSTEM_OVERVIEW.md §6).
 4. ALSO use the platform as an ordinary User (same account):
-       │        ├─ Create own Workspace  ──▶ Journey 1 (becomes a workspace owner)
-       │        ├─ Apply to a Job        ──▶ Journey 2 (candidate context)
-       │        └─ Join a workspace      ──▶ Journey 3 (invited member)
-       │        Workspace permissions are independent of `system.*`; holding
-       │        system permissions grants NO authority inside any workspace's
-       │        business data (USER_MODEL.md §2, PERMISSION_MODEL.md §6).
+     ├─ Create own Workspace ──▶ Journey 1 (workspace owner)
+     ├─ Apply to a Job       ──▶ Journey 2 (candidate context)
+     └─ Join a workspace     ──▶ Journey 3 (invited member)
+   Workspace permissions are independent of `system.*`; system permissions grant
+   NO authority inside any workspace's business data (USER_MODEL.md §2,
+   PERMISSION_MODEL.md §6).
 ```
 
 **Outcome:** One identity operates the SaaS in the Platform Context and consumes
@@ -247,28 +230,20 @@ each**, switching contexts freely (`DOMAIN_MODEL.md` §7, `USER_MODEL.md` §4,
 **Steps:**
 
 ```
-1. Log in ──▶ one `User`, one set of credentials
-       ▼
-2. View workspaces ──▶ the workspace switcher lists every {Membership: Active}
-       │        e.g. Owner/Admin of Workspace A; hiring-team member in
-       │        Workspace B; candidate (via Application) in Workspace C;
-       │        Employee in Workspace D (DOMAIN_MODEL.md §7).
-       ▼
-3. Select a workspace ──▶ sets the ACTIVE Workspace Context
-       │        One active workspace at a time (SYSTEM_OVERVIEW.md §6).
-       ▼
-4. Navigation + data recompute for the active workspace
-       │        Sidebar = active context + THIS workspace's effective permissions
-       │        + its subscription + its enabled modules. Permissions in
-       │        Workspace A NEVER affect Workspace B (PERMISSION_MODEL.md §6).
-       ▼
-5. Switch workspace ──▶ repeat from step 3
-       │        Data is strictly tenant-isolated: nothing from one workspace is
-       │        visible in another, including the existence of the user's
-       │        candidacies elsewhere (WORKSPACE_MODEL.md §3, §8).
-       ▼
-6. (If granted) Switch to Platform Context ──▶ Journey 4
-       │        Offered only when the user holds `system.*` permissions.
+1. Log in ──▶ one `User`, one set of credentials.
+2. View workspaces ──▶ the switcher lists every {Membership: Active}, e.g.
+   Owner/Admin of Workspace A; hiring-team member in B; candidate (via
+   Application) in C; Employee in D (DOMAIN_MODEL.md §7).
+3. Select a workspace ──▶ sets the ACTIVE Workspace Context — one active
+   workspace at a time (SYSTEM_OVERVIEW.md §6).
+4. Navigation + data recompute for the active workspace: sidebar = active context
+   + THIS workspace's effective permissions + its subscription + its enabled
+   modules. Permissions in Workspace A NEVER affect B (PERMISSION_MODEL.md §6).
+5. Switch workspace ──▶ repeat from step 3. Data is strictly tenant-isolated:
+   nothing from one workspace is visible in another, including the existence of
+   the user's candidacies elsewhere (WORKSPACE_MODEL.md §3, §8).
+6. (If granted) Switch to Platform Context ──▶ Journey 4. Offered only when the
+   user holds `system.*` permissions.
 ```
 
 **Outcome:** The same identity fluidly changes context; authorization and
@@ -292,39 +267,26 @@ advises at each step; the **human with the right permission decides**
 **Steps:**
 
 ```
-1. Review new applications
-       │        [perm: application.view]
-       │        Inbound {Application: Applied}; AI may have produced advisory
-       │        "Resume Parsing" / "CV analysis" via the AI Engine
-       │        (APPLICATION_FLOW.md §8.1).
-       ▼
-2. Move pipeline stages
-       │        [perm: application.move] (per move; deny-by-default)
-       │        {Application: Applied ──▶ Screening ──▶ … } per STATE_DIAGRAMS.md
-       │        §3. Recruiters MAY move backward/skip per workspace rules.
-       │        Each move ──▶ Activity Timeline + (event) stage_changed.
-       ▼
-3. Schedule interviews
-       │        Human:  [perm: interview.schedule]  {Interview: Scheduled}
-       │        AI:     [perm: interview.ai.run]    runs via AI Engine
-       │        {Interview: Scheduled ──▶ InProgress ──▶ Completed ──▶ Evaluated}
-       ▼
-4. Add notes / tags
-       │        [perm: candidate.note] / [perm: candidate.tag]
-       │        Recorded on the workspace-scoped Candidate Profile (a VIEW) —
-       │        NEVER on the global `User`, NEVER visible to other workspaces
-       │        (APPLICATION_FLOW.md §6).
-       ▼
-5. Make a hiring decision (AI advisory, human decides)
-       │        AI MAY produce "Hiring Recommendation" / "Candidate Comparison"
-       │        (advisory only). The permitted human chooses the transition:
-       │        ├─ Advance ──▶ next stage / extend Offer  [perm: offer.create]
-       │        ├─ Reject  ──▶ {Application: Rejected (terminal)} [perm: application.reject]
-       │        └─ Hold    ──▶ stay in stage
-       │        The HUMAN decision ALWAYS overrides any AI result
-       │        (APPLICATION_FLOW.md §7, Invariant 7).
-       ▼
-6. Repeat ──▶ the loop continues across the pipeline / other jobs
+1. Review new applications. [perm: application.view] Inbound {Application: Applied};
+   AI may have produced advisory "Resume Parsing" / "CV analysis" via the AI
+   Engine (APPLICATION_FLOW.md §8.1).
+2. Move pipeline stages. [perm: application.move] (per move; deny-by-default)
+   {Application: Applied ──▶ Screening ──▶ … } (STATE_DIAGRAMS.md §3). Recruiters
+   MAY move backward/skip per workspace rules. Each move ──▶ Activity Timeline +
+   (event) application.stage_changed.
+3. Schedule interviews. Human: [perm: interview.schedule] {Interview: Scheduled};
+   AI: [perm: interview.ai.run] via the AI Engine. {Interview: Scheduled ──▶
+   InProgress ──▶ Completed ──▶ Evaluated}.
+4. Add notes / tags. [perm: candidate.note] / [perm: candidate.tag] Recorded on
+   the workspace-scoped Candidate Profile (a VIEW) — NEVER on the global `User`,
+   NEVER visible to other workspaces (APPLICATION_FLOW.md §6).
+5. Make a hiring decision (AI advisory, human decides). AI MAY produce "Hiring
+   Recommendation" / "Candidate Comparison" (advisory). The permitted human picks:
+     ├─ Advance ──▶ next stage / extend Offer        [perm: offer.create]
+     ├─ Reject  ──▶ {Application: Rejected (terminal)} [perm: application.reject]
+     └─ Hold    ──▶ stay in stage
+   The HUMAN decision ALWAYS overrides any AI result (APPLICATION_FLOW.md §7).
+6. Repeat ──▶ the loop continues across the pipeline / other jobs.
 ```
 
 **Outcome:** A steadily advancing, auditable pipeline where every transition is
@@ -347,23 +309,16 @@ detail is **Phase 14** (`SUBSCRIPTION_ENGINE.md`); states per `STATE_DIAGRAMS.md
 **Steps:**
 
 ```
-1. Start trial ──▶ {Subscription: Trialing}        [perm: billing.manage]
-       ▼
-2. Convert (add a plan / pay) ──▶ {Subscription: Active}
-       │        Enabled modules + limits derive from the Plan (WORKSPACE_MODEL.md §8).
-       ▼
-3. Payment fails ──▶ {Subscription: PastDue}
-       │        A grace period applies.
-       ▼
-4. Grace ends ──▶ {Subscription: Suspended}
-       │        Suspended workspaces can STILL log in, view data, and renew, but
-       │        CANNOT perform gated actions (STATE_DIAGRAMS.md §9). Gated
-       │        actions disappear from nav while remaining server-enforced.
-       ▼
-5. Renew (pay) ──▶ {Subscription: Active}   (from PastDue or Suspended)
-       │        Alternatively: trial ends with no plan ──▶ {Expired};
-       │        cancel ──▶ {Cancelled}. Expired/Cancelled NEVER hard-delete
-       │        data (ARCHIVING_POLICY.md, Phase 3; STATE_DIAGRAMS.md §9).
+1. Start trial ──▶ {Subscription: Trialing}. [perm: billing.manage]
+2. Convert (add a plan / pay) ──▶ {Subscription: Active}. Enabled modules + limits
+   derive from the Plan (WORKSPACE_MODEL.md §8).
+3. Payment fails ──▶ {Subscription: PastDue}. A grace period applies.
+4. Grace ends ──▶ {Subscription: Suspended}. Suspended workspaces can STILL log
+   in, view data, and renew, but CANNOT perform gated actions (STATE_DIAGRAMS.md
+   §9); gated actions disappear from nav while remaining server-enforced.
+5. Renew (pay) ──▶ {Subscription: Active} (from PastDue or Suspended).
+   Alternatively: trial ends with no plan ──▶ {Expired}; cancel ──▶ {Cancelled}.
+   Expired/Cancelled NEVER hard-delete data (ARCHIVING_POLICY.md, Phase 3).
 ```
 
 **Outcome:** Billing status governs which capabilities are available, without ever
