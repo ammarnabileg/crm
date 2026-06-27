@@ -1,6 +1,6 @@
 # PROJECT CONSTITUTION — HaHireAI
 
-> **Status:** Adopted · **Version:** 1.0.0 · **Last updated:** 2026-06-27
+> **Status:** Adopted · **Version:** 1.1.0 · **Last updated:** 2026-06-27
 > **Applies to:** The entire HaHireAI platform, all modules, all contributors (human or AI).
 
 ---
@@ -153,20 +153,27 @@ referenced by other modules.
 
 ## 8. Folder Standards
 
-Canonical top-level layout (created in later phases; documented here as binding):
+Canonical top-level layout (authoritative detail in `PROJECT_STRUCTURE.md`):
 
 ```
-/app          Kernel, bootstrap, container, module loader, HTTP front-end glue
-/modules      All modules (the modular monolith)
+/app          Application code:
+  /Core         the Core Kernel (container, router, config/env, logger, errors, registry, health)
+  /Modules      all business modules (the modular monolith)
+  /Shared       the Shared Kernel (ULID, Result, Clock, base contracts, helpers)
+  /Infrastructure  technical drivers (DB/cache/queue/mail/fs) behind contracts
+  /Services     cross-module shared-service implementations
+  /Providers    service providers (register bindings at boot)
+  /Contracts    cross-cutting interfaces shared platform-wide
+  /Support      stateless helpers/utilities
+/bootstrap    Boot a request into a kernel (no domain logic)
+/config       Configuration files (no secrets)
+/database     Global migration runner, global migrations & seeds
 /public       Web root — single front controller (index.php) + built assets
 /resources    Shared layouts/views, JS, CSS (Tailwind source), lang/ (ar, en)
-/shared       Shared Kernel (IDs/ULID, Result, Clock, base contracts, helpers)
-/config       Configuration files
-/database     Global migration runner, global migrations & seeds
+/routes       Global route registration (aggregates module routes)
 /storage      Logs, cache, compiled views, uploads (git-ignored)
 /tests        Cross-module / end-to-end tests
-/bin          CLI entrypoints (console)
-/docs         Project documentation (this phase)
+/docs         Project documentation
 /vendor       Composer dependencies (git-ignored)
 composer.json
 .env.example
@@ -175,7 +182,7 @@ composer.json
 Per-module layout (binding — see `ARCHITECTURE.md` §Module Anatomy):
 
 ```
-/modules/<Module>/
+/app/Modules/<Module>/
   module.php          Manifest: name, version, dependencies, permissions, events, routes, enabled-by
   Domain/             Entities, value objects, domain services, domain events, domain contracts
   Application/        Use cases, command/query handlers, application services

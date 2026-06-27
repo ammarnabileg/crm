@@ -1,6 +1,6 @@
 # ARCHITECTURE — HaHireAI
 
-> **Status:** Adopted (Canon) · **Version:** 1.0.0 · **Last updated:** 2026-06-27
+> **Status:** Adopted (Canon) · **Version:** 1.1.0 · **Last updated:** 2026-06-27
 > **Defers to:** `PROJECT_CONSTITUTION.md`. **Companion:** `SYSTEM_BLUEPRINT.md`,
 > `MODULES.md`.
 
@@ -46,7 +46,7 @@ SQL).
 ## 3. Module Anatomy
 
 ```
-/modules/<Module>/
+/app/Modules/<Module>/   (top-level layout: PROJECT_STRUCTURE.md)
   module.php        Manifest: name, version, dependencies, permissions, events, routes, enabled-by
   Domain/           Entities, value objects, domain services, domain events, contracts
   Application/      Use cases, command/query handlers, application services
