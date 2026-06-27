@@ -53,84 +53,45 @@ paying workspace running live hiring.
 **Steps:**
 
 ```
-1. Visit landing / public site (no login)
-       │
-2. Register ──▶ create the single `User` identity
-       │        [no permission — public action]
-       │        {User: Registered}
-       ▼
-3. (Optional) Verify email ──▶ {User: Active}
-       │        Email verification is optional/configurable (USER_MODEL.md §5).
-       ▼
-4. First login ──▶ user has NO workspace yet
-       │        Sees EXACTLY two paths: Create Workspace / Join Workspace
-       │        (USER_MODEL.md §5, WORKSPACE_MODEL.md). Nothing else in nav.
-       ▼
-5. Create Workspace
-       │        [perm: workspace.create — platform-level capability for any User]
-       │        {Workspace: Active}  (STATE_DIAGRAMS.md §10)
-       │        Creating a workspace also creates: the owner `Membership`
-       │        {Membership: Active}, default Settings, and a full set of
-       │        workspace permissions granted DIRECTLY to the owner —
-       │        NOT a reserved "Owner" role (WORKSPACE_MODEL.md §6,
-       │        PERMISSION_MODEL.md §4). Zero default roles are created.
-       ▼
-6. Subscribe / start Trial
-       │        [perm: billing.manage]
-       │        {Subscription: Trialing}  ──convert──▶ {Subscription: Active}
-       │        Subscription, limits, and enabled modules are per-workspace
-       │        (WORKSPACE_MODEL.md §8). See Journey 7 + Phase 14.
-       ▼
-7. Invite Members ──▶ create Invitation(s) (email / link / code)
-       │        [perm: member.invite]
-       │        {Invitation: Pending}   (event) member.invited
-       │        See Journey 3 for the invitee's side.
-       ▼
-8. Create Role + assign permissions
-       │        [perm: role.create] then [perm: role.update] to attach
-       │        permission keys to the new Role.
-       │        A Role is a named bundle of permissions, scoped to THIS
-       │        workspace, and is DATA — no code branches on its name
-       │        (PERMISSION_MODEL.md §1–§3). Assign the Role to a Membership.
-       ▼
-9. Publish Job
-       │        Create the Job: {Job: Draft}        [perm: job.create]
-       │        Publish it:     {Job: Published}    [perm: job.publish]
-       │        (event) recruitment.job.published → Workflow/Notifications/Search
-       │        The Published Job exposes a PUBLIC page served WITHOUT login
-       │        (APPLICATION_FLOW.md §3).
-       │        (MAY use AI: capability "Generate JD" / interview questions
-       │         via the AI Engine — advisory.)
-       ▼
-10. Receive Applications
-       │        Each applicant creates one `Application` {User+Job+Workspace}
-       │        {Application: Applied}              (event) application.submitted
-       │        Viewing the inbound list: [perm: application.view]
-       │        (See Journey 2 for the candidate side; Journey 6 for the loop.)
-       ▼
-11. AI Interview (advisory)
-       │        [perm: interview.ai.run]
-       │        {Interview: Scheduled ──▶ InProgress ──▶ Completed ──▶ Evaluated}
-       │        Runs via the AI Engine as a capability ("Run Interview"); the
-       │        Recruitment module NEVER calls a provider directly
-       │        (APPLICATION_FLOW.md §7–§8). Output is a RECOMMENDATION.
-       ▼
-12. Pipeline ──▶ move the Application through Stages
-       │        [perm: application.move] (per-stage; deny-by-default)
-       │        {Application: Screening ──▶ … ──▶ Shortlisted}
-       │        Each move appends to the Activity Timeline
-       │        (event) applications.application.stage_changed
-       ▼
-13. Offer
-       │        Extend:  {Offer: Draft ──▶ Approved ──▶ Sent}
-       │                 [perm: offer.create], [perm: offer.approve], offer.send
-       │        {Application: Offer}
-       ▼
-14. Hire
-       │        Candidate accepts ──▶ {Offer: Accepted} ──▶ {Application: Hired}
-       │        (event) offer.accepted → onboarding / Employee creation
-       │        The `User` gains an EMPLOYEE context {Employee: Onboarding}
-       │        in THIS workspace — not a new account (APPLICATION_FLOW.md §9).
+1. Visit landing / public site (no login).
+2. Register ──▶ create the single `User`. [public] {User: Registered}
+3. (Optional) Verify email ──▶ {User: Active}. Verification is configurable
+   (USER_MODEL.md §5).
+4. First login ──▶ user has NO workspace; sees EXACTLY two paths —
+   Create Workspace / Join Workspace; nothing else in nav (USER_MODEL.md §5).
+5. Create Workspace. [perm: workspace.create] {Workspace: Active}
+   Also creates the owner {Membership: Active}, default Settings, and a full set
+   of workspace permissions granted DIRECTLY to the owner — NOT a reserved
+   "Owner" role; ZERO default roles (WORKSPACE_MODEL.md §6, PERMISSION_MODEL.md §4).
+6. Subscribe / start Trial. [perm: billing.manage]
+   {Subscription: Trialing} ──convert──▶ {Subscription: Active}. Per-workspace
+   (WORKSPACE_MODEL.md §8; see Journey 7).
+7. Invite Members ──▶ Invitation(s) via email / link / code. [perm: member.invite]
+   {Invitation: Pending} (event) member.invited. See Journey 3.
+8. Create Role + assign permissions. [perm: role.create] then [perm: role.update]
+   A Role is a named bundle of permission keys, scoped to THIS workspace, and is
+   DATA — no code branches on its name (PERMISSION_MODEL.md §1–§3). Assign to a
+   Membership.
+9. Publish Job. Create {Job: Draft} [perm: job.create]; publish {Job: Published}
+   [perm: job.publish]. (event) recruitment.job.published → Workflow / Notifications
+   / Search. Exposes a PUBLIC page served WITHOUT login (APPLICATION_FLOW.md §3).
+   MAY use AI capability "Generate JD" via the AI Engine (advisory).
+10. Receive Applications. Each applicant creates one `Application` {User+Job+
+    Workspace}: {Application: Applied} (event) application.submitted. View list
+    [perm: application.view]. (See Journeys 2 and 6.)
+11. AI Interview (advisory). [perm: interview.ai.run]
+    {Interview: Scheduled ──▶ InProgress ──▶ Completed ──▶ Evaluated}. Runs via the
+    AI Engine as capability "Run Interview"; Recruitment NEVER calls a provider
+    directly (APPLICATION_FLOW.md §7–§8). Output is a RECOMMENDATION.
+12. Pipeline ──▶ move the Application through Stages. [perm: application.move]
+    (per move; deny-by-default) {Application: Screening ──▶ … ──▶ Shortlisted}.
+    Each move appends to the Activity Timeline (event) application.stage_changed.
+13. Offer. {Offer: Draft ──▶ Approved ──▶ Sent} [perm: offer.create / offer.approve
+    / offer.send]; {Application: Offer}.
+14. Hire. Candidate accepts ──▶ {Offer: Accepted} ──▶ {Application: Hired}
+    (event) offer.accepted → onboarding. The `User` gains an EMPLOYEE context
+    {Employee: Onboarding} in THIS workspace — not a new account
+    (APPLICATION_FLOW.md §9).
 ```
 
 **Outcome:** The visitor is now a customer: owner of a subscribed workspace with

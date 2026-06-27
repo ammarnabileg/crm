@@ -144,12 +144,12 @@ WORKSPACE CONTEXT  (active workspace)
 
 Notes:
 - **Candidate Profiles** are reached *through* Recruitment (from an Application,
-  the Talent Pool, or Search) — see §5/§6. They are a per-`(User, Workspace)`
-  **view**, not a top-level account screen (`DOMAIN_MODEL.md` §3).
+  Talent Pool, or Search — §5/§6). They are a per-`(User, Workspace)` **view**,
+  not a top-level account screen (`DOMAIN_MODEL.md` §3).
 - **Employee** is a post-hire **context** of a `User`, reached from a `Hired`
-  Application (§5). It is not an account screen.
-- Sub-areas under **Recruitment** appear only if the member holds the matching
-  view permission *and* the sub-capability is within the subscription.
+  Application (§5) — not an account screen.
+- Recruitment sub-areas appear only if the member holds the matching view
+  permission *and* the sub-capability is within the subscription.
 
 ---
 
@@ -312,15 +312,15 @@ New module ships module.php  ─┬─ declares permissions  ─┐
 
 Consequences (binding):
 - Adding a capability is **additive**: a new module contributes its sidebar
-  entries and screens through its manifest. The **navigation engine**, the
-  **permission engine**, and the **database engine** are **not** modified
-  (`SYSTEM_BLUEPRINT.md` §9, `MODULES.md` §7, `WORKSPACE_MODEL.md` §8 invariant 5).
-- The single dynamic sidebar absorbs the new entries automatically for users
-  who pass all three gates; everyone else never sees them.
+  entries and screens via its manifest. The **navigation**, **permission**, and
+  **database** engines are **not** modified (`SYSTEM_BLUEPRINT.md` §9,
+  `MODULES.md` §7, `WORKSPACE_MODEL.md` §8 invariant 5).
+- The single dynamic sidebar absorbs new entries automatically for users who
+  pass all three gates; everyone else never sees them.
 - Because the workspace platform is **domain-agnostic** (`WORKSPACE_MODEL.md`
   §1), a future business domain (e.g. HR, CRM) appears as a new top-level
-  bounded-context node in the Workspace Context exactly the way **Recruitment**
-  does today — with no change to this map's structure.
+  bounded-context node exactly as **Recruitment** does today — with no change to
+  this map's structure.
 
 ---
 
