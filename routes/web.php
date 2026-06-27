@@ -21,6 +21,8 @@ use App\Controllers\App\NotificationController;
 use App\Controllers\App\AiSettingsController;
 use App\Controllers\App\SettingsController;
 use App\Controllers\App\SearchController;
+use App\Controllers\App\FileController;
+use App\Controllers\System\CronController;
 use App\Controllers\Ats\ApplicationController;
 use App\Controllers\Ats\BoardController;
 use App\Controllers\Ats\JobController;
@@ -43,6 +45,12 @@ use App\Core\Response;
 // maintenance windows. Unauthenticated, minimal, leaks nothing (just app+DB up).
 $router->group(['middleware' => ['security']], function ($router): void {
     $router->get('up', [HealthController::class, 'up'])->name('health.up');
+
+    // No-terminal cron/queue trigger — a server cron hits this tokenized URL to
+    // drain background jobs + tick the scheduler. Unauthenticated (token-gated in
+    // the controller, fail-closed 404 when no token is configured), no tenant, and
+    // outside the maintenance gate so the queue keeps draining during maintenance.
+    $router->get('cron/run', [CronController::class, 'run'])->name('cron.run');
 });
 
 $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function ($router): void {
@@ -146,6 +154,14 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
 
             // Global Search (docs/53) — keyword over jobs/applications + talent filter.
             $router->get('search', [SearchController::class, 'index'])->middleware('permission:recruitment.view')->name('search.index');
+
+            // Files (docs/30) — workspace documents on local disk. Reads:
+            // recruitment.view; writes: recruitment.manage (files are recruitment
+            // artifacts — gated under the recruitment permissions, no new perm).
+            $router->get('files', [FileController::class, 'index'])->middleware('permission:recruitment.view')->name('files.index');
+            $router->post('files/upload', [FileController::class, 'upload'])->middleware('permission:recruitment.manage')->name('files.upload');
+            $router->get('files/download', [FileController::class, 'download'])->middleware('permission:recruitment.view')->name('files.download');
+            $router->post('files/delete', [FileController::class, 'delete'])->middleware('permission:recruitment.manage')->name('files.delete');
 
             // Members (docs/47 RBAC). Reads: members.view; each write checks the
             // matching members.* permission.
