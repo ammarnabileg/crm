@@ -203,6 +203,15 @@ $sections = [
             </div>
         </div>
         <div class="space-y-2">
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Card</p>
+            <?= component('card', [
+                'title'  => 'Candidate summary',
+                'actions' => component('badge', ['label' => 'Shortlisted', 'variant' => 'green']),
+                'slot'   => '<p class="text-sm text-slate-600 dark:text-slate-300">A surface container with an optional header, body and footer — the standard wrapper for grouped content.</p>',
+                'footer' => component('button', ['label' => 'View profile', 'size' => 'sm']),
+            ]) ?>
+        </div>
+        <div class="space-y-2">
             <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Table</p>
             <?= component('table', [
                 'columns' => ['Candidate', 'Stage', ['label' => 'Score', 'align' => 'end']],

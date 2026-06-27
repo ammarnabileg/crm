@@ -7,7 +7,6 @@ namespace App\Services\Install;
 use App\Core\Database;
 use App\Core\Encrypter;
 use App\Core\Hash;
-use App\Core\Mailer;
 use App\Services\Rbac\RbacManager;
 use Database\Migrator;
 use PDO;

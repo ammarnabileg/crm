@@ -129,7 +129,7 @@ For search, MySQL **FULLTEXT** indexes back jobs/applications now behind a searc
 
 Performance work is platform-internal and gated for operators, not tenants:
 
-- `platform.diagnostics` — super admins view health, cache state, queue depth, cron heartbeat, and (where surfaced) slow-query indicators via [33 — System Diagnostics](33-System-Diagnostics.md).
+- `system.manage` — super admins view health, cache state, queue depth, cron heartbeat, and (where surfaced) slow-query indicators via [33 — System Diagnostics](33-System-Diagnostics.md).
 - No tenant-facing permission grants the ability to bypass pagination or run unbounded queries; list endpoints are paginated regardless of role, so a privileged user cannot accidentally trigger a full-table render.
 
 ## Validation

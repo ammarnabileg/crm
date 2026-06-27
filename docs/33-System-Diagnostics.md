@@ -31,11 +31,11 @@ Diagnostics is a super-admin module composed of a set of independent **checks**,
 
 | Concern | Where it lives | Responsibility |
 |---------|----------------|----------------|
-| Health checks | `app/Services/Diagnostics/` (checks) | One small class/closure per check returning `{key, label, status, value, detail, fixable}`. |
-| Runner | Diagnostics service | Executes all checks, aggregates an overall status, captures timings. |
-| Environment report | Diagnostics service | Collects version/runtime facts (PHP, extensions, schema/migration state, build). |
-| Controller | `app/Controllers/System/DiagnosticsController.php` | Renders the dashboard, exposes JSON self-test and auto-fix endpoints; gated by `permission:system.manage`. |
-| View | `resources/views/platform/diagnostics.php` | Colour-coded panels (OK / WARN / FAIL), the report table, "Run self-test" and "Fix" buttons. |
+| Health checks | `app/Services/System/SystemDiagnostics.php` | Private per-check methods grouped by concern, each returning `{name, status, value, hint?}`. |
+| Runner | `SystemDiagnostics::run()` / `summarize()` | Executes every group and aggregates pass/warn/fail tallies. |
+| Environment report | `SystemDiagnostics` | Collects version/runtime facts (PHP, extensions, schema/migration state, build). |
+| Controller | `app/Controllers/System/DiagnosticsController.php` | Renders the read-only report; gated by `permission:system.manage`. |
+| View | `resources/views/system/diagnostics.php` | Colour-coded panels (OK / WARN / FAIL) and the report table. |
 | Data sources | `App\Core\Database`, `App\Core\Logger`, `storage/*`, `queued_jobs`/`failed_jobs`, `settings` | The real subsystems each check probes. |
 
 Each check returns a normalized status: **OK** (green), **WARN** (amber, degraded but serving), or **FAIL** (red, broken). The runner's overall status is the worst of its children. Heartbeats (queue, cron) are read from a small persisted timestamp the worker/scheduler updates each run (stored under `storage/framework/` and/or a `settings`-style key), so "no CLI" still yields a real liveness signal.
@@ -96,16 +96,16 @@ sequenceDiagram
     participant R as Diagnostics runner
     participant S as Subsystems (DB/FS/queue/mail)
 
-    A->>C: GET /platform/diagnostics
+    A->>C: GET /system/diagnostics
     C->>C: permission:system.manage
     C->>R: runAll()
     R->>S: probe each subsystem
     S-->>R: per-check {status,value,detail,fixable}
     R-->>C: results + overall status + report
     C-->>A: colour-coded dashboard
-    A->>C: POST /platform/diagnostics/self-test (re-run)
+    A->>C: POST /system/diagnostics/self-test (re-run)
     C-->>A: refreshed JSON
-    A->>C: POST /platform/diagnostics/fix {key} (on a fixable WARN/FAIL)
+    A->>C: POST /system/diagnostics/fix {key} (on a fixable WARN/FAIL)
     C->>R: fix(key)
     R->>S: mkdir / clear cache / retry queue
     R-->>C: {ok, message, newStatus}
@@ -134,8 +134,8 @@ Steps:
 Diagnostics mostly probes infrastructure, but it reads/writes a few tables from [05-Database-Architecture] §11:
 
 - `migrations` — read for applied-vs-pending count (the `db` check and the environment report).
-- `queued_jobs` (planned) — read for backlog depth and the queue heartbeat freshness.
-- `failed_jobs` (planned) — read for the failed-job count; auto-fix may retry/flush rows.
+- `queued_jobs` — read for backlog depth (the Queue check).
+- `failed_jobs` — read for the failed-job count (the Queue check).
 - `activity_logs` — written on every auto-fix (`workspace_id` NULL for platform actions, `action='diagnostics.fix'`, the check key in `properties`).
 - `settings` / a `storage/framework` heartbeat file — read for the cron/queue last-tick timestamps and any diagnostics thresholds.
 

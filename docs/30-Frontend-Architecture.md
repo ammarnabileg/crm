@@ -82,12 +82,21 @@ The authenticated shell drives the **navigation registry** — an array of `[pat
 
 ```php
 $nav = [
-    ['dashboard', 'Dashboard',            'dashboard.view', true],
-    ['members',   'Members',              'members.view',   false],
-    ['roles',     'Roles & Permissions',  'roles.view',     false],
-    ['ai',        'AI Settings',          'ai.view',        false],
-    ['billing',   'Billing',              'billing.view',   false],
-    ['settings',  'Workspace Settings',   'settings.view',  false],
+    ['dashboard', 'Dashboard',            'dashboard.view',   true],
+    ['design',    'Design System',        'dashboard.view',   true],
+    ['recruiter', 'Recruiter Workspace',  'recruitment.view', true],
+    ['jobs',      'Jobs',                 'recruitment.view', true],
+    ['members',   'Members',              'members.view',     false],
+    ['roles',     'Roles & Permissions',  'roles.view',       false],
+    ['ai',        'AI Settings',          'ai.view',          false],
+    ['billing',   'Billing',              'billing.view',     false],
+    ['settings',  'Workspace Settings',   'settings.view',    false],
+    // System operations (super-admin, system.manage) — all built=true:
+    ['system/diagnostics', 'Diagnostics',      'system.manage', true],
+    ['system/maintenance', 'Maintenance',      'system.manage', true],
+    ['system/backups',     'Backup & Restore', 'system.manage', true],
+    ['system/environment', 'Environment',      'system.manage', true],
+    ['system/logs',        'Logs',             'system.manage', true],
 ];
 ```
 

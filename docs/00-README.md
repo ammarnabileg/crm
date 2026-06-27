@@ -13,7 +13,7 @@ The entry point and single source of truth for HalaOps. This `/docs` folder — 
 
 ## Purpose (الهدف)
 
-This document explains what the `/docs` folder is, how to use it, the conventions every doc follows, and how all 47 documents fit together. It is the map; the other documents are the territory. Read this first.
+This document explains what the `/docs` folder is, how to use it, the conventions every doc follows, and how all 53 numbered documents (00–51, 53) fit together. It is the map; the other documents are the territory. Read this first.
 
 ## Why It Exists (سبب وجوده)
 
@@ -88,7 +88,7 @@ The documentation process itself follows a few rules (the platform's product/bus
 
 Mandatory section template for every doc (H2 headings, in order): Purpose, Why It Exists, Architecture, Workflow, Business Rules, Database Relations, Permissions, Validation, Edge Cases, Security, Performance, Testing, Future Expansion, Open Questions. Files are typically 150–400+ lines and reference real paths under `/home/user/crm` (e.g. `app/Core/Model.php`, `config/rbac.php`, `database/migrations/0010_create_subscriptions_table.php`).
 
-### The complete document set (47 documents)
+### The complete document set (53 documents)
 
 | # | Document | One-line description |
 |---|----------|----------------------|
@@ -200,7 +200,7 @@ This index is for everyone and gates nothing, but it points to where authorizati
 
 - The permission catalogue and default roles are defined in [07-RBAC](07-RBAC.md) (data-driven in `config/rbac.php`).
 - The role × permission matrix is in [11-Permissions-Matrix](11-Permissions-Matrix.md).
-- Built permission modules today: `dashboard.*`, `workspace.*`, `members.*`, `roles.*`, `billing.*`, `ai.*`, `settings.*`, and `system.manage` (platform ops, super-admin). Permissions bind to a `system_modules.module_id` (the module is the group). Planned modules (jobs, applications, interviews, evaluations, candidates, notifications, files) are added as their features ship.
+- Built permission modules today: `dashboard.*`, `recruitment.*` (the ATS — jobs, applications, pipeline board, offers), `workspace.*`, `members.*`, `roles.*`, `billing.*`, `ai.*`, `settings.*`, and `system.manage` (platform ops, super-admin). Permissions bind to a `system_modules.module_id` (the module is the group). Further per-entity permissions (interviews, evaluations, candidates, notifications, files) are added as those features ship.
 
 ## Validation
 
@@ -233,7 +233,7 @@ To keep the docs trustworthy, every document is validated against:
 
 ## Testing
 
-- A docs linter (CI) checks: every numbered file 00–45 plus CHANGELOG exists; each has the mandatory sections; internal links resolve; Mermaid blocks parse.
+- A docs linter (CI) checks: every numbered file (00–51 and 53) plus CHANGELOG exists; each has the mandatory sections; internal links resolve; Mermaid blocks parse.
 - A consistency check verifies that table/column/permission names used in docs exist in the canonical schema.
 - A "no placeholder" check fails the build on `TODO`, `coming soon`, or empty sections.
 

@@ -7,9 +7,11 @@ declare(strict_types=1);
  *
  * Permissions and the default role templates live here, not in code. Adding a
  * capability is an edit to this file plus a re-seed — never an `if ($type ===
- * 'admin')`. Only permissions that are actually enforced somewhere in the app
- * are listed (the platform forbids unused permissions); domain modules add
- * their own permission groups as they ship.
+ * 'admin')`. Permissions are listed either because they are enforced today, or
+ * because they are reserved for a documented module whose UI is still upcoming
+ * (members/roles/billing/ai/settings); domain modules add their own groups as
+ * they ship. The catalogue is synced into the DB idempotently on install and via
+ * the RBAC re-sync migration.
  */
 
 return [
@@ -29,6 +31,7 @@ return [
         // Workspace profile
         ['workspace.view', 'View workspace', 'workspaces', 'View the current workspace profile.'],
         ['workspace.update', 'Edit workspace', 'workspaces', 'Edit the current workspace profile and settings.'],
+        ['workspace.delete', 'Delete workspace', 'workspaces', 'Delete the workspace (owner only; enforced by WorkspacePolicy).'],
 
         // Members
         ['members.view', 'View members', 'members', 'See the people in the workspace.'],

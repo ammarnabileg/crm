@@ -6,7 +6,6 @@ namespace App\Services\Agents;
 
 use App\Core\Database;
 use App\Models\AgentRun;
-use App\Models\AiAgent;
 use App\Services\AI\AiGateway;
 use App\Services\Evaluation\DecisionEngine;
 
