@@ -100,6 +100,9 @@ final class PermissionCatalog
             'Audit' => [
                 'audit.view' => 'View workspace audit log',
             ],
+            'Search' => [
+                'search.use' => 'Use unified workspace search',
+            ],
         ];
 
         $system = [

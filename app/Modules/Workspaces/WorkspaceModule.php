@@ -8,6 +8,7 @@ use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Workspaces\Presentation\DashboardController;
+use HaHireAI\Modules\Workspaces\Presentation\SettingsController;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceController;
 
 final class WorkspaceModule implements Module
@@ -36,5 +37,7 @@ final class WorkspaceModule implements Module
         $router->get('/workspaces/create', [WorkspaceController::class, 'showCreate']);
         $router->post('/workspaces', [WorkspaceController::class, 'create']);
         $router->post('/workspaces/{id}/switch', [WorkspaceController::class, 'switch']);
+        $router->get('/settings', [SettingsController::class, 'index']);
+        $router->post('/settings', [SettingsController::class, 'update']);
     }
 }

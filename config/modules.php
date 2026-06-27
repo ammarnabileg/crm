@@ -15,4 +15,5 @@ return [
     \HaHireAI\Modules\Memberships\MembershipsModule::class,
     \HaHireAI\Modules\Permissions\PermissionsModule::class,
     \HaHireAI\Modules\Audit\AuditModule::class,
+    \HaHireAI\Modules\Search\SearchModule::class,
 ];
