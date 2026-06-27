@@ -30,7 +30,7 @@ $sortLink = static function (string $key) use ($base, $sort, $dir): string {
     return $base . (str_contains($base, '?') ? '&' : '?') . 'sort=' . rawurlencode($key) . '&dir=' . $next;
 };
 ?>
-<div class="space-y-3 <?= e($class ?? '') ?>">
+<div class="min-w-0 space-y-3 <?= e($class ?? '') ?>">
     <?php if (! empty($toolbar)): ?>
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><?= $toolbar ?></div>
     <?php endif; ?>

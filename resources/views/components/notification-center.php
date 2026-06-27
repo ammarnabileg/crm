@@ -23,7 +23,7 @@ $unread = $count ?? count(array_filter($items, static fn ($i) => empty($i['read'
             <span class="absolute end-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white"><?= e((string) ($unread > 9 ? '9+' : $unread)) ?></span>
         <?php endif; ?>
     </summary>
-    <div class="absolute end-0 z-dropdown mt-2 w-80 max-w-[90vw] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
+    <div data-flyout class="absolute end-0 z-dropdown mt-2 w-80 max-w-[90vw] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
         <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
             <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">Notifications</span>
             <?php if (! empty($markAllAction)): ?>

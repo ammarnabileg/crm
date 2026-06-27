@@ -22,7 +22,7 @@ $width = $width ?? 'w-72';
             <span class="btn-secondary cursor-pointer"><?= e($label ?? 'Open') ?></span>
         <?php endif; ?>
     </summary>
-    <div class="absolute <?= e($align) ?> <?= e($width) ?> z-popover mt-2 rounded-xl bg-white p-4 text-sm text-slate-600 shadow-lg ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-800">
+    <div data-flyout class="absolute <?= e($align) ?> <?= e($width) ?> max-w-[calc(100vw-2rem)] z-popover mt-2 rounded-xl bg-white p-4 text-sm text-slate-600 shadow-lg ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-800">
         <?= $slot ?? '' ?>
     </div>
 </details>

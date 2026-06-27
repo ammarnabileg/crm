@@ -84,6 +84,8 @@ return [
                 'members.view', 'members.invite', 'members.update', 'members.remove',
                 'roles.view', 'roles.manage', 'billing.view',
                 'ai.view', 'ai.manage', 'settings.view', 'settings.manage',
+                // The workspace Administrator runs recruitment day to day.
+                'recruitment.view', 'recruitment.manage',
             ],
         ],
         'member' => [

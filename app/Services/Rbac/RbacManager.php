@@ -188,6 +188,39 @@ final class RbacManager
         return $slugToId;
     }
 
+    /**
+     * Re-sync the whole RBAC surface from config/rbac.php — the self-healing path
+     * for permission drift after new permissions are added to config on an
+     * already-installed system (no terminal). Idempotent: upserts the permission
+     * catalogue, re-grants the super-admin every permission, and re-applies each
+     * existing workspace system role's configured permission set (owner `*` = all).
+     * Fresh installs already get this via DatabaseSeeder; re-running is harmless.
+     */
+    public function resyncSystemRolePermissions(): void
+    {
+        $this->syncPermissions();
+        $this->ensureSuperAdminRole();
+
+        $permissionMap = $this->permissionKeyToId();
+        $allPermissionIds = array_values($permissionMap);
+        $defs = (array) config('rbac.tenant_roles', []);
+
+        foreach ($this->db->table('roles')->whereNotNull('workspace_id')->get() as $role) {
+            $slug = (string) $role['slug'];
+            if (! isset($defs[$slug])) {
+                continue;
+            }
+            $permissions = $defs[$slug]['permissions'] ?? [];
+            $ids = $permissions === '*'
+                ? $allPermissionIds
+                : array_values(array_filter(array_map(
+                    static fn (string $key): ?int => $permissionMap[$key] ?? null,
+                    (array) $permissions
+                )));
+            $this->syncRolePermissions((int) $role['id'], $ids);
+        }
+    }
+
     public function assignGlobalRole(int $userId, int $roleId): void
     {
         if (! $this->db->table('user_roles')->where('user_id', '=', $userId)->where('role_id', '=', $roleId)->exists()) {

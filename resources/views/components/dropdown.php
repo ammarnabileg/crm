@@ -24,7 +24,7 @@ $align = ($align ?? 'end') === 'start' ? 'start-0' : 'end-0';
             </span>
         <?php endif; ?>
     </summary>
-    <div class="absolute <?= e($align) ?> z-dropdown mt-2 w-56 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800" role="menu">
+    <div data-flyout class="absolute <?= e($align) ?> z-dropdown mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800" role="menu">
         <?php foreach ($items as $item): ?>
             <?php if (! empty($item['divider'])): ?>
                 <div class="my-1.5 border-t border-slate-100 dark:border-slate-800"></div>

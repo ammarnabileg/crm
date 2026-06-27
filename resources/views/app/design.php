@@ -243,11 +243,11 @@ $sections = [
             ]]) ?>
         </div>
         <div class="grid gap-6 lg:grid-cols-2">
-            <div class="space-y-2">
+            <div class="min-w-0 space-y-2">
                 <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Calendar</p>
                 <?= component('calendar', ['events' => [date('Y-m-d') => 'Today'], 'base' => url('design')]) ?>
             </div>
-            <div class="space-y-2">
+            <div class="min-w-0 space-y-2">
                 <p class="text-xs font-medium uppercase tracking-wide text-slate-400">DataGrid (sortable + selectable)</p>
                 <?= component('data-grid', [
                     'columns' => [['label' => 'Candidate', 'sort' => 'name'], ['label' => 'Stage'], ['label' => 'Score', 'sort' => 'score', 'align' => 'end']],

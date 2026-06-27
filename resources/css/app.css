@@ -27,6 +27,14 @@
   --z-toast: 1060;
 }
 
+/*
+ * Closed <details> disclosures must not lay out (or paint) their absolutely-
+ * positioned flyout panel — otherwise a wide/left-anchored menu can extend past
+ * the viewport and cause horizontal overflow on small screens. Unlayered so it
+ * beats Tailwind's utility layer; only applies to panels tagged data-flyout.
+ */
+details:not([open]) [data-flyout] { display: none !important; }
+
 @layer base {
   html { -webkit-text-size-adjust: 100%; }
   body { @apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200; }
