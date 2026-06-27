@@ -15,7 +15,8 @@ use Tests\TestCase;
  * THROW without an active tenant. A user with no active workspace — including a fresh
  * super admin straight after install — must be redirected to the workspace chooser,
  * never let through to a page that then 500s. (Platform `/system/*` ops are gated by
- * permission and are not behind this middleware, so super admins keep access.)
+ * the super_admin middleware and are not behind this middleware, so super admins keep
+ * access without an active tenant.)
  */
 return new class extends TestCase {
     protected bool $useDatabaseTransaction = true;

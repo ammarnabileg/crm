@@ -9,6 +9,7 @@ use App\Http\Middleware\CheckMaintenanceMode;
 use App\Http\Middleware\EnsureTenant;
 use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\RequirePermission;
+use App\Http\Middleware\RequireSuperAdmin;
 use App\Http\Middleware\ThrottleRequests;
 
 /**
@@ -23,6 +24,7 @@ return [
     'guest'      => RedirectIfAuthenticated::class,
     'tenant'      => EnsureTenant::class,
     'permission'  => RequirePermission::class,
+    'super_admin' => RequireSuperAdmin::class,
     'throttle'    => ThrottleRequests::class,
     'maintenance' => CheckMaintenanceMode::class,
 ];

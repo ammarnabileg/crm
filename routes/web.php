@@ -41,6 +41,7 @@ use App\Controllers\System\DiagnosticsController;
 use App\Controllers\System\EnvironmentController;
 use App\Controllers\System\LogViewerController;
 use App\Controllers\System\MaintenanceController;
+use App\Controllers\System\PlatformController;
 use App\Core\Response;
 
 // Liveness probe — outside the maintenance gate so health checks stay green during
@@ -116,9 +117,12 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
         $router->get('profile', [ProfileController::class, 'show'])->name('profile.show');
         $router->put('profile', [ProfileController::class, 'update'])->name('profile.update');
 
-        // System operations (platform-level, super-admin via system.manage).
-        // No terminal: diagnostics, maintenance, backup/restore, env editor, logs.
-        $router->group(['prefix' => 'system', 'middleware' => ['permission:system.manage']], function ($router): void {
+        // System operations (platform-level — SUPER ADMIN ONLY). Gated by the
+        // super_admin middleware, NOT permission:system.manage: the Owner role's '*'
+        // wildcard grants system.manage to every customer, which would leak the .env
+        // editor, cross-tenant DB backups and the platform console to ordinary
+        // tenants. No terminal: diagnostics, maintenance, backup/restore, env, logs.
+        $router->group(['prefix' => 'system', 'middleware' => ['super_admin']], function ($router): void {
             $router->get('diagnostics', [DiagnosticsController::class, 'index'])->name('system.diagnostics');
 
             $router->get('maintenance', [MaintenanceController::class, 'index'])->name('system.maintenance');
@@ -136,7 +140,24 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
 
             $router->get('logs', [LogViewerController::class, 'index'])->name('system.logs');
             $router->post('logs/clear', [LogViewerController::class, 'clear'])->name('system.logs.clear');
+
+            // Super-Admin Platform Console — manage every workspace + user across
+            // tenants. Cross-tenant reads/writes are super-admin-only (system.manage)
+            // via PlatformDirectory (raw connection, NOT tenant-scoped); all audited.
+            $router->get('platform/workspaces', [PlatformController::class, 'workspaces'])->name('system.platform.workspaces');
+            $router->get('platform/workspaces/show', [PlatformController::class, 'showWorkspace'])->name('system.platform.workspaces.show');
+            $router->post('platform/workspaces/suspend', [PlatformController::class, 'suspendWorkspace'])->name('system.platform.workspaces.suspend');
+            $router->post('platform/workspaces/activate', [PlatformController::class, 'activateWorkspace'])->name('system.platform.workspaces.activate');
+            $router->get('platform/users', [PlatformController::class, 'users'])->name('system.platform.users');
+            $router->post('platform/users/suspend', [PlatformController::class, 'suspendUser'])->name('system.platform.users.suspend');
+            $router->post('platform/users/activate', [PlatformController::class, 'activateUser'])->name('system.platform.users.activate');
+            $router->post('platform/impersonate', [PlatformController::class, 'impersonate'])->name('system.platform.impersonate');
         });
+
+        // Ending an impersonation is authorised by the parked impersonator id, NOT by
+        // system.manage (the active identity is the impersonated user, who may lack
+        // it), so it lives in the auth group rather than the system.manage group.
+        $router->post('system/platform/stop-impersonating', [PlatformController::class, 'stopImpersonating'])->name('system.platform.stop-impersonating');
 
         // Tenant-scoped application.
         $router->group(['middleware' => ['tenant']], function ($router): void {

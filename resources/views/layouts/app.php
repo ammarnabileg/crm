@@ -18,7 +18,10 @@ $nav = [
     ['ai',        'AI Settings',        'ai.view',      true],
     ['billing',   'Billing',            'billing.view', true],
     ['settings',  'Workspace Settings',   'settings.view', true],
-    // System operations (super-admin only — gated by system.manage). No terminal.
+    // Platform operations (super-admin only — hidden from customers by $navVisible,
+    // routes gated by the super_admin middleware). No terminal.
+    ['system/platform/workspaces', 'All Workspaces', 'system.manage', true],
+    ['system/platform/users',      'All Users',      'system.manage', true],
     ['system/diagnostics', 'Diagnostics',      'system.manage', true],
     ['system/maintenance', 'Maintenance',      'system.manage', true],
     ['system/backups',     'Backup & Restore', 'system.manage', true],
@@ -26,6 +29,11 @@ $nav = [
     ['system/logs',        'Logs',             'system.manage', true],
 ];
 $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || str_starts_with($current, '/' . trim($path, '/') . '/');
+// Platform operations (system/*) are super-admin only — the Owner role's '*'
+// grants system.manage too, so a plain can() check would show these to customers.
+$isSuper = auth()->user()?->isSuperAdmin() ?? false;
+$navVisible = fn (string $path, string $perm, bool $built): bool =>
+    $built && can($perm) && (! str_starts_with($path, 'system/') || $isSuper);
 ?>
 <!DOCTYPE html>
 <html lang="<?= e(locale()) ?>" dir="<?= is_rtl() ? 'rtl' : 'ltr' ?>">
@@ -49,6 +57,15 @@ $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || st
     <link rel="icon" href="<?= e(asset('img/favicon.svg')) ?>" type="image/svg+xml">
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-200">
+<?php if (session()->get('platform_impersonator_id')): ?>
+    <div class="flex flex-wrap items-center justify-between gap-2 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950" role="alert">
+        <span>You are impersonating <strong><?= e($user?->name ?? 'a user') ?></strong> — a super-admin session.</span>
+        <form method="POST" action="<?= e(url('system/platform/stop-impersonating')) ?>">
+            <?= csrf_field() ?>
+            <button class="rounded-md bg-amber-900 px-3 py-1 text-white hover:bg-amber-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-900">Stop impersonating</button>
+        </form>
+    </div>
+<?php endif; ?>
 <div class="flex min-h-screen">
     <!-- Sidebar -->
     <aside class="hidden w-64 shrink-0 flex-col border-e border-slate-200 bg-white lg:flex dark:border-slate-800 dark:bg-slate-900">
@@ -58,7 +75,7 @@ $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || st
         </div>
         <nav class="flex-1 space-y-1 p-3">
             <?php foreach ($nav as [$path, $label, $perm, $built]): ?>
-                <?php if ($built && can($perm)): ?>
+                <?php if ($navVisible($path, $perm, $built)): ?>
                     <a href="<?= e(url($path)) ?>" class="nav-link <?= $isActive($path) ? 'nav-link-active' : '' ?>">
                         <span class="h-1.5 w-1.5 rounded-full bg-current opacity-60"></span>
                         <?= e($label) ?>
@@ -80,7 +97,7 @@ $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || st
                     </summary>
                     <nav class="absolute start-0 z-30 mt-2 w-64 space-y-1 rounded-xl bg-white p-2 shadow-lg ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
                         <?php foreach ($nav as [$path, $label, $perm, $built]): ?>
-                            <?php if ($built && can($perm)): ?>
+                            <?php if ($navVisible($path, $perm, $built)): ?>
                                 <a href="<?= e(url($path)) ?>" class="nav-link <?= $isActive($path) ? 'nav-link-active' : '' ?>">
                                     <span class="h-1.5 w-1.5 rounded-full bg-current opacity-60"></span>
                                     <?= e($label) ?>
