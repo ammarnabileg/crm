@@ -16,6 +16,10 @@ declare(strict_types=1);
 use App\Controllers\App\WorkspaceController;
 use App\Controllers\App\DashboardController;
 use App\Controllers\App\DesignSystemController;
+use App\Controllers\App\MemberController;
+use App\Controllers\App\NotificationController;
+use App\Controllers\App\AiSettingsController;
+use App\Controllers\App\SettingsController;
 use App\Controllers\Ats\ApplicationController;
 use App\Controllers\Ats\BoardController;
 use App\Controllers\Ats\JobController;
@@ -138,6 +142,31 @@ $router->group(['middleware' => ['security', 'csrf', 'maintenance']], function (
             $router->get('jobs/board', [BoardController::class, 'show'])->middleware('permission:recruitment.view')->name('jobs.board');
             $router->post('jobs/board/move', [BoardController::class, 'move'])->middleware('permission:recruitment.manage')->name('jobs.board.move');
             $router->get('applications/show', [ApplicationController::class, 'show'])->middleware('permission:recruitment.view')->name('applications.show');
+
+            // Members (docs/47 RBAC). Reads: members.view; each write checks the
+            // matching members.* permission.
+            $router->get('members', [MemberController::class, 'index'])->middleware('permission:members.view')->name('members.index');
+            $router->post('members/invite', [MemberController::class, 'invite'])->middleware('permission:members.invite')->name('members.invite');
+            $router->post('members/update-roles', [MemberController::class, 'updateRoles'])->middleware('permission:members.update')->name('members.update-roles');
+            $router->post('members/deactivate', [MemberController::class, 'deactivate'])->middleware('permission:members.remove')->name('members.deactivate');
+            $router->post('members/reactivate', [MemberController::class, 'reactivate'])->middleware('permission:members.remove')->name('members.reactivate');
+
+            // Notifications (docs/30) — the signed-in user's own feed. No permission
+            // gate: the controller scopes every query to auth()->id() + tenant().
+            $router->get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+            $router->post('notifications/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+            $router->post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+
+            // AI Settings (docs/51) — per-tenant provider keys + engine defaults.
+            // Reads: ai.view; writes: ai.manage. No platform-held keys.
+            $router->get('ai', [AiSettingsController::class, 'index'])->middleware('permission:ai.view')->name('ai.index');
+            $router->post('ai/keys', [AiSettingsController::class, 'storeKey'])->middleware('permission:ai.manage')->name('ai.keys.store');
+            $router->post('ai/keys/delete', [AiSettingsController::class, 'deleteKey'])->middleware('permission:ai.manage')->name('ai.keys.delete');
+            $router->post('ai/defaults', [AiSettingsController::class, 'updateDefaults'])->middleware('permission:ai.manage')->name('ai.defaults.update');
+
+            // Workspace Settings (docs/47 EAS-9) — tabbed settings, saved per section.
+            $router->get('settings', [SettingsController::class, 'index'])->middleware('permission:settings.view')->name('settings.index');
+            $router->post('settings', [SettingsController::class, 'update'])->middleware('permission:settings.manage')->name('settings.update');
         });
     });
 });

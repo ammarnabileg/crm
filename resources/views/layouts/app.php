@@ -12,11 +12,11 @@ $nav = [
     // Recruitment / ATS (gated by recruitment.view).
     ['recruiter', 'Recruiter Workspace', 'recruitment.view', true],
     ['jobs',      'Jobs',                'recruitment.view', true],
-    ['members',   'Members',            'members.view', false],
+    ['members',   'Members',            'members.view', true],
     ['roles',     'Roles & Permissions', 'roles.view',  false],
-    ['ai',        'AI Settings',        'ai.view',      false],
+    ['ai',        'AI Settings',        'ai.view',      true],
     ['billing',   'Billing',            'billing.view', false],
-    ['settings',  'Workspace Settings',   'settings.view', false],
+    ['settings',  'Workspace Settings',   'settings.view', true],
     // System operations (super-admin only — gated by system.manage). No terminal.
     ['system/diagnostics', 'Diagnostics',      'system.manage', true],
     ['system/maintenance', 'Maintenance',      'system.manage', true],
@@ -117,6 +117,24 @@ $isActive = fn (string $path): bool => $current === '/' . trim($path, '/') || st
             </div>
 
             <div class="flex items-center gap-2">
+                <?php if ($workspace && $user): // bell only with an active tenant + user ?>
+                    <?php
+                        $notifier = new \App\Services\Notifications\NotificationService();
+                        $wsId = (int) tenant()->id();
+                        $uid = (int) auth()->id();
+                    ?>
+                    <?= component('notification-center', [
+                        'count'         => $notifier->unreadCount($wsId, $uid),
+                        'viewAllHref'   => url('notifications'),
+                        'markAllAction' => url('notifications/read-all'),
+                        'items'         => array_map(static fn (array $n): array => [
+                            'title' => (string) ($n['title'] ?? ''),
+                            'time'  => (string) ($n['created_at'] ?? ''),
+                            'read'  => ($n['read_at'] ?? null) !== null,
+                            'href'  => url('notifications'),
+                        ], $notifier->recent($wsId, $uid, 8)),
+                    ]) ?>
+                <?php endif; ?>
                 <button type="button" data-theme-toggle class="btn-ghost px-2 py-1.5" aria-label="Toggle dark mode" aria-pressed="false" title="Toggle dark mode">
                     <svg class="h-5 w-5 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                     <svg class="hidden h-5 w-5 dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
