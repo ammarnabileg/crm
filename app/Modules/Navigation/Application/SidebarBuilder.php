@@ -60,6 +60,7 @@ final class SidebarBuilder
         ['label' => 'Workspaces', 'route' => '/admin/workspaces', 'permission' => 'system.workspaces.manage'],
         ['label' => 'Users', 'route' => '/admin/users', 'permission' => 'system.users.manage'],
         ['label' => 'Subscriptions', 'route' => '/admin/subscriptions', 'permission' => 'system.subscriptions.manage'],
+        ['label' => 'Plans', 'route' => '/admin/plans', 'permission' => 'system.subscriptions.manage'],
         ['label' => 'AI Providers', 'route' => '/admin/ai', 'permission' => 'system.ai.manage'],
         ['label' => 'Audit Logs', 'route' => '/admin/audit', 'permission' => 'system.audit.view'],
         ['label' => 'Diagnostics', 'route' => '/admin/diagnostics', 'permission' => 'system.diagnostics.run'],

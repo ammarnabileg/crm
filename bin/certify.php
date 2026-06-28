@@ -170,6 +170,7 @@ foreach ([
     'GET /interviews/export', 'GET /interviews/{interviewId}',
     'POST /admin/workspaces/{id}/suspend', 'POST /admin/workspaces/{id}/archive',
     'POST /admin/users/{id}/activate', 'POST /admin/users/{id}/deactivate',
+    'GET /admin/plans', 'POST /admin/plans', 'POST /admin/plans/{id}/edit', 'POST /admin/plans/{id}/delete',
     'POST /workspaces/transfer-ownership', 'POST /workspaces/archive', 'POST /pipeline/bulk-status', 'POST /talent-pool/bulk-add', 'GET /avatars/{id}/preview',
     'POST /members/{membershipId}/suspend', 'POST /members/{membershipId}/activate', 'POST /members/{membershipId}/remove',
     'POST /roles/{roleId}/clone', 'POST /roles/{roleId}/delete',

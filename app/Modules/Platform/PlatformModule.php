@@ -10,6 +10,7 @@ use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Platform\Application\AccountPlanService;
 use HaHireAI\Modules\Platform\Presentation\AdminController;
+use HaHireAI\Modules\Platform\Presentation\PlatformPlansController;
 
 /**
  * Platform administration (System Owner context): cross-workspace management
@@ -48,6 +49,10 @@ final class PlatformModule implements Module
         $router->post('/admin/users/{id}/activate', [AdminController::class, 'activateUser']);
         $router->post('/admin/users/{id}/deactivate', [AdminController::class, 'deactivateUser']);
         $router->get('/admin/subscriptions', [AdminController::class, 'subscriptions']);
+        $router->get('/admin/plans', [PlatformPlansController::class, 'index']);
+        $router->post('/admin/plans', [PlatformPlansController::class, 'create']);
+        $router->post('/admin/plans/{id}/edit', [PlatformPlansController::class, 'update']);
+        $router->post('/admin/plans/{id}/delete', [PlatformPlansController::class, 'delete']);
         $router->get('/admin/audit', [AdminController::class, 'audit']);
     }
 }

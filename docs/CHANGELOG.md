@@ -881,6 +881,14 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - `PlatformSettings` service (support contact via the global settings store).
 - Verified: `AccountPlanTest` (3); auditor **104/104**.
 
+### Platform governance — plan management (System Owner)
+- New **Plans** screen (`/admin/plans`): create / edit / delete subscription
+  plans, each with a **max-workspaces** cap, price, interval, trial days, feature
+  flags (AI/automation/integrations) and visibility. `PlanService` gains
+  `allPlans`, `create`, `update`, `delete` (refused while a plan is in use) and
+  `usageCount`; the cap lives in the plan's `limits.workspaces`.
+- Verified: `PlanCrudTest` (2); auditor **108/108**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
