@@ -11,6 +11,7 @@ use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Core\Contracts\MemberDirectory;
+use HaHireAI\Core\Contracts\TaskBoard;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 
 /**
@@ -30,6 +31,7 @@ final class DashboardController
         private readonly CandidateDirectory $candidates,
         private readonly RecruitmentSnapshot $snapshot,
         private readonly EntitlementResolver $entitlements,
+        private readonly TaskBoard $tasks,
     ) {
     }
 
@@ -63,6 +65,8 @@ final class DashboardController
             'permissionCount' => count($this->context->permissions()),
             'isSystemOwner' => (int) ($user['is_system_owner'] ?? 0) === 1,
             'kpi' => $this->snapshot->dashboard($ws),
+            'myTasks' => $this->context->can('task.view') ? $this->tasks->openForUser($ws, (string) $user['id']) : [],
+            'canTask' => $this->context->can('task.view'),
             'subscription' => [
                 'usable' => $this->entitlements->isUsable($ws),
                 'features' => $features === null ? null : count($features),

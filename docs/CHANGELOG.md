@@ -795,6 +795,17 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   `findUser`, and `setUserStatus` (which refuses System Owners).
 - Verified: `AdminUsersTest` (2); auditor **92/92**.
 
+### Feature 14 gap closure (C) — Tasks + dashboard "My tasks"
+- New **Tasks** module: a workspace task list (`/tasks`) with create, assign,
+  priority, due date, search/filter (status · mine · text), complete/reopen and
+  delete — gated by new `task.view` / `task.manage` permissions, audited.
+- The **Dashboard** now has a **My tasks** card showing your open tasks
+  (soonest-due first), via a new `Core\Contracts\TaskBoard` so the dashboard
+  stays decoupled from the Tasks internals (ARCHITECTURE.md §4).
+- Sidebar gains a **Tasks** item; the permission catalog gains a Tasks category
+  (seeded automatically on migrate).
+- Verified: `TaskServiceTest` (2); auditor **96/96**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

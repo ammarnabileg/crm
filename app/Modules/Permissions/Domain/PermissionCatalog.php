@@ -61,6 +61,10 @@ final class PermissionCatalog
                 'talent.view' => 'View talent pools',
                 'talent.manage' => 'Create pools and save candidates',
             ],
+            'Tasks' => [
+                'task.view' => 'View tasks',
+                'task.manage' => 'Create, assign and complete tasks',
+            ],
             'Applications' => [
                 'application.view' => 'View applications',
                 'application.update' => 'Update an application',

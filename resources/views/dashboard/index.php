@@ -7,6 +7,8 @@ use HaHireAI\Modules\Recruitment\Domain\ApplicationStatus;
 /** @var array<string,mixed> $subscription */
 /** @var array<string,bool> $can */
 /** @var bool $isSystemOwner */
+/** @var list<array<string,mixed>> $myTasks */
+/** @var bool $canTask */
 
 $c = $kpi['counts'];
 $f = $kpi['funnel'];
@@ -129,6 +131,28 @@ $kpiCard = static function (string $label, int|string $value, string $sub = '', 
                 </ul>
             <?php endif; ?>
         </div>
+
+        <!-- My tasks -->
+        <?php if (! empty($canTask)): ?>
+            <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                    <h2 class="text-sm font-semibold text-slate-900">My tasks</h2>
+                    <a href="/tasks" class="text-xs font-medium text-indigo-600 hover:underline">All tasks →</a>
+                </div>
+                <?php if (($myTasks ?? []) === []): ?>
+                    <p class="px-5 py-5 text-sm text-slate-400">No open tasks assigned to you.</p>
+                <?php else: ?>
+                    <ul class="divide-y divide-slate-100">
+                        <?php foreach ($myTasks as $t): ?>
+                            <li class="flex items-center justify-between px-5 py-2.5 text-sm">
+                                <a href="/tasks" class="text-slate-700 hover:text-indigo-600"><?= e($t['title']) ?></a>
+                                <span class="shrink-0 text-xs <?= ! empty($t['due_at']) ? 'text-slate-400' : 'text-slate-300' ?>"><?= ! empty($t['due_at']) ? e(substr((string) $t['due_at'], 0, 10)) : 'no due date' ?></span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
 
         <!-- Recent jobs -->
         <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
