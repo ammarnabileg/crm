@@ -14,12 +14,34 @@
     </div>
     <div class="grid grid-cols-2 gap-3">
         <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Location</label>
-            <input name="location" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" placeholder="Remote / Cairo">
+            <label class="mb-1 block text-sm font-medium text-slate-700">Seniority</label>
+            <select name="seniority" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+                <?php foreach (['intern' => 'Intern', 'junior' => 'Junior', 'mid' => 'Mid', 'senior' => 'Senior', 'lead' => 'Lead', 'manager' => 'Manager', 'director' => 'Director', 'executive' => 'Executive'] as $v => $l): ?>
+                    <option value="<?= $v ?>" <?= $v === 'mid' ? 'selected' : '' ?>><?= $l ?></option>
+                <?php endforeach; ?>
+            </select>
         </div>
         <div>
             <label class="mb-1 block text-sm font-medium text-slate-700">Employment type</label>
             <input name="employment_type" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" placeholder="Full-time">
+        </div>
+    </div>
+    <div class="grid grid-cols-4 gap-3">
+        <div class="col-span-1">
+            <label class="mb-1 block text-sm font-medium text-slate-700">Location</label>
+            <input name="location" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" placeholder="Remote">
+        </div>
+        <div>
+            <label class="mb-1 block text-sm font-medium text-slate-700">Salary min</label>
+            <input name="salary_min" type="number" min="0" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" placeholder="3000">
+        </div>
+        <div>
+            <label class="mb-1 block text-sm font-medium text-slate-700">Salary max</label>
+            <input name="salary_max" type="number" min="0" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" placeholder="6000">
+        </div>
+        <div>
+            <label class="mb-1 block text-sm font-medium text-slate-700">Currency</label>
+            <input name="currency" value="USD" maxlength="8" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
         </div>
     </div>
     <div>

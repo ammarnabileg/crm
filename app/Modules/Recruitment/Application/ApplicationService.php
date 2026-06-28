@@ -6,6 +6,7 @@ namespace HaHireAI\Modules\Recruitment\Application;
 
 use HaHireAI\Core\Database\Connection;
 use HaHireAI\Modules\Recruitment\Application\Exceptions\ApplicationException;
+use HaHireAI\Modules\Recruitment\Domain\ApplicationStatus;
 use HaHireAI\Shared\Ulid;
 
 /**
@@ -108,6 +109,52 @@ final class ApplicationService
                 [Ulid::generate(), $workspaceId, $applicationId, $application['current_stage_id'] ?? null, $toStageId, $movedBy, $now],
             );
         });
+    }
+
+    /** Set the hiring-decision status (the 11-state workflow). Human decision. */
+    public function setStatus(string $workspaceId, string $applicationId, string $status, ?string $actorUserId = null): void
+    {
+        if (! ApplicationStatus::isValid($status)) {
+            throw new ApplicationException("Unknown application status [{$status}].");
+        }
+        if ($this->find($workspaceId, $applicationId) === null) {
+            throw new ApplicationException('Application not found in this workspace.');
+        }
+
+        $this->connection->statement(
+            'UPDATE applications SET status = ?, updated_at = ? WHERE id = ? AND workspace_id = ?',
+            [$status, gmdate('Y-m-d H:i:s'), $applicationId, $workspaceId],
+        );
+    }
+
+    /**
+     * Every application in the workspace grouped by decision status — the
+     * workspace-wide Kanban board (recruitment spec #7).
+     *
+     * @return array<string, list<array<string,mixed>>>  status => applications
+     */
+    public function statusBoard(string $workspaceId): array
+    {
+        $rows = $this->connection->select(
+            'SELECT a.id, a.status, a.applied_at, u.id AS user_id, u.name, u.email, j.title AS job_title
+               FROM applications a
+               JOIN users u ON u.id = a.user_id
+               JOIN jobs j ON j.id = a.job_id
+              WHERE a.workspace_id = ? AND a.deleted_at IS NULL
+              ORDER BY a.applied_at DESC',
+            [$workspaceId],
+        );
+
+        $board = [];
+        foreach (ApplicationStatus::values() as $status) {
+            $board[$status] = [];
+        }
+        foreach ($rows as $row) {
+            $status = ApplicationStatus::isValid((string) $row['status']) ? (string) $row['status'] : 'applied';
+            $board[$status][] = $row;
+        }
+
+        return $board;
     }
 
     public function countForWorkspace(string $workspaceId): int

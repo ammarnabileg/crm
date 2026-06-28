@@ -48,6 +48,8 @@ final class RecruitmentModule implements Module
         $router->post('/jobs', [JobsController::class, 'store']);
         $router->get('/jobs/{id}', [JobsController::class, 'show']);
         $router->post('/jobs/{id}/publish', [JobsController::class, 'publish']);
+        $router->get('/pipeline', [PipelineController::class, 'board']);
+        $router->post('/applications/{applicationId}/status', [PipelineController::class, 'setStatus']);
         $router->get('/jobs/{id}/pipeline', [PipelineController::class, 'show']);
         $router->post('/jobs/{id}/pipeline/move', [PipelineController::class, 'move']);
 

@@ -19,15 +19,21 @@ final class JobService
     {
     }
 
-    public function create(string $workspaceId, string $createdBy, string $title, ?string $description = null, ?string $location = null, ?string $employmentType = null): string
+    /** @param array{seniority?: ?string, salary_min?: ?int, salary_max?: ?int, currency?: string} $extra */
+    public function create(string $workspaceId, string $createdBy, string $title, ?string $description = null, ?string $location = null, ?string $employmentType = null, array $extra = []): string
     {
         $id = Ulid::generate();
         $now = gmdate('Y-m-d H:i:s');
 
         $this->connection->statement(
-            'INSERT INTO jobs (id, workspace_id, title, slug, description, status, employment_type, location, public_token, created_by, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [$id, $workspaceId, $title, $this->slug($title), $description, 'draft', $employmentType, $location, strtolower(bin2hex(random_bytes(8))), $createdBy, $now, $now],
+            'INSERT INTO jobs (id, workspace_id, title, seniority, salary_min, salary_max, currency, slug, description, status, employment_type, location, public_token, created_by, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                $id, $workspaceId, $title,
+                $extra['seniority'] ?? null, $extra['salary_min'] ?? null, $extra['salary_max'] ?? null, $extra['currency'] ?? 'USD',
+                $this->slug($title), $description, 'draft', $employmentType, $location,
+                strtolower(bin2hex(random_bytes(8))), $createdBy, $now, $now,
+            ],
         );
 
         return $id;

@@ -71,6 +71,12 @@ final class JobsController
             (string) $request->input('description', ''),
             (string) $request->input('location', ''),
             (string) $request->input('employment_type', ''),
+            [
+                'seniority' => trim((string) $request->input('seniority', '')) ?: null,
+                'salary_min' => ($v = trim((string) $request->input('salary_min', ''))) !== '' ? (int) $v : null,
+                'salary_max' => ($v = trim((string) $request->input('salary_max', ''))) !== '' ? (int) $v : null,
+                'currency' => trim((string) $request->input('currency', 'USD')) ?: 'USD',
+            ],
         );
 
         $this->audit->record('recruitment.job.created', [

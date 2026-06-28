@@ -105,9 +105,21 @@ $bandMeta = [
             <?php else: ?>
                 <ul class="space-y-1 text-sm">
                     <?php foreach ($applications as $a): ?>
-                        <li class="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2">
+                        <li class="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2">
                             <span class="font-medium text-slate-800"><?= e($a['job_title']) ?></span>
-                            <span class="text-slate-500"><?= e($a['stage'] ?? $a['status']) ?></span>
+                            <?php if (($canSetStatus ?? false) && ! empty($a['id'])): ?>
+                                <form method="post" action="/applications/<?= e($a['id']) ?>/status">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="redirect_to" value="/candidates/<?= e($profile['user_id']) ?>">
+                                    <select name="status" onchange="this.form.submit()" class="rounded border border-slate-300 px-2 py-1 text-xs">
+                                        <?php foreach (($statuses ?? []) as $sk => $sl): ?>
+                                            <option value="<?= e($sk) ?>" <?= (string) $a['status'] === $sk ? 'selected' : '' ?>><?= e($sl) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </form>
+                            <?php else: ?>
+                                <span class="text-slate-500"><?= e($statuses[$a['status']] ?? $a['stage'] ?? $a['status']) ?></span>
+                            <?php endif; ?>
                         </li>
                     <?php endforeach; ?>
                 </ul>

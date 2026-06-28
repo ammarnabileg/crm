@@ -384,6 +384,19 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Verified on live MySQL 8 (`AssessmentTest`). **Suite: 112 tests / 405
   assertions.**
 
+### Added — Job enrichment + decision workflow + Kanban board
+- **Jobs** now carry **seniority** (intern→executive), **salary range** and
+  **currency** (migration + create form + `JobService::create`).
+- **Decision workflow** (`ApplicationStatus`): the 11-state hiring pipeline
+  (applied → ai_screening → qualified/disqualified → tech/manager interview →
+  final_review → offer → hired/rejected/withdrawn). `ApplicationService::setStatus`
+  (human decision, validated) + `statusBoard()`.
+- **Pipeline Kanban** at `/pipeline` (was empty): workspace-wide board grouped by
+  decision status with an inline move; a **decision bar** on each application in
+  the candidate profile. Gated by `pipeline.view` / `pipeline.manage`.
+- Auditor extended to 44 checks (`/pipeline`). Verified on live MySQL 8
+  (`PipelineStatusTest`). **Suite: 116 tests / 416 assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

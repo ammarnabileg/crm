@@ -17,6 +17,7 @@ use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
 use HaHireAI\Modules\Recruitment\Application\CandidateTimelineService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
+use HaHireAI\Modules\Recruitment\Domain\ApplicationStatus;
 use HaHireAI\Modules\Recruitment\Domain\SkillCatalog;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
@@ -110,6 +111,8 @@ final class CandidatesController
             'timeline' => $this->timeline->timeline($workspaceId, $userId, (string) $profile['profile_id']),
             'assessment' => $this->assessments->latestForCandidate($workspaceId, $userId),
             'skillCatalog' => SkillCatalog::SKILLS,
+            'statuses' => ApplicationStatus::STATUSES,
+            'canSetStatus' => $this->context->can('pipeline.manage'),
             'canUploadFile' => $this->context->can('files.upload'),
             'canDeleteFile' => $this->context->can('files.delete'),
             'canViewFile' => $this->context->can('files.view'),
