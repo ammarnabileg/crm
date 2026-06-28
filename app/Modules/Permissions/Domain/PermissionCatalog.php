@@ -110,6 +110,11 @@ final class PermissionCatalog
                 'workflow.delete' => 'Delete a workflow',
                 'workflow.execute' => 'Manually run a workflow',
             ],
+            'Integration' => [
+                'integration.view' => 'View the developer portal (API tokens, webhooks)',
+                'api.tokens.manage' => 'Issue and revoke API tokens',
+                'webhook.manage' => 'Manage outbound webhook endpoints',
+            ],
         ];
 
         $system = [

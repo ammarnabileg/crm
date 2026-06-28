@@ -206,9 +206,23 @@ the engine **reacts**; feature modules never automate themselves:
   skips, and the full actor→event→reactor path through the real container.
 - Suite: **59 tests / 178 assertions**.
 
+### Phase 13 — Enterprise Integration Platform & API Gateway ✅ (core)
+Inbound API + outbound webhooks (`INTEGRATION_PLATFORM.md`):
+- **API tokens:** workspace-scoped Bearer tokens, stored hashed, revocable.
+- **API Gateway (`/api/v1`):** every request authenticated, **rate-limited**,
+  permission-gated (keys not roles), and **workspace-scoped**, with a consistent
+  JSON envelope (`ping`, `me`, `jobs`, `jobs/{id}`).
+- **Outbound webhooks:** endpoints as data; **HMAC-signed** deliveries via a
+  pluggable HttpClient; per-attempt delivery records. A reactor on the event bus.
+- **Developer Portal (`/integrations`):** manage tokens, webhooks, and review
+  deliveries; sidebar gains **Developer**.
+- _Deferred (designed):_ OAuth2/SSO, turnkey connectors, inbound webhooks,
+  OpenAPI — adapters on these primitives, not new architecture.
+- Verified on live MySQL 8 + an end-to-end HTTP run. Suite: **71 tests / 219
+  assertions**.
+
 ### Planned (later phases)
-- **Phases 13–16 — Implementation:** Integration Platform (API Gateway, REST API,
-  webhooks, event bus, OAuth/SSO, connectors), Billing/Subscriptions/Licensing,
+- **Phases 14–16 — Implementation:** Billing/Subscriptions/Licensing,
   Observability/Diagnostics/Operations, and Release certification — each with its
   own documents and tests (see `MODULES.md`).
 

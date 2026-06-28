@@ -19,4 +19,5 @@ return [
     \HaHireAI\Modules\Recruitment\RecruitmentModule::class,
     \HaHireAI\Modules\AiEngine\AiModule::class,
     \HaHireAI\Modules\Workflow\WorkflowModule::class,
+    \HaHireAI\Modules\Integration\IntegrationModule::class,
 ];

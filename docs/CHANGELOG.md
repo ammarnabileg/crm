@@ -205,6 +205,33 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   AI step, trigger/enabled filtering, **per-workspace isolation**, conditional
   skips, and the full actor→event→reactor path through the real container.
 
+### Added — Phase 13: Enterprise Integration Platform & API Gateway
+- **Integration Platform** (`app/Modules/Integration`) — inbound API + outbound
+  webhooks (`INTEGRATION_PLATFORM.md`):
+  - **API tokens** (`ApiTokenService`): workspace-scoped Bearer tokens, stored as
+    a **SHA-256 hash** (plaintext shown once), revocable and expirable.
+  - **API Gateway** (`/api/v1`, `ApiController` + `ApiContext`): every request is
+    authenticated, **rate-limited**, permission-gated (keys, not roles), and
+    **workspace-scoped**, returning a consistent JSON envelope. Endpoints: `ping`,
+    `me`, `jobs`, `jobs/{id}`.
+  - **Rate limiting** (`RateLimiter`): DB-backed fixed window shared across
+    processes; `X-RateLimit-*` headers + `429`/`Retry-After`.
+  - **Outbound webhooks** (`WebhookService` + `WebhookDispatcher`): endpoints as
+    workspace data; **HMAC-SHA256-signed** deliveries via a pluggable `HttpClient`
+    (`CurlHttpClient`; fake in tests); per-attempt `webhook_deliveries` records.
+    A reactor on the event bus — actor modules just publish events.
+  - **Developer Portal** (`/integrations`): issue/revoke tokens, manage webhook
+    endpoints, review deliveries; CSRF-protected and audited.
+- **Migration**: api_tokens, rate_limits, webhook_endpoints, webhook_deliveries.
+- **Permissions**: `integration.view`, `api.tokens.manage`, `webhook.manage`;
+  sidebar gains **Developer**.
+- **Deferred (designed):** OAuth2/SSO, turnkey connectors, inbound webhooks,
+  OpenAPI — they add adapters on these primitives, not new architecture.
+- Verified on live MySQL 8 (`IntegrationApiTest`, `WebhookTest`) **and** an
+  end-to-end HTTP run: token auth, 401/403/404/429, workspace isolation, signed
+  webhook delivery, and the event→webhook path through the real container.
+  Suite: **71 tests / 219 assertions**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
