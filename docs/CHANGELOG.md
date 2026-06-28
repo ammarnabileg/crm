@@ -787,6 +787,14 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   role" answers "who has this role?" — not just a count.
 - Verified: `RoleEditTest` (2); auditor **90/90**.
 
+### Feature 14 gap closure (B) — platform Users directory actions
+- The platform **Users** page (`/admin/users`, System Owner) now shows **Status**,
+  **Last login** and **Actions** columns, supports **search** (name/email), and
+  can **activate / deactivate** a user. System Owners and your own account are
+  protected (never deactivatable). `PlatformAdminService` gains search,
+  `findUser`, and `setUserStatus` (which refuses System Owners).
+- Verified: `AdminUsersTest` (2); auditor **92/92**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

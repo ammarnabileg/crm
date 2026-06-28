@@ -44,15 +44,59 @@ final class AdminController
         ]);
     }
 
-    public function users(): Response
+    public function users(Request $request): Response
     {
         if (($r = $this->gate('system.users.manage')) !== null) {
             return $r;
         }
 
+        $q = trim((string) $request->input('q', ''));
+
         return $this->shell->render($this->context, 'admin.users', [
-            'users' => $this->admin->users(),
+            'users' => $this->admin->users(200, $q),
+            'q' => $q,
+            'currentUserId' => (string) $this->auth->id(),
+            'status' => $this->session->pullFlash('status'),
         ]);
+    }
+
+    public function activateUser(Request $request, string $id): Response
+    {
+        return $this->userStatusAction($request, $id, 'active', 'User activated.');
+    }
+
+    public function deactivateUser(Request $request, string $id): Response
+    {
+        return $this->userStatusAction($request, $id, 'deactivated', 'User deactivated.');
+    }
+
+    private function userStatusAction(Request $request, string $id, string $status, string $ok): Response
+    {
+        if (($r = $this->gate('system.users.manage')) !== null) {
+            return $r;
+        }
+        if (! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return Response::html('<h1>419</h1><p>Security check failed.</p>', 419);
+        }
+        if ($id === (string) $this->auth->id()) {
+            $this->session->flash('status', 'You cannot change your own account status here.');
+
+            return Response::redirect('/admin/users');
+        }
+
+        if ($this->admin->setUserStatus($id, $status)) {
+            $this->audit->record('platform.user.status_changed', [
+                'actor_user_id' => $this->auth->id(),
+                'entity_type' => 'user',
+                'entity_id' => $id,
+                'changes' => ['status' => $status],
+            ]);
+            $this->session->flash('status', $ok);
+        } else {
+            $this->session->flash('status', 'That account cannot be changed (System Owners are protected).');
+        }
+
+        return Response::redirect('/admin/users');
     }
 
     public function subscriptions(): Response

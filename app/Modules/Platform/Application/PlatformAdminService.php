@@ -36,17 +36,46 @@ final class PlatformAdminService
     }
 
     /** @return list<array<string, mixed>> every user (one identity; contexts derived) */
-    public function users(int $limit = 200): array
+    public function users(int $limit = 200, string $q = ''): array
     {
         $limit = max(1, min(500, $limit));
+        $where = 'u.deleted_at IS NULL';
+        $bindings = [];
+        $q = trim($q);
+        if ($q !== '') {
+            $where .= ' AND (u.name LIKE ? OR u.email LIKE ?)';
+            $like = '%' . $q . '%';
+            array_push($bindings, $like, $like);
+        }
 
         return $this->connection->select(
-            'SELECT u.id, u.name, u.email, u.is_system_owner, u.created_at,
+            'SELECT u.id, u.name, u.email, u.is_system_owner, u.status, u.last_login_at, u.created_at,
                     (SELECT COUNT(*) FROM memberships m WHERE m.user_id = u.id AND m.deleted_at IS NULL) AS workspaces
                FROM users u
-              WHERE u.deleted_at IS NULL
+              WHERE ' . $where . '
               ORDER BY u.created_at DESC LIMIT ' . $limit,
+            $bindings,
         );
+    }
+
+    /** @return array<string, mixed>|null */
+    public function findUser(string $userId): ?array
+    {
+        return $this->connection->selectOne('SELECT id, name, email, status, is_system_owner FROM users WHERE id = ? AND deleted_at IS NULL', [$userId]);
+    }
+
+    /**
+     * Set a platform user's account status (active|suspended|deactivated). System
+     * Owners are protected and never changed. Returns true if a row was updated.
+     */
+    public function setUserStatus(string $userId, string $status): bool
+    {
+        $affected = $this->connection->statement(
+            'UPDATE users SET status = ?, updated_at = ? WHERE id = ? AND is_system_owner = 0 AND deleted_at IS NULL',
+            [$status, gmdate('Y-m-d H:i:s'), $userId],
+        );
+
+        return $affected > 0;
     }
 
     /** @return list<array<string, mixed>> every subscription with workspace + plan */

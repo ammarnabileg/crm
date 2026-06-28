@@ -168,6 +168,7 @@ foreach ([
     'GET /offers', 'GET /reports/print', 'GET /jobs/{id}/edit',
     'GET /interviews/export', 'GET /interviews/{interviewId}',
     'POST /admin/workspaces/{id}/suspend', 'POST /admin/workspaces/{id}/archive',
+    'POST /admin/users/{id}/activate', 'POST /admin/users/{id}/deactivate',
     'POST /workspaces/transfer-ownership', 'POST /workspaces/archive', 'POST /pipeline/bulk-status', 'POST /talent-pool/bulk-add', 'GET /avatars/{id}/preview',
     'POST /members/{id}/suspend', 'POST /members/{id}/activate', 'POST /members/{id}/remove',
     'POST /roles/{id}/clone', 'POST /roles/{id}/delete',

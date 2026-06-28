@@ -41,6 +41,8 @@ final class PlatformModule implements Module
         $router->post('/admin/workspaces/{id}/archive', [AdminController::class, 'archiveWorkspace']);
         $router->post('/admin/workspaces/{id}/restore', [AdminController::class, 'restoreWorkspace']);
         $router->get('/admin/users', [AdminController::class, 'users']);
+        $router->post('/admin/users/{id}/activate', [AdminController::class, 'activateUser']);
+        $router->post('/admin/users/{id}/deactivate', [AdminController::class, 'deactivateUser']);
         $router->get('/admin/subscriptions', [AdminController::class, 'subscriptions']);
         $router->get('/admin/audit', [AdminController::class, 'audit']);
     }
