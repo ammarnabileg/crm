@@ -36,6 +36,10 @@ final class PlatformModule implements Module
     public function routes(Router $router): void
     {
         $router->get('/admin/workspaces', [AdminController::class, 'workspaces']);
+        $router->post('/admin/workspaces/{id}/suspend', [AdminController::class, 'suspendWorkspace']);
+        $router->post('/admin/workspaces/{id}/resume', [AdminController::class, 'resumeWorkspace']);
+        $router->post('/admin/workspaces/{id}/archive', [AdminController::class, 'archiveWorkspace']);
+        $router->post('/admin/workspaces/{id}/restore', [AdminController::class, 'restoreWorkspace']);
         $router->get('/admin/users', [AdminController::class, 'users']);
         $router->get('/admin/subscriptions', [AdminController::class, 'subscriptions']);
         $router->get('/admin/audit', [AdminController::class, 'audit']);

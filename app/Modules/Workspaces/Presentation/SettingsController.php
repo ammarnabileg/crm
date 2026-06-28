@@ -57,7 +57,9 @@ final class SettingsController
             'workspace' => $this->context->workspace(),
             'prefs' => $prefs,
             'canUpdate' => $this->context->can('settings.update'),
+            'isOwner' => (string) ($this->context->workspace()['owner_user_id'] ?? '') === (string) $this->auth->id(),
             'status' => $this->session->pullFlash('status'),
+            'error' => $this->session->pullFlash('error'),
         ]);
     }
 

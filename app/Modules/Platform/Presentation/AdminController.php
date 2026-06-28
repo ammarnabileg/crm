@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Platform\Presentation;
 
+use HaHireAI\Core\Contracts\AuditRecorder;
+use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
+use HaHireAI\Core\Http\Session;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Platform\Application\PlatformAdminService;
 use HaHireAI\Modules\Workspaces\Application\PlatformContext;
+use HaHireAI\Modules\Workspaces\Application\WorkspaceLifecycleService;
 use HaHireAI\Modules\Workspaces\Presentation\PlatformShell;
 
 /**
@@ -22,6 +26,9 @@ final class AdminController
         private readonly PlatformContext $context,
         private readonly AuthContext $auth,
         private readonly PlatformAdminService $admin,
+        private readonly WorkspaceLifecycleService $lifecycle,
+        private readonly Session $session,
+        private readonly AuditRecorder $audit,
     ) {
     }
 
@@ -33,6 +40,7 @@ final class AdminController
 
         return $this->shell->render($this->context, 'admin.workspaces', [
             'workspaces' => $this->admin->workspaces(),
+            'status' => $this->session->pullFlash('status'),
         ]);
     }
 
@@ -67,6 +75,47 @@ final class AdminController
         return $this->shell->render($this->context, 'admin.audit', [
             'entries' => $this->admin->audit(),
         ]);
+    }
+
+    /** System Owner workspace lifecycle actions. */
+    public function suspendWorkspace(Request $request, string $id): Response
+    {
+        return $this->lifecycleAction($request, $id, 'suspend', 'Workspace suspended.');
+    }
+
+    public function resumeWorkspace(Request $request, string $id): Response
+    {
+        return $this->lifecycleAction($request, $id, 'resume', 'Workspace resumed.');
+    }
+
+    public function archiveWorkspace(Request $request, string $id): Response
+    {
+        return $this->lifecycleAction($request, $id, 'archive', 'Workspace archived.');
+    }
+
+    public function restoreWorkspace(Request $request, string $id): Response
+    {
+        return $this->lifecycleAction($request, $id, 'restore', 'Workspace restored.');
+    }
+
+    private function lifecycleAction(Request $request, string $id, string $action, string $ok): Response
+    {
+        if (($r = $this->gate('system.workspaces.manage')) !== null) {
+            return $r;
+        }
+        if (! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return Response::html('<h1>419</h1><p>Security check failed.</p>', 419);
+        }
+        $this->lifecycle->{$action}($id);
+        $this->audit->record('platform.workspace.' . $action, [
+            'workspace_id' => $id,
+            'actor_user_id' => $this->auth->id(),
+            'entity_type' => 'workspace',
+            'entity_id' => $id,
+        ]);
+        $this->session->flash('status', $ok);
+
+        return Response::redirect('/admin/workspaces');
     }
 
     private function gate(string $permission): ?Response

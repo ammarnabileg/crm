@@ -571,6 +571,18 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Remaining architecture debt (next architecture pass): contract-ize Memberships,
   Permissions (Authorizer), and Files (FileService) shared services.
 
+### Sprint 2 — Workspace Lifecycle
+- **`WorkspaceLifecycleService`**: archive / restore / suspend / resume /
+  **transfer-ownership** (the new owner becomes a member with the full permission
+  set; `owner_user_id` updated — invariant preserved).
+- **System Owner** controls (platform): suspend / resume / archive / restore any
+  workspace from `/admin/workspaces` (CSRF-guarded, audited).
+- **Owner** controls (workspace): transfer ownership (by email) and archive own
+  workspace from Settings → Danger Zone (owner-only gate + ownership validation).
+- Workspace **activity timeline + audit log** already present (`/activity`).
+- Verified: **159 tests / 563 assertions** green · auditor **69/69** ·
+  `WorkspaceLifecycleTest` (4).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

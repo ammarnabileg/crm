@@ -38,6 +38,8 @@ final class WorkspaceModule implements Module
         $router->get('/workspaces/create', [WorkspaceController::class, 'showCreate']);
         $router->post('/workspaces', [WorkspaceController::class, 'create']);
         $router->post('/workspaces/{id}/switch', [WorkspaceController::class, 'switch']);
+        $router->post('/workspaces/transfer-ownership', [WorkspaceController::class, 'transferOwnership']);
+        $router->post('/workspaces/archive', [WorkspaceController::class, 'archiveOwn']);
         $router->get('/settings', [SettingsController::class, 'index']);
         $router->post('/settings', [SettingsController::class, 'update']);
     }

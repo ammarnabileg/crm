@@ -77,3 +77,23 @@ $inp = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border
         <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Save settings</button>
     <?php endif; ?>
 </form>
+
+<?php if (! empty($isOwner)): ?>
+    <div class="mt-6 max-w-2xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-1 text-sm font-semibold text-rose-700">Danger zone</h2>
+        <p class="mb-4 text-xs text-slate-400">Owner-only actions for this workspace.</p>
+
+        <form method="post" action="/workspaces/transfer-ownership" class="mb-5 flex flex-wrap items-end gap-2" onsubmit="return confirm('Transfer ownership to this user? You will keep your role but no longer be the owner.');">
+            <?= csrf_field() ?>
+            <label class="block text-xs font-medium text-slate-600">Transfer ownership to (email)
+                <input name="email" type="email" required placeholder="new-owner@example.com" class="mt-1 w-72 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            </label>
+            <button class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Transfer</button>
+        </form>
+
+        <form method="post" action="/workspaces/archive" onsubmit="return confirm('Archive this workspace? It will be paused until restored.');">
+            <?= csrf_field() ?>
+            <button class="rounded-lg border border-rose-300 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50">Archive workspace</button>
+        </form>
+    </div>
+<?php endif; ?>
