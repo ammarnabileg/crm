@@ -58,6 +58,16 @@ $hasDetails = $dv('education') || $dv('languages') || $dv('skills') || $dv('cert
                     <?php endforeach; ?>
                 </dl>
             <?php endif; ?>
+            <?php if ($canNote): ?>
+                <details class="mt-4 border-t border-slate-100 pt-3">
+                    <summary class="cursor-pointer text-xs font-medium text-indigo-600 hover:underline">Paste CV text to auto-fill ↓</summary>
+                    <form method="post" action="/candidates/<?= e($profile['user_id']) ?>/parse-cv" class="mt-2 space-y-2">
+                        <?= csrf_field() ?>
+                        <textarea name="cv_text" rows="5" placeholder="Paste the CV text here — email, phone, links, years of experience and skills are extracted automatically (existing values are kept)." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"></textarea>
+                        <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700">Extract fields</button>
+                    </form>
+                </details>
+            <?php endif; ?>
         </div>
 
         <!-- Stage history -->

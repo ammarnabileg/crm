@@ -756,6 +756,28 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Refreshed `docs/AUDIT_REPORT.md` with a remediation-progress section and the
   updated verified baseline (184 tests · 87/87 · 0 CRITICAL).
 
+### Native Excel (.xlsx) export
+- Added `Shared\XlsxWriter` — a dependency-free native `.xlsx` (OOXML) writer
+  built on `ZipArchive` (no third-party library). Emits the minimal valid package
+  with inline strings; safe numbers become numeric cells while ULIDs, leading-zero
+  values and free text stay strings, and XML is escaped.
+- The **AI interviews** and **recruitment report** exports now produce real
+  `.xlsx` files (were CSV) — closing the "Excel export is CSV" gap.
+- Verified: `XlsxWriterTest` (2); auditor **87/87**; full suite green.
+
+### Decision Center — CV/résumé text parser
+- Added `ResumeParser` — a deterministic, dependency-free extractor that pulls
+  structured fields from CV text: email, phone, LinkedIn/GitHub/portfolio links,
+  years of experience, and skills (word-boundary keyword matching, so "Java" is
+  not matched inside "JavaScript").
+- On the staff candidate profile, a **"Paste CV text to auto-fill"** action runs
+  the parser and merges the result into the candidate's structured details
+  **non-destructively** (existing values are kept), gated by `candidate.note`
+  and audited.
+- (PDF/DOCX byte-extraction needs external tooling not guaranteed offline, so the
+  input is text — a `.txt`/paste — rather than a silent, unreliable PDF scrape.)
+- Verified: `ResumeParserTest` (4); auditor **88/88**; full suite green.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

@@ -12,6 +12,7 @@ use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Recruitment\Application\ReportService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
+use HaHireAI\Shared\XlsxWriter;
 
 /** Workspace recruitment analytics — the hiring funnel + activity. */
 final class ReportsController
@@ -61,22 +62,17 @@ final class ReportsController
         $report = $this->reports->workspaceReport((string) $this->context->workspaceId());
         $f = $report['funnel'];
         $rows = [
-            ['metric', 'value'],
-            ['published_jobs', $report['jobs']['published']],
-            ['applications', $f['applications']],
-            ['interviews', $f['interviews']],
-            ['offers', $f['offers']],
-            ['hires', $f['hires']],
+            ['Metric', 'Value'],
+            ['Published jobs', (int) $report['jobs']['published']],
+            ['Applications', (int) $f['applications']],
+            ['Interviews', (int) $f['interviews']],
+            ['Offers', (int) $f['offers']],
+            ['Hires', (int) $f['hires']],
         ];
 
-        $csv = '';
-        foreach ($rows as $row) {
-            $csv .= implode(',', array_map(static fn ($v): string => '"' . str_replace('"', '""', (string) $v) . '"', $row)) . "\n";
-        }
-
-        return Response::make($csv, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="recruitment-report.csv"',
+        return Response::make(XlsxWriter::fromRows($rows, 'Recruitment Report'), 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="recruitment-report.xlsx"',
         ]);
     }
 

@@ -9,7 +9,7 @@
         <h1 class="text-2xl font-semibold text-slate-900">AI Interviews</h1>
         <p class="mt-1 text-sm text-slate-500">AI-run screening interviews across this workspace. Every result is advisory — a human decision always wins. For panel interviews, see <a href="/human-interviews" class="text-indigo-600 hover:underline">Human Interviews</a>.</p>
     </div>
-    <a href="/interviews/export" class="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Export Excel</a>
+    <a href="/interviews/export" class="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Export Excel (.xlsx)</a>
 </div>
 
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>

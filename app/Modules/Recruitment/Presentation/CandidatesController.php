@@ -13,6 +13,7 @@ use HaHireAI\Modules\AiEngine\Application\AiEngine;
 use HaHireAI\Core\Contracts\FileStorage;
 use HaHireAI\Modules\Recruitment\Application\ApplicationService;
 use HaHireAI\Modules\Recruitment\Application\AssessmentService;
+use HaHireAI\Modules\Recruitment\Application\ResumeParser;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
 use HaHireAI\Modules\Recruitment\Application\CandidateTimelineService;
 use HaHireAI\Modules\Recruitment\Application\ComparisonService;
@@ -44,6 +45,7 @@ final class CandidatesController
         private readonly TalentPoolService $talent,
         private readonly FileStorage $files,
         private readonly AiEngine $ai,
+        private readonly ResumeParser $resumeParser,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
@@ -213,6 +215,50 @@ final class CandidatesController
                 'entity_id' => $profileId,
             ]);
         }
+
+        return Response::redirect('/candidates/' . $userId);
+    }
+
+    /** Parse pasted CV text into structured profile fields (merged, non-destructive). */
+    public function parseCv(Request $request, string $userId): Response
+    {
+        if (($r = $this->gate('candidate.note', $request)) !== null) {
+            return $r;
+        }
+
+        $text = trim((string) $request->input('cv_text', ''));
+        if ($text === '') {
+            $this->session->flash('status', 'Paste some CV text to extract from.');
+
+            return Response::redirect('/candidates/' . $userId);
+        }
+
+        $ws = (string) $this->context->workspaceId();
+        $parsed = $this->resumeParser->parse($text);
+        if ($parsed === []) {
+            $this->session->flash('status', 'No structured fields could be extracted from that text.');
+
+            return Response::redirect('/candidates/' . $userId);
+        }
+
+        // Merge non-destructively: keep any value the recruiter already set.
+        $existing = $this->candidates->details($ws, $userId);
+        $merged = $existing;
+        foreach ($parsed as $key => $value) {
+            if (! array_key_exists($key, $merged) || $merged[$key] === '' || $merged[$key] === [] || $merged[$key] === null) {
+                $merged[$key] = $value;
+            }
+        }
+        $this->candidates->saveDetails($ws, $userId, $merged);
+
+        $this->audit->record('recruitment.candidate.cv_parsed', [
+            'workspace_id' => $ws,
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'candidate_profile',
+            'entity_id' => $userId,
+            'changes' => ['fields' => array_keys($parsed)],
+        ]);
+        $this->session->flash('status', 'Extracted ' . count($parsed) . ' field(s) from the CV: ' . implode(', ', array_keys($parsed)) . '.');
 
         return Response::redirect('/candidates/' . $userId);
     }

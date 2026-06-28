@@ -36,7 +36,7 @@ MySQL 8, server-rendered, no framework._
 | Offers | ✅ | send / decline / **withdraw** + **printable letter (PDF)** |
 | Talent Pool | ✅ | saved candidates |
 | Avatars | ✅ | AI interviewer avatars |
-| Reports | ✅ | funnel + **print (PDF)** + **CSV (Excel)** export |
+| Reports | ✅ | funnel + **print (PDF)** + native **Excel (.xlsx)** export |
 | AI analytics | ✅ | usage & tokens per workspace |
 | Members / Roles | ✅ | roles as data; member **suspend/reactivate/remove** + last login/activity; role **clone/delete** + usage count |
 | Settings | ✅ | general + company / branding (**logo upload**) / **SMTP email** / **legal** / security / maintenance |
@@ -97,4 +97,3 @@ Overview · Workspaces · Users · Subscriptions · Audit logs · Diagnostics �
 - The standalone **tokenized interview link** (`/interview/{token}`) still uses
   the older one-shot flow; the **job-link path** already converges on the new
   conversational room.
-- **Excel** export is CSV (opens in Excel); not native `.xlsx`.

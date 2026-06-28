@@ -174,6 +174,7 @@ foreach ([
     'GET /settings/logo',
     'POST /portal/applications/{applicationId}/withdraw',
     'POST /notifications/{id}/archive', 'POST /notifications/{id}/unarchive',
+    'POST /candidates/{userId}/parse-cv',
     'GET /candidates/compare', 'GET /api/v1/ping', 'GET /api/v1/jobs',
 ] as $route) {
     $check("route registered: {$route}", isset($paths[$route]));

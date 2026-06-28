@@ -45,11 +45,18 @@ original audit (each verified by a focused test + the auditor + the full suite):
 - **Careers** search/filters; **Withdraw application**; **Notifications**
   categories/search/archive; **interview transcript link** on the candidate profile.
 
-**Updated baseline:** full suite **184 tests / 707 assertions** green · auditor
-**87/87** · still **0 CRITICAL** (journey intact). Remaining items are external/
-gated (HeyGen live video; server-side voice transcription) or niche (native
-`.xlsx`; tokenized one-shot link). The original per-area tables below predate
-this remediation and are kept for historical context.
+- **Native Excel (.xlsx) export** — dependency-free OOXML writer; interviews and
+  reports now export real `.xlsx` (was CSV).
+- **CV/résumé text parser** — `ResumeParser` extracts email/phone/links/years/
+  skills from CV text into the candidate's structured profile (non-destructive).
+
+**Updated baseline:** full suite **190 tests** green · auditor **88/88** · still
+**0 CRITICAL** (journey intact, re-verified end-to-end: 13 PASS / 0 CRITICAL).
+Remaining items are external/gated (HeyGen live video; server-side voice
+transcription; PDF/DOCX byte-extraction) or a deliberate design choice (the
+anonymous tokenized one-shot interview link vs the authenticated conversational
+room). The original per-area tables below predate this remediation and are kept
+for historical context.
 
 ## Severity legend
 `EXISTS` (works) · `PARTIAL` · `MISSING` · `BROKEN` · `REFACTOR` (works but violates the constitution)

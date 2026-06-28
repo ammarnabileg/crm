@@ -14,6 +14,7 @@ use HaHireAI\Modules\Recruitment\Application\AssessmentService;
 use HaHireAI\Modules\Recruitment\Application\Exceptions\ApplicationException;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
+use HaHireAI\Shared\XlsxWriter;
 use HaHireAI\Modules\Workspaces\Application\WorkspacePreferences;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
 
@@ -71,30 +72,27 @@ final class InterviewController
         ]);
     }
 
-    /** Excel (CSV) export of the AI interviews list. */
+    /** Native Excel (.xlsx) export of the AI interviews list. */
     public function export(): Response
     {
         if (($r = $this->gate('interview.view')) !== null) {
             return $r;
         }
 
-        $rows = [['candidate', 'job', 'status', 'mode', 'score', 'recommendation', 'provider', 'scheduled_at']];
+        $rows = [['Candidate', 'Job', 'Status', 'Mode', 'Score', 'Recommendation', 'Provider', 'Scheduled at']];
         foreach ($this->interviews->listForWorkspace((string) $this->context->workspaceId(), 'ai') as $iv) {
+            $score = $iv['score'] ?? null;
             $rows[] = [
                 (string) ($iv['candidate_name'] ?? ''), (string) ($iv['job_title'] ?? ''),
                 (string) ($iv['status'] ?? ''), (string) ($iv['mode'] ?? ''),
-                (string) ($iv['score'] ?? ''), (string) ($iv['recommendation'] ?? ''),
+                $score !== null && $score !== '' ? (int) $score : '', (string) ($iv['recommendation'] ?? ''),
                 (string) ($iv['ai_provider'] ?? ''), (string) ($iv['scheduled_at'] ?? ''),
             ];
         }
-        $csv = '';
-        foreach ($rows as $row) {
-            $csv .= implode(',', array_map(static fn ($v): string => '"' . str_replace('"', '""', (string) $v) . '"', $row)) . "\n";
-        }
 
-        return Response::make($csv, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="ai-interviews.csv"',
+        return Response::make(XlsxWriter::fromRows($rows, 'AI Interviews'), 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="ai-interviews.xlsx"',
         ]);
     }
 
