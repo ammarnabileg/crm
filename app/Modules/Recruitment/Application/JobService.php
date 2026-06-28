@@ -99,14 +99,72 @@ final class JobService
         );
     }
 
-    /** @return list<array<string, mixed>> */
-    public function listForWorkspace(string $workspaceId): array
+    /**
+     * @param  array{q?: string, status?: string}  $filters  optional title search + status filter
+     * @return list<array<string, mixed>>
+     */
+    public function listForWorkspace(string $workspaceId, array $filters = []): array
     {
-        return $this->connection->select(
-            'SELECT j.*, (SELECT COUNT(*) FROM applications a WHERE a.job_id = j.id AND a.deleted_at IS NULL) AS applications_count
-               FROM jobs j WHERE j.workspace_id = ? AND j.deleted_at IS NULL ORDER BY j.created_at DESC',
-            [$workspaceId],
+        $sql = 'SELECT j.*, (SELECT COUNT(*) FROM applications a WHERE a.job_id = j.id AND a.deleted_at IS NULL) AS applications_count
+                  FROM jobs j WHERE j.workspace_id = ? AND j.deleted_at IS NULL';
+        $bindings = [$workspaceId];
+
+        $q = trim((string) ($filters['q'] ?? ''));
+        if ($q !== '') {
+            $sql .= ' AND j.title LIKE ?';
+            $bindings[] = '%' . $q . '%';
+        }
+        $status = trim((string) ($filters['status'] ?? ''));
+        if ($status !== '') {
+            $sql .= ' AND j.status = ?';
+            $bindings[] = $status;
+        }
+        $sql .= ' ORDER BY j.created_at DESC';
+
+        return $this->connection->select($sql, $bindings);
+    }
+
+    /**
+     * Clone a job into a fresh draft (title + " (Copy)"), duplicating its question
+     * bank and evaluation criteria. Returns the new job id.
+     */
+    public function clone(string $workspaceId, string $jobId, string $createdBy): ?string
+    {
+        $job = $this->find($workspaceId, $jobId);
+        if ($job === null) {
+            return null;
+        }
+
+        $newId = $this->create(
+            $workspaceId,
+            $createdBy,
+            (string) $job['title'] . ' (Copy)',
+            (string) ($job['description'] ?? ''),
+            (string) ($job['location'] ?? ''),
+            (string) ($job['employment_type'] ?? ''),
+            [
+                'seniority' => $job['seniority'] ?? null,
+                'salary_min' => $job['salary_min'] ?? null,
+                'salary_max' => $job['salary_max'] ?? null,
+                'currency' => $job['currency'] ?? 'USD',
+            ],
         );
+
+        $now = gmdate('Y-m-d H:i:s');
+        foreach ($this->connection->select('SELECT text, position FROM job_questions WHERE job_id = ? AND workspace_id = ?', [$jobId, $workspaceId]) as $q) {
+            $this->connection->statement(
+                'INSERT INTO job_questions (id, workspace_id, job_id, text, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [Ulid::generate(), $workspaceId, $newId, $q['text'], $q['position'], $now, $now],
+            );
+        }
+        foreach ($this->connection->select('SELECT label, weight, position FROM job_criteria WHERE job_id = ? AND workspace_id = ?', [$jobId, $workspaceId]) as $cr) {
+            $this->connection->statement(
+                'INSERT INTO job_criteria (id, workspace_id, job_id, label, weight, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [Ulid::generate(), $workspaceId, $newId, $cr['label'], $cr['weight'], $cr['position'], $now, $now],
+            );
+        }
+
+        return $newId;
     }
 
     /** @return array<string, mixed>|null */

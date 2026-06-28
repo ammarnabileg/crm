@@ -69,6 +69,7 @@ final class RecruitmentModule implements Module
         $router->get('/jobs/{id}/edit', [JobsController::class, 'edit']);
         $router->post('/jobs/{id}/edit', [JobsController::class, 'update']);
         $router->post('/jobs/{id}/archive', [JobsController::class, 'archive']);
+        $router->post('/jobs/{id}/clone', [JobsController::class, 'clone']);
         $router->get('/jobs/{id}', [JobsController::class, 'show']);
         $router->post('/jobs/{id}/publish', [JobsController::class, 'publish']);
         $router->post('/jobs/{id}/interview-link', [JobsController::class, 'generateLink']);

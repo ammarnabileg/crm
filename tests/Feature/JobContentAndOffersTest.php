@@ -80,6 +80,35 @@ final class JobContentAndOffersTest extends TestCase
         $this->assertSame(100, (int) $rows[0]['weight']);
     }
 
+    public function test_clone_duplicates_job_with_questions_and_criteria(): void
+    {
+        [$ws, $owner] = $this->workspace();
+        $jobId = $this->jobs->create($ws, $owner, 'Engineer', 'desc', 'Cairo', 'full_time', ['seniority' => 'senior']);
+        $this->content->addQuestion($ws, $jobId, 'Q1?');
+        $this->content->addCriterion($ws, $jobId, 'System design', 30);
+
+        $newId = $this->jobs->clone($ws, $jobId, $owner);
+        $this->assertNotNull($newId);
+        $clone = $this->jobs->find($ws, $newId);
+        $this->assertSame('Engineer (Copy)', $clone['title']);
+        $this->assertSame('draft', $clone['status']);
+        $this->assertSame(['Q1?'], $this->content->questionTexts($ws, $newId));
+        $this->assertCount(1, $this->content->criteria($ws, $newId));
+    }
+
+    public function test_list_filters_by_search_and_status(): void
+    {
+        [$ws, $owner] = $this->workspace();
+        $a = $this->jobs->create($ws, $owner, 'Backend Engineer');
+        $this->jobs->publish($ws, $a);
+        $this->jobs->create($ws, $owner, 'Product Designer');           // draft
+
+        $this->assertCount(1, $this->jobs->listForWorkspace($ws, ['q' => 'Engineer']));
+        $this->assertCount(1, $this->jobs->listForWorkspace($ws, ['status' => 'published']));
+        $this->assertCount(1, $this->jobs->listForWorkspace($ws, ['status' => 'draft']));
+        $this->assertCount(2, $this->jobs->listForWorkspace($ws));
+    }
+
     public function test_job_update_and_archive(): void
     {
         [$ws, $owner] = $this->workspace();

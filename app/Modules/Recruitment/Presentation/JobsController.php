@@ -31,17 +31,45 @@ final class JobsController
     ) {
     }
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         if (($r = $this->gate('job.view')) !== null) {
             return $r;
         }
 
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'status' => trim((string) $request->query('status', '')),
+        ];
+
         return $this->shell->render($this->context, 'recruitment.jobs.index', [
-            'jobs' => $this->jobs->listForWorkspace((string) $this->context->workspaceId()),
+            'jobs' => $this->jobs->listForWorkspace((string) $this->context->workspaceId(), $filters),
+            'filters' => $filters,
             'canCreate' => $this->context->can('job.create'),
             'status' => $this->session->pullFlash('status'),
         ]);
+    }
+
+    public function clone(Request $request, string $id): Response
+    {
+        if (($r = $this->gate('job.create', $request)) !== null) {
+            return $r;
+        }
+
+        $newId = $this->jobs->clone((string) $this->context->workspaceId(), $id, (string) $this->context->userId());
+        if ($newId === null) {
+            return Response::redirect('/jobs');
+        }
+        $this->audit->record('recruitment.job.cloned', [
+            'workspace_id' => $this->context->workspaceId(),
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'job',
+            'entity_id' => $newId,
+            'changes' => ['from' => $id],
+        ]);
+        $this->session->flash('status', 'Job cloned as a new draft.');
+
+        return Response::redirect('/jobs/' . $newId);
     }
 
     public function create(): Response

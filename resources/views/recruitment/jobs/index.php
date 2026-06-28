@@ -1,4 +1,10 @@
-<?php /** @var list<array<string,mixed>> $jobs */ /** @var bool $canCreate */ /** @var string|null $status */ ?>
+<?php
+/** @var list<array<string,mixed>> $jobs */
+/** @var array{q:string,status:string} $filters */
+/** @var bool $canCreate */
+/** @var string|null $status */
+$sel = static fn (string $v): string => ($filters['status'] ?? '') === $v ? 'selected' : '';
+?>
 <div class="mb-6 flex items-center justify-between">
     <div>
         <h1 class="text-2xl font-semibold text-slate-900">Jobs</h1>
@@ -10,6 +16,18 @@
 </div>
 
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
+
+<form method="get" action="/jobs" class="mb-4 flex flex-wrap gap-2">
+    <input name="q" value="<?= e($filters['q'] ?? '') ?>" placeholder="Search jobs by title…" class="w-64 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+    <select name="status" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        <option value="">Any status</option>
+        <?php foreach (['draft' => 'Draft', 'published' => 'Published', 'paused' => 'Paused', 'closed' => 'Closed', 'archived' => 'Archived'] as $v => $l): ?>
+            <option value="<?= $v ?>" <?= $sel($v) ?>><?= $l ?></option>
+        <?php endforeach; ?>
+    </select>
+    <button class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Filter</button>
+    <?php if (($filters['q'] ?? '') !== '' || ($filters['status'] ?? '') !== ''): ?><a href="/jobs" class="rounded-lg px-3 py-2 text-sm text-slate-400 hover:text-slate-600">Clear</a><?php endif; ?>
+</form>
 
 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
     <?php if ($jobs === []): ?>

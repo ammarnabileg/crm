@@ -613,6 +613,11 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   no-JS fallback. All recorded in stage history + audited.
 - Verified: **163 tests / 579 assertions** · auditor **70/70**.
 
+### Sprint 3 (Slice 3b) — Jobs depth
+- Job **clone** (duplicates the job as a fresh draft, copying its question bank +
+  criteria), and **search + status filters** on the Jobs list.
+- Verified: **165 tests / 588 assertions** · auditor **70/70**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

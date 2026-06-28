@@ -31,6 +31,11 @@
         <?php if ($canEdit): ?>
             <a href="/jobs/<?= e($job['id']) ?>/edit" class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Edit</a>
         <?php endif; ?>
+        <?php if ($canPublish || $canEdit): ?>
+            <form method="post" action="/jobs/<?= e($job['id']) ?>/clone"><?= csrf_field() ?>
+                <button class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Clone</button>
+            </form>
+        <?php endif; ?>
         <?php if ($canPublish && $job['status'] === 'draft'): ?>
             <form method="post" action="/jobs/<?= e($job['id']) ?>/publish"><?= csrf_field() ?>
                 <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Publish</button>
