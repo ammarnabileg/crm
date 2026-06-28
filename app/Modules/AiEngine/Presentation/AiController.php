@@ -7,6 +7,7 @@ namespace HaHireAI\Modules\AiEngine\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
+use HaHireAI\Modules\AiEngine\Application\AiAnalyticsService;
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
 use HaHireAI\Modules\AiEngine\Application\AiSettingsService;
 use HaHireAI\Modules\AiEngine\Application\ProviderRegistry;
@@ -27,9 +28,22 @@ final class AiController
         private readonly AiEngine $engine,
         private readonly ProviderRegistry $registry,
         private readonly WorkspacePreferences $preferences,
+        private readonly AiAnalyticsService $analytics,
         private readonly Session $session,
         private readonly AuditLogger $audit,
     ) {
+    }
+
+    /** Per-workspace AI analytics dashboard (performance + token consumption). */
+    public function analytics(): Response
+    {
+        if (($r = $this->gate('ai.view')) !== null) {
+            return $r;
+        }
+
+        return $this->shell->render($this->context, 'ai.analytics', [
+            'analytics' => $this->analytics->workspaceAnalytics((string) $this->context->workspaceId()),
+        ]);
     }
 
     public function index(): Response

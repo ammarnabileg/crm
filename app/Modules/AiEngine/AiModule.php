@@ -32,6 +32,7 @@ final class AiModule implements Module
     public function routes(Router $router): void
     {
         $router->get('/ai', [AiController::class, 'index']);
+        $router->get('/ai/analytics', [AiController::class, 'analytics']);
         $router->post('/ai/provider', [AiController::class, 'setProvider']);
         $router->post('/ai/keys', [AiController::class, 'addKey']);
         $router->post('/ai/interview-mode', [AiController::class, 'setInterviewMode']);

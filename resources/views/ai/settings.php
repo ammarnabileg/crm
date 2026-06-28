@@ -10,9 +10,12 @@
 /** @var string|null $status */
 /** @var string|null $error */
 ?>
-<div class="mb-6">
-    <h1 class="text-2xl font-semibold text-slate-900">AI</h1>
-    <p class="mt-1 text-sm text-slate-500">The central engine every recruitment workflow can route through. Keys are encrypted and never shown.</p>
+<div class="mb-6 flex items-start justify-between">
+    <div>
+        <h1 class="text-2xl font-semibold text-slate-900">AI</h1>
+        <p class="mt-1 text-sm text-slate-500">The central engine every recruitment workflow can route through. Keys are encrypted and never shown.</p>
+    </div>
+    <a href="/ai/analytics" class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Analytics →</a>
 </div>
 
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>

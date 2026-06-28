@@ -429,6 +429,14 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Migration**: ai_avatars. Auditor extended to 50 checks (routes).
 - Verified on live MySQL 8 (`AvatarTest`). **Suite: 125 tests / 448 assertions.**
 
+### Added — Per-workspace AI analytics dashboard
+- **`AiAnalyticsService`** + `/ai/analytics` (spec #16): AI performance and token
+  consumption for the workspace — total runs, tokens, cost, average latency,
+  failures, fallbacks; breakdowns **by capability** and **by provider**; recent
+  runs. Linked from AI settings. Gated by `ai.view`.
+- Auditor extended to 51 checks. Verified on live MySQL 8 (`AiAnalyticsTest`).
+  **Suite: 126 tests / 456 assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
