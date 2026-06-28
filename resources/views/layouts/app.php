@@ -71,6 +71,17 @@ $navIcon = static function (string $label): string {
 };
 
 $initial = strtoupper(substr((string) ($user['name'] ?? '?'), 0, 1));
+
+/** @var list<array<string,mixed>> $workspaces */
+/** @var string|null $currentWorkspaceId */
+$workspaces ??= [];
+$currentWorkspaceId ??= null;
+$currentWsName = $workspaceName ?? 'Workspace';
+foreach ($workspaces as $w) {
+    if ((string) $w['id'] === (string) $currentWorkspaceId) {
+        $currentWsName = (string) $w['name'];
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="<?= e(config('app.locale', 'en')) ?>" dir="<?= config('app.locale') === 'ar' ? 'rtl' : 'ltr' ?>">
@@ -115,7 +126,42 @@ $initial = strtoupper(substr((string) ($user['name'] ?? '?'), 0, 1));
 
     <div class="flex min-w-0 flex-1 flex-col">
         <header class="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
-            <h1 class="text-lg font-semibold text-slate-900"><?= e($pageTitle) ?></h1>
+            <?php if ($workspaces !== []): ?>
+                <details class="group relative">
+                    <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-100">
+                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700"><?= e(strtoupper(substr($currentWsName, 0, 1))) ?></span>
+                        <span class="max-w-[12rem] truncate text-sm font-semibold text-slate-900"><?= e($currentWsName) ?></span>
+                        <svg class="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                    </summary>
+                    <div class="absolute start-0 z-30 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                        <div class="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Workspaces</div>
+                        <?php foreach ($workspaces as $w): ?>
+                            <?php $isCurrent = (string) $w['id'] === (string) $currentWorkspaceId; $wIni = strtoupper(substr((string) $w['name'], 0, 1)); ?>
+                            <?php if ($isCurrent): ?>
+                                <div class="flex items-center gap-2 rounded-lg bg-indigo-50 px-2 py-2">
+                                    <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700"><?= e($wIni) ?></span>
+                                    <span class="truncate text-sm font-semibold text-indigo-700"><?= e($w['name']) ?></span>
+                                </div>
+                            <?php else: ?>
+                                <form method="post" action="/workspaces/<?= e($w['id']) ?>/switch">
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50">
+                                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500"><?= e($wIni) ?></span>
+                                        <span class="truncate text-sm font-medium text-slate-700"><?= e($w['name']) ?></span>
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                        <div class="my-1 border-t border-slate-100"></div>
+                        <a href="/workspaces/create" class="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-indigo-600 hover:bg-slate-50">
+                            <span class="flex h-7 w-7 items-center justify-center rounded-lg border border-dashed border-slate-300 text-slate-400">+</span>
+                            New workspace
+                        </a>
+                    </div>
+                </details>
+            <?php else: ?>
+                <h1 class="text-lg font-semibold text-slate-900"><?= e($pageTitle) ?></h1>
+            <?php endif; ?>
             <div class="flex items-center gap-3">
                 <div class="flex items-center gap-2">
                     <span class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700"><?= e($initial) ?></span>

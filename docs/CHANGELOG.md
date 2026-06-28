@@ -979,6 +979,24 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   total); smoke (report renders cause/remedy); certify route guard; auditor
   **122/122**.
 
+### Unified design system + workspace switcher
+- Reproducible Tailwind build (`tailwind.config.js` + `resources/css/app.css` +
+  `npm run build:css`). **Light mode is the base** (`color-scheme: light`), one
+  font identity (**Inter** + system fallback), and one brand accent — the
+  app-wide `indigo-*` utilities map at the config level to the brand's azure
+  blue, so the whole product matches the reference with no per-view churn.
+- Reworked the authenticated shell to the reference layout: logo mark, an
+  icon-per-item sidebar with an active-state pill, and a user avatar. The guest
+  shell carries the same logo, font and palette.
+- The top bar hosts a **workspace switcher** (no-JS `<details>` dropdown): the
+  current workspace + chevron, opening to the user's workspaces (current
+  highlighted) plus **New workspace**; switching posts to the existing
+  `/workspaces/{id}/switch`. `WorkspaceContext::workspaces()` exposes the list it
+  already loads (no extra query).
+- Verified: render smokes (shell 9/9, switcher 8/8); CSS rebuild includes every
+  new utility; visual review via headless-Chromium screenshots of login,
+  dashboard, billing, payments, my-workspaces, users and the open switcher.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

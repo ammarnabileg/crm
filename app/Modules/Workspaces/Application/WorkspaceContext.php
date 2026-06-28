@@ -18,6 +18,9 @@ final class WorkspaceContext
     /** @var array<string, mixed>|null */
     private ?array $workspace = null;
 
+    /** @var list<array<string, mixed>> every workspace the user belongs to */
+    private array $list = [];
+
     /** @var array<string, mixed>|null */
     private ?array $membership = null;
 
@@ -44,6 +47,7 @@ final class WorkspaceContext
 
         $userId = (string) $this->auth->id();
         $list = $this->memberships->workspacesForUser($userId);
+        $this->list = $list;
 
         if ($list === []) {
             return false;
@@ -90,6 +94,12 @@ final class WorkspaceContext
     public function workspace(): ?array
     {
         return $this->workspace;
+    }
+
+    /** @return list<array<string, mixed>> every workspace the user belongs to (for the switcher) */
+    public function workspaces(): array
+    {
+        return $this->list;
     }
 
     public function workspaceId(): ?string

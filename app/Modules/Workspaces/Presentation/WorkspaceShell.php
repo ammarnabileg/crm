@@ -92,6 +92,8 @@ final class WorkspaceShell
             'user' => $this->auth->user(),
             'sidebar' => $this->sidebar->build('workspace', $context->permissions(), $features),
             'workspaceName' => $context->workspace()['name'] ?? null,
+            'workspaces' => $context->workspaces(),
+            'currentWorkspaceId' => $context->workspaceId(),
         ]);
 
         return Response::html($html);
