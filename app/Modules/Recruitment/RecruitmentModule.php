@@ -14,6 +14,7 @@ use HaHireAI\Modules\Recruitment\Presentation\OffersController;
 use HaHireAI\Modules\Recruitment\Presentation\PipelineController;
 use HaHireAI\Modules\Recruitment\Presentation\PublicJobController;
 use HaHireAI\Modules\Recruitment\Presentation\ReportsController;
+use HaHireAI\Modules\Recruitment\Presentation\TalentPoolController;
 
 /** The Recruitment bounded context (Phase 10). */
 final class RecruitmentModule implements Module
@@ -71,5 +72,12 @@ final class RecruitmentModule implements Module
         // Recruitment analytics.
         $router->get('/reports', [ReportsController::class, 'index']);
         $router->get('/reports/export', [ReportsController::class, 'export']);
+
+        // Talent pool.
+        $router->get('/talent-pool', [TalentPoolController::class, 'index']);
+        $router->post('/talent-pool', [TalentPoolController::class, 'create']);
+        $router->get('/talent-pool/{poolId}', [TalentPoolController::class, 'show']);
+        $router->post('/talent-pool/add', [TalentPoolController::class, 'addCandidate']);
+        $router->post('/talent-pool/{poolId}/remove', [TalentPoolController::class, 'removeCandidate']);
     }
 }

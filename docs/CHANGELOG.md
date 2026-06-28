@@ -397,6 +397,16 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Auditor extended to 44 checks (`/pipeline`). Verified on live MySQL 8
   (`PipelineStatusTest`). **Suite: 116 tests / 416 assertions.**
 
+### Added — Talent Pool
+- **Talent pools** (`TalentPoolService`): workspace-scoped saved candidate lists
+  for future roles (recruitment spec #14). Create pools; save a candidate to one
+  or more pools (from the candidate profile); a candidate may belong to many
+  pools; per-pool member views. Permissions `talent.view` / `talent.manage`;
+  sidebar gains **Talent Pool**.
+- **Migration**: talent_pools, talent_pool_members. Auditor extended to 45 checks.
+- Verified on live MySQL 8 (`TalentPoolTest`). **Suite: 119 tests / 424
+  assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

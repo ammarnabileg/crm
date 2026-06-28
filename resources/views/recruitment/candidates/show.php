@@ -264,6 +264,34 @@ $bandMeta = [
     </div>
 
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-3 text-sm font-semibold text-slate-900">Talent pools</h2>
+        <?php if (($candidatePools ?? []) === []): ?>
+            <p class="mb-2 text-sm text-slate-400">Not saved to any pool.</p>
+        <?php else: ?>
+            <div class="mb-3 flex flex-wrap gap-1.5">
+                <?php foreach ($candidatePools as $cp): ?>
+                    <a href="/talent-pool/<?= e($cp['id']) ?>" class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"><?= e($cp['name']) ?></a>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+        <?php if (($canManageTalent ?? false) && ($talentPools ?? []) !== []): ?>
+            <form method="post" action="/talent-pool/add" class="flex gap-2">
+                <?= csrf_field() ?>
+                <input type="hidden" name="candidate_user_id" value="<?= e($profile['user_id']) ?>">
+                <input type="hidden" name="redirect_to" value="/candidates/<?= e($profile['user_id']) ?>">
+                <select name="pool_id" class="grow rounded-lg border border-slate-300 px-2 py-2 text-sm">
+                    <?php foreach ($talentPools as $tp): ?>
+                        <option value="<?= e($tp['id']) ?>"><?= e($tp['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <button class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Save</button>
+            </form>
+        <?php elseif (($canManageTalent ?? false)): ?>
+            <a href="/talent-pool" class="text-xs text-indigo-600 hover:underline">Create a pool first →</a>
+        <?php endif; ?>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 class="mb-3 text-sm font-semibold text-slate-900">Offers</h2>
         <?php foreach (($offers ?? []) as $offer): ?>
             <div class="mb-2 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">

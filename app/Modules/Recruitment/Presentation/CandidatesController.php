@@ -17,6 +17,7 @@ use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
 use HaHireAI\Modules\Recruitment\Application\CandidateTimelineService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
+use HaHireAI\Modules\Recruitment\Application\TalentPoolService;
 use HaHireAI\Modules\Recruitment\Domain\ApplicationStatus;
 use HaHireAI\Modules\Recruitment\Domain\SkillCatalog;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
@@ -37,6 +38,7 @@ final class CandidatesController
         private readonly InterviewService $interviews,
         private readonly CandidateTimelineService $timeline,
         private readonly AssessmentService $assessments,
+        private readonly TalentPoolService $talent,
         private readonly FileService $files,
         private readonly AiEngine $ai,
         private readonly Connection $connection,
@@ -113,6 +115,9 @@ final class CandidatesController
             'skillCatalog' => SkillCatalog::SKILLS,
             'statuses' => ApplicationStatus::STATUSES,
             'canSetStatus' => $this->context->can('pipeline.manage'),
+            'talentPools' => $this->talent->listPools($workspaceId),
+            'candidatePools' => $this->talent->poolsForCandidate($workspaceId, $userId),
+            'canManageTalent' => $this->context->can('talent.manage'),
             'canUploadFile' => $this->context->can('files.upload'),
             'canDeleteFile' => $this->context->can('files.delete'),
             'canViewFile' => $this->context->can('files.view'),

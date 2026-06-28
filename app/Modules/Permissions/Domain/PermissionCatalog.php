@@ -57,6 +57,10 @@ final class PermissionCatalog
                 'candidate.tag' => 'Apply tags',
                 'candidate.export' => 'Export candidate data',
             ],
+            'Talent' => [
+                'talent.view' => 'View talent pools',
+                'talent.manage' => 'Create pools and save candidates',
+            ],
             'Applications' => [
                 'application.view' => 'View applications',
                 'application.update' => 'Update an application',
