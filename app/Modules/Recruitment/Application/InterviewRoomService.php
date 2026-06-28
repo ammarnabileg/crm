@@ -50,7 +50,7 @@ final class InterviewRoomService
 
         if (empty($iv['started_at'])) {
             $now = gmdate('Y-m-d H:i:s');
-            $questions = $this->planQuestions($workspaceId, $interviewId, (string) ($iv['job_title'] ?? ''), $actorUserId);
+            $questions = $this->planQuestions($workspaceId, (string) ($iv['job_id'] ?? ''), (string) ($iv['job_title'] ?? ''), $actorUserId);
             $details = $this->details($iv);
             $details['questions'] = $questions;
             $this->connection->statement(
@@ -158,8 +158,19 @@ final class InterviewRoomService
     // ── internals ────────────────────────────────────────────────────────────
 
     /** @return list<string> */
-    private function planQuestions(string $workspaceId, string $interviewId, string $jobTitle, ?string $actorUserId): array
+    private function planQuestions(string $workspaceId, string $jobId, string $jobTitle, ?string $actorUserId): array
     {
+        // 1) The job's own question bank wins when the workspace has built one.
+        if ($jobId !== '') {
+            $bank = $this->connection->select(
+                'SELECT text FROM job_questions WHERE workspace_id = ? AND job_id = ? ORDER BY position ASC, created_at ASC',
+                [$workspaceId, $jobId],
+            );
+            if ($bank !== []) {
+                return array_slice(array_map(static fn (array $r): string => (string) $r['text'], $bank), 0, self::MAX_QUESTIONS);
+            }
+        }
+
         $defaults = [
             'To start, tell me a bit about yourself and your background.',
             'What attracted you to this role?',

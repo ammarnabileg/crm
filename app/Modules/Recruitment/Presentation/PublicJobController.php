@@ -12,6 +12,7 @@ use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Audit\Application\AuditLogger;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Recruitment\Application\ApplicationService;
+use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\JobService;
 use Throwable;
 
@@ -23,6 +24,7 @@ final class PublicJobController
         private readonly AuthContext $auth,
         private readonly JobService $jobs,
         private readonly ApplicationService $applications,
+        private readonly InterviewService $interviews,
         private readonly Session $session,
         private readonly AuditLogger $audit,
         private readonly EventDispatcher $events,
@@ -98,8 +100,16 @@ final class PublicJobController
             'candidate_email' => (string) ($applicant['email'] ?? ''),
         ]);
 
-        $this->session->flash('status', 'Your application has been submitted. Good luck!');
+        // Both entry paths converge on the same conversational room: schedule the
+        // AI screening interview and take the (now authenticated) candidate to it.
+        try {
+            $interviewId = $this->interviews->schedule((string) $job['workspace_id'], $applicationId, 'ai', ['mode' => 'text', 'created_by' => (string) $this->auth->id()]);
 
-        return Response::redirect('/jobs/public/' . $token);
+            return Response::redirect('/portal/interview/' . $interviewId);
+        } catch (Throwable) {
+            $this->session->flash('status', 'Your application has been submitted. Good luck!');
+
+            return Response::redirect('/portal/applications/' . $applicationId);
+        }
     }
 }

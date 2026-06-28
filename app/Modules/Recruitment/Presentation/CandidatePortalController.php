@@ -18,6 +18,7 @@ use HaHireAI\Modules\Recruitment\Application\InterviewRoomService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\JobService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
+use HaHireAI\Modules\Files\Application\FileService;
 use HaHireAI\Modules\Recruitment\Domain\ApplicationStatus;
 use HaHireAI\Modules\Users\Infrastructure\UserRepository;
 
@@ -41,6 +42,7 @@ final class CandidatePortalController
         private readonly InterviewRoomService $room,
         private readonly AssessmentService $assessments,
         private readonly UserRepository $users,
+        private readonly FileService $files,
         private readonly Session $session,
         private readonly AuditLogger $audit,
     ) {
@@ -105,6 +107,16 @@ final class CandidatePortalController
             $this->session->flash('status', $e->getMessage());
 
             return Response::redirect('/portal/jobs');
+        }
+
+        // Attach a freshly uploaded CV to the application (spec: choose or upload).
+        $cv = $request->file('cv');
+        if ($cv !== null && ($cv['tmp_name'] ?? '') !== '') {
+            try {
+                $this->files->store($ws, $uid, 'application', $appId, $cv['tmp_name'], $cv['name'], $cv['size'] ?? null);
+            } catch (\Throwable) {
+                // Non-fatal — the application stands without the attachment.
+            }
         }
 
         // Schedule the AI screening interview so the candidate can enter the room
@@ -246,9 +258,32 @@ final class CandidatePortalController
 
         return $this->shell->render($this->context, 'portal.profile', [
             'user' => $this->auth->user(),
+            'cvs' => $this->files->listForEntity((string) $this->context->workspaceId(), 'cv', (string) $this->context->userId()),
             'workspaceName' => $this->context->workspace()['name'] ?? '',
             'status' => $this->session->pullFlash('status'),
         ]);
+    }
+
+    /** Upload a CV to the candidate's library (reusable across applications). */
+    public function uploadCv(Request $request): Response
+    {
+        if (($r = $this->gate($request)) !== null) {
+            return $r;
+        }
+
+        $cv = $request->file('cv');
+        if ($cv !== null && ($cv['tmp_name'] ?? '') !== '') {
+            try {
+                $this->files->store((string) $this->context->workspaceId(), (string) $this->context->userId(), 'cv', (string) $this->context->userId(), $cv['tmp_name'], $cv['name'], $cv['size'] ?? null);
+                $this->session->flash('status', 'CV uploaded.');
+            } catch (\Throwable $e) {
+                $this->session->flash('status', $e->getMessage());
+            }
+        } else {
+            $this->session->flash('status', 'Choose a PDF or Word file to upload.');
+        }
+
+        return Response::redirect('/portal/profile');
     }
 
     public function updateProfile(Request $request): Response

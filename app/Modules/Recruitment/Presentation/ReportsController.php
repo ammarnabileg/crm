@@ -7,6 +7,7 @@ namespace HaHireAI\Modules\Recruitment\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
+use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Recruitment\Application\ReportService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
@@ -20,6 +21,7 @@ final class ReportsController
         private readonly WorkspaceContext $context,
         private readonly AuthContext $auth,
         private readonly ReportService $reports,
+        private readonly View $view,
         private readonly Session $session,
     ) {
     }
@@ -34,6 +36,19 @@ final class ReportsController
             'report' => $this->reports->workspaceReport((string) $this->context->workspaceId()),
             'canExport' => $this->context->can('report.export'),
         ]);
+    }
+
+    /** A printable report (use the browser's "Save as PDF") — spec #18. */
+    public function print(): Response
+    {
+        if (($r = $this->gate('report.view')) !== null) {
+            return $r;
+        }
+
+        return Response::html($this->view->page('reports.print', [
+            'report' => $this->reports->workspaceReport((string) $this->context->workspaceId()),
+            'workspace' => $this->context->workspace(),
+        ], 'layouts.print', ['title' => 'Recruitment report']));
     }
 
     /** CSV export of the funnel (report.export). */

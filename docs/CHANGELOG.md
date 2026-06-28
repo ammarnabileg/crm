@@ -533,6 +533,28 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   and end-to-end over HTTP (apply → room → 12 answers → completion → scored).
   **Suite: 151 tests / 539 assertions.**
 
+### Added — Feature completeness sweep (jobs depth, offers, exports, settings, CV)
+- **Job depth**: per-job **question bank** (spec #4, feeds the AI interview room
+  in order) and **evaluation criteria / rubric** (spec #2) as workspace data;
+  job **edit** and **archive** (spec #1). New `JobContentService`,
+  `JobService::update/archive/listPublished`.
+- **Offers (staff)**: a real **/offers** page (the sidebar item now resolves),
+  with **send / decline / withdraw** transitions and a **printable offer letter**
+  (browser "Save as PDF") via a new `layouts.print`. `OfferService` gains
+  `withdraw`, `listForWorkspace`, `findDetailed`.
+- **Reports**: a **printable report** (spec #18) alongside the existing CSV
+  (Excel) export.
+- **CV on apply** (candidate spec): applicants attach a CV (PDF/Word) when
+  applying, and manage a **CV library** on their profile (via `FileService`).
+- **Both apply paths converge on the room**: the public job page now schedules the
+  AI screening interview and drops the (authenticated) applicant into the same
+  conversational room as the in-portal flow.
+- **Workspace Settings** expanded: company profile, branding, security, and
+  **maintenance mode** — when on, `WorkspaceShell` pauses the workspace for
+  everyone except admins (members with `settings.update`).
+- Auditor extended to 64 checks (new tables `interview_messages`, `job_questions`,
+  `job_criteria`, `offers`; new routes). **Suite: 155 tests / 550 assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

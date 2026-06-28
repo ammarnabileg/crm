@@ -102,7 +102,8 @@ if ($dbOk) {
     $check('all migrations applied', $pending === [], $pending === [] ? count($ran) . ' applied' : count($pending) . ' pending');
 
     $required = ['users', 'workspaces', 'memberships', 'roles', 'permissions', 'jobs', 'applications',
-        'candidate_profiles', 'interviews', 'candidate_assessments', 'interview_feedback',
+        'candidate_profiles', 'interviews', 'interview_messages', 'candidate_assessments', 'interview_feedback',
+        'job_questions', 'job_criteria', 'offers',
         'talent_pools', 'interview_invitations', 'ai_avatars', 'files', 'notifications',
         'ai_sessions', 'workflows', 'webhook_endpoints', 'subscriptions', 'plans', 'error_events', 'alerts'];
     $existing = array_map(static fn (array $r): string => (string) $r['t'], $conn->select('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = DATABASE()'));
@@ -159,6 +160,7 @@ foreach ([
     'GET /my-workspaces', 'GET /ai/analytics', 'GET /workspaces/select',
     'GET /portal', 'GET /portal/jobs', 'GET /portal/applications', 'GET /portal/profile',
     'GET /portal/interview/{interviewId}', 'POST /portal/interview/{interviewId}/answer',
+    'GET /offers', 'GET /reports/print', 'GET /jobs/{id}/edit',
     'GET /candidates/compare', 'GET /api/v1/ping', 'GET /api/v1/jobs',
 ] as $route) {
     $check("route registered: {$route}", isset($paths[$route]));

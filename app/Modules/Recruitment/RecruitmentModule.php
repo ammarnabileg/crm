@@ -62,9 +62,16 @@ final class RecruitmentModule implements Module
         $router->get('/jobs', [JobsController::class, 'index']);
         $router->get('/jobs/create', [JobsController::class, 'create']);
         $router->post('/jobs', [JobsController::class, 'store']);
+        $router->get('/jobs/{id}/edit', [JobsController::class, 'edit']);
+        $router->post('/jobs/{id}/edit', [JobsController::class, 'update']);
+        $router->post('/jobs/{id}/archive', [JobsController::class, 'archive']);
         $router->get('/jobs/{id}', [JobsController::class, 'show']);
         $router->post('/jobs/{id}/publish', [JobsController::class, 'publish']);
         $router->post('/jobs/{id}/interview-link', [JobsController::class, 'generateLink']);
+        $router->post('/jobs/{id}/questions', [JobsController::class, 'addQuestion']);
+        $router->post('/jobs/{id}/questions/{questionId}/delete', [JobsController::class, 'removeQuestion']);
+        $router->post('/jobs/{id}/criteria', [JobsController::class, 'addCriterion']);
+        $router->post('/jobs/{id}/criteria/{criterionId}/delete', [JobsController::class, 'removeCriterion']);
         $router->get('/pipeline', [PipelineController::class, 'board']);
         $router->post('/applications/{applicationId}/status', [PipelineController::class, 'setStatus']);
         $router->get('/jobs/{id}/pipeline', [PipelineController::class, 'show']);
@@ -78,7 +85,12 @@ final class RecruitmentModule implements Module
         $router->post('/candidates/{userId}/tags', [CandidatesController::class, 'addTag']);
         $router->post('/candidates/{userId}/ai-summary', [CandidatesController::class, 'aiSummary']);
         $router->post('/candidates/{userId}/offer', [OffersController::class, 'make']);
+        $router->get('/offers', [OffersController::class, 'index']);
+        $router->get('/offers/{offerId}/print', [OffersController::class, 'print']);
         $router->post('/offers/{offerId}/accept', [OffersController::class, 'accept']);
+        $router->post('/offers/{offerId}/send', [OffersController::class, 'send']);
+        $router->post('/offers/{offerId}/decline', [OffersController::class, 'decline']);
+        $router->post('/offers/{offerId}/withdraw', [OffersController::class, 'withdraw']);
 
         // AI interviews — workspace-scoped, advisory.
         $router->get('/interviews', [InterviewController::class, 'index']);
@@ -96,6 +108,7 @@ final class RecruitmentModule implements Module
 
         // Recruitment analytics.
         $router->get('/reports', [ReportsController::class, 'index']);
+        $router->get('/reports/print', [ReportsController::class, 'print']);
         $router->get('/reports/export', [ReportsController::class, 'export']);
 
         // AI interviewer avatars.
@@ -121,6 +134,7 @@ final class RecruitmentModule implements Module
         $router->post('/portal/offers/{offerId}/decline', [CandidatePortalController::class, 'declineOffer']);
         $router->get('/portal/profile', [CandidatePortalController::class, 'profile']);
         $router->post('/portal/profile', [CandidatePortalController::class, 'updateProfile']);
+        $router->post('/portal/cv', [CandidatePortalController::class, 'uploadCv']);
 
         // Talent pool.
         $router->get('/talent-pool', [TalentPoolController::class, 'index']);

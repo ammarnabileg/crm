@@ -59,6 +59,46 @@ final class JobService
         );
     }
 
+    /**
+     * Edit a job's details (spec #1). Only the provided fields are changed.
+     *
+     * @param  array<string, mixed>  $fields  title, description, location, employment_type, seniority, salary_min, salary_max, currency
+     */
+    public function update(string $workspaceId, string $jobId, array $fields): void
+    {
+        $allowed = ['title', 'description', 'location', 'employment_type', 'seniority', 'salary_min', 'salary_max', 'currency'];
+        $set = [];
+        $bindings = [];
+        foreach ($allowed as $col) {
+            if (array_key_exists($col, $fields)) {
+                $set[] = "{$col} = ?";
+                $bindings[] = $fields[$col];
+            }
+        }
+        if ($set === []) {
+            return;
+        }
+        $set[] = 'updated_at = ?';
+        $bindings[] = gmdate('Y-m-d H:i:s');
+        $bindings[] = $jobId;
+        $bindings[] = $workspaceId;
+
+        $this->connection->statement(
+            'UPDATE jobs SET ' . implode(', ', $set) . ' WHERE id = ? AND workspace_id = ?',
+            $bindings,
+        );
+    }
+
+    /** Archive (soft-delete) a job within this workspace (spec #1). */
+    public function archive(string $workspaceId, string $jobId): void
+    {
+        $now = gmdate('Y-m-d H:i:s');
+        $this->connection->statement(
+            "UPDATE jobs SET status = 'archived', deleted_at = ?, updated_at = ? WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL",
+            [$now, $now, $jobId, $workspaceId],
+        );
+    }
+
     /** @return list<array<string, mixed>> */
     public function listForWorkspace(string $workspaceId): array
     {

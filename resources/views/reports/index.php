@@ -27,9 +27,12 @@ $max = max(1, $f['applications'], $r['jobs']['published'], $f['interviews'], $f[
         <h1 class="text-2xl font-semibold text-slate-900">Reports</h1>
         <p class="mt-1 text-sm text-slate-500">Your recruitment funnel and activity in this workspace.</p>
     </div>
-    <?php if ($canExport): ?>
-        <a href="/reports/export" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">Export CSV</a>
-    <?php endif; ?>
+    <div class="flex gap-2">
+        <a href="/reports/print" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">Print / PDF</a>
+        <?php if ($canExport): ?>
+            <a href="/reports/export" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">Export CSV</a>
+        <?php endif; ?>
+    </div>
 </div>
 
 <div class="grid gap-4 sm:grid-cols-4">

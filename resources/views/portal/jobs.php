@@ -32,9 +32,12 @@
                         <?php if ((int) ($j['has_applied'] ?? 0) > 0): ?>
                             <span class="inline-block rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-500">Applied ✓</span>
                         <?php else: ?>
-                            <form method="post" action="/portal/jobs/<?= e($j['id']) ?>/apply">
+                            <form method="post" action="/portal/jobs/<?= e($j['id']) ?>/apply" enctype="multipart/form-data" class="space-y-2 text-left">
                                 <?= csrf_field() ?>
-                                <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Apply</button>
+                                <label class="block text-xs font-medium text-slate-500">Attach a CV (optional, PDF/Word)
+                                    <input name="cv" type="file" accept=".pdf,.doc,.docx" class="mt-1 block w-full text-xs text-slate-500 file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs">
+                                </label>
+                                <button class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Apply &amp; start interview</button>
                             </form>
                         <?php endif; ?>
                     </div>

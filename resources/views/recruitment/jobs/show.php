@@ -2,9 +2,12 @@
 /** @var array<string,mixed> $job */
 /** @var list<array<string,mixed>> $stages */
 /** @var bool $canPublish */
+/** @var bool $canEdit */
 /** @var bool $canViewPipeline */
 /** @var bool $canInvite */
 /** @var list<array<string,mixed>> $invitations */
+/** @var list<array<string,mixed>> $questions */
+/** @var list<array<string,mixed>> $criteria */
 /** @var string|null $newLink */
 /** @var string|null $status */
 ?>
@@ -25,9 +28,17 @@
         <?php if ($canViewPipeline && $job['status'] !== 'draft'): ?>
             <a href="/jobs/<?= e($job['id']) ?>/pipeline" class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Pipeline</a>
         <?php endif; ?>
+        <?php if ($canEdit): ?>
+            <a href="/jobs/<?= e($job['id']) ?>/edit" class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Edit</a>
+        <?php endif; ?>
         <?php if ($canPublish && $job['status'] === 'draft'): ?>
             <form method="post" action="/jobs/<?= e($job['id']) ?>/publish"><?= csrf_field() ?>
                 <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Publish</button>
+            </form>
+        <?php endif; ?>
+        <?php if ($canEdit): ?>
+            <form method="post" action="/jobs/<?= e($job['id']) ?>/archive" onsubmit="return confirm('Archive this job?');"><?= csrf_field() ?>
+                <button class="rounded-lg border border-rose-200 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50">Archive</button>
             </form>
         <?php endif; ?>
     </div>
@@ -63,6 +74,70 @@
                     <li class="rounded-md bg-slate-50 px-3 py-1.5"><?= e($s['name']) ?></li>
                 <?php endforeach; ?>
             </ol>
+        <?php endif; ?>
+    </div>
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+    <!-- Question bank (spec #4) -->
+    <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-100 px-5 py-3">
+            <h2 class="text-sm font-semibold text-slate-900">Interview question bank</h2>
+            <p class="text-xs text-slate-400">Asked by the AI interviewer, in order. Falls back to defaults if empty.</p>
+        </div>
+        <?php if ($questions === []): ?>
+            <p class="px-5 py-4 text-sm text-slate-400">No questions yet — the AI uses sensible defaults.</p>
+        <?php else: ?>
+            <ol class="divide-y divide-slate-100">
+                <?php foreach ($questions as $i => $q): ?>
+                    <li class="flex items-start justify-between gap-3 px-5 py-2.5 text-sm">
+                        <span class="text-slate-700"><span class="text-slate-400"><?= $i + 1 ?>.</span> <?= e($q['text']) ?></span>
+                        <?php if ($canEdit): ?>
+                            <form method="post" action="/jobs/<?= e($job['id']) ?>/questions/<?= e($q['id']) ?>/delete"><?= csrf_field() ?><button class="text-xs text-rose-500 hover:text-rose-700">remove</button></form>
+                        <?php endif; ?>
+                    </li>
+                <?php endforeach; ?>
+            </ol>
+        <?php endif; ?>
+        <?php if ($canEdit): ?>
+            <form method="post" action="/jobs/<?= e($job['id']) ?>/questions" class="flex gap-2 border-t border-slate-100 px-5 py-3">
+                <?= csrf_field() ?>
+                <input name="text" required placeholder="Add a question…" class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+                <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700">Add</button>
+            </form>
+        <?php endif; ?>
+    </div>
+
+    <!-- Evaluation criteria / rubric (spec #2) -->
+    <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-100 px-5 py-3">
+            <h2 class="text-sm font-semibold text-slate-900">Evaluation criteria (rubric)</h2>
+            <p class="text-xs text-slate-400">Weighted dimensions interviewers score against.</p>
+        </div>
+        <?php if ($criteria === []): ?>
+            <p class="px-5 py-4 text-sm text-slate-400">No criteria defined yet.</p>
+        <?php else: ?>
+            <ul class="divide-y divide-slate-100">
+                <?php foreach ($criteria as $c): ?>
+                    <li class="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
+                        <span class="text-slate-700"><?= e($c['label']) ?></span>
+                        <span class="flex items-center gap-2">
+                            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">weight <?= e($c['weight']) ?></span>
+                            <?php if ($canEdit): ?>
+                                <form method="post" action="/jobs/<?= e($job['id']) ?>/criteria/<?= e($c['id']) ?>/delete"><?= csrf_field() ?><button class="text-xs text-rose-500 hover:text-rose-700">remove</button></form>
+                            <?php endif; ?>
+                        </span>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+        <?php if ($canEdit): ?>
+            <form method="post" action="/jobs/<?= e($job['id']) ?>/criteria" class="flex gap-2 border-t border-slate-100 px-5 py-3">
+                <?= csrf_field() ?>
+                <input name="label" required placeholder="e.g. System design" class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+                <input name="weight" type="number" min="1" max="100" value="10" class="w-20 rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+                <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700">Add</button>
+            </form>
         <?php endif; ?>
     </div>
 </div>

@@ -1,5 +1,6 @@
 <?php
 /** @var array<string,mixed>|null $user */
+/** @var list<array<string,mixed>> $cvs */
 /** @var string $workspaceName */
 /** @var string|null $status */
 ?>
@@ -37,5 +38,27 @@
             </div>
         </div>
         <button class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Save changes</button>
+    </form>
+</div>
+
+<div class="mt-6 max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="mb-1 text-sm font-semibold text-slate-900">My CVs</h2>
+    <p class="mb-3 text-xs text-slate-400">Stored for <?= e($workspaceName) ?>. Upload here, then attach when you apply.</p>
+    <?php if (($cvs ?? []) === []): ?>
+        <p class="mb-3 text-sm text-slate-400">No CVs uploaded yet.</p>
+    <?php else: ?>
+        <ul class="mb-3 divide-y divide-slate-100">
+            <?php foreach ($cvs as $f): ?>
+                <li class="flex items-center justify-between py-2 text-sm">
+                    <a href="/files/<?= e($f['id']) ?>/download" class="text-indigo-600 hover:underline"><?= e($f['original_name']) ?></a>
+                    <span class="text-xs text-slate-400"><?= e(number_format(((int) ($f['size_bytes'] ?? 0)) / 1024, 0)) ?> KB</span>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endif; ?>
+    <form method="post" action="/portal/cv" enctype="multipart/form-data" class="flex items-center gap-2">
+        <?= csrf_field() ?>
+        <input name="cv" type="file" accept=".pdf,.doc,.docx" required class="block w-full text-xs text-slate-500 file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs">
+        <button class="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700">Upload</button>
     </form>
 </div>

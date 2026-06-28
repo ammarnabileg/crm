@@ -117,6 +117,49 @@ final class OfferService
         $this->transition($workspaceId, $offerId, from: 'sent', to: 'declined', stamp: 'decided_at');
     }
 
+    /** The company withdraws an offer it created (draft or sent). */
+    public function withdraw(string $workspaceId, string $offerId): void
+    {
+        $offer = $this->find($workspaceId, $offerId);
+        if ($offer === null) {
+            throw new ApplicationException('Offer not found in this workspace.');
+        }
+        if (! in_array((string) $offer['status'], ['draft', 'sent', 'proposed'], true)) {
+            throw new ApplicationException('Only an open offer can be withdrawn.');
+        }
+        $now = gmdate('Y-m-d H:i:s');
+        $this->connection->statement('UPDATE offers SET status = ?, decided_at = ?, updated_at = ? WHERE id = ?', ['revoked', $now, $now, $offerId]);
+    }
+
+    /** @return list<array<string,mixed>> all offers in the workspace, with candidate + job. */
+    public function listForWorkspace(string $workspaceId): array
+    {
+        return $this->connection->select(
+            'SELECT o.*, u.name AS candidate_name, u.id AS candidate_user_id, j.title AS job_title
+               FROM offers o
+               JOIN applications a ON a.id = o.application_id
+               JOIN users u ON u.id = a.user_id
+               JOIN jobs j ON j.id = a.job_id
+              WHERE o.workspace_id = ? AND o.deleted_at IS NULL
+              ORDER BY o.created_at DESC',
+            [$workspaceId],
+        );
+    }
+
+    /** @return array<string,mixed>|null one offer joined with candidate + job (for the printable view). */
+    public function findDetailed(string $workspaceId, string $offerId): ?array
+    {
+        return $this->connection->selectOne(
+            'SELECT o.*, u.name AS candidate_name, u.email AS candidate_email, j.title AS job_title
+               FROM offers o
+               JOIN applications a ON a.id = o.application_id
+               JOIN users u ON u.id = a.user_id
+               JOIN jobs j ON j.id = a.job_id
+              WHERE o.id = ? AND o.workspace_id = ? AND o.deleted_at IS NULL',
+            [$offerId, $workspaceId],
+        );
+    }
+
     /** @return array<string, mixed>|null */
     public function find(string $workspaceId, string $offerId): ?array
     {
