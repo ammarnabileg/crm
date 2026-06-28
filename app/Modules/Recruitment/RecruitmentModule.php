@@ -100,6 +100,8 @@ final class RecruitmentModule implements Module
 
         // AI interviews — workspace-scoped, advisory.
         $router->get('/interviews', [InterviewController::class, 'index']);
+        $router->get('/interviews/export', [InterviewController::class, 'export']);
+        $router->get('/interviews/{interviewId}', [InterviewController::class, 'show']);
         $router->post('/candidates/{userId}/interviews', [InterviewController::class, 'schedule']);
         $router->post('/interviews/{interviewId}/ai-run', [InterviewController::class, 'runAi']);
         $router->post('/interviews/{interviewId}/evaluate', [InterviewController::class, 'evaluate']);

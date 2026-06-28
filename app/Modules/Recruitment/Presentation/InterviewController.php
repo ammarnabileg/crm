@@ -33,16 +33,90 @@ final class InterviewController
     ) {
     }
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         if (($r = $this->gate('interview.view')) !== null) {
             return $r;
         }
 
+        $q = trim((string) $request->query('q', ''));
+        $statusFilter = trim((string) $request->query('status', ''));
+        $rows = $this->filter($this->interviews->listForWorkspace((string) $this->context->workspaceId(), 'ai'), $q, $statusFilter);
+
         return $this->shell->render($this->context, 'recruitment.interviews.index', [
-            'interviews' => $this->interviews->listForWorkspace((string) $this->context->workspaceId(), 'ai'),
+            'interviews' => $rows,
+            'query' => $q,
+            'statusFilter' => $statusFilter,
             'status' => $this->session->pullFlash('status'),
         ]);
+    }
+
+    /** AI interview report — transcript, score, recommendation, provider. */
+    public function show(string $interviewId): Response
+    {
+        if (($r = $this->gate('interview.view')) !== null) {
+            return $r;
+        }
+
+        $ws = (string) $this->context->workspaceId();
+        $interview = $this->interviews->findDetailed($ws, $interviewId);
+        if ($interview === null) {
+            return Response::redirect('/interviews');
+        }
+
+        return $this->shell->render($this->context, 'recruitment.interviews.show', [
+            'interview' => $interview,
+            'messages' => $this->interviews->messages($ws, $interviewId),
+            'assessment' => $this->assessments->latestForCandidate($ws, (string) $interview['candidate_user_id']),
+        ]);
+    }
+
+    /** Excel (CSV) export of the AI interviews list. */
+    public function export(): Response
+    {
+        if (($r = $this->gate('interview.view')) !== null) {
+            return $r;
+        }
+
+        $rows = [['candidate', 'job', 'status', 'mode', 'score', 'recommendation', 'provider', 'scheduled_at']];
+        foreach ($this->interviews->listForWorkspace((string) $this->context->workspaceId(), 'ai') as $iv) {
+            $rows[] = [
+                (string) ($iv['candidate_name'] ?? ''), (string) ($iv['job_title'] ?? ''),
+                (string) ($iv['status'] ?? ''), (string) ($iv['mode'] ?? ''),
+                (string) ($iv['score'] ?? ''), (string) ($iv['recommendation'] ?? ''),
+                (string) ($iv['ai_provider'] ?? ''), (string) ($iv['scheduled_at'] ?? ''),
+            ];
+        }
+        $csv = '';
+        foreach ($rows as $row) {
+            $csv .= implode(',', array_map(static fn ($v): string => '"' . str_replace('"', '""', (string) $v) . '"', $row)) . "\n";
+        }
+
+        return Response::make($csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="ai-interviews.csv"',
+        ]);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $rows
+     * @return list<array<string,mixed>>
+     */
+    private function filter(array $rows, string $q, string $statusFilter): array
+    {
+        $needle = mb_strtolower($q);
+
+        return array_values(array_filter($rows, static function (array $iv) use ($needle, $statusFilter): bool {
+            if ($statusFilter !== '' && (string) ($iv['status'] ?? '') !== $statusFilter) {
+                return false;
+            }
+            if ($needle === '') {
+                return true;
+            }
+
+            return str_contains(mb_strtolower((string) ($iv['candidate_name'] ?? '')), $needle)
+                || str_contains(mb_strtolower((string) ($iv['job_title'] ?? '')), $needle);
+        }));
     }
 
     public function schedule(Request $request, string $userId): Response

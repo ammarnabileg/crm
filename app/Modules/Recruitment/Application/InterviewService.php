@@ -165,6 +165,15 @@ final class InterviewService
         return $row;
     }
 
+    /** @return list<array<string, mixed>> the conversation transcript (room messages) for an interview */
+    public function messages(string $workspaceId, string $interviewId): array
+    {
+        return $this->connection->select(
+            'SELECT role, content, position FROM interview_messages WHERE interview_id = ? AND workspace_id = ? ORDER BY position ASC',
+            [$interviewId, $workspaceId],
+        );
+    }
+
     /** @return list<array<string, mixed>> interviews for one application */
     public function forApplication(string $workspaceId, string $applicationId): array
     {

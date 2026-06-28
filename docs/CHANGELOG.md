@@ -618,6 +618,13 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   criteria), and **search + status filters** on the Jobs list.
 - Verified: **165 tests / 588 assertions** · auditor **70/70**.
 
+### Sprint 3 (Slice 3c) — AI Interviews depth
+- AI Interviews list gains **search + status filter** and an **Excel (CSV) export**.
+- New AI interview **report** page (/interviews/{id}): full **transcript** (room
+  conversation as chat bubbles, or the stored transcript), score, recommendation,
+  provider, summary, and the advisory AI assessment.
+- Verified: **165 tests** · auditor **72/72**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
