@@ -934,6 +934,15 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   a sidebar-vs-routes audit confirms **zero** dangling nav links; auditor
   **117/117**.
 
+### Images are uploaded, never pasted as URLs
+- The AI-avatar image is now a **file upload** (PNG/JPG/WEBP/GIF) instead of an
+  "Image URL" text field — the last image-as-URL input in the app. Uploads are
+  stored via the Files service (linked by `entity_type = avatar_image`) and
+  streamed inline from `GET /avatars/{id}/image`; replacing one drops the old
+  file so no orphans accrue. (The workspace logo was already an upload.)
+- Verified: smoke (controller resolves with FileStorage, route registered, form
+  uses multipart + file input, preview streams the upload); auditor route guard.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

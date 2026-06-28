@@ -1,6 +1,8 @@
 <?php
 /** @var array<string,mixed> $avatar */
+/** @var string|null $imageSrc */
 $a = $avatar;
+$imageSrc ??= null;
 $greeting = trim((string) ($a['greeting'] ?? '')) !== '' ? (string) $a['greeting'] : "Hi, I'm {$a['name']}. Thanks for joining — I'll ask you a few questions about the role. Take your time.";
 ?>
 <div class="mb-6">
@@ -13,7 +15,7 @@ $greeting = trim((string) ($a['greeting'] ?? '')) !== '' ? (string) $a['greeting
     <!-- Avatar stage -->
     <div class="rounded-2xl border border-slate-200 bg-slate-900 p-6 text-center shadow-sm">
         <div class="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-indigo-500 text-4xl font-bold text-white">
-            <?php if (! empty($a['image_url'])): ?><img src="<?= e($a['image_url']) ?>" alt="" class="h-full w-full object-cover">
+            <?php if (! empty($imageSrc)): ?><img src="<?= e($imageSrc) ?>" alt="" class="h-full w-full object-cover">
             <?php else: ?><?= e(strtoupper(substr((string) $a['name'], 0, 1))) ?><?php endif; ?>
         </div>
         <div class="mt-3 text-sm font-semibold text-white"><?= e($a['name']) ?></div>

@@ -124,6 +124,7 @@ final class RecruitmentModule implements Module
         $router->get('/avatars', [AvatarController::class, 'index']);
         $router->post('/avatars', [AvatarController::class, 'create']);
         $router->get('/avatars/{id}/preview', [AvatarController::class, 'preview']);
+        $router->get('/avatars/{id}/image', [AvatarController::class, 'image']);
         $router->post('/avatars/{id}/status', [AvatarController::class, 'toggleStatus']);
         $router->post('/avatars/{id}/delete', [AvatarController::class, 'delete']);
         $router->post('/avatars/{id}', [AvatarController::class, 'update']);

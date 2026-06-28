@@ -45,7 +45,7 @@
     <?php if ($canManage): ?>
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm self-start">
             <h2 class="mb-3 text-sm font-semibold text-slate-900">New avatar</h2>
-            <form method="post" action="/avatars" class="space-y-2">
+            <form method="post" action="/avatars" enctype="multipart/form-data" class="space-y-2">
                 <?= csrf_field() ?>
                 <input name="name" required placeholder="e.g. Sara — Technical" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
                 <select name="persona" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
@@ -58,7 +58,9 @@
                     <input name="language" value="en" class="w-1/2 rounded-lg border border-slate-300 px-3 py-2 text-sm">
                 </div>
                 <input name="voice" placeholder="Voice (e.g. en-US-Aria, optional)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                <input name="image_url" placeholder="Image URL (optional)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                <label class="block text-xs font-medium text-slate-500">Avatar image (optional)
+                    <input name="image" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="mt-1 block w-full text-sm text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100">
+                </label>
                 <textarea name="greeting" rows="2" placeholder="Greeting the avatar opens with…" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
                 <textarea name="prompt" rows="2" placeholder="System prompt / persona instructions…" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
                 <textarea name="knowledge" rows="2" placeholder="Knowledge brief (company, role context)…" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>

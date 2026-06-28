@@ -175,7 +175,7 @@ foreach ([
     'GET /admin/plans', 'POST /admin/plans', 'POST /admin/plans/{id}/edit', 'POST /admin/plans/{id}/delete',
     'POST /workspaces/transfer-ownership', 'POST /workspaces/archive',
     'POST /workspaces/{id}/deactivate', 'POST /workspaces/{id}/activate',
-    'POST /pipeline/bulk-status', 'POST /talent-pool/bulk-add', 'GET /avatars/{id}/preview',
+    'POST /pipeline/bulk-status', 'POST /talent-pool/bulk-add', 'GET /avatars/{id}/preview', 'GET /avatars/{id}/image',
     'POST /members/{membershipId}/suspend', 'POST /members/{membershipId}/activate', 'POST /members/{membershipId}/remove',
     'POST /roles/{roleId}/clone', 'POST /roles/{roleId}/delete',
     'GET /roles/{roleId}', 'POST /roles/{roleId}/edit',
