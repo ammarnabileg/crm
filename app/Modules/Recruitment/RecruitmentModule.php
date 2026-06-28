@@ -48,6 +48,7 @@ final class RecruitmentModule implements Module
         // Public interview-link page (tokenized, expiring, single-use).
         $router->get('/interview/{token}', [PublicInterviewController::class, 'show']);
         $router->post('/interview/{token}/start', [PublicInterviewController::class, 'start']);
+        $router->post('/interview/{token}/feedback', [PublicInterviewController::class, 'feedback']);
 
         // Workspace-scoped job management.
         $router->get('/jobs', [JobsController::class, 'index']);

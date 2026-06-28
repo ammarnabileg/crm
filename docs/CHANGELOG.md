@@ -437,6 +437,15 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Auditor extended to 51 checks. Verified on live MySQL 8 (`AiAnalyticsTest`).
   **Suite: 126 tests / 456 assertions.**
 
+### Added — Candidate interview feedback
+- **`InterviewFeedbackService`** (spec #17): after an AI interview the candidate
+  is invited (on the completion page) to rate the experience (1–5) + comment —
+  one per interview, surfaced to the hiring team via a workspace summary.
+- Public flow records feedback at `/interview/{token}/feedback`; the completion
+  page shows the form until it's submitted.
+- **Migration**: interview_feedback. Verified on live MySQL 8
+  (`InterviewFeedbackTest`). **Suite: 128 tests / 462 assertions; auditor 51/51.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

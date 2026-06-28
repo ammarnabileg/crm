@@ -102,9 +102,9 @@ if ($dbOk) {
     $check('all migrations applied', $pending === [], $pending === [] ? count($ran) . ' applied' : count($pending) . ' pending');
 
     $required = ['users', 'workspaces', 'memberships', 'roles', 'permissions', 'jobs', 'applications',
-        'candidate_profiles', 'interviews', 'candidate_assessments', 'talent_pools',
-        'interview_invitations', 'files', 'notifications', 'ai_sessions', 'workflows',
-        'webhook_endpoints', 'subscriptions', 'plans', 'error_events', 'alerts'];
+        'candidate_profiles', 'interviews', 'candidate_assessments', 'interview_feedback',
+        'talent_pools', 'interview_invitations', 'ai_avatars', 'files', 'notifications',
+        'ai_sessions', 'workflows', 'webhook_endpoints', 'subscriptions', 'plans', 'error_events', 'alerts'];
     $existing = array_map(static fn (array $r): string => (string) $r['t'], $conn->select('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = DATABASE()'));
     $missing = array_diff($required, $existing);
     $check('core tables present', $missing === [], $missing === [] ? count($existing) . ' tables' : 'missing: ' . implode(', ', $missing));

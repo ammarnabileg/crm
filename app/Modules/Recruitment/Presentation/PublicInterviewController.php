@@ -8,6 +8,7 @@ use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Recruitment\Application\AssessmentService;
+use HaHireAI\Modules\Recruitment\Application\InterviewFeedbackService;
 use HaHireAI\Modules\Recruitment\Application\InterviewInvitationService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use Throwable;
@@ -24,14 +25,19 @@ final class PublicInterviewController
         private readonly InterviewInvitationService $invitations,
         private readonly InterviewService $interviews,
         private readonly AssessmentService $assessments,
+        private readonly InterviewFeedbackService $feedback,
     ) {
     }
 
     public function show(string $token): Response
     {
         $resolved = $this->invitations->resolve($token);
+        $inv = $resolved['invitation'];
+        $showFeedback = $resolved['state'] === 'completed'
+            && ! empty($inv['interview_id'])
+            && ! $this->feedback->exists((string) $inv['interview_id']);
 
-        return $this->page($resolved['state'], $token);
+        return $this->page($resolved['state'], $token, $showFeedback);
     }
 
     public function start(Request $request, string $token): Response
@@ -57,13 +63,31 @@ final class PublicInterviewController
 
         $this->invitations->complete($token, $interviewId);
 
-        return $this->page('done', $token);
+        return $this->page('done', $token, $interviewId !== null);
     }
 
-    private function page(string $state, string $token): Response
+    /** Candidate feedback on the interview experience (1–5 + comment). */
+    public function feedback(Request $request, string $token): Response
+    {
+        $resolved = $this->invitations->resolve($token);
+        $inv = $resolved['invitation'];
+
+        if ($inv !== null && ! empty($inv['interview_id'])) {
+            $this->feedback->record(
+                (string) $inv['workspace_id'],
+                (string) $inv['interview_id'],
+                (int) $request->input('rating', 0),
+                trim((string) $request->input('comment', '')) ?: null,
+            );
+        }
+
+        return $this->page('done', $token, false);
+    }
+
+    private function page(string $state, string $token, bool $showFeedback = false): Response
     {
         return Response::html(
-            $this->view->page('recruitment.interview_link', ['state' => $state, 'token' => $token], 'layouts.guest', ['title' => 'AI Interview']),
+            $this->view->page('recruitment.interview_link', ['state' => $state, 'token' => $token, 'showFeedback' => $showFeedback], 'layouts.guest', ['title' => 'AI Interview']),
         );
     }
 }
