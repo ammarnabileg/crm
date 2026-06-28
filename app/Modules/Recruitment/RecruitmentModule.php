@@ -122,8 +122,10 @@ final class RecruitmentModule implements Module
         // AI interviewer avatars.
         $router->get('/avatars', [AvatarController::class, 'index']);
         $router->post('/avatars', [AvatarController::class, 'create']);
-        $router->post('/avatars/{id}', [AvatarController::class, 'update']);
+        $router->get('/avatars/{id}/preview', [AvatarController::class, 'preview']);
+        $router->post('/avatars/{id}/status', [AvatarController::class, 'toggleStatus']);
         $router->post('/avatars/{id}/delete', [AvatarController::class, 'delete']);
+        $router->post('/avatars/{id}', [AvatarController::class, 'update']);
 
         // Workspace chooser — "Choose a workspace to enter" (member or candidate).
         $router->get('/workspaces/select', [WorkspaceChooserController::class, 'select']);

@@ -84,7 +84,36 @@ final class AvatarController
         return Response::redirect('/avatars');
     }
 
-    /** @return array{persona:string,gender:?string,language:string,image_url:?string,style_notes:?string} */
+    /** Toggle active/inactive. */
+    public function toggleStatus(Request $request, string $id): Response
+    {
+        if (($r = $this->gate('avatar.manage', $request)) !== null) {
+            return $r;
+        }
+        $avatar = $this->avatars->find((string) $this->context->workspaceId(), $id);
+        if ($avatar !== null) {
+            $this->avatars->setStatus((string) $this->context->workspaceId(), $id, ((string) ($avatar['status'] ?? 'active')) === 'active' ? 'inactive' : 'active');
+            $this->session->flash('status', 'Avatar status updated.');
+        }
+
+        return Response::redirect('/avatars');
+    }
+
+    /** Preview / test the avatar — renders its greeting and a sample question. */
+    public function preview(string $id): Response
+    {
+        if (($r = $this->gate('avatar.view')) !== null) {
+            return $r;
+        }
+        $avatar = $this->avatars->find((string) $this->context->workspaceId(), $id);
+        if ($avatar === null) {
+            return Response::redirect('/avatars');
+        }
+
+        return $this->shell->render($this->context, 'recruitment.avatars.preview', ['avatar' => $avatar]);
+    }
+
+    /** @return array<string,mixed> */
     private function opts(Request $request): array
     {
         return [
@@ -93,6 +122,10 @@ final class AvatarController
             'language' => (string) $request->input('language', 'en'),
             'image_url' => trim((string) $request->input('image_url', '')) ?: null,
             'style_notes' => trim((string) $request->input('style_notes', '')) ?: null,
+            'prompt' => trim((string) $request->input('prompt', '')) ?: null,
+            'greeting' => trim((string) $request->input('greeting', '')) ?: null,
+            'voice' => trim((string) $request->input('voice', '')) ?: null,
+            'knowledge' => trim((string) $request->input('knowledge', '')) ?: null,
         ];
     }
 

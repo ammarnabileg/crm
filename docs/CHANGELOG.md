@@ -631,6 +631,12 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   any pool (`/talent-pool/bulk-add`).
 - Verified: **167 tests** · auditor **73/73** · `TalentPoolDepthTest` (2).
 
+### Sprint 3 (Slice 3e) — Avatars depth
+- AI interviewer avatars are no longer CRUD-only: they carry a **system prompt**,
+  **greeting**, **voice**, **knowledge brief**, and an **active/inactive status**,
+  with a **preview/test** screen showing how the avatar opens an interview.
+- Verified: **168 tests** · auditor **74/74** · `AvatarDepthTest` (1).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
