@@ -153,6 +153,7 @@ foreach ($router->routes() as $r) {
 foreach ([
     'GET /install', 'GET /login', 'GET /dashboard', 'GET /jobs', 'GET /workflows',
     'GET /integrations', 'GET /billing', 'GET /admin', 'GET /admin/diagnostics',
+    'GET /admin/workspaces', 'GET /admin/users', 'GET /admin/subscriptions',
     'GET /interviews', 'GET /files', 'GET /notifications', 'GET /reports', 'GET /pipeline',
     'GET /talent-pool', 'GET /api/v1/ping', 'GET /api/v1/jobs',
 ] as $route) {
