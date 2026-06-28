@@ -2,6 +2,8 @@
 /** @var list<array<string,mixed>> $roles */
 /** @var array<string, list<array{key:string,description:string}>> $catalog */
 /** @var bool $canCreate */
+/** @var bool $canClone */
+/** @var bool $canDelete */
 /** @var string|null $status */
 /** @var string|null $error */
 ?>
@@ -20,9 +22,30 @@
     <?php else: ?>
         <ul class="space-y-1 text-sm">
             <?php foreach ($roles as $r): ?>
-                <li class="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2">
-                    <span class="font-medium text-slate-800"><?= e($r['name']) ?></span>
-                    <span class="text-slate-500"><?= e($r['description'] ?? '') ?></span>
+                <?php $members = (int) ($r['members'] ?? 0); ?>
+                <li class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2">
+                    <div class="min-w-0">
+                        <span class="font-medium text-slate-800"><?= e($r['name']) ?></span>
+                        <?php if (! empty($r['description'])): ?><span class="ml-2 text-slate-500"><?= e($r['description']) ?></span><?php endif; ?>
+                        <div class="mt-0.5 text-xs text-slate-400">
+                            <?= (int) ($r['permissions'] ?? 0) ?> permission(s) ·
+                            <?php if ($members > 0): ?><span class="text-slate-500"><?= $members ?> member(s) using this role</span><?php else: ?>not in use<?php endif; ?>
+                        </div>
+                    </div>
+                    <?php if ($canClone || $canDelete): ?>
+                        <div class="flex shrink-0 items-center gap-3">
+                            <?php if ($canClone): ?>
+                                <form method="post" action="/roles/<?= e($r['id']) ?>/clone"><?= csrf_field() ?><button class="text-xs font-medium text-indigo-600 hover:text-indigo-700">Clone</button></form>
+                            <?php endif; ?>
+                            <?php if ($canDelete): ?>
+                                <?php if ($members > 0): ?>
+                                    <span class="text-xs text-slate-300" title="Reassign its members before deleting">Delete</span>
+                                <?php else: ?>
+                                    <form method="post" action="/roles/<?= e($r['id']) ?>/delete" onsubmit="return confirm('Delete the role “<?= e($r['name']) ?>”?')"><?= csrf_field() ?><button class="text-xs font-medium text-rose-600 hover:text-rose-700">Delete</button></form>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 </li>
             <?php endforeach; ?>
         </ul>

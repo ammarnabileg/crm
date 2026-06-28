@@ -42,14 +42,118 @@ final class MembersController
             return $this->forbidden();
         }
 
+        $workspace = $this->context->workspace();
+
         return $this->shell->render($this->context, 'members.index', [
             'members' => $this->members->membersForWorkspace((string) $this->context->workspaceId()),
             'roles' => $this->roles->rolesForWorkspace((string) $this->context->workspaceId()),
             'canInvite' => $this->context->can('member.invite'),
+            'canSuspend' => $this->context->can('member.suspend'),
+            'canReactivate' => $this->context->can('member.reactivate'),
+            'canRemove' => $this->context->can('member.remove'),
+            'ownerUserId' => (string) ($workspace['owner_user_id'] ?? ''),
+            'currentUserId' => (string) $this->context->userId(),
             'code' => $this->session->pullFlash('code'),
             'status' => $this->session->pullFlash('status'),
             'error' => $this->session->pullFlash('error'),
         ]);
+    }
+
+    public function suspend(Request $request, string $membershipId): Response
+    {
+        return $this->changeStatus($request, $membershipId, 'member.suspend', 'suspended');
+    }
+
+    public function activate(Request $request, string $membershipId): Response
+    {
+        return $this->changeStatus($request, $membershipId, 'member.reactivate', 'active');
+    }
+
+    public function remove(Request $request, string $membershipId): Response
+    {
+        $guard = $this->guard($request, $membershipId, 'member.remove');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $this->members->remove((string) $this->context->workspaceId(), $membershipId);
+
+        $this->audit->record('memberships.member.removed', [
+            'workspace_id' => $this->context->workspaceId(),
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'membership',
+            'entity_id' => $membershipId,
+            'ip' => $request->server('REMOTE_ADDR'),
+            'changes' => ['user_id' => $guard['user_id'] ?? null],
+        ]);
+
+        $this->session->flash('status', 'Member removed from the workspace.');
+
+        return Response::redirect('/members');
+    }
+
+    private function changeStatus(Request $request, string $membershipId, string $permission, string $status): Response
+    {
+        $guard = $this->guard($request, $membershipId, $permission);
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $this->members->setStatus((string) $this->context->workspaceId(), $membershipId, $status);
+
+        $this->audit->record('memberships.member.status_changed', [
+            'workspace_id' => $this->context->workspaceId(),
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'membership',
+            'entity_id' => $membershipId,
+            'ip' => $request->server('REMOTE_ADDR'),
+            'changes' => ['status' => $status],
+        ]);
+
+        $this->session->flash('status', $status === 'suspended' ? 'Member suspended.' : 'Member reactivated.');
+
+        return Response::redirect('/members');
+    }
+
+    /**
+     * Shared precondition checks for member actions. Returns the target
+     * membership row on success, or a Response to short-circuit on failure.
+     *
+     * @return array<string, mixed>|Response
+     */
+    private function guard(Request $request, string $membershipId, string $permission): array|Response
+    {
+        if (! $this->auth->check()) {
+            return Response::redirect('/login');
+        }
+        if (! $this->context->resolve()) {
+            return Response::redirect('/dashboard');
+        }
+        if (! $this->context->can($permission) || ! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return $this->forbidden();
+        }
+
+        $membership = $this->members->findById($membershipId);
+        if ($membership === null || (string) $membership['workspace_id'] !== (string) $this->context->workspaceId()) {
+            $this->session->flash('error', 'Member not found in this workspace.');
+
+            return Response::redirect('/members');
+        }
+
+        $workspace = $this->context->workspace();
+        $ownerId = (string) ($workspace['owner_user_id'] ?? '');
+        if ((string) $membership['user_id'] === $ownerId) {
+            $this->session->flash('error', 'The workspace owner cannot be suspended or removed.');
+
+            return Response::redirect('/members');
+        }
+        if ((string) $membership['user_id'] === (string) $this->context->userId()) {
+            $this->session->flash('error', 'You cannot change your own membership here.');
+
+            return Response::redirect('/members');
+        }
+
+        return $membership;
     }
 
     public function invite(Request $request): Response

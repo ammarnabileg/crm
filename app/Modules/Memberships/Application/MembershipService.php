@@ -25,10 +25,12 @@ final class MembershipService
         $id = Ulid::generate();
         $now = gmdate('Y-m-d H:i:s');
 
+        // last_activity_at stays null until the member actually works in the
+        // workspace (stamped on the request hot path) — "joined" ≠ "active".
         $this->connection->statement(
             'INSERT INTO memberships (id, workspace_id, user_id, status, invited_by, joined_at, last_activity_at, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [$id, $workspaceId, $userId, $status, $invitedBy, $now, $now, $now, $now],
+            [$id, $workspaceId, $userId, $status, $invitedBy, $now, null, $now, $now],
         );
 
         return $id;
@@ -96,19 +98,61 @@ final class MembershipService
         );
     }
 
-    /** @return list<array<string, mixed>> members of a workspace with their role names */
+    /** @return list<array<string, mixed>> members of a workspace with their role names + activity */
     public function membersForWorkspace(string $workspaceId): array
     {
         return $this->connection->select(
-            "SELECT m.id AS membership_id, m.status, m.joined_at, u.name, u.email,
+            "SELECT m.id AS membership_id, m.user_id, m.status, m.joined_at, m.last_activity_at, m.created_at,
+                    u.name, u.email, u.last_login_at,
+                    inv.name AS invited_by_name,
                     (SELECT GROUP_CONCAT(r.name ORDER BY r.name SEPARATOR ', ')
                        FROM membership_roles mr JOIN roles r ON r.id = mr.role_id
                       WHERE mr.membership_id = m.id) AS roles
                FROM memberships m
                JOIN users u ON u.id = m.user_id
+               LEFT JOIN users inv ON inv.id = m.invited_by
               WHERE m.workspace_id = ? AND m.deleted_at IS NULL
               ORDER BY m.created_at ASC",
             [$workspaceId],
+        );
+    }
+
+    /**
+     * Change a member's status (active|suspended|invited). Tenant-guarded: the
+     * membership must belong to the given workspace.
+     */
+    public function setStatus(string $workspaceId, string $membershipId, string $status): bool
+    {
+        $now = gmdate('Y-m-d H:i:s');
+        $affected = $this->connection->statement(
+            'UPDATE memberships SET status = ?, updated_at = ? WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL',
+            [$status, $now, $membershipId, $workspaceId],
+        );
+
+        return $affected > 0;
+    }
+
+    /**
+     * Remove a member from the workspace (soft delete + status flag). Their
+     * role/permission grants cascade away with the membership row. Tenant-guarded.
+     */
+    public function remove(string $workspaceId, string $membershipId): bool
+    {
+        $now = gmdate('Y-m-d H:i:s');
+        $affected = $this->connection->statement(
+            "UPDATE memberships SET status = 'removed', deleted_at = ?, updated_at = ? WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL",
+            [$now, $now, $membershipId, $workspaceId],
+        );
+
+        return $affected > 0;
+    }
+
+    /** Stamp the member's last activity (called on the request hot path, throttled by the caller). */
+    public function touchActivity(string $membershipId): void
+    {
+        $this->connection->statement(
+            'UPDATE memberships SET last_activity_at = ? WHERE id = ?',
+            [gmdate('Y-m-d H:i:s'), $membershipId],
         );
     }
 }

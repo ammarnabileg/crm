@@ -108,6 +108,45 @@ final class RoleService
         );
     }
 
+    /**
+     * Roles enriched for the Role Builder: how many members hold each role and
+     * how many permission keys it grants.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function rolesForWorkspaceWithUsage(string $workspaceId): array
+    {
+        return $this->connection->select(
+            'SELECT r.id, r.name, r.description,
+                    (SELECT COUNT(*) FROM membership_roles mr WHERE mr.role_id = r.id) AS members,
+                    (SELECT COUNT(*) FROM role_permissions rp WHERE rp.role_id = r.id) AS permissions
+               FROM roles r
+              WHERE r.workspace_id = ? AND r.deleted_at IS NULL
+              ORDER BY r.name ASC',
+            [$workspaceId],
+        );
+    }
+
+    /** @return array<string, mixed>|null tenant-guarded role lookup */
+    public function findRole(string $workspaceId, string $roleId): ?array
+    {
+        return $this->connection->selectOne(
+            'SELECT id, name, description FROM roles WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL',
+            [$roleId, $workspaceId],
+        );
+    }
+
+    /** How many memberships currently hold this role. */
+    public function usageCount(string $roleId): int
+    {
+        $row = $this->connection->selectOne(
+            'SELECT COUNT(*) AS c FROM membership_roles WHERE role_id = ?',
+            [$roleId],
+        );
+
+        return (int) ($row['c'] ?? 0);
+    }
+
     public function deleteRole(string $workspaceId, string $roleId): void
     {
         // Tenant guard: only delete a role that belongs to this workspace.

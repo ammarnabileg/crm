@@ -69,6 +69,41 @@ if (! function_exists('e')) {
     }
 }
 
+if (! function_exists('time_ago')) {
+    /** Human-friendly relative time for a stored UTC datetime ("3m ago", "2d ago"). */
+    function time_ago(mixed $datetime): string
+    {
+        $value = trim((string) ($datetime ?? ''));
+        if ($value === '') {
+            return 'never';
+        }
+
+        $then = strtotime($value . ' UTC');
+        if ($then === false) {
+            return 'never';
+        }
+
+        $diff = time() - $then;
+        if ($diff < 0) {
+            $diff = 0;
+        }
+        if ($diff < 60) {
+            return 'just now';
+        }
+        if ($diff < 3600) {
+            return (int) ($diff / 60) . 'm ago';
+        }
+        if ($diff < 86400) {
+            return (int) ($diff / 3600) . 'h ago';
+        }
+        if ($diff < 2592000) {
+            return (int) ($diff / 86400) . 'd ago';
+        }
+
+        return gmdate('M j, Y', $then);
+    }
+}
+
 if (! function_exists('csrf_token')) {
     function csrf_token(): string
     {

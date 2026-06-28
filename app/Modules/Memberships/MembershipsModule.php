@@ -34,6 +34,9 @@ final class MembershipsModule implements Module
     {
         $router->get('/members', [MembersController::class, 'index']);
         $router->post('/members/invite', [MembersController::class, 'invite']);
+        $router->post('/members/{id}/suspend', [MembersController::class, 'suspend']);
+        $router->post('/members/{id}/activate', [MembersController::class, 'activate']);
+        $router->post('/members/{id}/remove', [MembersController::class, 'remove']);
         $router->get('/invitations/{code}', [InvitationController::class, 'showAccept']);
         $router->post('/invitations/{code}', [InvitationController::class, 'accept']);
     }

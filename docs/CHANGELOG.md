@@ -637,6 +637,29 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   with a **preview/test** screen showing how the avatar opens an interview.
 - Verified: **168 tests** · auditor **74/74** · `AvatarDepthTest` (1).
 
+### Sprint 3 (Slice 3f) — Members lifecycle + Roles depth
+- **Members** are no longer a read-only directory: each row now shows **last
+  login**, **last activity**, **joined**, and a status pill (active/suspended/
+  invited), with per-member **Suspend / Reactivate / Remove** actions gated by
+  `member.suspend` / `member.reactivate` / `member.remove`. The **owner** and
+  **yourself** are protected — never suspendable/removable. The page lists only
+  this workspace's members, never all platform users.
+- `last_activity_at` is now meaningful: it stays null until the member actually
+  works in the workspace, then is stamped (throttled to once/minute) on the
+  request hot path via `WorkspaceContext`. New `MembershipService::setStatus`,
+  `remove` (soft delete), `touchActivity`; enriched `membersForWorkspace`.
+- **Roles** depth: each role shows its **permission count** and **how many
+  members use it**, with **Clone** (copies the permission set under a unique
+  "(copy)" name) and **Delete** actions. Deleting a role that is still in use is
+  blocked — you must reassign its members first. Gated by `role.clone` /
+  `role.delete`. New `RoleService::rolesForWorkspaceWithUsage`, `findRole`,
+  `usageCount`.
+- New `time_ago()` view helper for relative timestamps.
+- All member/role mutations are audited (`memberships.member.status_changed`,
+  `memberships.member.removed`, `permissions.role.cloned`,
+  `permissions.role.deleted`).
+- Verified: **170 tests** · auditor **79/79** · `MemberAndRoleDepthTest` (2).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

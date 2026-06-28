@@ -169,6 +169,8 @@ foreach ([
     'GET /interviews/export', 'GET /interviews/{interviewId}',
     'POST /admin/workspaces/{id}/suspend', 'POST /admin/workspaces/{id}/archive',
     'POST /workspaces/transfer-ownership', 'POST /workspaces/archive', 'POST /pipeline/bulk-status', 'POST /talent-pool/bulk-add', 'GET /avatars/{id}/preview',
+    'POST /members/{id}/suspend', 'POST /members/{id}/activate', 'POST /members/{id}/remove',
+    'POST /roles/{id}/clone', 'POST /roles/{id}/delete',
     'GET /candidates/compare', 'GET /api/v1/ping', 'GET /api/v1/jobs',
 ] as $route) {
     $check("route registered: {$route}", isset($paths[$route]));

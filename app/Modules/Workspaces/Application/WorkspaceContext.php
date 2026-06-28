@@ -67,7 +67,23 @@ final class WorkspaceContext
             ? $this->authorizer->permissionsForMembership((string) $this->membership['id'])
             : [];
 
+        $this->recordActivity();
+
         return true;
+    }
+
+    /** Stamp last activity at most once per minute to keep the hot path cheap. */
+    private function recordActivity(): void
+    {
+        if ($this->membership === null) {
+            return;
+        }
+
+        $last = $this->membership['last_activity_at'] ?? null;
+        if ($last === null || (string) $last < gmdate('Y-m-d H:i:s', time() - 60)) {
+            $this->memberships->touchActivity((string) $this->membership['id']);
+            $this->membership['last_activity_at'] = gmdate('Y-m-d H:i:s');
+        }
     }
 
     /** @return array<string, mixed>|null */
