@@ -115,6 +115,9 @@ final class PermissionCatalog
                 'api.tokens.manage' => 'Issue and revoke API tokens',
                 'webhook.manage' => 'Manage outbound webhook endpoints',
             ],
+            'Notifications' => [
+                'notification.view' => 'View personal notifications',
+            ],
         ];
 
         $system = [

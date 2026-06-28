@@ -23,4 +23,5 @@ return [
     \HaHireAI\Modules\Integration\IntegrationModule::class,
     \HaHireAI\Modules\Billing\BillingModule::class,
     \HaHireAI\Modules\Observability\ObservabilityModule::class,
+    \HaHireAI\Modules\Notifications\NotificationsModule::class,
 ];

@@ -25,6 +25,7 @@ final class SidebarBuilder
         ['label' => 'Reports', 'route' => '/reports', 'permission' => 'report.view'],
         ['label' => 'Members', 'route' => '/members', 'permission' => 'member.view'],
         ['label' => 'Roles', 'route' => '/roles', 'permission' => 'role.view'],
+        ['label' => 'Notifications', 'route' => '/notifications', 'permission' => 'notification.view'],
         ['label' => 'Activity', 'route' => '/activity', 'permission' => 'audit.view'],
         ['label' => 'AI', 'route' => '/ai', 'permission' => 'ai.view', 'feature' => 'ai'],
         ['label' => 'Workflows', 'route' => '/workflows', 'permission' => 'workflow.view', 'feature' => 'automation'],

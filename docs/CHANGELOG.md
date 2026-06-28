@@ -347,6 +347,18 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Verified on live MySQL 8 (`CandidateTimelineTest`). **Suite: 101 tests / 346
   assertions** · auditor **41/41**.
 
+### Added — Notification Center
+- **Notifications module** (`app/Modules/Notifications`): personal notifications
+  scoped to **(workspace, user)** — a reactor on the event bus, so actor modules
+  stay decoupled. On `application.submitted` the candidate is notified
+  automatically.
+  - `NotificationService`: notify / list / unread count / mark read / mark all.
+  - `NotificationsController` + `/notifications` (list, mark-all, mark-one);
+    sidebar gains **Notifications** (`notification.view`).
+- **Migration**: notifications. Auditor extended to 42 checks (table + route).
+- Verified on live MySQL 8 (`NotificationTest`). **Suite: 104 tests / 358
+  assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

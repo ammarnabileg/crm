@@ -272,11 +272,15 @@ Logger/ErrorHandler/event-bus/Audit infrastructure:
   stage moves, interviews, notes, files and offers. Completes the Candidate
   Profile contract (CVs/files · Interviews · Notes · Score · Timeline).
 
+- **Notification Center**: personal, per-(workspace,user) notifications — a
+  reactor on the event bus (candidate notified on application). `NotificationTest`
+  green.
+
 ### Verifying the build
 ```
 php bin/console.php migrate && php bin/console.php db:seed
-php bin/certify.php          # 41/41
-vendor/bin/phpunit          # 101 tests
+php bin/certify.php          # 42/42
+vendor/bin/phpunit          # 104 tests
 ```
 
 `/docs/adr/` holds Architecture Decision Records for significant decisions.
