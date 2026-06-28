@@ -1,0 +1,7 @@
+{
+  "name": "hahireai-browser-certification",
+  "private": true,
+  "type": "module",
+  "description": "Headless-Chromium certification of key HaHireAI screens (Phase 16).",
+  "dependencies": { "playwright-core": "^1.48.0" }
+}

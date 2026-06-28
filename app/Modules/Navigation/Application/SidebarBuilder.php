@@ -84,4 +84,20 @@ final class SidebarBuilder
     {
         return array_map(static fn (array $i): string => $i['label'], $this->build($context, $heldPermissionKeys, $enabledFeatures));
     }
+
+    /**
+     * Every permission key referenced by the sidebar (both contexts). Used by the
+     * release audit to assert no key has drifted from the PermissionCatalog.
+     *
+     * @return list<string>
+     */
+    public static function allPermissionKeys(): array
+    {
+        $keys = [];
+        foreach ([...self::WORKSPACE_ITEMS, ...self::PLATFORM_ITEMS] as $item) {
+            $keys[] = $item['permission'];
+        }
+
+        return array_values(array_unique($keys));
+    }
 }

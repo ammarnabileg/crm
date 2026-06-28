@@ -282,6 +282,28 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   (System Owner → `/admin` + diagnostics JSON: DB/PHP/storage healthy + live
   metrics). Suite: **88 tests / 291 assertions**.
 
+### Added — Phase 16: Release Engineering & Final Certification
+- **Production-readiness auditor** (`bin/certify.php`): boots the real kernel and
+  runs **39 checks** — modules/acyclic deps, security/config, migrations + core
+  tables, the **user-model & tenancy invariants** (single User identity, System
+  Owner as a flag, Memberships M:N, roles-as-data, per-workspace candidate
+  profiles), RBAC/sidebar integrity, routing surface, engine + event-bus wiring,
+  and health. **39/39 PASS**.
+- **Whole-platform end-to-end test** (`ReleaseCertificationTest`): a candidate
+  applies → the single `application.submitted` event fans out to the Workflow
+  Engine (AI) **and** Webhooks on a billed workspace, fully observable.
+- **Browser certification** (`tests/browser/certify.mjs`, headless Chromium via
+  `playwright-core`): logs in as a System Owner and verifies the Platform Context
+  sidebar (Overview/Workspaces/Users/Subscriptions/Diagnostics/…) with
+  screenshots.
+- **Load baseline** (`bin/loadtest.sh`): `/api/v1/ping` ≈ 549 req/s, `/health`
+  ≈ 485 req/s (single-threaded dev server).
+- **`RELEASE_CERTIFICATION.md`**: architecture-compliance matrix, phase ledger,
+  security posture, production-readiness checklist, and deferrals.
+- `SidebarBuilder::allPermissionKeys()` added for the audit; `node_modules`
+  gitignored. **Suite: 89 tests / 303 assertions.**
+- **🎯 All 16 phases complete and certified.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

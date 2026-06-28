@@ -23,3 +23,7 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+# Node (browser certification tooling)
+node_modules/
+tests/browser/node_modules/

@@ -250,10 +250,22 @@ Logger/ErrorHandler/event-bus/Audit infrastructure:
 - Verified on live MySQL 8 + an end-to-end System-Owner HTTP run. Suite:
   **88 tests / 291 assertions**.
 
-### Planned (later phases)
-- **Phase 16 — Release Engineering & Final Certification:** production-readiness
-  audit, end-to-end verification, and the final certification report (see
-  `MODULES.md`).
+### Phase 16 — Release Engineering & Final Certification ✅
+- **Auditor** `php bin/certify.php` — 39 production-readiness checks (modules,
+  security, migrations, **user-model/tenancy invariants**, RBAC/sidebar, routing,
+  engines/event-bus, health): **39/39 PASS**.
+- **Whole-platform e2e** (`ReleaseCertificationTest`): one event fans out to
+  Workflow (AI) + Webhooks on a billed, observable workspace.
+- **Browser certification** (headless Chromium) + **load baseline**
+  (`bin/loadtest.sh`), and the **`RELEASE_CERTIFICATION.md`** report.
+- **Suite: 89 tests / 303 assertions.** 🎯 **All 16 phases complete & certified.**
+
+### Verifying the build
+```
+php bin/console.php migrate && php bin/console.php db:seed
+php bin/certify.php          # 39/39
+vendor/bin/phpunit          # 89 tests
+```
 
 `/docs/adr/` holds Architecture Decision Records for significant decisions.
 
