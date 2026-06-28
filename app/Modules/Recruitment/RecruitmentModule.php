@@ -112,6 +112,8 @@ final class RecruitmentModule implements Module
         $router->post('/portal/switch/{workspaceId}', [CandidatePortalController::class, 'switchWorkspace']);
         $router->get('/portal/jobs', [CandidatePortalController::class, 'jobs']);
         $router->post('/portal/jobs/{jobId}/apply', [CandidatePortalController::class, 'apply']);
+        $router->get('/portal/interview/{interviewId}', [CandidatePortalController::class, 'room']);
+        $router->post('/portal/interview/{interviewId}/answer', [CandidatePortalController::class, 'roomAnswer']);
         $router->get('/portal/applications', [CandidatePortalController::class, 'applications']);
         $router->get('/portal/applications/{applicationId}', [CandidatePortalController::class, 'applicationDetail']);
         $router->post('/portal/applications/{applicationId}/counter-offer', [CandidatePortalController::class, 'counterOffer']);

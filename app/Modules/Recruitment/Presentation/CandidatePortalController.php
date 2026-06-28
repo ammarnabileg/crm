@@ -14,6 +14,7 @@ use HaHireAI\Modules\Recruitment\Application\AssessmentService;
 use HaHireAI\Modules\Recruitment\Application\CandidacyService;
 use HaHireAI\Modules\Recruitment\Application\CandidateContext;
 use HaHireAI\Modules\Recruitment\Application\Exceptions\ApplicationException;
+use HaHireAI\Modules\Recruitment\Application\InterviewRoomService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\JobService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
@@ -37,6 +38,7 @@ final class CandidatePortalController
         private readonly ApplicationService $applications,
         private readonly OfferService $offers,
         private readonly InterviewService $interviews,
+        private readonly InterviewRoomService $room,
         private readonly AssessmentService $assessments,
         private readonly UserRepository $users,
         private readonly Session $session,
@@ -105,15 +107,87 @@ final class CandidatePortalController
             return Response::redirect('/portal/jobs');
         }
 
+        // Schedule the AI screening interview so the candidate can enter the room
+        // now or later (AI-native flow). Text mode is the always-available baseline.
+        $interviewId = null;
+        try {
+            $interviewId = $this->interviews->schedule($ws, $appId, 'ai', ['mode' => 'text', 'created_by' => $uid]);
+        } catch (ApplicationException) {
+            // Non-fatal: the application stands even if scheduling fails.
+        }
+
         $this->audit->record('recruitment.application.submitted', [
             'workspace_id' => $ws,
             'actor_user_id' => $uid,
             'entity_type' => 'application',
             'entity_id' => $appId,
         ]);
+
+        if ($interviewId !== null) {
+            $this->session->flash('status', 'Application submitted. Your AI interview is ready — start now or later.');
+
+            return Response::redirect('/portal/interview/' . $interviewId);
+        }
         $this->session->flash('status', 'Application submitted. Track it here.');
 
         return Response::redirect('/portal/applications/' . $appId);
+    }
+
+    /** The AI interview room (start or resume). */
+    public function room(string $interviewId): Response
+    {
+        if (($r = $this->gate()) !== null) {
+            return $r;
+        }
+
+        $iv = $this->ownedInterview($interviewId);
+        if ($iv === null) {
+            return Response::redirect('/portal/applications');
+        }
+
+        $state = (string) $iv['status'] === 'completed'
+            ? $this->room->state((string) $this->context->workspaceId(), $interviewId)
+            : $this->room->begin((string) $this->context->workspaceId(), $interviewId, (string) $this->context->userId());
+
+        return $this->shell->render($this->context, 'portal.interview', [
+            'interview' => $iv,
+            'state' => $state,
+            'applicationId' => (string) $iv['application_id'],
+            'workspaceName' => $this->context->workspace()['name'] ?? '',
+        ]);
+    }
+
+    public function roomAnswer(Request $request, string $interviewId): Response
+    {
+        if (($r = $this->gate($request)) !== null) {
+            return $r;
+        }
+
+        $iv = $this->ownedInterview($interviewId);
+        if ($iv === null) {
+            return Response::redirect('/portal/applications');
+        }
+
+        $this->room->answer(
+            (string) $this->context->workspaceId(),
+            $interviewId,
+            (string) $request->input('answer', ''),
+            (string) $this->context->userId(),
+        );
+
+        // Post/Redirect/Get — the room page renders the updated conversation.
+        return Response::redirect('/portal/interview/' . $interviewId);
+    }
+
+    /** @return array<string,mixed>|null an AI interview owned by the current candidate */
+    private function ownedInterview(string $interviewId): ?array
+    {
+        $iv = $this->interviews->find((string) $this->context->workspaceId(), $interviewId);
+        if ($iv === null || (string) $iv['candidate_user_id'] !== (string) $this->context->userId() || (string) $iv['type'] !== 'ai') {
+            return null;
+        }
+
+        return $iv;
     }
 
     /** Page 3 — My Applications (with offers, accept/reject/counter). */

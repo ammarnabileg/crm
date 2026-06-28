@@ -88,7 +88,9 @@ $pendingOffers = array_values(array_filter($offers, static fn (array $o): bool =
                                 <span class="text-slate-600">· <?= e($iv['status']) ?></span>
                                 <?php if (! empty($iv['scheduled_at'])): ?><span class="text-xs text-slate-400"> · <?= e($iv['scheduled_at']) ?> UTC</span><?php endif; ?>
                             </div>
-                            <?php if (! empty($iv['meeting_link']) && $iv['status'] !== 'completed'): ?>
+                            <?php if ((string) $iv['type'] === 'ai' && $iv['status'] !== 'completed'): ?>
+                                <a href="/portal/interview/<?= e($iv['id']) ?>" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"><?= $iv['status'] === 'in_progress' ? 'Continue interview →' : 'Start interview →' ?></a>
+                            <?php elseif (! empty($iv['meeting_link']) && $iv['status'] !== 'completed'): ?>
                                 <a href="<?= e($iv['meeting_link']) ?>" target="_blank" rel="noopener" class="text-xs font-medium text-indigo-600 hover:underline">Join →</a>
                             <?php endif; ?>
                         </li>

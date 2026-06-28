@@ -510,6 +510,29 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   on live MySQL 8 (`CandidatePortalTest`) and end-to-end over HTTP (login →
   portal → apply → accept → hired). **Suite: 146 tests / 522 assertions.**
 
+### Added — Conversational AI Interview Room (candidate, text — mode A)
+- **`InterviewRoomService`** — a turn-by-turn interview engine: the AI greets,
+  explains the role, and asks one question at a time; the candidate answers; the
+  room closes **automatically** after the question budget (12) or the time window
+  (20 min), whichever comes first. Resumable — a candidate can leave and come back
+  within the window. Questions come from the AI engine's role-specific set when a
+  real provider returns usable ones, else a deterministic default bank. On close
+  it persists the transcript, scores it, and runs the structured assessment
+  (advisory — a human always decides). Backed by a new `interview_messages` table
+  and `interviews.started_at`.
+- **The room in the portal**: applying now schedules the AI screening interview and
+  drops the candidate at `/portal/interview/{id}` — "start now or later". The room
+  (`portal.interview`) is a chat UI with a live **question counter** and
+  **countdown timer**, and a **completion screen** ("Interview completed
+  successfully") when done. The application detail surfaces a Start/Continue CTA.
+- **Voice (mode B)** is layered on the same engine as progressive enhancement
+  (browser speech-to-text writes into the answer box; hidden when unsupported).
+  **Live-avatar video (mode C)** mounts over the same flow where the workspace has
+  a HeyGen key — the questions, budget, timing and scoring are identical.
+- Auditor extended to 61 checks. Verified on live MySQL 8 (`InterviewRoomTest`)
+  and end-to-end over HTTP (apply → room → 12 answers → completion → scored).
+  **Suite: 151 tests / 539 assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
