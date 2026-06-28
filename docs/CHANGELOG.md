@@ -321,6 +321,20 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Auditor extended to 40 checks (interviews table + route). Verified on live
   MySQL 8 (`InterviewTest`). **Suite: 94 tests / 325 assertions.**
 
+### Added — Files & CVs (workspace-scoped attachments)
+- **Files module** (`app/Modules/Files`): a shared attachment service.
+  - `FileService`: validated uploads (10 MB cap, extension allowlist) stored
+    **outside the web root** under `storage/files/{workspace}/`; metadata in a
+    `files` table; polymorphic attach via `entity_type` + `entity_id`.
+  - `FilesController`: `/files` index, `/files/upload`, **permission-gated,
+    tenant-checked streamed download** (`/files/{id}/download`), and delete —
+    a workspace can never read another's files (privacy isolation).
+  - `Request` now captures uploads (`Request::file()`).
+- **Candidate Profile** gains a **CVs & files** section (upload + list +
+  download/delete); Recruitment depends on `Files` and reuses `FileService`.
+- **Migration**: files. Auditor extended to 41 checks (files table + route).
+- Verified on live MySQL 8 (`FileTest`). **Suite: 99 tests / 338 assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

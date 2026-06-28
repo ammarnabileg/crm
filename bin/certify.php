@@ -102,7 +102,7 @@ if ($dbOk) {
     $check('all migrations applied', $pending === [], $pending === [] ? count($ran) . ' applied' : count($pending) . ' pending');
 
     $required = ['users', 'workspaces', 'memberships', 'roles', 'permissions', 'jobs', 'applications',
-        'candidate_profiles', 'interviews', 'ai_sessions', 'workflows', 'webhook_endpoints',
+        'candidate_profiles', 'interviews', 'files', 'ai_sessions', 'workflows', 'webhook_endpoints',
         'subscriptions', 'plans', 'error_events', 'alerts'];
     $existing = array_map(static fn (array $r): string => (string) $r['t'], $conn->select('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = DATABASE()'));
     $missing = array_diff($required, $existing);
@@ -152,7 +152,7 @@ foreach ($router->routes() as $r) {
 foreach ([
     'GET /install', 'GET /login', 'GET /dashboard', 'GET /jobs', 'GET /workflows',
     'GET /integrations', 'GET /billing', 'GET /admin', 'GET /admin/diagnostics',
-    'GET /interviews', 'GET /api/v1/ping', 'GET /api/v1/jobs',
+    'GET /interviews', 'GET /files', 'GET /api/v1/ping', 'GET /api/v1/jobs',
 ] as $route) {
     $check("route registered: {$route}", isset($paths[$route]));
 }

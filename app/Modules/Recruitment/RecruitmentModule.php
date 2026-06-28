@@ -24,7 +24,7 @@ final class RecruitmentModule implements Module
 
     public function dependencies(): array
     {
-        return ['Workspaces'];
+        return ['Workspaces', 'Files'];
     }
 
     public function register(Container $container): void

@@ -265,12 +265,15 @@ Logger/ErrorHandler/event-bus/Audit infrastructure:
   schedule AI/human interviews, AI routes through the central AI Engine (advisory),
   human evaluations override, and the candidate Score = average of completed
   interview scores **per workspace** (privacy-isolated). `InterviewTest` green.
+- **Files & CVs**: workspace-scoped attachments stored outside the web root, with
+  permission-gated, tenant-checked streamed download (no cross-workspace access).
+  Surfaced as **CVs & files** on the candidate profile. `FileTest` green.
 
 ### Verifying the build
 ```
 php bin/console.php migrate && php bin/console.php db:seed
-php bin/certify.php          # 40/40
-vendor/bin/phpunit          # 94 tests
+php bin/certify.php          # 41/41
+vendor/bin/phpunit          # 99 tests
 ```
 
 `/docs/adr/` holds Architecture Decision Records for significant decisions.

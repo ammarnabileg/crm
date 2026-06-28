@@ -16,6 +16,7 @@ return [
     \HaHireAI\Modules\Permissions\PermissionsModule::class,
     \HaHireAI\Modules\Audit\AuditModule::class,
     \HaHireAI\Modules\Search\SearchModule::class,
+    \HaHireAI\Modules\Files\FilesModule::class,
     \HaHireAI\Modules\Recruitment\RecruitmentModule::class,
     \HaHireAI\Modules\AiEngine\AiModule::class,
     \HaHireAI\Modules\Workflow\WorkflowModule::class,

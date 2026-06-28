@@ -137,6 +137,45 @@
     </div>
 
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-3 text-sm font-semibold text-slate-900">CVs &amp; files</h2>
+        <?php if (($canUploadFile ?? false)): ?>
+            <form method="post" action="/files/upload" enctype="multipart/form-data" class="mb-3 space-y-2">
+                <?= csrf_field() ?>
+                <input type="hidden" name="entity_type" value="candidate_profile">
+                <input type="hidden" name="entity_id" value="<?= e($profile['profile_id']) ?>">
+                <input type="hidden" name="redirect_to" value="/candidates/<?= e($profile['user_id']) ?>">
+                <input type="file" name="file" required class="block w-full text-xs text-slate-600 file:mr-2 file:rounded file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white">
+                <button class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700">Upload</button>
+            </form>
+        <?php endif; ?>
+        <?php if (($files ?? []) === []): ?>
+            <p class="text-sm text-slate-400">No files yet.</p>
+        <?php else: ?>
+            <ul class="space-y-1 text-sm">
+                <?php foreach ($files as $f): ?>
+                    <li class="flex items-center justify-between rounded-md bg-slate-50 px-3 py-1.5">
+                        <span class="min-w-0 truncate">
+                            <?php if ($canViewFile ?? false): ?>
+                                <a href="/files/<?= e($f['id']) ?>/download" class="text-indigo-600 hover:underline"><?= e($f['original_name']) ?></a>
+                            <?php else: ?>
+                                <?= e($f['original_name']) ?>
+                            <?php endif; ?>
+                            <span class="text-xs text-slate-400"><?= e(number_format(((int) $f['size_bytes']) / 1024, 1)) ?> KB</span>
+                        </span>
+                        <?php if ($canDeleteFile ?? false): ?>
+                            <form method="post" action="/files/<?= e($f['id']) ?>/delete" onsubmit="return confirm('Delete this file?')">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="redirect_to" value="/candidates/<?= e($profile['user_id']) ?>">
+                                <button class="text-xs font-medium text-rose-600 hover:text-rose-700">×</button>
+                            </form>
+                        <?php endif; ?>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 class="mb-3 text-sm font-semibold text-slate-900">Tags</h2>
         <?php if ($canTag): ?>
             <form method="post" action="/candidates/<?= e($profile['user_id']) ?>/tags" class="flex gap-2">

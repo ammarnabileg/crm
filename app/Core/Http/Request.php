@@ -14,6 +14,7 @@ final class Request
      * @param  array<string, mixed>   $body
      * @param  array<string, string>  $headers  lower-cased header names
      * @param  array<string, mixed>   $server
+     * @param  array<string, mixed>   $files    normalised $_FILES entries
      */
     public function __construct(
         private readonly string $method,
@@ -22,6 +23,7 @@ final class Request
         private readonly array $body = [],
         private readonly array $headers = [],
         private readonly array $server = [],
+        private readonly array $files = [],
     ) {
     }
 
@@ -40,7 +42,29 @@ final class Request
             }
         }
 
-        return new self($method, $path === '//' ? '/' : $path, $_GET, $_POST, $headers, $server);
+        return new self($method, $path === '//' ? '/' : $path, $_GET, $_POST, $headers, $server, $_FILES);
+    }
+
+    /**
+     * A single uploaded file by field name, or null if absent/errored.
+     *
+     * @return array{name: string, type: string, tmp_name: string, error: int, size: int}|null
+     */
+    public function file(string $key): ?array
+    {
+        $f = $this->files[$key] ?? null;
+
+        if (! is_array($f) || ! isset($f['tmp_name']) || ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return null;
+        }
+
+        return [
+            'name' => (string) ($f['name'] ?? ''),
+            'type' => (string) ($f['type'] ?? 'application/octet-stream'),
+            'tmp_name' => (string) $f['tmp_name'],
+            'error' => (int) $f['error'],
+            'size' => (int) ($f['size'] ?? 0),
+        ];
     }
 
     public function method(): string

@@ -11,6 +11,7 @@ use HaHireAI\Core\Http\Session;
 use HaHireAI\Modules\Audit\Application\AuditLogger;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
+use HaHireAI\Modules\Files\Application\FileService;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
@@ -30,6 +31,7 @@ final class CandidatesController
         private readonly CandidateProfileService $candidates,
         private readonly OfferService $offers,
         private readonly InterviewService $interviews,
+        private readonly FileService $files,
         private readonly AiEngine $ai,
         private readonly Connection $connection,
         private readonly Session $session,
@@ -74,6 +76,10 @@ final class CandidatesController
             'offers' => $this->offers->forCandidate($workspaceId, $userId),
             'interviews' => $this->interviews->forCandidate($workspaceId, $userId),
             'score' => $this->interviews->averageScore($workspaceId, $userId),
+            'files' => $this->files->listForEntity($workspaceId, 'candidate_profile', (string) $profile['profile_id']),
+            'canUploadFile' => $this->context->can('files.upload'),
+            'canDeleteFile' => $this->context->can('files.delete'),
+            'canViewFile' => $this->context->can('files.view'),
             'canNote' => $this->context->can('candidate.note'),
             'canTag' => $this->context->can('candidate.tag'),
             'canOffer' => $this->context->can('offer.create'),
