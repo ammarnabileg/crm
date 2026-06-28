@@ -166,11 +166,51 @@ The daily collaboration platform, on the verified foundation:
   every event. Suite: **46 tests / 115 assertions**.
 - _Remaining in Phase 9:_ File manager, Notification center, workspace branding.
 
+### Phase 10 — Recruitment Platform ✅ (code)
+The recruitment bounded context, end-to-end on the verified foundation:
+- **Jobs:** create / publish / archive, plus a public tokenized job page.
+- **Public apply:** authenticated candidates apply; submission is audited.
+- **Pipeline:** per-job stages, stage moves with full `*_stage_history`.
+- **Candidates:** workspace-scoped profiles with notes and tags.
+- **Offers → hire:** offer acceptance hires the candidate and creates an
+  `employee` — closing the hiring loop.
+- Sidebar gains Jobs, Candidates, Pipeline, Offers. Verified (curl) across the
+  full hiring loop and per-workspace candidate isolation.
+
+### Phase 11 — Enterprise AI Engine ✅ (code)
+The central intelligence layer (`AI_ENGINE.md`) — modules request a
+**capability**, never a provider:
+- `AiProvider` contract + built-in network-free `EchoProvider`; pluggable
+  `ProviderRegistry`.
+- `PromptEngine` — versioned, data-driven templates (no hard-coded prompts).
+- `AiSettingsService` — per-workspace provider/model/fallback; keys
+  **encrypted at rest** with masked hints.
+- `AiEngine` — capability dispatch with automatic **fallback** and per-run
+  usage/cost/latency recording (`ai_sessions`).
+- Sidebar gains **AI**. Verified against live MySQL 8 (runs, fallback, encrypted
+  key round-trip, provider switching).
+
+### Phase 12 — Enterprise Workflow Engine ✅ (code)
+The central automation layer (`WORKFLOW_ENGINE.md`) — actors **publish events**,
+the engine **reacts**; feature modules never automate themselves:
+- **Workflows as data** (`WorkflowService`): `{ steps:[…] }`, enabled/published
+  aware, looked up per workspace + trigger.
+- **Action catalog** (`ActionExecutor`): `log`, `audit`, `run_ai` — AI routes
+  through the central AI Engine, never a provider.
+- **Engine** (`WorkflowEngine`): records an execution + per-step rows with
+  conditional skips and failure handling; synchronous but queue-ready.
+- Recruitment publishes `application.submitted` (decoupled via `EventDispatcher`).
+- Permissions `workflow.*`; sidebar gains **Workflows**.
+- Verified against live MySQL 8 (`WorkflowEngineTest`): trigger→execution with
+  AI step, trigger/enabled filtering, **per-workspace isolation**, conditional
+  skips, and the full actor→event→reactor path through the real container.
+- Suite: **59 tests / 178 assertions**.
+
 ### Planned (later phases)
-- **Phases 10–16 — Implementation:** Recruitment (jobs/applications/candidates/
-  pipeline/interviews/offers), AI Engine, Workflow Engine, Integration Platform,
-  Billing/Subscriptions, Observability, and Release certification — each with
-  its own documents and tests (see `MODULES.md`).
+- **Phases 13–16 — Implementation:** Integration Platform (API Gateway, REST API,
+  webhooks, event bus, OAuth/SSO, connectors), Billing/Subscriptions/Licensing,
+  Observability/Diagnostics/Operations, and Release certification — each with its
+  own documents and tests (see `MODULES.md`).
 
 `/docs/adr/` holds Architecture Decision Records for significant decisions.
 

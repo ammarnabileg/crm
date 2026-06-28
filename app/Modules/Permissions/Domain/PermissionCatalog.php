@@ -103,6 +103,13 @@ final class PermissionCatalog
             'Search' => [
                 'search.use' => 'Use unified workspace search',
             ],
+            'Workflow' => [
+                'workflow.view' => 'View workflows & executions',
+                'workflow.create' => 'Create a workflow',
+                'workflow.update' => 'Edit a workflow',
+                'workflow.delete' => 'Delete a workflow',
+                'workflow.execute' => 'Manually run a workflow',
+            ],
         ];
 
         $system = [

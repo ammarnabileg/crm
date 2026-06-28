@@ -150,6 +150,61 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   subset → activity timeline. Suite: 46 tests / 115 assertions.
 - _Remaining in Phase 9:_ file manager, notification center, branding.
 
+### Added — Phase 10: Recruitment Platform
+- **Recruitment** (`app/Modules/Recruitment`) as a single bounded context:
+  - **Jobs**: create / publish / archive, with a public, tokenized job page.
+  - **Public apply**: authenticated candidates apply from the public job page;
+    `recruitment.application.submitted` is audited.
+  - **Pipeline**: per-job stages, drag-to-stage moves with
+    `application_stage_history`, bulk-safe stage management.
+  - **Candidates**: workspace-scoped candidate profiles with notes and tags.
+  - **Offers → hire**: create/send an offer; acceptance hires the candidate and
+    creates an `employee` record — closing the hiring loop.
+- **Migrations**: recruitment tables (jobs, pipeline_stages, candidate_profiles,
+  applications, application_stage_history, tags, candidate_notes,
+  candidate_profile_tags) and offers + employees.
+- Sidebar gains Jobs, Candidates, Pipeline, Offers; all actions permission-gated
+  by catalog keys. Verified end-to-end (HTTP) across the full hiring loop and
+  per-workspace candidate isolation.
+
+### Added — Phase 11: Enterprise AI Engine & Multi-Provider Intelligence
+- **AI Engine** (`app/Modules/AiEngine`) — the central intelligence layer
+  (`AI_ENGINE.md`): modules request a **capability**, never a provider.
+  - `Contracts/AiProvider` + built-in network-free `EchoProvider`;
+    `ProviderRegistry` for pluggable adapters.
+  - `PromptEngine` — versioned, data-driven prompt templates (defaults for
+    `summarize_candidate`, `generate_job_description`, `candidate_recommendation`).
+  - `AiSettingsService` — per-workspace provider/model/fallback; API keys
+    **encrypted at rest** (`Shared/Encrypter`, AES-256-GCM) with masked hints.
+  - `AiEngine` — capability dispatch with automatic **fallback**, plus per-run
+    usage/cost/latency recording to `ai_sessions`.
+  - `AiController` + settings UI; sidebar gains **AI** (`ai.view`).
+- **Migrations**: ai_settings, ai_keys, ai_sessions, prompt_templates.
+- Verified against live MySQL 8: capability runs, provider fallback, encrypted
+  key round-trip, and provider switching.
+
+### Added — Phase 12: Enterprise Workflow Engine & Automation Platform
+- **Workflow Engine** (`app/Modules/Workflow`) — the central, event-driven
+  automation layer (`WORKFLOW_ENGINE.md`): actor modules **publish events**;
+  the engine **reacts**. Feature modules never automate themselves.
+  - `WorkflowService` — workflows stored as **data** (`{ steps: [...] }`),
+    enabled/published/soft-delete aware, looked up per workspace + trigger.
+  - `ActionExecutor` — action catalog (`log`, `audit`, `run_ai`); the `run_ai`
+    action routes through the **central AI Engine**, never a provider.
+  - `WorkflowEngine` — runs every eligible workflow for a trigger, recording an
+    **execution** (`workflow_executions`) and per-step rows (`workflow_steps`)
+    with skipped-condition and failure handling; synchronous but queue-ready.
+  - `WorkflowModule` — registers the `application.submitted` listener at boot;
+    `WorkflowController` + view list workflows/executions and create automations.
+- **Recruitment** now publishes `application.submitted` on a successful apply
+  (decoupled via the `EventDispatcher` — Recruitment is unaware of the engine).
+- **Migration**: workflows, workflow_executions, workflow_steps.
+- **Permissions**: `workflow.{view,create,update,delete,execute}`; sidebar gains
+  **Workflows** (`workflow.view`).
+- Verified against live MySQL 8 (`WorkflowEngineTest`): trigger→execution with
+  AI step, trigger/enabled filtering, **per-workspace isolation**, conditional
+  skips, and the full actor→event→reactor path through the real container.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

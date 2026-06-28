@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Recruitment\Presentation;
 
+use HaHireAI\Core\Contracts\EventDispatcher;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
@@ -24,6 +25,7 @@ final class PublicJobController
         private readonly ApplicationService $applications,
         private readonly Session $session,
         private readonly AuditLogger $audit,
+        private readonly EventDispatcher $events,
     ) {
     }
 
@@ -81,6 +83,19 @@ final class PublicJobController
             'entity_type' => 'application',
             'entity_id' => $applicationId,
             'ip' => $request->server('REMOTE_ADDR'),
+        ]);
+
+        // Publish the domain event. The Workflow Engine (a reactor) listens and
+        // runs matching automations; recruitment stays unaware of it.
+        $applicant = $this->auth->user() ?? [];
+        $this->events->dispatch('application.submitted', [
+            'workspace_id' => (string) $job['workspace_id'],
+            'application_id' => $applicationId,
+            'job_id' => (string) $job['id'],
+            'job_title' => (string) ($job['title'] ?? ''),
+            'user_id' => (string) $this->auth->id(),
+            'candidate_name' => (string) ($applicant['name'] ?? ''),
+            'candidate_email' => (string) ($applicant['email'] ?? ''),
         ]);
 
         $this->session->flash('status', 'Your application has been submitted. Good luck!');
