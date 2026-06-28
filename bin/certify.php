@@ -171,6 +171,7 @@ foreach ([
     'POST /workspaces/transfer-ownership', 'POST /workspaces/archive', 'POST /pipeline/bulk-status', 'POST /talent-pool/bulk-add', 'GET /avatars/{id}/preview',
     'POST /members/{id}/suspend', 'POST /members/{id}/activate', 'POST /members/{id}/remove',
     'POST /roles/{id}/clone', 'POST /roles/{id}/delete',
+    'GET /roles/{id}', 'POST /roles/{id}/edit',
     'GET /settings/logo',
     'POST /portal/applications/{applicationId}/withdraw',
     'POST /notifications/{id}/archive', 'POST /notifications/{id}/unarchive',

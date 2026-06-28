@@ -32,8 +32,9 @@
                             <?php if ($members > 0): ?><span class="text-slate-500"><?= $members ?> member(s) using this role</span><?php else: ?>not in use<?php endif; ?>
                         </div>
                     </div>
-                    <?php if ($canClone || $canDelete): ?>
-                        <div class="flex shrink-0 items-center gap-3">
+                    <div class="flex shrink-0 items-center gap-3">
+                        <a href="/roles/<?= e($r['id']) ?>" class="text-xs font-medium text-slate-600 hover:text-slate-800">View<?= $members > 0 ? ' · ' . $members . ' member(s)' : '' ?></a>
+                        <?php if ($canClone || $canDelete): ?>
                             <?php if ($canClone): ?>
                                 <form method="post" action="/roles/<?= e($r['id']) ?>/clone"><?= csrf_field() ?><button class="text-xs font-medium text-indigo-600 hover:text-indigo-700">Clone</button></form>
                             <?php endif; ?>
@@ -44,8 +45,8 @@
                                     <form method="post" action="/roles/<?= e($r['id']) ?>/delete" onsubmit="return confirm('Delete the role “<?= e($r['name']) ?>”?')"><?= csrf_field() ?><button class="text-xs font-medium text-rose-600 hover:text-rose-700">Delete</button></form>
                                 <?php endif; ?>
                             <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
                 </li>
             <?php endforeach; ?>
         </ul>

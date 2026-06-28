@@ -778,6 +778,15 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   input is text — a `.txt`/paste — rather than a silent, unreliable PDF scrape.)
 - Verified: `ResumeParserTest` (4); auditor **88/88**; full suite green.
 
+### Feature 14 gap closure (A) — Roles edit + view holders
+- A role can now be **edited** (rename + change its permission set) via a
+  `GET /roles/{id}` detail page with an inline editor (`POST /roles/{id}/edit`),
+  gated by `role.update`. `RoleService::updateRole` replaces the grant set in a
+  transaction.
+- The role page lists **the members who hold it** (`membersWithRole`), so "view
+  role" answers "who has this role?" — not just a count.
+- Verified: `RoleEditTest` (2); auditor **90/90**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

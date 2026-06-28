@@ -37,6 +37,8 @@ final class PermissionsModule implements Module
     {
         $router->get('/roles', [RolesController::class, 'index']);
         $router->post('/roles', [RolesController::class, 'create']);
+        $router->get('/roles/{id}', [RolesController::class, 'show']);
+        $router->post('/roles/{id}/edit', [RolesController::class, 'update']);
         $router->post('/roles/{id}/clone', [RolesController::class, 'clone']);
         $router->post('/roles/{id}/delete', [RolesController::class, 'delete']);
     }

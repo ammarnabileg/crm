@@ -61,6 +61,45 @@ final class RoleService
         return $this->createRole($workspaceId, $newName, $keys);
     }
 
+    /**
+     * Update a role's name and replace its permission set. Tenant-guarded.
+     *
+     * @param  list<string>  $permissionKeys
+     */
+    public function updateRole(string $workspaceId, string $roleId, string $name, array $permissionKeys): bool
+    {
+        $role = $this->findRole($workspaceId, $roleId);
+        if ($role === null) {
+            return false;
+        }
+
+        $this->connection->transaction(function () use ($workspaceId, $roleId, $name, $permissionKeys): void {
+            $this->connection->statement(
+                'UPDATE roles SET name = ?, updated_at = ? WHERE id = ? AND workspace_id = ?',
+                [$name, gmdate('Y-m-d H:i:s'), $roleId, $workspaceId],
+            );
+            // Replace the grant set wholesale: clear, then re-assign.
+            $this->connection->statement('DELETE FROM role_permissions WHERE role_id = ?', [$roleId]);
+            $this->assignPermissions($roleId, $permissionKeys);
+        });
+
+        return true;
+    }
+
+    /** @return list<array<string, mixed>> members who currently hold this role */
+    public function membersWithRole(string $workspaceId, string $roleId): array
+    {
+        return $this->connection->select(
+            'SELECT m.id AS membership_id, u.id AS user_id, u.name, u.email, m.status
+               FROM membership_roles mr
+               JOIN memberships m ON m.id = mr.membership_id
+               JOIN users u ON u.id = m.user_id
+              WHERE mr.role_id = ? AND m.workspace_id = ? AND m.deleted_at IS NULL
+              ORDER BY u.name ASC',
+            [$roleId, $workspaceId],
+        );
+    }
+
     public function assignRoleToMembership(string $membershipId, string $roleId): void
     {
         $now = gmdate('Y-m-d H:i:s');

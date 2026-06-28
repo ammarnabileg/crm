@@ -87,6 +87,80 @@ final class RolesController
         return Response::redirect('/roles');
     }
 
+    /** View a role: its permissions, who holds it, and (if permitted) an edit form. */
+    public function show(string $roleId): Response
+    {
+        if (! $this->auth->check()) {
+            return Response::redirect('/login');
+        }
+        if (! $this->context->resolve()) {
+            return Response::redirect('/dashboard');
+        }
+        if (! $this->context->can('role.view')) {
+            return Response::html('<h1>403</h1><p>You do not have permission.</p>', 403);
+        }
+
+        $workspaceId = (string) $this->context->workspaceId();
+        $role = $this->roles->findRole($workspaceId, $roleId);
+        if ($role === null) {
+            $this->session->flash('error', 'Role not found in this workspace.');
+
+            return Response::redirect('/roles');
+        }
+
+        return $this->shell->render($this->context, 'roles.show', [
+            'role' => $role,
+            'permissionKeys' => $this->roles->permissionKeysForRole($roleId),
+            'catalog' => $this->groupedWorkspacePermissions(),
+            'holders' => $this->roles->membersWithRole($workspaceId, $roleId),
+            'canUpdate' => $this->context->can('role.update'),
+            'status' => $this->session->pullFlash('status'),
+            'error' => $this->session->pullFlash('error'),
+        ]);
+    }
+
+    public function update(Request $request, string $roleId): Response
+    {
+        if (! $this->auth->check()) {
+            return Response::redirect('/login');
+        }
+        if (! $this->context->resolve()) {
+            return Response::redirect('/dashboard');
+        }
+        if (! $this->context->can('role.update') || ! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return Response::html('<h1>403</h1><p>You do not have permission.</p>', 403);
+        }
+
+        $workspaceId = (string) $this->context->workspaceId();
+        $name = trim((string) $request->input('name', ''));
+        if ($name === '') {
+            $this->session->flash('error', 'Role name is required.');
+
+            return Response::redirect('/roles/' . $roleId);
+        }
+
+        /** @var list<string> $keys */
+        $keys = (array) $request->input('permissions', []);
+        if (! $this->roles->updateRole($workspaceId, $roleId, $name, $keys)) {
+            $this->session->flash('error', 'Role not found in this workspace.');
+
+            return Response::redirect('/roles');
+        }
+
+        $this->audit->record('permissions.role.updated', [
+            'workspace_id' => $workspaceId,
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'role',
+            'entity_id' => $roleId,
+            'ip' => $request->server('REMOTE_ADDR'),
+            'changes' => ['name' => $name, 'permissions' => count($keys)],
+        ]);
+
+        $this->session->flash('status', "Role “{$name}” updated with " . count($keys) . ' permission(s).');
+
+        return Response::redirect('/roles/' . $roleId);
+    }
+
     public function clone(Request $request, string $roleId): Response
     {
         if (! $this->auth->check()) {
