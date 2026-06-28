@@ -12,6 +12,7 @@ use HaHireAI\Modules\Recruitment\Presentation\InterviewController;
 use HaHireAI\Modules\Recruitment\Presentation\JobsController;
 use HaHireAI\Modules\Recruitment\Presentation\OffersController;
 use HaHireAI\Modules\Recruitment\Presentation\PipelineController;
+use HaHireAI\Modules\Recruitment\Presentation\PublicInterviewController;
 use HaHireAI\Modules\Recruitment\Presentation\PublicJobController;
 use HaHireAI\Modules\Recruitment\Presentation\ReportsController;
 use HaHireAI\Modules\Recruitment\Presentation\TalentPoolController;
@@ -43,12 +44,17 @@ final class RecruitmentModule implements Module
         $router->get('/jobs/public/{token}', [PublicJobController::class, 'show']);
         $router->post('/jobs/public/{token}/apply', [PublicJobController::class, 'apply']);
 
+        // Public interview-link page (tokenized, expiring, single-use).
+        $router->get('/interview/{token}', [PublicInterviewController::class, 'show']);
+        $router->post('/interview/{token}/start', [PublicInterviewController::class, 'start']);
+
         // Workspace-scoped job management.
         $router->get('/jobs', [JobsController::class, 'index']);
         $router->get('/jobs/create', [JobsController::class, 'create']);
         $router->post('/jobs', [JobsController::class, 'store']);
         $router->get('/jobs/{id}', [JobsController::class, 'show']);
         $router->post('/jobs/{id}/publish', [JobsController::class, 'publish']);
+        $router->post('/jobs/{id}/interview-link', [JobsController::class, 'generateLink']);
         $router->get('/pipeline', [PipelineController::class, 'board']);
         $router->post('/applications/{applicationId}/status', [PipelineController::class, 'setStatus']);
         $router->get('/jobs/{id}/pipeline', [PipelineController::class, 'show']);

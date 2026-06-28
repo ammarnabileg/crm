@@ -407,6 +407,17 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Verified on live MySQL 8 (`TalentPoolTest`). **Suite: 119 tests / 424
   assertions.**
 
+### Added — Interview invitation links
+- **Tokenized interview links** (`InterviewInvitationService`, recruitment spec
+  #5): generate a link from the job page; valid **14 days**, **single-use**. The
+  public page (`/interview/{token}`, no login) shows the start page when valid,
+  **"expired or invalid"** when lapsed/unknown, and **"interview completed
+  successfully"** once used. Starting a link (when tied to an application) runs
+  the AI interview + assessment, then consumes the link.
+- **Migration**: interview_invitations. Auditor extended to 45 checks (table).
+- Verified on live MySQL 8 (`InterviewInvitationTest`). **Suite: 123 tests / 431
+  assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

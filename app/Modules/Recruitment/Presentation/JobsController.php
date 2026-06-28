@@ -10,6 +10,7 @@ use HaHireAI\Core\Http\Session;
 use HaHireAI\Modules\Audit\Application\AuditLogger;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Recruitment\Application\ApplicationService;
+use HaHireAI\Modules\Recruitment\Application\InterviewInvitationService;
 use HaHireAI\Modules\Recruitment\Application\JobService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
@@ -22,6 +23,7 @@ final class JobsController
         private readonly AuthContext $auth,
         private readonly JobService $jobs,
         private readonly ApplicationService $applications,
+        private readonly InterviewInvitationService $invitations,
         private readonly Session $session,
         private readonly AuditLogger $audit,
     ) {
@@ -108,8 +110,43 @@ final class JobsController
             'stages' => $this->jobs->stagesForJob($id),
             'canPublish' => $this->context->can('job.publish'),
             'canViewPipeline' => $this->context->can('pipeline.view'),
+            'canInvite' => $this->context->can('interview.schedule'),
+            'invitations' => $this->invitations->listForJob((string) $this->context->workspaceId(), $id),
+            'newLink' => $this->session->pullFlash('new_link'),
             'status' => $this->session->pullFlash('status'),
         ]);
+    }
+
+    /** Generate a tokenized interview invitation link for this job (spec #5). */
+    public function generateLink(Request $request, string $id): Response
+    {
+        if (($r = $this->gate('interview.schedule', $request)) !== null) {
+            return $r;
+        }
+
+        $job = $this->jobs->find((string) $this->context->workspaceId(), $id);
+        if ($job === null) {
+            return Response::redirect('/jobs');
+        }
+
+        $invite = $this->invitations->create(
+            (string) $this->context->workspaceId(),
+            $id,
+            null,
+            trim((string) $request->input('candidate_email', '')) ?: null,
+            $this->context->userId(),
+        );
+        $this->audit->record('recruitment.interview_link.created', [
+            'workspace_id' => $this->context->workspaceId(),
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'interview_invitation',
+            'entity_id' => $invite['id'],
+        ]);
+
+        $host = (string) ($request->server('HTTP_HOST') ?? 'localhost');
+        $this->session->flash('new_link', 'https://' . $host . '/interview/' . $invite['token']);
+
+        return Response::redirect('/jobs/' . $id);
     }
 
     public function publish(Request $request, string $id): Response

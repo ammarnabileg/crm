@@ -3,6 +3,9 @@
 /** @var list<array<string,mixed>> $stages */
 /** @var bool $canPublish */
 /** @var bool $canViewPipeline */
+/** @var bool $canInvite */
+/** @var list<array<string,mixed>> $invitations */
+/** @var string|null $newLink */
 /** @var string|null $status */
 ?>
 <div class="mb-6 flex items-start justify-between">
@@ -11,7 +14,11 @@
         <h1 class="mt-1 text-2xl font-semibold text-slate-900"><?= e($job['title']) ?></h1>
         <p class="mt-1 text-sm text-slate-500">
             <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"><?= e($job['status']) ?></span>
+            <?php if (! empty($job['seniority'])): ?>· <span class="capitalize"><?= e($job['seniority']) ?></span><?php endif; ?>
             <?= $job['location'] ? '· ' . e($job['location']) : '' ?>
+            <?php if (! empty($job['salary_min']) || ! empty($job['salary_max'])): ?>
+                · <?= e(number_format((int) ($job['salary_min'] ?? 0))) ?>–<?= e(number_format((int) ($job['salary_max'] ?? 0))) ?> <?= e($job['currency'] ?? 'USD') ?>
+            <?php endif; ?>
         </p>
     </div>
     <div class="flex gap-2">
@@ -34,6 +41,13 @@
     </div>
 <?php endif; ?>
 
+<?php if (! empty($newLink)): ?>
+    <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+        <div class="text-xs font-semibold uppercase tracking-wide text-amber-700">Interview link generated — send it to the candidate (valid 14 days, single-use)</div>
+        <code class="mt-1 block break-all font-mono text-sm text-amber-900"><?= e($newLink) ?></code>
+    </div>
+<?php endif; ?>
+
 <div class="grid gap-6 lg:grid-cols-3">
     <div class="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 class="mb-2 text-sm font-semibold text-slate-900">Description</h2>
@@ -52,3 +66,35 @@
         <?php endif; ?>
     </div>
 </div>
+
+<?php if ($canInvite ?? false): ?>
+    <div class="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+            <h2 class="text-sm font-semibold text-slate-900">AI interview links</h2>
+            <form method="post" action="/jobs/<?= e($job['id']) ?>/interview-link" class="flex items-center gap-2">
+                <?= csrf_field() ?>
+                <input name="candidate_email" type="email" placeholder="candidate email (optional)" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+                <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700">Generate link</button>
+            </form>
+        </div>
+        <?php if (($invitations ?? []) === []): ?>
+            <p class="px-5 py-6 text-sm text-slate-400">No links yet. Generate one to invite a candidate to the AI interview.</p>
+        <?php else: ?>
+            <ul class="divide-y divide-slate-100">
+                <?php foreach ($invitations as $inv): ?>
+                    <li class="flex items-center justify-between px-5 py-2.5 text-sm">
+                        <div>
+                            <span class="font-mono text-xs text-slate-500">/interview/<?= e(substr((string) $inv['token'], 0, 10)) ?>…</span>
+                            <?php if (! empty($inv['candidate_email'])): ?><span class="text-slate-400">· <?= e($inv['candidate_email']) ?></span><?php endif; ?>
+                        </div>
+                        <div class="text-right">
+                            <?php $sc = (string) $inv['status'] === 'completed' ? 'bg-emerald-50 text-emerald-700' : ((string) $inv['status'] === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'); ?>
+                            <span class="rounded-full px-2.5 py-0.5 text-xs font-medium <?= $sc ?>"><?= e($inv['status']) ?></span>
+                            <div class="mt-0.5 text-xs text-slate-400">expires <?= e($inv['expires_at']) ?> UTC</div>
+                        </div>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
