@@ -8,7 +8,7 @@ use HaHireAI\Core\Health\HealthChecker;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Observability\Application\BackupService;
 use HaHireAI\Modules\Observability\Application\ErrorTracker;
@@ -30,7 +30,7 @@ final class ObservabilityController
         private readonly MonitorService $monitors,
         private readonly BackupService $backups,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

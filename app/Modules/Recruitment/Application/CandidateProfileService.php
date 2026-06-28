@@ -39,6 +39,23 @@ final class CandidateProfileService
         return $id;
     }
 
+    /**
+     * Every candidate in a workspace (the Candidates list), name order, with their
+     * application count. Keeps query logic out of the controller (ARCHITECTURE §3).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function listForWorkspace(string $workspaceId): array
+    {
+        return $this->connection->select(
+            'SELECT cp.user_id, u.name, u.email,
+                    (SELECT COUNT(*) FROM applications a WHERE a.workspace_id = cp.workspace_id AND a.user_id = cp.user_id AND a.deleted_at IS NULL) AS applications
+               FROM candidate_profiles cp JOIN users u ON u.id = cp.user_id
+              WHERE cp.workspace_id = ? ORDER BY u.name',
+            [$workspaceId],
+        );
+    }
+
     /** @return array<string, mixed>|null the profile + the user identity, workspace-scoped */
     public function profile(string $workspaceId, string $userId): ?array
     {

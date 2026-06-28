@@ -170,6 +170,8 @@ final class WorkflowEngineTest extends TestCase
         $container = new Container();
         $container->instance(Connection::class, $this->connection);
         $container->instance(EventDispatcher::class, new Dispatcher());
+        // Logging is consumed via the AuditRecorder contract (ARCHITECTURE.md §4).
+        $container->instance(\HaHireAI\Core\Contracts\AuditRecorder::class, new AuditLogger($this->connection));
 
         $registry = new ProviderRegistry();
         $registry->register(new EchoProvider());

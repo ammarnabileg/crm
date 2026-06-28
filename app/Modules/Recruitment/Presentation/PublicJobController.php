@@ -9,7 +9,7 @@ use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
 use HaHireAI\Core\View\View;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Recruitment\Application\ApplicationService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
@@ -26,7 +26,7 @@ final class PublicJobController
         private readonly ApplicationService $applications,
         private readonly InterviewService $interviews,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
         private readonly EventDispatcher $events,
     ) {
     }

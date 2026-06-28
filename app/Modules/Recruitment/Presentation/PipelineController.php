@@ -7,7 +7,7 @@ namespace HaHireAI\Modules\Recruitment\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Recruitment\Application\ApplicationService;
 use HaHireAI\Modules\Recruitment\Application\JobService;
@@ -26,7 +26,7 @@ final class PipelineController
         private readonly JobService $jobs,
         private readonly ApplicationService $applications,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

@@ -7,7 +7,7 @@ namespace HaHireAI\Modules\Workspaces\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspacePreferences;
@@ -31,7 +31,7 @@ final class SettingsController
         private readonly WorkspaceSettingsService $settings,
         private readonly WorkspacePreferences $prefs,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

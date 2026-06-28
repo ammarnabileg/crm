@@ -7,7 +7,7 @@ namespace HaHireAI\Modules\Memberships\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Memberships\Application\InvitationService;
 use HaHireAI\Modules\Memberships\Application\MembershipService;
@@ -26,7 +26,7 @@ final class MembersController
         private readonly RoleService $roles,
         private readonly InvitationService $invitations,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

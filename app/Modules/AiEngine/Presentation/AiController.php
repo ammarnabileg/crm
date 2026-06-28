@@ -11,7 +11,7 @@ use HaHireAI\Modules\AiEngine\Application\AiAnalyticsService;
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
 use HaHireAI\Modules\AiEngine\Application\AiSettingsService;
 use HaHireAI\Modules\AiEngine\Application\ProviderRegistry;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspacePreferences;
@@ -30,7 +30,7 @@ final class AiController
         private readonly WorkspacePreferences $preferences,
         private readonly AiAnalyticsService $analytics,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

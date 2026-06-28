@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Audit;
 
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
+use HaHireAI\Modules\Audit\Application\AuditLogger;
 use HaHireAI\Modules\Audit\Presentation\ActivityController;
 
 final class AuditModule implements Module
@@ -23,6 +25,8 @@ final class AuditModule implements Module
 
     public function register(Container $container): void
     {
+        // Publish logging as a shared-service contract (ARCHITECTURE.md §4).
+        $container->singleton(AuditRecorder::class, AuditLogger::class);
     }
 
     public function boot(Container $container): void

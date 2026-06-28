@@ -7,7 +7,7 @@ namespace HaHireAI\Modules\Files\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Files\Application\Exceptions\FileException;
 use HaHireAI\Modules\Files\Application\FileService;
@@ -23,7 +23,7 @@ final class FilesController
         private readonly AuthContext $auth,
         private readonly FileService $files,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

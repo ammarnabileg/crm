@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Workflow\Application;
 
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 
 /**
  * Executes a single workflow action. AI steps go through the AI Engine — the
@@ -15,7 +15,7 @@ final class ActionExecutor
 {
     public function __construct(
         private readonly AiEngine $ai,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

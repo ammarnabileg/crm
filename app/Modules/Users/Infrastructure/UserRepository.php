@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Users\Infrastructure;
 
+use HaHireAI\Core\Contracts\UserDirectory;
 use HaHireAI\Core\Database\Connection;
 use HaHireAI\Shared\Ulid;
 
-/** Persistence for the single `User` identity (global). */
-final class UserRepository
+/** Persistence for the single `User` identity (global). Public surface: UserDirectory. */
+final class UserRepository implements UserDirectory
 {
     public function __construct(private readonly Connection $connection)
     {

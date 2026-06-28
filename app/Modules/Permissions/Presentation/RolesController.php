@@ -7,7 +7,7 @@ namespace HaHireAI\Modules\Permissions\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Permissions\Application\RoleService;
 use HaHireAI\Modules\Permissions\Domain\PermissionCatalog;
@@ -23,7 +23,7 @@ final class RolesController
         private readonly AuthContext $auth,
         private readonly RoleService $roles,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

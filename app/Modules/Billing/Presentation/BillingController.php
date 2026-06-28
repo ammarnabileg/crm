@@ -7,7 +7,7 @@ namespace HaHireAI\Modules\Billing\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Billing\Application\BillingService;
 use HaHireAI\Modules\Billing\Application\Exceptions\BillingException;
@@ -29,7 +29,7 @@ final class BillingController
         private readonly InvoiceService $invoices,
         private readonly BillingService $billing,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

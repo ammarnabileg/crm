@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Authentication\Application;
 
+use HaHireAI\Core\Contracts\UserDirectory;
 use HaHireAI\Modules\Users\Application\PasswordHasher;
-use HaHireAI\Modules\Users\Infrastructure\UserRepository;
 
 /**
  * Verifies credentials. Sessions/remember-me are issued by SessionManager.
@@ -14,7 +14,7 @@ use HaHireAI\Modules\Users\Infrastructure\UserRepository;
 final class Authenticator
 {
     public function __construct(
-        private readonly UserRepository $users,
+        private readonly UserDirectory $users,
         private readonly PasswordHasher $hasher,
     ) {
     }

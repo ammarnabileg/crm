@@ -7,7 +7,7 @@ namespace HaHireAI\Modules\Recruitment\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Recruitment\Application\ApplicationService;
 use HaHireAI\Modules\Recruitment\Application\AssessmentService;
@@ -18,9 +18,9 @@ use HaHireAI\Modules\Recruitment\Application\InterviewRoomService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\JobService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
+use HaHireAI\Core\Contracts\UserDirectory;
 use HaHireAI\Modules\Files\Application\FileService;
 use HaHireAI\Modules\Recruitment\Domain\ApplicationStatus;
-use HaHireAI\Modules\Users\Infrastructure\UserRepository;
 
 /**
  * The Candidate Portal — the User's view of a Workspace *as an applicant* (the
@@ -41,10 +41,10 @@ final class CandidatePortalController
         private readonly InterviewService $interviews,
         private readonly InterviewRoomService $room,
         private readonly AssessmentService $assessments,
-        private readonly UserRepository $users,
+        private readonly UserDirectory $users,
         private readonly FileService $files,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

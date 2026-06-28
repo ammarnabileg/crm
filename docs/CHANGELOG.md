@@ -555,6 +555,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Auditor extended to 64 checks (new tables `interview_messages`, `job_questions`,
   `job_criteria`, `offers`; new routes). **Suite: 155 tests / 550 assertions.**
 
+### Sprint 1 — Architecture Refactoring (Contract-first module communication)
+- Modules now consume shared services through **Core contracts**, not concrete
+  classes (ARCHITECTURE.md §4):
+  - **`UserDirectory`** — the single User identity's public surface; `UserRepository`
+    implements it; Authentication + Recruitment depend on the contract (removes the
+    cross-module **Infrastructure** import — the audit's BLOCKER).
+  - **`AuditRecorder`** — the logging shared service; `AuditLogger` implements it;
+    **22** importers rewired from the concrete logger to the contract; bound in `AuditModule`.
+- **No business logic in controllers**: extracted raw SQL out of `CandidatesController`
+  (→ `CandidateProfileService::listForWorkspace`) and `OffersController`
+  (→ `OfferService::latestApplicationId`); both controllers no longer depend on `Connection`.
+- Verified: **155 tests / 550 assertions** green · auditor **65/65** · full
+  candidate↔staff journey re-run end-to-end (**13 PASS / 0 CRITICAL**).
+- Remaining architecture debt (next architecture pass): contract-ize Memberships,
+  Permissions (Authorizer), and Files (FileService) shared services.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

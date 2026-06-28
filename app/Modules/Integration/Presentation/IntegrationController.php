@@ -7,7 +7,7 @@ namespace HaHireAI\Modules\Integration\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Integration\Application\ApiTokenService;
 use HaHireAI\Modules\Integration\Application\WebhookService;
@@ -31,7 +31,7 @@ final class IntegrationController
         private readonly ApiTokenService $tokens,
         private readonly WebhookService $webhooks,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

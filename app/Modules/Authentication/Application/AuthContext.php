@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Authentication\Application;
 
+use HaHireAI\Core\Contracts\UserDirectory;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Users\Infrastructure\UserRepository;
 
 /** The current authenticated user, backed by the session. */
 final class AuthContext
 {
     public function __construct(
         private readonly Session $session,
-        private readonly UserRepository $users,
+        private readonly UserDirectory $users,
     ) {
     }
 

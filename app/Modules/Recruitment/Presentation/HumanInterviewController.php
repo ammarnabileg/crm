@@ -7,7 +7,7 @@ namespace HaHireAI\Modules\Recruitment\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Recruitment\Application\Exceptions\ApplicationException;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
@@ -37,7 +37,7 @@ final class HumanInterviewController
         private readonly AuthContext $auth,
         private readonly InterviewService $interviews,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

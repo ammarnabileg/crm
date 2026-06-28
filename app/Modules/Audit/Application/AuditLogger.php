@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Audit\Application;
 
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Core\Database\Connection;
 use HaHireAI\Shared\Ulid;
 
@@ -11,8 +12,9 @@ use HaHireAI\Shared\Ulid;
  * Append-only audit logger (docs/AUDIT_POLICY.md, docs/AUDIT_EVENTS.md).
  * who (actor) / when / where (workspace + ip) / what (action + entity + changes).
  * Never logs secrets or full PII payloads — only references and changed fields.
+ * Public surface: the AuditRecorder contract.
  */
-final class AuditLogger
+final class AuditLogger implements AuditRecorder
 {
     public function __construct(private readonly Connection $connection)
     {

@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Recruitment\Presentation;
 
-use HaHireAI\Core\Database\Connection;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
@@ -24,10 +23,9 @@ final class OffersController
         private readonly WorkspaceContext $context,
         private readonly AuthContext $auth,
         private readonly OfferService $offers,
-        private readonly Connection $connection,
         private readonly View $view,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 
@@ -106,12 +104,9 @@ final class OffersController
             return $r;
         }
 
-        $application = $this->connection->selectOne(
-            'SELECT id FROM applications WHERE workspace_id = ? AND user_id = ? AND deleted_at IS NULL ORDER BY applied_at DESC LIMIT 1',
-            [(string) $this->context->workspaceId(), $userId],
-        );
+        $applicationId = $this->offers->latestApplicationId((string) $this->context->workspaceId(), $userId);
 
-        if ($application === null) {
+        if ($applicationId === null) {
             $this->session->flash('error', 'This candidate has no application to make an offer on.');
 
             return Response::redirect('/candidates/' . $userId);
@@ -120,7 +115,7 @@ final class OffersController
         try {
             $offerId = $this->offers->create(
                 (string) $this->context->workspaceId(),
-                (string) $application['id'],
+                $applicationId,
                 trim((string) $request->input('title', 'Offer')) ?: 'Offer',
                 (int) $request->input('salary', 0) ?: null,
                 (string) $request->input('currency', 'USD'),

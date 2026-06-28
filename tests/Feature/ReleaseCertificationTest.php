@@ -77,6 +77,7 @@ final class ReleaseCertificationTest extends TestCase
         $this->container = new Container();
         $this->container->instance(Connection::class, $this->connection);
         $this->container->instance(EventDispatcher::class, new Dispatcher());
+        $this->container->instance(\HaHireAI\Core\Contracts\AuditRecorder::class, new \HaHireAI\Modules\Audit\Application\AuditLogger($this->connection));
         $this->container->instance(HttpClient::class, $this->fakeHttp());
 
         $registry = new ProviderRegistry();

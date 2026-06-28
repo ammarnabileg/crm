@@ -172,6 +172,17 @@ final class OfferService
         return $this->connection->select('SELECT * FROM offers WHERE workspace_id = ? AND application_id = ? AND deleted_at IS NULL ORDER BY created_at DESC', [$workspaceId, $applicationId]);
     }
 
+    /** The candidate's most recent application id in this workspace, or null. */
+    public function latestApplicationId(string $workspaceId, string $userId): ?string
+    {
+        $row = $this->connection->selectOne(
+            'SELECT id FROM applications WHERE workspace_id = ? AND user_id = ? AND deleted_at IS NULL ORDER BY applied_at DESC LIMIT 1',
+            [$workspaceId, $userId],
+        );
+
+        return $row !== null ? (string) $row['id'] : null;
+    }
+
     /** @return list<array<string, mixed>> all offers for a candidate (across their applications) */
     public function forCandidate(string $workspaceId, string $userId): array
     {

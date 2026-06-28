@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Recruitment\Presentation;
 
-use HaHireAI\Core\Database\Connection;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
 use HaHireAI\Modules\Files\Application\FileService;
@@ -43,9 +42,8 @@ final class CandidatesController
         private readonly TalentPoolService $talent,
         private readonly FileService $files,
         private readonly AiEngine $ai,
-        private readonly Connection $connection,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 
@@ -74,13 +72,7 @@ final class CandidatesController
                 'recommendation' => (string) $a['recommendation'],
             ], $this->assessments->search($ws, $filters));
         } else {
-            $candidates = $this->connection->select(
-                'SELECT cp.user_id, u.name, u.email,
-                        (SELECT COUNT(*) FROM applications a WHERE a.workspace_id = cp.workspace_id AND a.user_id = cp.user_id AND a.deleted_at IS NULL) AS applications
-                   FROM candidate_profiles cp JOIN users u ON u.id = cp.user_id
-                  WHERE cp.workspace_id = ? ORDER BY u.name',
-                [$ws],
-            );
+            $candidates = $this->candidates->listForWorkspace($ws);
         }
 
         return $this->shell->render($this->context, 'recruitment.candidates.index', [

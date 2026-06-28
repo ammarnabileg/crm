@@ -7,7 +7,7 @@ namespace HaHireAI\Modules\Workflow\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Workflow\Application\WorkflowService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
@@ -21,7 +21,7 @@ final class WorkflowController
         private readonly AuthContext $auth,
         private readonly WorkflowService $workflows,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 

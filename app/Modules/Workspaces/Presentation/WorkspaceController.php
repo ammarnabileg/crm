@@ -8,7 +8,7 @@ use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
 use HaHireAI\Core\View\View;
-use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Memberships\Application\MembershipService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
@@ -27,7 +27,7 @@ final class WorkspaceController
         private readonly WorkspaceShell $shell,
         private readonly WorkspaceContext $context,
         private readonly Session $session,
-        private readonly AuditLogger $audit,
+        private readonly AuditRecorder $audit,
     ) {
     }
 
