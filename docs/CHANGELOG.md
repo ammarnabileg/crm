@@ -335,6 +335,18 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Migration**: files. Auditor extended to 41 checks (files table + route).
 - Verified on live MySQL 8 (`FileTest`). **Suite: 99 tests / 338 assertions.**
 
+### Added — Candidate Timeline (per workspace)
+- **`CandidateTimelineService`**: merges a candidate's events **within one
+  workspace** — applications, stage moves, interviews, notes, files, offers —
+  into a single chronological timeline (newest first). Pure aggregation (no new
+  tables), strictly workspace-scoped (a company only sees its own interaction);
+  files are read via `FileService`, never a cross-module table read.
+- Surfaced as a **Timeline** card on the candidate profile.
+- This completes the Candidate Profile contract: **CVs/files · Interviews
+  (AI + human) · Notes · Score · Timeline** — all per-workspace.
+- Verified on live MySQL 8 (`CandidateTimelineTest`). **Suite: 101 tests / 346
+  assertions** · auditor **41/41**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

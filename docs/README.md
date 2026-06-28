@@ -268,12 +268,15 @@ Logger/ErrorHandler/event-bus/Audit infrastructure:
 - **Files & CVs**: workspace-scoped attachments stored outside the web root, with
   permission-gated, tenant-checked streamed download (no cross-workspace access).
   Surfaced as **CVs & files** on the candidate profile. `FileTest` green.
+- **Candidate Timeline**: per-workspace chronological merge of applications,
+  stage moves, interviews, notes, files and offers. Completes the Candidate
+  Profile contract (CVs/files · Interviews · Notes · Score · Timeline).
 
 ### Verifying the build
 ```
 php bin/console.php migrate && php bin/console.php db:seed
 php bin/certify.php          # 41/41
-vendor/bin/phpunit          # 99 tests
+vendor/bin/phpunit          # 101 tests
 ```
 
 `/docs/adr/` holds Architecture Decision Records for significant decisions.

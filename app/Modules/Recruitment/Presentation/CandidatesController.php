@@ -13,6 +13,7 @@ use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
 use HaHireAI\Modules\Files\Application\FileService;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
+use HaHireAI\Modules\Recruitment\Application\CandidateTimelineService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
@@ -31,6 +32,7 @@ final class CandidatesController
         private readonly CandidateProfileService $candidates,
         private readonly OfferService $offers,
         private readonly InterviewService $interviews,
+        private readonly CandidateTimelineService $timeline,
         private readonly FileService $files,
         private readonly AiEngine $ai,
         private readonly Connection $connection,
@@ -77,6 +79,7 @@ final class CandidatesController
             'interviews' => $this->interviews->forCandidate($workspaceId, $userId),
             'score' => $this->interviews->averageScore($workspaceId, $userId),
             'files' => $this->files->listForEntity($workspaceId, 'candidate_profile', (string) $profile['profile_id']),
+            'timeline' => $this->timeline->timeline($workspaceId, $userId, (string) $profile['profile_id']),
             'canUploadFile' => $this->context->can('files.upload'),
             'canDeleteFile' => $this->context->can('files.delete'),
             'canViewFile' => $this->context->can('files.view'),

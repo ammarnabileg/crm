@@ -212,3 +212,20 @@
         <?php endif; ?>
     </div>
 </div>
+
+<div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="mb-3 text-sm font-semibold text-slate-900">Timeline <span class="text-xs font-normal text-slate-400">— this workspace only</span></h2>
+    <?php if (($timeline ?? []) === []): ?>
+        <p class="text-sm text-slate-400">No activity yet.</p>
+    <?php else: ?>
+        <ol class="relative space-y-3 border-s border-slate-200 ps-5 text-sm">
+            <?php foreach ($timeline as $ev): ?>
+                <li class="relative">
+                    <span class="absolute -start-[1.42rem] top-1.5 h-2 w-2 rounded-full bg-indigo-400"></span>
+                    <div class="text-slate-700"><?= e($ev['label']) ?></div>
+                    <div class="text-xs text-slate-400"><?= e($ev['type']) ?> · <?= e($ev['at']) ?> UTC</div>
+                </li>
+            <?php endforeach; ?>
+        </ol>
+    <?php endif; ?>
+</div>
