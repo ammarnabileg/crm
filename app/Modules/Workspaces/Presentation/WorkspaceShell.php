@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Workspaces\Presentation;
 
 use HaHireAI\Core\Contracts\EntitlementResolver;
+use HaHireAI\Core\Contracts\SupportInfo;
+use HaHireAI\Core\Contracts\WorkspaceAllowance;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
@@ -25,6 +27,8 @@ final class WorkspaceShell
         private readonly AuthContext $auth,
         private readonly EntitlementResolver $entitlements,
         private readonly WorkspacePreferences $preferences,
+        private readonly WorkspaceAllowance $allowance,
+        private readonly SupportInfo $support,
     ) {
     }
 
@@ -32,6 +36,21 @@ final class WorkspaceShell
     public function render(WorkspaceContext $context, string $page, array $data = []): Response
     {
         $workspaceId = $context->workspaceId();
+        $workspace = $context->workspace();
+
+        // Suspended: the workspace was stopped by the platform (System Owner) or
+        // its owner's plan lapsed/was suspended (non-renewal). Members see a
+        // "service paused" screen with a way to reach support.
+        $ownerId = (string) ($workspace['owner_user_id'] ?? '');
+        $suspended = $workspace !== null
+            && ((string) ($workspace['status'] ?? 'active') === 'suspended'
+                || ($ownerId !== '' && ! $this->allowance->isUsable($ownerId)));
+        if ($suspended) {
+            return Response::html($this->view->page('workspace.suspended', [
+                'workspaceName' => $workspace['name'] ?? null,
+                'support' => $this->support->support(),
+            ], 'layouts.guest', ['title' => 'Service paused']), 503);
+        }
 
         // Maintenance mode: pause the workspace for everyone except admins
         // (members who can change settings) and explicitly allow-listed IPs.

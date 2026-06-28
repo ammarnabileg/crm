@@ -49,13 +49,29 @@ final class PlatformAdminService
         }
 
         return $this->connection->select(
-            'SELECT u.id, u.name, u.email, u.is_system_owner, u.status, u.last_login_at, u.created_at,
-                    (SELECT COUNT(*) FROM memberships m WHERE m.user_id = u.id AND m.deleted_at IS NULL) AS workspaces
+            "SELECT u.id, u.name, u.email, u.is_system_owner, u.status, u.last_login_at, u.created_at,
+                    u.can_create_workspaces,
+                    (SELECT COUNT(*) FROM memberships m WHERE m.user_id = u.id AND m.deleted_at IS NULL) AS workspaces,
+                    (SELECT COUNT(*) FROM workspaces w WHERE w.owner_user_id = u.id AND w.status = 'active' AND w.deleted_at IS NULL) AS owned_active,
+                    ap.plan_id, ap.expires_at, ap.status AS plan_status, p.name AS plan_name, p.limits AS plan_limits
                FROM users u
-              WHERE ' . $where . '
+               LEFT JOIN account_plans ap ON ap.user_id = u.id
+               LEFT JOIN plans p ON p.id = ap.plan_id
+              WHERE " . $where . '
               ORDER BY u.created_at DESC LIMIT ' . $limit,
             $bindings,
         );
+    }
+
+    /** System Owner blocks/allows an account from creating workspaces. */
+    public function setCanCreateWorkspaces(string $userId, bool $allowed): bool
+    {
+        $affected = $this->connection->statement(
+            'UPDATE users SET can_create_workspaces = ?, updated_at = ? WHERE id = ? AND is_system_owner = 0 AND deleted_at IS NULL',
+            [$allowed ? 1 : 0, gmdate('Y-m-d H:i:s'), $userId],
+        );
+
+        return $affected > 0;
     }
 
     /** @return array<string, mixed>|null */

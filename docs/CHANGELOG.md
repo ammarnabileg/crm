@@ -889,6 +889,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   `usageCount`; the cap lives in the plan's `limits.workspaces`.
 - Verified: `PlanCrudTest` (2); auditor **108/108**.
 
+### Platform governance — enforcement, suspended screen & support contact (System Owner)
+- **Suspended workspaces**: the workspace shell now shows a 503 "Service paused"
+  screen (with a contact-support button) when the workspace was stopped by the
+  System Owner *or* its owner's account plan lapsed/was suspended (non-renewal).
+  Driven by `WorkspaceAllowance::isUsable()` and the workspace status.
+- **Support contact**: new **Platform settings** screen (`/admin/settings`) for
+  the platform name and the support contact (email / phone / URL / message) shown
+  on suspended workspaces. Exposed to other modules via the new
+  `Core\Contracts\SupportInfo` (§4), implemented by `PlatformSettings`.
+- **Account governance on the Users screen** (`/admin/users`): per-account
+  **block/allow workspace creation**, **assign plan**, and **grant free months**,
+  with each account's plan, active-workspace count vs. cap, renewal date and
+  creation state surfaced inline. System Owners and the acting user are protected
+  from these controls.
+- Verified: `GovernanceEnforcementTest` (3); auditor **114/114**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

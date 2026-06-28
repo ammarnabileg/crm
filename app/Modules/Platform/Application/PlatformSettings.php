@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Platform\Application;
 
+use HaHireAI\Core\Contracts\SupportInfo;
 use HaHireAI\Core\Database\Connection;
 use HaHireAI\Shared\Ulid;
 
 /**
  * Platform-wide settings for the System Owner (e.g. support contact shown on
  * suspended workspaces). Stored as JSON key/value in the global `settings` table.
+ * Exposes the support contact via the SupportInfo contract (ARCHITECTURE.md §4).
  */
-final class PlatformSettings
+final class PlatformSettings implements SupportInfo
 {
     public function __construct(private readonly Connection $connection)
     {

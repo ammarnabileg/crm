@@ -170,6 +170,8 @@ foreach ([
     'GET /interviews/export', 'GET /interviews/{interviewId}',
     'POST /admin/workspaces/{id}/suspend', 'POST /admin/workspaces/{id}/archive',
     'POST /admin/users/{id}/activate', 'POST /admin/users/{id}/deactivate',
+    'POST /admin/users/{id}/workspace-creation', 'POST /admin/users/{id}/plan', 'POST /admin/users/{id}/grant-months',
+    'GET /admin/settings', 'POST /admin/settings',
     'GET /admin/plans', 'POST /admin/plans', 'POST /admin/plans/{id}/edit', 'POST /admin/plans/{id}/delete',
     'POST /workspaces/transfer-ownership', 'POST /workspaces/archive', 'POST /pipeline/bulk-status', 'POST /talent-pool/bulk-add', 'GET /avatars/{id}/preview',
     'POST /members/{membershipId}/suspend', 'POST /members/{membershipId}/activate', 'POST /members/{membershipId}/remove',
@@ -235,6 +237,8 @@ $stt = $c->make(\HaHireAI\Modules\AiEngine\Contracts\SpeechToText::class);
 $check('Speech-to-text contract resolves (Whisper, per-workspace key)', $stt instanceof \HaHireAI\Modules\AiEngine\Infrastructure\OpenAiSpeechToText);
 $allowance = $c->make(\HaHireAI\Core\Contracts\WorkspaceAllowance::class);
 $check('Workspace allowance contract resolves (account caps / governance)', $allowance instanceof \HaHireAI\Modules\Platform\Application\AccountPlanService);
+$support = $c->make(\HaHireAI\Core\Contracts\SupportInfo::class);
+$check('Support info contract resolves (suspended-workspace contact)', $support instanceof \HaHireAI\Modules\Platform\Application\PlatformSettings);
 
 // ── 8. Health ───────────────────────────────────────────────────────────────
 $head('8. Health');

@@ -9,6 +9,8 @@ use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
+use HaHireAI\Modules\Billing\Application\PlanService;
+use HaHireAI\Modules\Platform\Application\AccountPlanService;
 use HaHireAI\Modules\Platform\Application\PlatformAdminService;
 use HaHireAI\Modules\Workspaces\Application\PlatformContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceLifecycleService;
@@ -27,6 +29,8 @@ final class AdminController
         private readonly AuthContext $auth,
         private readonly PlatformAdminService $admin,
         private readonly WorkspaceLifecycleService $lifecycle,
+        private readonly AccountPlanService $accounts,
+        private readonly PlanService $plans,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
@@ -54,10 +58,76 @@ final class AdminController
 
         return $this->shell->render($this->context, 'admin.users', [
             'users' => $this->admin->users(200, $q),
+            'plans' => $this->plans->allPlans(),
             'q' => $q,
             'currentUserId' => (string) $this->auth->id(),
             'status' => $this->session->pullFlash('status'),
         ]);
+    }
+
+    public function toggleWorkspaceCreation(Request $request, string $id): Response
+    {
+        if (($r = $this->gate('system.users.manage')) !== null) {
+            return $r;
+        }
+        if (! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return Response::html('<h1>419</h1><p>Security check failed.</p>', 419);
+        }
+
+        $allow = (string) $request->input('allow', '0') === '1';
+        if ($this->admin->setCanCreateWorkspaces($id, $allow)) {
+            $this->audit->record('platform.user.workspace_creation', [
+                'actor_user_id' => $this->auth->id(), 'entity_type' => 'user', 'entity_id' => $id,
+                'changes' => ['can_create_workspaces' => $allow],
+            ]);
+            $this->session->flash('status', $allow ? 'Account may create workspaces.' : 'Account blocked from creating workspaces.');
+        } else {
+            $this->session->flash('status', 'That account cannot be changed (System Owners are protected).');
+        }
+
+        return Response::redirect('/admin/users');
+    }
+
+    public function assignPlan(Request $request, string $id): Response
+    {
+        if (($r = $this->gate('system.subscriptions.manage')) !== null) {
+            return $r;
+        }
+        if (! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return Response::html('<h1>419</h1><p>Security check failed.</p>', 419);
+        }
+
+        $planId = trim((string) $request->input('plan_id', '')) ?: null;
+        $this->accounts->assignPlan($id, $planId);
+        $this->audit->record('platform.account.plan_assigned', [
+            'actor_user_id' => $this->auth->id(), 'entity_type' => 'user', 'entity_id' => $id,
+            'changes' => ['plan_id' => $planId],
+        ]);
+        $this->session->flash('status', $planId === null ? 'Account moved to the free tier.' : 'Plan assigned to the account.');
+
+        return Response::redirect('/admin/users');
+    }
+
+    public function grantMonths(Request $request, string $id): Response
+    {
+        if (($r = $this->gate('system.subscriptions.manage')) !== null) {
+            return $r;
+        }
+        if (! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return Response::html('<h1>419</h1><p>Security check failed.</p>', 419);
+        }
+
+        $months = (int) $request->input('months', 0);
+        if ($months > 0) {
+            $this->accounts->grantMonths($id, $months);
+            $this->audit->record('platform.account.months_granted', [
+                'actor_user_id' => $this->auth->id(), 'entity_type' => 'user', 'entity_id' => $id,
+                'changes' => ['months' => $months],
+            ]);
+            $this->session->flash('status', "Granted {$months} free month(s).");
+        }
+
+        return Response::redirect('/admin/users');
     }
 
     public function activateUser(Request $request, string $id): Response
