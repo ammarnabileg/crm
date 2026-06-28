@@ -26,8 +26,13 @@ $atCap = $ownedActive >= $cap;
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div class="text-xs uppercase tracking-wide text-slate-400">Total</div><div class="mt-1 text-2xl font-bold text-slate-900"><?= e($stats['total']) ?></div></div>
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div class="text-xs uppercase tracking-wide text-slate-400">Active</div><div class="mt-1 text-2xl font-bold text-emerald-700"><?= e($stats['active']) ?></div></div>
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="text-xs uppercase tracking-wide text-slate-400">Owned running / plan</div>
-        <div class="mt-1 text-2xl font-bold <?= $atCap ? 'text-amber-600' : 'text-slate-900' ?>"><?= e($ownedActive) ?> / <?= e($cap) ?></div>
+        <div class="flex items-start justify-between">
+            <div>
+                <div class="text-xs uppercase tracking-wide text-slate-400">Owned running / plan</div>
+                <div class="mt-1 text-2xl font-bold <?= $atCap ? 'text-amber-600' : 'text-slate-900' ?>"><?= e($ownedActive) ?> / <?= e($cap) ?></div>
+            </div>
+            <a href="/account/plan" class="text-xs font-medium text-indigo-600 hover:underline">Change plan →</a>
+        </div>
     </div>
 </div>
 

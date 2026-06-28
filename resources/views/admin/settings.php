@@ -1,5 +1,6 @@
 <?php
 /** @var array<string,string> $values */
+/** @var bool $paymentsEnabled */
 /** @var string|null $status */
 $v = static fn (string $k): string => (string) ($values[$k] ?? '');
 $field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none';
@@ -17,6 +18,15 @@ $field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:bord
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 class="mb-4 text-sm font-semibold text-slate-900">Platform</h2>
         <div><label class="mb-1 block text-sm font-medium text-slate-700">Platform name</label><input name="platform_name" value="<?= e($v('platform.name')) ?>" class="<?= $field ?>" placeholder="HaHireAI"></div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-1 text-sm font-semibold text-slate-900">Payments</h2>
+        <p class="mb-4 text-xs text-slate-400">When payments are off, every plan is offered <strong>free for a limited time</strong> and any account can pick or upgrade to any plan at no cost — nothing is ever charged.</p>
+        <label class="flex items-center gap-3 text-sm text-slate-700">
+            <input type="checkbox" name="payments_enabled" value="1" <?= $paymentsEnabled ? 'checked' : '' ?> class="h-4 w-4 rounded border-slate-300">
+            <span>Accept payments for the platform <span class="text-xs text-slate-400">(<?= $paymentsEnabled ? 'on — plans are charged' : 'off — all plans free' ?>)</span></span>
+        </label>
     </div>
 
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

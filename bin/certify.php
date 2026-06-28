@@ -172,6 +172,7 @@ foreach ([
     'POST /admin/users/{id}/activate', 'POST /admin/users/{id}/deactivate',
     'POST /admin/users/{id}/workspace-creation', 'POST /admin/users/{id}/plan', 'POST /admin/users/{id}/grant-months',
     'GET /admin/settings', 'POST /admin/settings', 'GET /admin/ai',
+    'GET /account/plan', 'POST /account/plan',
     'GET /admin/plans', 'POST /admin/plans', 'POST /admin/plans/{id}/edit', 'POST /admin/plans/{id}/delete',
     'POST /workspaces/transfer-ownership', 'POST /workspaces/archive',
     'POST /workspaces/{id}/deactivate', 'POST /workspaces/{id}/activate',
@@ -241,6 +242,8 @@ $allowance = $c->make(\HaHireAI\Core\Contracts\WorkspaceAllowance::class);
 $check('Workspace allowance contract resolves (account caps / governance)', $allowance instanceof \HaHireAI\Modules\Platform\Application\AccountPlanService);
 $support = $c->make(\HaHireAI\Core\Contracts\SupportInfo::class);
 $check('Support info contract resolves (suspended-workspace contact)', $support instanceof \HaHireAI\Modules\Platform\Application\PlatformSettings);
+$payments = $c->make(\HaHireAI\Core\Contracts\PaymentSettings::class);
+$check('Payment settings contract resolves (platform payment switch)', $payments instanceof \HaHireAI\Modules\Platform\Application\PlatformSettings);
 
 // ── 8. Health ───────────────────────────────────────────────────────────────
 $head('8. Health');

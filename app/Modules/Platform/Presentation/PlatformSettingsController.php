@@ -41,6 +41,7 @@ final class PlatformSettingsController
 
         return $this->shell->render($this->context, 'admin.settings', [
             'values' => $values,
+            'paymentsEnabled' => $this->settings->paymentsEnabled(),
             'status' => $this->session->pullFlash('status'),
         ]);
     }
@@ -55,6 +56,8 @@ final class PlatformSettingsController
             $field = str_replace('.', '_', $key);
             $this->settings->set($key, trim((string) $request->input($field, '')));
         }
+        // Payment switch (checkbox): present = on, absent = off.
+        $this->settings->set('billing.payments_enabled', $request->input('payments_enabled') !== null ? '1' : '0');
 
         $this->audit->record('platform.settings.updated', [
             'actor_user_id' => $this->auth->id(),

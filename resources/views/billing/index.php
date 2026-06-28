@@ -3,9 +3,11 @@
 /** @var list<array<string,mixed>> $plans */
 /** @var list<array<string,mixed>> $invoices */
 /** @var bool $canManage */
+/** @var bool $freeMode */
 /** @var string|null $status */
 /** @var string|null $error */
 
+$freeMode ??= ! ($gatewayConnected ?? true);
 $sub = $subscription;
 $currentPlanId = $sub['plan']['id'] ?? null;
 $subStatus = $sub['status'] ?? null;
@@ -28,9 +30,9 @@ $statusBadge = static function (?string $s): string {
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700"><?= e($error) ?></div><?php endif; ?>
 
-<?php if (! ($gatewayConnected ?? true)): ?>
+<?php if ($freeMode): ?>
     <div class="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
-        🎉 Payments aren't enabled yet — <strong>all plans are free for a limited period</strong> (<?= e($freePeriodDays ?? 30) ?> days, auto-renewing). Pick any plan to unlock its features at no cost.
+        🎉 <strong>All plans are free for a limited period</strong> (<?= e($freePeriodDays ?? 30) ?> days, auto-renewing). Pick any plan to unlock its features at no cost.
     </div>
 <?php endif; ?>
 
@@ -82,10 +84,11 @@ $statusBadge = static function (?string $s): string {
                 <?php if ($isCurrent): ?><span class="text-xs font-medium text-indigo-600">Current</span><?php endif; ?>
             </div>
             <div class="mt-1 text-2xl font-bold text-slate-900">
-                <?php if ((int) $plan['price_cents'] === 0): ?>Free<?php else: ?>$<?= number_format($plan['price_cents'] / 100, 0) ?><span class="text-sm font-normal text-slate-400">/<?= e($plan['interval']) ?></span><?php endif; ?>
+                <?php if ($freeMode): ?>Free <span class="text-sm font-normal text-emerald-600">for a limited time</span>
+                <?php elseif ((int) $plan['price_cents'] === 0): ?>Free<?php else: ?>$<?= number_format($plan['price_cents'] / 100, 0) ?><span class="text-sm font-normal text-slate-400">/<?= e($plan['interval']) ?></span><?php endif; ?>
             </div>
-            <?php if (! ($gatewayConnected ?? true) && (int) $plan['price_cents'] > 0): ?>
-                <div class="text-xs font-medium text-emerald-600">Free during launch</div>
+            <?php if ($freeMode && (int) $plan['price_cents'] > 0): ?>
+                <div class="text-xs text-slate-400">Normally <span class="line-through">$<?= number_format($plan['price_cents'] / 100, 0) ?>/<?= e($plan['interval']) ?></span></div>
             <?php endif; ?>
             <p class="mt-1 text-sm text-slate-500"><?= e($plan['description'] ?? '') ?></p>
 
@@ -105,7 +108,7 @@ $statusBadge = static function (?string $s): string {
                     <?= csrf_field() ?>
                     <input type="hidden" name="plan_id" value="<?= e($plan['id']) ?>">
                     <button class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
-                        <?php if (! ($gatewayConnected ?? true)): ?>
+                        <?php if ($freeMode): ?>
                             <?= $sub === null ? 'Activate (free)' : 'Switch to ' . e($plan['name']) . ' (free)' ?>
                         <?php else: ?>
                             <?= $sub === null ? 'Choose plan' : 'Switch to ' . e($plan['name']) ?>

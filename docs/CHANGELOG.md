@@ -943,6 +943,25 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Verified: smoke (controller resolves with FileStorage, route registered, form
   uses multipart + file input, preview streams the upload); auditor route guard.
 
+### Platform payment switch + free plans
+- The System Owner can **turn payments on/off** for the whole platform from
+  Platform settings (`/admin/settings`). The switch is exposed to Billing via the
+  new `Core\Contracts\PaymentSettings` (§4), implemented by `PlatformSettings`.
+- **Payments off → free mode**: `BillingService` now charges only when a real
+  gateway is wired AND payments are on (`chargingEnabled()`/`freeMode()`).
+  Otherwise every plan is granted free for a limited period — nothing is charged
+  or suspended. Billing shows plans as **“Free for a limited time”** (original
+  price struck through) and any billing-capable member can activate/switch plans
+  for free.
+- **Self-service account plan** (`/account/plan`): a new user-facing page where an
+  account picks the plan that sets its **workspace capacity**. In free mode any
+  account can switch to any plan at no cost (downgrades auto-pause the excess via
+  the cap rules); in paid mode changes are arranged with support. Linked from My
+  Workspaces and the sidebar (Plan).
+- Verified: `BillingTest` (+1: a connected gateway with payments switched off
+  still enters free mode and never charges; 9 total); smoke (toggle round-trips,
+  both pages render in free/paid modes); certify route + contract guards.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

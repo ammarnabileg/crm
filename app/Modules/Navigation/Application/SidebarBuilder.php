@@ -40,6 +40,7 @@ final class SidebarBuilder
         ['label' => 'Settings', 'route' => '/settings', 'permission' => 'settings.view'],
         ['label' => 'Maintenance', 'route' => '/settings/maintenance', 'permission' => 'settings.update'],
         ['label' => 'Billing', 'route' => '/billing', 'permission' => 'billing.view'],
+        ['label' => 'Plan', 'route' => '/account/plan', 'permission' => 'billing.view'],
     ];
 
     /**

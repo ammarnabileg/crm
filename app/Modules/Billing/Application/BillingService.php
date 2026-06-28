@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Billing\Application;
 
+use HaHireAI\Core\Contracts\PaymentSettings;
 use HaHireAI\Modules\Billing\Contracts\PaymentGateway;
 use HaHireAI\Modules\Billing\Application\Exceptions\BillingException;
 
@@ -25,6 +26,8 @@ final class BillingService
         private readonly PaymentGateway $gateway,
         /** Length of the complimentary period while no real PSP is connected. */
         private readonly int $freePeriodDays = 30,
+        /** Platform payment switch; null (tests) = payments on. */
+        private readonly ?PaymentSettings $paymentSettings = null,
     ) {
     }
 
@@ -36,6 +39,28 @@ final class BillingService
     public function gatewayConnected(): bool
     {
         return $this->gateway->key() !== 'manual';
+    }
+
+    /** True unless the System Owner switched payments off platform-wide. */
+    public function paymentsEnabled(): bool
+    {
+        return $this->paymentSettings?->paymentsEnabled() ?? true;
+    }
+
+    /**
+     * Charging is active only when a real gateway is wired AND the owner has
+     * payments switched on. Otherwise the platform is in free mode (plans granted
+     * free for a limited period, nothing charged).
+     */
+    public function chargingEnabled(): bool
+    {
+        return $this->gatewayConnected() && $this->paymentsEnabled();
+    }
+
+    /** True when plans should be shown/granted free (no charge happens). */
+    public function freeMode(): bool
+    {
+        return ! $this->chargingEnabled();
     }
 
     public function freePeriodDays(): int
@@ -54,8 +79,9 @@ final class BillingService
         $plan = $this->requirePlan($planId);
         $existing = $this->subscriptions->find($workspaceId);
 
-        // No PSP connected → grant the plan free for a limited period (no charge).
-        if (! $this->gatewayConnected()) {
+        // Free mode (no PSP, or owner switched payments off) → grant the plan
+        // free for a limited period (no charge).
+        if (! $this->chargingEnabled()) {
             return $this->startFreePeriod($workspaceId, $plan, $nowTs);
         }
 
@@ -85,9 +111,9 @@ final class BillingService
     {
         $nowTs ??= time();
 
-        // No PSP connected → keep the workspace on a rolling free period (never
-        // charge, never suspend). This is the launch/complimentary mode.
-        if (! $this->gatewayConnected()) {
+        // Free mode → keep the workspace on a rolling free period (never charge,
+        // never suspend). This is the launch/complimentary/payments-off mode.
+        if (! $this->chargingEnabled()) {
             $this->subscriptions->update($subscriptionId, [
                 'status' => 'trialing',
                 'trial_ends_at' => $this->ts($nowTs, '+' . $this->freePeriodDays . ' days'),

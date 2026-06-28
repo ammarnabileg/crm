@@ -47,6 +47,7 @@ final class BillingController
             'invoices' => $this->invoices->listForWorkspace($ws, 20),
             'canManage' => $this->context->can('billing.manage'),
             'gatewayConnected' => $this->billing->gatewayConnected(),
+            'freeMode' => $this->billing->freeMode(),
             'freePeriodDays' => $this->billing->freePeriodDays(),
             'status' => $this->session->pullFlash('status'),
             'error' => $this->session->pullFlash('error'),

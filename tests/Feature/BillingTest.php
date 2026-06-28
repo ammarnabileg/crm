@@ -171,6 +171,41 @@ final class BillingTest extends TestCase
         $this->assertTrue($this->entitlements->isUsable($ws));
     }
 
+    public function test_owner_payment_switch_off_forces_free_mode_even_with_a_connected_gateway(): void
+    {
+        $ws = $this->workspace();
+        $pro = (string) $this->plans->findByCode('pro')['id'];
+
+        // A real PSP is wired, but the System Owner switched payments OFF.
+        $paymentsOff = new class implements \HaHireAI\Core\Contracts\PaymentSettings {
+            public function paymentsEnabled(): bool
+            {
+                return false;
+            }
+        };
+        $billing = new BillingService($this->subscriptions, $this->plans, $this->invoices, $this->connectedGateway(), 30, $paymentsOff);
+
+        $this->assertTrue($billing->gatewayConnected());  // gateway is connected
+        $this->assertFalse($billing->paymentsEnabled());  // but payments are off
+        $this->assertTrue($billing->freeMode());
+
+        $billing->subscribe($ws, $pro, $this->at('2026-01-01'));
+
+        $sub = $this->subscriptions->find($ws);
+        $this->assertSame('trialing', $sub['status']);                  // granted free
+        $this->assertCount(0, $this->invoices->listForWorkspace($ws));  // never charged
+
+        // Flipping payments back on restores charging for the same gateway.
+        $paymentsOn = new class implements \HaHireAI\Core\Contracts\PaymentSettings {
+            public function paymentsEnabled(): bool
+            {
+                return true;
+            }
+        };
+        $billingOn = new BillingService($this->subscriptions, $this->plans, $this->invoices, $this->connectedGateway(), 30, $paymentsOn);
+        $this->assertFalse($billingOn->freeMode());
+    }
+
     private function at(string $date): int
     {
         return (int) strtotime($date . ' 00:00:00 UTC');

@@ -4,19 +4,30 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Platform\Application;
 
+use HaHireAI\Core\Contracts\PaymentSettings;
 use HaHireAI\Core\Contracts\SupportInfo;
 use HaHireAI\Core\Database\Connection;
 use HaHireAI\Shared\Ulid;
 
 /**
  * Platform-wide settings for the System Owner (e.g. support contact shown on
- * suspended workspaces). Stored as JSON key/value in the global `settings` table.
- * Exposes the support contact via the SupportInfo contract (ARCHITECTURE.md §4).
+ * suspended workspaces, and the platform payment switch). Stored as JSON
+ * key/value in the global `settings` table. Exposes the support contact and the
+ * payment switch via Core contracts (ARCHITECTURE.md §4).
  */
-final class PlatformSettings implements SupportInfo
+final class PlatformSettings implements SupportInfo, PaymentSettings
 {
     public function __construct(private readonly Connection $connection)
     {
+    }
+
+    /**
+     * True unless the System Owner has switched payments off. Default on, so a
+     * fresh platform behaves exactly as before this switch existed.
+     */
+    public function paymentsEnabled(): bool
+    {
+        return $this->get('billing.payments_enabled', '1') !== '0';
     }
 
     public function get(string $key, ?string $default = null): ?string
