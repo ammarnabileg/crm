@@ -10,10 +10,16 @@
     <a href="/candidates" class="text-sm text-indigo-600 hover:underline">&larr; Candidates</a>
     <h1 class="mt-1 text-2xl font-semibold text-slate-900"><?= e($profile['name']) ?></h1>
     <p class="text-sm text-slate-500"><?= e($profile['email']) ?></p>
-    <div class="mt-2 flex flex-wrap gap-1">
+    <div class="mt-2 flex flex-wrap items-center gap-2">
         <?php foreach ($tags as $tag): ?>
             <span class="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700"><?= e($tag) ?></span>
         <?php endforeach; ?>
+        <?php if ($canAi ?? false): ?>
+            <form method="post" action="/candidates/<?= e($profile['user_id']) ?>/ai-summary">
+                <?= csrf_field() ?>
+                <button class="rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white hover:bg-slate-700">✦ Generate AI summary</button>
+            </form>
+        <?php endif; ?>
     </div>
 </div>
 

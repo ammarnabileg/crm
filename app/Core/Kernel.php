@@ -36,6 +36,7 @@ final class Kernel
     private array $providers = [
         CoreServiceProvider::class,
         \HaHireAI\Core\Providers\DatabaseServiceProvider::class,
+        \HaHireAI\Core\Providers\AiServiceProvider::class,
     ];
 
     public function __construct(

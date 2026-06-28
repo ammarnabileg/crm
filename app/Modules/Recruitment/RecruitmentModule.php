@@ -54,6 +54,7 @@ final class RecruitmentModule implements Module
         $router->get('/candidates/{userId}', [CandidatesController::class, 'show']);
         $router->post('/candidates/{userId}/notes', [CandidatesController::class, 'addNote']);
         $router->post('/candidates/{userId}/tags', [CandidatesController::class, 'addTag']);
+        $router->post('/candidates/{userId}/ai-summary', [CandidatesController::class, 'aiSummary']);
         $router->post('/candidates/{userId}/offer', [OffersController::class, 'make']);
         $router->post('/offers/{offerId}/accept', [OffersController::class, 'accept']);
     }
