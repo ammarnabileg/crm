@@ -82,6 +82,49 @@ final class PlatformAdminTest extends TestCase
         $this->assertSame('test.event', $audit[0]['action']);
     }
 
+    public function test_ai_overview_surfaces_hints_never_keys(): void
+    {
+        $owner = $this->user('Owner', 'owner@x.co');
+        $ws = $this->workspace($owner);
+        $bare = $this->workspace($owner); // a workspace with no AI configured
+        $now = gmdate('Y-m-d H:i:s');
+
+        $this->connection->statement(
+            'INSERT INTO ai_settings (id, workspace_id, provider, model, use_platform_key, created_at, updated_at) VALUES (?, ?, ?, ?, 0, ?, ?)',
+            [Ulid::generate(), $ws, 'openai', 'gpt-4o', $now, $now],
+        );
+        $this->connection->statement(
+            'INSERT INTO ai_keys (id, workspace_id, provider, encrypted_key, key_hint, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [Ulid::generate(), $ws, 'openai', 'TOP-SECRET-ENCRYPTED-VALUE', 'sk-…abcd', $now, $now],
+        );
+        $this->connection->statement(
+            'INSERT INTO ai_sessions (id, workspace_id, capability, provider, model, status, input_tokens, output_tokens, cost_cents, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [Ulid::generate(), $ws, 'cv_analysis', 'openai', 'gpt-4o', 'completed', 100, 50, 25, $now],
+        );
+
+        $overview = $this->admin->aiOverview();
+        $this->assertSame(1, $overview['configured']); // only one of the two workspaces has keys
+        $this->assertCount(2, $overview['workspaces']);
+
+        $row = null;
+        foreach ($overview['workspaces'] as $w) {
+            if ((string) $w['id'] === $ws) {
+                $row = $w;
+            }
+        }
+        $this->assertNotNull($row);
+        $this->assertSame('openai', $row['default_provider']);
+        $this->assertStringContainsString('sk-…abcd', (string) $row['keys_configured']);
+        $this->assertSame(1, (int) $row['runs']);
+
+        // The encrypted key must NEVER appear anywhere in the overview.
+        $this->assertStringNotContainsString('TOP-SECRET-ENCRYPTED-VALUE', json_encode($overview));
+
+        $this->assertNotSame([], $overview['totals']);
+        $this->assertSame('openai', $overview['totals'][0]['provider']);
+        $this->assertSame(150, (int) $overview['totals'][0]['tokens']);
+    }
+
     private function user(string $name, string $email, bool $systemOwner = false): string
     {
         $id = Ulid::generate();

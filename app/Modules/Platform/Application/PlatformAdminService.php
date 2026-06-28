@@ -109,6 +109,48 @@ final class PlatformAdminService
         );
     }
 
+    /**
+     * Read-only AI oversight for the System Owner: which workspaces have AI
+     * configured and how heavily it's used. Keys are workspace-isolated and
+     * private — only the masked `key_hint` is ever exposed here, never the
+     * encrypted key (docs/AI_ENGINE.md; per-workspace key isolation).
+     *
+     * @return array{workspaces: list<array<string, mixed>>, totals: list<array<string, mixed>>, configured: int}
+     */
+    public function aiOverview(int $limit = 200): array
+    {
+        $limit = max(1, min(500, $limit));
+
+        $workspaces = $this->connection->select(
+            "SELECT w.id, w.name, w.status, u.name AS owner_name,
+                    s.provider AS default_provider, s.model,
+                    (SELECT GROUP_CONCAT(CONCAT(k.provider, COALESCE(CONCAT(' (', k.key_hint, ')'), '')) ORDER BY k.provider SEPARATOR ', ')
+                       FROM ai_keys k WHERE k.workspace_id = w.id) AS keys_configured,
+                    (SELECT COUNT(*) FROM ai_keys k WHERE k.workspace_id = w.id) AS key_count,
+                    (SELECT COUNT(*) FROM ai_sessions se WHERE se.workspace_id = w.id) AS runs
+               FROM workspaces w
+               LEFT JOIN users u ON u.id = w.owner_user_id
+               LEFT JOIN ai_settings s ON s.workspace_id = w.id
+              WHERE w.deleted_at IS NULL
+              ORDER BY runs DESC, w.created_at DESC LIMIT " . $limit,
+        );
+
+        $totals = $this->connection->select(
+            'SELECT provider, COUNT(*) AS runs, COALESCE(SUM(input_tokens + output_tokens), 0) AS tokens,
+                    COALESCE(SUM(cost_cents), 0) AS cost_cents
+               FROM ai_sessions GROUP BY provider ORDER BY runs DESC',
+        );
+
+        $configured = 0;
+        foreach ($workspaces as $w) {
+            if ((int) ($w['key_count'] ?? 0) > 0) {
+                $configured++;
+            }
+        }
+
+        return ['workspaces' => $workspaces, 'totals' => $totals, 'configured' => $configured];
+    }
+
     /** @return list<array<string, mixed>> the platform-wide audit trail */
     public function audit(int $limit = 100): array
     {

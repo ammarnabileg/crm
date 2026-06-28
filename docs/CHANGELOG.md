@@ -922,6 +922,18 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   pages (My Workspaces) bypass the gate so the owner can always recover.
 - Verified: `AccountPlanTest` (+2 → 5); auditor **116/116**.
 
+### Platform governance — AI Providers oversight (System Owner)
+- New **AI Providers** screen (`/admin/ai`) — fixes the only dangling owner-panel
+  nav link. Read-only, platform-wide oversight: AI adoption (how many workspaces
+  have keys), usage by provider (runs / tokens / spend), and a per-workspace
+  table of default provider/model, configured keys and run count.
+- **Key isolation preserved**: keys are added per workspace and stay private —
+  the overview surfaces only the masked `key_hint`, never the encrypted key
+  (`PlatformAdminService::aiOverview`).
+- Verified: `PlatformAdminTest` (+1, asserts the encrypted key never leaks);
+  a sidebar-vs-routes audit confirms **zero** dangling nav links; auditor
+  **117/117**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

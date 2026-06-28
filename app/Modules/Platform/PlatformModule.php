@@ -63,6 +63,7 @@ final class PlatformModule implements Module
         $router->post('/admin/plans/{id}/delete', [PlatformPlansController::class, 'delete']);
         $router->get('/admin/settings', [PlatformSettingsController::class, 'index']);
         $router->post('/admin/settings', [PlatformSettingsController::class, 'update']);
+        $router->get('/admin/ai', [AdminController::class, 'ai']);
         $router->get('/admin/audit', [AdminController::class, 'audit']);
     }
 }

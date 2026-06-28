@@ -191,6 +191,18 @@ final class AdminController
         ]);
     }
 
+    /** Read-only AI oversight across workspaces (keys stay workspace-private). */
+    public function ai(): Response
+    {
+        if (($r = $this->gate('system.ai.manage')) !== null) {
+            return $r;
+        }
+
+        return $this->shell->render($this->context, 'admin.ai', [
+            'overview' => $this->admin->aiOverview(),
+        ]);
+    }
+
     /** System Owner workspace lifecycle actions. */
     public function suspendWorkspace(Request $request, string $id): Response
     {
