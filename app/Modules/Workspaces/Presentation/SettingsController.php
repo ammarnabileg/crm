@@ -20,10 +20,11 @@ final class SettingsController
 {
     /** Extended text/number settings stored as workspace preferences. */
     private const PREF_KEYS = [
+        'general.date_format',
         'company.industry', 'company.website', 'company.about',
-        'brand.color', 'brand.tagline',
+        'company.contact_email', 'company.contact_phone',
+        'brand.color', 'brand.tagline', 'brand.logo_text',
         'security.session_timeout',
-        'maintenance.message',
         'mail.from_name', 'mail.from_email', 'mail.smtp_host', 'mail.smtp_port',
         'mail.smtp_username', 'mail.encryption',
         'legal.company_legal_name', 'legal.terms_url', 'legal.privacy_url', 'legal.address',
@@ -32,7 +33,6 @@ final class SettingsController
     /** Checkbox settings (stored as '1'/'0'). */
     private const BOOL_KEYS = [
         'security.enforce_2fa',
-        'maintenance.enabled',
     ];
 
     /** Secrets: stored but never echoed back; only overwritten when a new value is supplied. */

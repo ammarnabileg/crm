@@ -34,10 +34,12 @@ final class WorkspaceShell
         $workspaceId = $context->workspaceId();
 
         // Maintenance mode: pause the workspace for everyone except admins
-        // (members who can change settings). Settings stays reachable to toggle it off.
+        // (members who can change settings) and explicitly allow-listed IPs.
+        // Settings stays reachable to toggle it off.
         if ($workspaceId !== null
             && $this->preferences->bool($workspaceId, 'maintenance.enabled')
-            && ! $context->can('settings.update')) {
+            && ! $context->can('settings.update')
+            && ! $this->ipAllowed($workspaceId)) {
             return Response::html($this->view->page('workspace.maintenance', [
                 'workspaceName' => $context->workspace()['name'] ?? null,
                 'message' => $this->preferences->get($workspaceId, 'maintenance.message', '') ?: 'This workspace is temporarily paused for maintenance.',
@@ -57,5 +59,17 @@ final class WorkspaceShell
         ]);
 
         return Response::html($html);
+    }
+
+    /** True if the caller's IP is on the maintenance allow-list. */
+    private function ipAllowed(string $workspaceId): bool
+    {
+        $list = trim((string) $this->preferences->get($workspaceId, 'maintenance.allow_ips', ''));
+        if ($list === '') {
+            return false;
+        }
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+
+        return $ip !== '' && in_array($ip, array_map('trim', explode(',', $list)), true);
     }
 }

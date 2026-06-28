@@ -174,6 +174,7 @@ foreach ([
     'POST /roles/{id}/clone', 'POST /roles/{id}/delete',
     'GET /roles/{id}', 'POST /roles/{id}/edit',
     'GET /settings/logo',
+    'GET /settings/maintenance', 'POST /settings/maintenance/enable', 'POST /settings/maintenance/disable',
     'POST /portal/applications/{applicationId}/withdraw',
     'POST /notifications/{id}/archive', 'POST /notifications/{id}/unarchive',
     'POST /candidates/{userId}/parse-cv',

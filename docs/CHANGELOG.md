@@ -806,6 +806,17 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   (seeded automatically on migrate).
 - Verified: `TaskServiceTest` (2); auditor **96/96**.
 
+### Feature 14 gap closure (D + E) — Maintenance page & Settings fields
+- **Maintenance** is now its own page (`/settings/maintenance`): current status,
+  message, an **allow-list of IPs** that bypass maintenance, and explicit
+  **enable/disable** actions. `WorkspaceShell` honours the allow-list so a
+  listed IP keeps working while everyone else (except admins) sees the pause
+  screen. Maintenance was moved out of the general Settings form (single source
+  of truth — no duplicate toggle).
+- **Workspace Settings** gains **date format**, **contact email/phone** and
+  **logo text** fields.
+- Verified: `MaintenanceAndSettingsExtrasTest` (2); auditor **99/99**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

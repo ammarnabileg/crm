@@ -38,6 +38,7 @@ final class SidebarBuilder
         ['label' => 'Search', 'route' => '/search', 'permission' => 'search.use'],
         ['label' => 'Files', 'route' => '/files', 'permission' => 'files.view'],
         ['label' => 'Settings', 'route' => '/settings', 'permission' => 'settings.view'],
+        ['label' => 'Maintenance', 'route' => '/settings/maintenance', 'permission' => 'settings.update'],
         ['label' => 'Billing', 'route' => '/billing', 'permission' => 'billing.view'],
     ];
 

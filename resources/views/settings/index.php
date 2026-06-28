@@ -19,9 +19,6 @@ $inp = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border
 
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
 <?php if (! empty($error)): ?><div class="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700"><?= e($error) ?></div><?php endif; ?>
-<?php if ($on('maintenance.enabled')): ?>
-    <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">⚠ Maintenance mode is ON — only members with <span class="font-mono">settings.update</span> can use the workspace.</div>
-<?php endif; ?>
 
 <form method="post" action="/settings" enctype="multipart/form-data" class="max-w-2xl space-y-6">
     <?= csrf_field() ?>
@@ -33,8 +30,16 @@ $inp = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border
                 <label class="mb-1 block text-sm font-medium text-slate-700">Workspace name</label>
                 <input name="name" value="<?= e($workspace['name']) ?>" <?= $dis ?> class="<?= $inp ?>">
             </div>
-            <div class="grid grid-cols-3 gap-3">
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div><label class="mb-1 block text-sm font-medium text-slate-700">Timezone</label><input name="timezone" value="<?= e($workspace['timezone']) ?>" <?= $dis ?> class="<?= $inp ?>"></div>
+                <div><label class="mb-1 block text-sm font-medium text-slate-700">Date format</label>
+                    <?php $df = $p('general.date_format') ?: 'Y-m-d'; ?>
+                    <select name="general_date_format" <?= $dis ?> class="<?= $inp ?>">
+                        <?php foreach (['Y-m-d' => '2026-06-28', 'd/m/Y' => '28/06/2026', 'm/d/Y' => '06/28/2026', 'd M Y' => '28 Jun 2026'] as $v => $eg): ?>
+                            <option value="<?= e($v) ?>" <?= $df === $v ? 'selected' : '' ?>><?= e($eg) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <div><label class="mb-1 block text-sm font-medium text-slate-700">Locale</label><input name="locale" value="<?= e($workspace['locale']) ?>" <?= $dis ?> class="<?= $inp ?>"></div>
                 <div><label class="mb-1 block text-sm font-medium text-slate-700">Currency</label><input name="currency" value="<?= e($workspace['currency']) ?>" <?= $dis ?> class="<?= $inp ?>"></div>
             </div>
@@ -48,6 +53,10 @@ $inp = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border
             <div class="grid grid-cols-2 gap-3">
                 <div><label class="mb-1 block text-sm font-medium text-slate-700">Industry</label><input name="company_industry" value="<?= e($p('company.industry')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="e.g. Software"></div>
                 <div><label class="mb-1 block text-sm font-medium text-slate-700">Website</label><input name="company_website" value="<?= e($p('company.website')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="https://"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="mb-1 block text-sm font-medium text-slate-700">Contact email</label><input name="company_contact_email" type="email" value="<?= e($p('company.contact_email')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="careers@acme.com"></div>
+                <div><label class="mb-1 block text-sm font-medium text-slate-700">Contact phone</label><input name="company_contact_phone" value="<?= e($p('company.contact_phone')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="+20 …"></div>
             </div>
             <div><label class="mb-1 block text-sm font-medium text-slate-700">About</label><textarea name="company_about" rows="3" <?= $dis ?> class="<?= $inp ?>" placeholder="What your company does…"><?= e($p('company.about')) ?></textarea></div>
         </div>
@@ -72,8 +81,9 @@ $inp = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border
                 <?php endif; ?>
             </div>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-3 gap-3">
             <div><label class="mb-1 block text-sm font-medium text-slate-700">Brand colour</label><input name="brand_color" type="text" value="<?= e($p('brand.color')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="#4f46e5"></div>
+            <div><label class="mb-1 block text-sm font-medium text-slate-700">Logo text</label><input name="brand_logo_text" value="<?= e($p('brand.logo_text')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="Shown if no logo image"></div>
             <div><label class="mb-1 block text-sm font-medium text-slate-700">Tagline</label><input name="brand_tagline" value="<?= e($p('brand.tagline')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="Hiring, reimagined"></div>
         </div>
     </div>
@@ -125,13 +135,10 @@ $inp = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border
         <div class="mt-3"><label class="mb-1 block text-sm font-medium text-slate-700">Session timeout (minutes)</label><input name="security_session_timeout" type="number" min="5" value="<?= e($p('security.session_timeout')) ?>" <?= $dis ?> class="<?= $inp ?> max-w-[12rem]" placeholder="120"></div>
     </div>
 
-    <div class="rounded-2xl border border-amber-200 bg-white p-6 shadow-sm">
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 class="mb-1 text-sm font-semibold text-slate-900">Maintenance</h2>
-        <p class="mb-4 text-xs text-slate-400">When on, the workspace pauses for everyone except admins (members with <span class="font-mono">settings.update</span>).</p>
-        <label class="flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" name="maintenance_enabled" value="1" <?= $on('maintenance.enabled') ? 'checked' : '' ?> <?= $dis ?> class="rounded border-slate-300"> Enable maintenance mode
-        </label>
-        <div class="mt-3"><label class="mb-1 block text-sm font-medium text-slate-700">Message shown to members</label><input name="maintenance_message" value="<?= e($p('maintenance.message')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="We'll be back shortly."></div>
+        <p class="mb-3 text-xs text-slate-400">Pause the workspace for everyone except admins and allow-listed IPs.</p>
+        <a href="/settings/maintenance" class="inline-block rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Open maintenance settings →</a>
     </div>
 
     <?php if ($canUpdate): ?>

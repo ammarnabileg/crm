@@ -8,6 +8,7 @@ use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Workspaces\Presentation\DashboardController;
+use HaHireAI\Modules\Workspaces\Presentation\MaintenanceController;
 use HaHireAI\Modules\Workspaces\Presentation\SettingsController;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceController;
 
@@ -43,5 +44,8 @@ final class WorkspaceModule implements Module
         $router->get('/settings', [SettingsController::class, 'index']);
         $router->get('/settings/logo', [SettingsController::class, 'logo']);
         $router->post('/settings', [SettingsController::class, 'update']);
+        $router->get('/settings/maintenance', [MaintenanceController::class, 'index']);
+        $router->post('/settings/maintenance/enable', [MaintenanceController::class, 'enable']);
+        $router->post('/settings/maintenance/disable', [MaintenanceController::class, 'disable']);
     }
 }
