@@ -232,6 +232,8 @@ $aiCaps = $c->make(\HaHireAI\Modules\AiEngine\Contracts\AiCapabilities::class);
 $check('AI capabilities contract resolves (features gated on workspace keys)', $aiCaps instanceof \HaHireAI\Modules\AiEngine\Application\AiCapabilityService);
 $stt = $c->make(\HaHireAI\Modules\AiEngine\Contracts\SpeechToText::class);
 $check('Speech-to-text contract resolves (Whisper, per-workspace key)', $stt instanceof \HaHireAI\Modules\AiEngine\Infrastructure\OpenAiSpeechToText);
+$allowance = $c->make(\HaHireAI\Core\Contracts\WorkspaceAllowance::class);
+$check('Workspace allowance contract resolves (account caps / governance)', $allowance instanceof \HaHireAI\Modules\Platform\Application\AccountPlanService);
 
 // ── 8. Health ───────────────────────────────────────────────────────────────
 $head('8. Health');

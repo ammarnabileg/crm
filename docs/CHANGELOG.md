@@ -867,6 +867,20 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Verified: `AiCapabilityTest` (2, incl. isolation), `CandidateKeywordSearchTest`
   (1); auditor **103/103**.
 
+### Platform governance — account plans & workspace caps (foundation)
+- New account-level governance (System Owner): each account (owner user) has an
+  `account_plans` record — a plan that caps how many workspaces it may run
+  **active** at once, a renewal date, and granted **bonus months**. Plus a
+  per-account `users.can_create_workspaces` block flag.
+- `AccountPlanService` (cap from the plan's `limits.workspaces`, active-workspace
+  count, expiry/usability, assign plan, grant months, block check) exposed to the
+  Workspaces module through the new `Core\Contracts\WorkspaceAllowance` (§4).
+- **Enforced at creation**: `POST /workspaces` now refuses when the account is
+  blocked, its plan is expired/suspended, or it's already at its workspace cap —
+  with a clear message.
+- `PlatformSettings` service (support contact via the global settings store).
+- Verified: `AccountPlanTest` (3); auditor **104/104**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

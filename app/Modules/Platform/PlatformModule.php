@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Platform;
 
 use HaHireAI\Core\Contracts\Container;
+use HaHireAI\Core\Contracts\WorkspaceAllowance;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
+use HaHireAI\Modules\Platform\Application\AccountPlanService;
 use HaHireAI\Modules\Platform\Presentation\AdminController;
 
 /**
@@ -27,6 +29,8 @@ final class PlatformModule implements Module
 
     public function register(Container $container): void
     {
+        // Account governance surface other modules enforce against (ARCHITECTURE.md §4).
+        $container->singleton(WorkspaceAllowance::class, static fn (Container $c): WorkspaceAllowance => $c->make(AccountPlanService::class));
     }
 
     public function boot(Container $container): void

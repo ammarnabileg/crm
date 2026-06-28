@@ -14,6 +14,7 @@ use HaHireAI\Core\Contracts\MemberDirectory;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceCreator;
 use HaHireAI\Core\Contracts\UserDirectory;
+use HaHireAI\Core\Contracts\WorkspaceAllowance;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceLifecycleService;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
 use Throwable;
@@ -30,6 +31,7 @@ final class WorkspaceController
         private readonly WorkspaceContext $context,
         private readonly WorkspaceLifecycleService $lifecycle,
         private readonly UserDirectory $users,
+        private readonly WorkspaceAllowance $allowance,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
@@ -154,6 +156,14 @@ final class WorkspaceController
 
         if ($name === '') {
             $this->session->flash('error', 'Workspace name is required.');
+
+            return Response::redirect('/workspaces/create');
+        }
+
+        // Account governance: blocked accounts / expired plans / plan caps.
+        $allow = $this->allowance->canCreateWorkspace((string) $this->auth->id());
+        if (! $allow['allowed']) {
+            $this->session->flash('error', $allow['reason']);
 
             return Response::redirect('/workspaces/create');
         }
