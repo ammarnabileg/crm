@@ -4,18 +4,26 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Notifications\Application;
 
+use HaHireAI\Core\Contracts\NotificationFeed;
 use HaHireAI\Core\Database\Connection;
 use HaHireAI\Shared\Ulid;
 
 /**
  * Personal notifications, scoped to (workspace, user). A user who belongs to
  * several workspaces sees each workspace's notifications only within that
- * workspace's context (docs/WORKSPACE_MODEL.md tenant isolation).
+ * workspace's context (docs/WORKSPACE_MODEL.md tenant isolation). Exposes the
+ * header-bell feed via the NotificationFeed contract (ARCHITECTURE.md §4).
  */
-final class NotificationService
+final class NotificationService implements NotificationFeed
 {
     public function __construct(private readonly Connection $connection)
     {
+    }
+
+    /** @return list<array<string, mixed>> recent active notifications for the bell */
+    public function recentForUser(string $workspaceId, string $userId, int $limit = 6): array
+    {
+        return $this->forUser($workspaceId, $userId, ['state' => 'all'], $limit);
     }
 
     public function notify(string $workspaceId, string $userId, string $type, string $title, ?string $body = null, ?string $link = null): string

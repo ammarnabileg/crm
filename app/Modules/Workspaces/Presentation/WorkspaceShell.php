@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Workspaces\Presentation;
 
 use HaHireAI\Core\Contracts\EntitlementResolver;
+use HaHireAI\Core\Contracts\NotificationFeed;
 use HaHireAI\Core\Contracts\SupportInfo;
 use HaHireAI\Core\Contracts\WorkspaceAllowance;
 use HaHireAI\Core\Http\Response;
@@ -29,6 +30,7 @@ final class WorkspaceShell
         private readonly WorkspacePreferences $preferences,
         private readonly WorkspaceAllowance $allowance,
         private readonly SupportInfo $support,
+        private readonly NotificationFeed $notifications,
     ) {
     }
 
@@ -88,12 +90,16 @@ final class WorkspaceShell
 
         $features = $workspaceId !== null ? $this->entitlements->gateFeatures($workspaceId) : null;
 
+        $wsId = (string) $context->workspaceId();
+        $uId = (string) $context->userId();
         $html = $this->view->page($page, $data, 'layouts.app', [
             'user' => $this->auth->user(),
             'sidebar' => $this->sidebar->build('workspace', $context->permissions(), $features),
             'workspaceName' => $context->workspace()['name'] ?? null,
             'workspaces' => $context->workspaces(),
             'currentWorkspaceId' => $context->workspaceId(),
+            'notifications' => $wsId !== '' && $uId !== '' ? $this->notifications->recentForUser($wsId, $uId) : [],
+            'unreadCount' => $wsId !== '' && $uId !== '' ? $this->notifications->unreadCount($wsId, $uId) : 0,
         ]);
 
         return Response::html($html);

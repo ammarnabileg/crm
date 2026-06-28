@@ -6,6 +6,7 @@ namespace HaHireAI\Modules\Notifications;
 
 use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Contracts\EventDispatcher;
+use HaHireAI\Core\Contracts\NotificationFeed;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Notifications\Application\NotificationService;
@@ -30,6 +31,8 @@ final class NotificationsModule implements Module
 
     public function register(Container $container): void
     {
+        // Header bell feed other modules read without coupling (§4).
+        $container->singleton(NotificationFeed::class, static fn (Container $c): NotificationFeed => $c->make(NotificationService::class));
     }
 
     public function boot(Container $container): void

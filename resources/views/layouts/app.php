@@ -74,8 +74,12 @@ $initial = strtoupper(substr((string) ($user['name'] ?? '?'), 0, 1));
 
 /** @var list<array<string,mixed>> $workspaces */
 /** @var string|null $currentWorkspaceId */
+/** @var list<array<string,mixed>> $notifications */
+/** @var int $unreadCount */
 $workspaces ??= [];
 $currentWorkspaceId ??= null;
+$notifications ??= [];
+$unreadCount ??= 0;
 $currentWsName = $workspaceName ?? 'Workspace';
 foreach ($workspaces as $w) {
     if ((string) $w['id'] === (string) $currentWorkspaceId) {
@@ -162,15 +166,67 @@ foreach ($workspaces as $w) {
             <?php else: ?>
                 <h1 class="text-lg font-semibold text-slate-900"><?= e($pageTitle) ?></h1>
             <?php endif; ?>
-            <div class="flex items-center gap-3">
-                <div class="flex items-center gap-2">
-                    <span class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700"><?= e($initial) ?></span>
-                    <span class="hidden text-sm font-medium text-slate-700 sm:inline"><?= e($user['name'] ?? '') ?></span>
-                </div>
-                <form method="post" action="/logout">
-                    <?= csrf_field() ?>
-                    <button type="submit" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">Sign out</button>
-                </form>
+            <div class="flex items-center gap-1.5">
+                <!-- Notifications bell -->
+                <details class="group relative">
+                    <summary class="relative flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>
+                        <?php if ($unreadCount > 0): ?><span class="absolute right-1.5 top-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white"><?= e($unreadCount > 9 ? '9+' : $unreadCount) ?></span><?php endif; ?>
+                    </summary>
+                    <div class="absolute end-0 z-30 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                        <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                            <span class="text-sm font-semibold text-slate-900">Notifications</span>
+                            <?php if ($notifications !== []): ?>
+                                <form method="post" action="/notifications/read"><?= csrf_field() ?><button class="text-xs font-medium text-indigo-600 hover:text-indigo-700">Mark all read</button></form>
+                            <?php endif; ?>
+                        </div>
+                        <?php if ($notifications === []): ?>
+                            <div class="px-4 py-8 text-center text-sm text-slate-400">You're all caught up.</div>
+                        <?php else: ?>
+                            <ul class="max-h-80 divide-y divide-slate-100 overflow-y-auto">
+                                <?php foreach ($notifications as $n): ?>
+                                    <?php $unread = empty($n['read_at']); ?>
+                                    <li>
+                                        <a href="<?= e(! empty($n['link']) ? $n['link'] : '/notifications') ?>" class="flex gap-2 px-4 py-3 hover:bg-slate-50">
+                                            <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full <?= $unread ? 'bg-indigo-500' : 'bg-transparent' ?>"></span>
+                                            <span class="min-w-0">
+                                                <span class="block truncate text-sm <?= $unread ? 'font-semibold text-slate-900' : 'font-medium text-slate-600' ?>"><?= e($n['title']) ?></span>
+                                                <?php if (! empty($n['body'])): ?><span class="block truncate text-xs text-slate-400"><?= e($n['body']) ?></span><?php endif; ?>
+                                                <span class="text-xs text-slate-300"><?= e(time_ago($n['created_at'] ?? null)) ?></span>
+                                            </span>
+                                        </a>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+                        <a href="/notifications" class="block border-t border-slate-100 px-4 py-3 text-center text-sm font-medium text-indigo-600 hover:bg-slate-50">View all</a>
+                    </div>
+                </details>
+
+                <!-- User menu -->
+                <details class="group relative">
+                    <summary class="flex cursor-pointer list-none items-center gap-1 rounded-lg p-1 hover:bg-slate-100">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700"><?= e($initial) ?></span>
+                        <svg class="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                    </summary>
+                    <div class="absolute end-0 z-30 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                        <div class="border-b border-slate-100 px-3 py-2">
+                            <div class="truncate text-sm font-semibold text-slate-900"><?= e($user['name'] ?? '') ?></div>
+                            <?php if (! empty($user['email'])): ?><div class="truncate text-xs text-slate-400"><?= e($user['email']) ?></div><?php endif; ?>
+                        </div>
+                        <a href="/account/profile" class="mt-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                            <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+                            Edit profile
+                        </a>
+                        <form method="post" action="/logout">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-rose-600 hover:bg-rose-50">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
+                                Sign out
+                            </button>
+                        </form>
+                    </div>
+                </details>
             </div>
         </header>
         <main class="flex-1 p-6 lg:p-8"><?= $content ?></main>

@@ -59,6 +59,33 @@ final class UserRepository implements UserDirectory
         );
     }
 
+    /** Update the user's display name (self-service profile). */
+    public function updateName(string $id, string $name): void
+    {
+        $this->connection->statement(
+            'UPDATE users SET name = ?, updated_at = ? WHERE id = ?',
+            [$name, gmdate('Y-m-d H:i:s'), $id],
+        );
+    }
+
+    /** Update the user's email (caller must ensure uniqueness). */
+    public function updateEmail(string $id, string $email): void
+    {
+        $this->connection->statement(
+            'UPDATE users SET email = ?, updated_at = ? WHERE id = ?',
+            [strtolower($email), gmdate('Y-m-d H:i:s'), $id],
+        );
+    }
+
+    /** Update the user's password hash (self-service profile). */
+    public function updatePassword(string $id, string $passwordHash): void
+    {
+        $this->connection->statement(
+            'UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?',
+            [$passwordHash, gmdate('Y-m-d H:i:s'), $id],
+        );
+    }
+
     public function systemOwnerCount(): int
     {
         $row = $this->connection->selectOne('SELECT COUNT(*) AS c FROM users WHERE is_system_owner = 1');

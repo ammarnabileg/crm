@@ -997,6 +997,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   new utility; visual review via headless-Chromium screenshots of login,
   dashboard, billing, payments, my-workspaces, users and the open switcher.
 
+### Header notifications bell + user menu + edit profile
+- **Notifications moved out of the sidebar into a header bell** (no-JS `<details>`):
+  an unread badge, a dropdown with the recent notifications (unread dotted),
+  **Mark all read** (posts to `/notifications/read`) and **View all**
+  (`/notifications`). Exposed to the shell via the new
+  `Core\Contracts\NotificationFeed` (§4), implemented by `NotificationService`;
+  `WorkspaceContext` already loads what it needs (no extra query beyond the feed).
+- **The header name + Sign-out collapsed into an avatar menu**: clicking the
+  avatar opens name + email, **Edit profile**, and **Sign out**.
+- New **Edit profile** page (`/account/profile`): update display name, email
+  (kept unique) and password (current-password check + confirm).
+  `UserRepository` gains `updateName/updateEmail/updatePassword`.
+- Verified: smoke (bell + menu + edit-profile render, empty state, no sidebar
+  Notifications) 8/8; visual screenshots of the bell, user menu, owner panel and
+  profile; certify **125/125**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

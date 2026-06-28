@@ -14,6 +14,7 @@ use HaHireAI\Modules\Platform\Application\AccountPlanService;
 use HaHireAI\Modules\Platform\Application\PlatformSettings;
 use HaHireAI\Modules\Platform\Presentation\AccountPlanController;
 use HaHireAI\Modules\Platform\Presentation\AdminController;
+use HaHireAI\Modules\Platform\Presentation\ProfileController;
 use HaHireAI\Modules\Platform\Presentation\PlatformPlansController;
 use HaHireAI\Modules\Platform\Presentation\PlatformSettingsController;
 
@@ -70,8 +71,10 @@ final class PlatformModule implements Module
         $router->get('/admin/ai', [AdminController::class, 'ai']);
         $router->get('/admin/payments', [AdminController::class, 'payments']);
         $router->get('/admin/audit', [AdminController::class, 'audit']);
-        // Self-service account plan (workspace capacity) — user-facing, not /admin.
+        // Self-service account pages — user-facing, not /admin.
         $router->get('/account/plan', [AccountPlanController::class, 'index']);
         $router->post('/account/plan', [AccountPlanController::class, 'choose']);
+        $router->get('/account/profile', [ProfileController::class, 'index']);
+        $router->post('/account/profile', [ProfileController::class, 'update']);
     }
 }
