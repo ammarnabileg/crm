@@ -47,13 +47,18 @@ $remaining = (int) $state['seconds_remaining'];
                 <?php endforeach; ?>
             </div>
 
-            <form method="post" action="/portal/interview/<?= e($interview['id']) ?>/answer" class="mt-4 border-t border-slate-100 pt-4" data-answer-form>
+            <form method="post" action="/portal/interview/<?= e($interview['id']) ?>/answer" class="mt-4 border-t border-slate-100 pt-4" data-answer-form data-transcribe-url="/portal/interview/<?= e($interview['id']) ?>/transcribe">
                 <?= csrf_field() ?>
                 <textarea name="answer" rows="3" required autofocus placeholder="Type your answer…" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" data-answer></textarea>
-                <div class="mt-2 flex items-center justify-between">
-                    <button type="button" data-mic class="hidden items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
-                        🎙 <span data-mic-label>Speak</span>
-                    </button>
+                <div class="mt-2 flex items-center justify-between gap-2">
+                    <div class="flex gap-2">
+                        <button type="button" data-mic class="hidden items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+                            🎙 <span data-mic-label>Speak</span>
+                        </button>
+                        <button type="button" data-rec class="hidden items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+                            🎤 <span data-rec-label>Record (AI)</span>
+                        </button>
+                    </div>
                     <div class="ml-auto flex gap-2">
                         <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Send answer</button>
                     </div>
@@ -107,6 +112,40 @@ $remaining = (int) $state['seconds_remaining'];
                 if (e.results[i].isFinal) answer.value += (answer.value ? ' ' : '') + e.results[i][0].transcript.trim();
             }
         };
+    }
+
+    // Voice (mode B) — server-side: record audio and transcribe via the
+    // workspace's OpenAI (Whisper) key. Falls back to a hint if unavailable.
+    var form2 = document.querySelector('[data-answer-form]');
+    var recBtn = document.querySelector('[data-rec]');
+    var recLabel = recBtn ? recBtn.querySelector('[data-rec-label]') : null;
+    var csrf = form2 ? (form2.querySelector('input[name="_csrf"]') || {}).value : '';
+    if (form2 && recBtn && answer && navigator.mediaDevices && window.MediaRecorder) {
+        recBtn.classList.remove('hidden'); recBtn.classList.add('inline-flex');
+        var mediaRec = null, chunks = [], recording = false;
+        var setLabel = function (t) { if (recLabel) recLabel.textContent = t; };
+        recBtn.addEventListener('click', function () {
+            if (recording && mediaRec) { mediaRec.stop(); return; }
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+                chunks = []; mediaRec = new MediaRecorder(stream);
+                mediaRec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+                mediaRec.onstop = function () {
+                    stream.getTracks().forEach(function (t) { t.stop(); });
+                    recording = false; setLabel('Transcribing…'); recBtn.disabled = true;
+                    var blob = new Blob(chunks, { type: 'audio/webm' });
+                    var fd = new FormData(); fd.append('_csrf', csrf); fd.append('audio', blob, 'answer.webm');
+                    fetch(form2.getAttribute('data-transcribe-url'), { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } })
+                        .then(function (r) { return r.json(); })
+                        .then(function (j) {
+                            if (j && j.text) { answer.value += (answer.value ? ' ' : '') + j.text; }
+                            else { alert('Voice transcription is not configured for this workspace. Please type your answer or use “Speak”.'); }
+                        })
+                        .catch(function () { alert('Could not transcribe the recording. Please type your answer.'); })
+                        .finally(function () { setLabel('Record (AI)'); recBtn.disabled = false; });
+                };
+                mediaRec.start(); recording = true; setLabel('Recording… (tap to stop)');
+            }).catch(function () { alert('Microphone permission is required to record.'); });
+        });
     }
 })();
 </script>

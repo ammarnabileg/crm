@@ -7,6 +7,9 @@ namespace HaHireAI\Modules\AiEngine;
 use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
+use HaHireAI\Modules\AiEngine\Application\AiSettingsService;
+use HaHireAI\Modules\AiEngine\Contracts\SpeechToText;
+use HaHireAI\Modules\AiEngine\Infrastructure\OpenAiSpeechToText;
 use HaHireAI\Modules\AiEngine\Presentation\AiController;
 
 final class AiModule implements Module
@@ -23,6 +26,10 @@ final class AiModule implements Module
 
     public function register(Container $container): void
     {
+        // Whisper STT using each workspace's own OpenAI key (keys are isolated).
+        $container->singleton(SpeechToText::class, static fn (Container $c): SpeechToText => new OpenAiSpeechToText(
+            $c->make(AiSettingsService::class),
+        ));
     }
 
     public function boot(Container $container): void

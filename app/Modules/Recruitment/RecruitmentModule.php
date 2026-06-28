@@ -138,6 +138,7 @@ final class RecruitmentModule implements Module
         $router->post('/portal/jobs/{jobId}/apply', [CandidatePortalController::class, 'apply']);
         $router->get('/portal/interview/{interviewId}', [CandidatePortalController::class, 'room']);
         $router->post('/portal/interview/{interviewId}/answer', [CandidatePortalController::class, 'roomAnswer']);
+        $router->post('/portal/interview/{interviewId}/transcribe', [CandidatePortalController::class, 'transcribe']);
         $router->get('/portal/applications', [CandidatePortalController::class, 'applications']);
         $router->get('/portal/applications/{applicationId}', [CandidatePortalController::class, 'applicationDetail']);
         $router->post('/portal/applications/{applicationId}/withdraw', [CandidatePortalController::class, 'withdrawApplication']);

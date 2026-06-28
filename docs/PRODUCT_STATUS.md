@@ -52,7 +52,7 @@ MySQL 8, server-rendered, no framework._
 | Candidate Portal overview | ✅ | application status, interviews, offers, latest jobs |
 | Available jobs + apply | ✅ | **search + filters** (type/seniority/location); **CV select/upload** (PDF/Word) |
 | AI interview room — **text (mode A)** | ✅ | chat, question counter, 20-min timer, resumable, auto-close, completion screen |
-| AI interview room — **voice (mode B)** | 🟡 | browser speech-to-text over the same engine |
+| AI interview room — **voice (mode B)** | ✅ | browser STT **or server-side OpenAI Whisper** using the workspace's own key |
 | AI interview room — **video avatar (mode C)** | 🟡 | mounts where a HeyGen key is set; not exercised offline |
 | My applications + detail | ✅ | stage map, AI notes, "next step", accept/decline/**counter-offer**, **withdraw** |
 | My profile + CV library | ✅ | name/phone/experience/target salary + CVs |
@@ -92,8 +92,6 @@ Overview · Workspaces · Users · Subscriptions · Audit logs · Diagnostics �
 
 - **Live-video avatar (HeyGen, mode C)** is wired and gated but cannot be
   exercised in this environment (no outbound to HeyGen).
-- **Voice interview (mode B)** uses the browser's built-in speech-to-text over
-  the same engine; there is no server-side audio transcription.
 - The standalone **tokenized interview link** (`/interview/{token}`) still uses
   the older one-shot flow; the **job-link path** already converges on the new
   conversational room.

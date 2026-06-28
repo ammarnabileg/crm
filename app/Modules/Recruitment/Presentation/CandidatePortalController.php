@@ -21,6 +21,7 @@ use HaHireAI\Modules\Recruitment\Application\JobService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
 use HaHireAI\Core\Contracts\UserDirectory;
 use HaHireAI\Core\Contracts\FileStorage;
+use HaHireAI\Modules\AiEngine\Contracts\SpeechToText;
 use HaHireAI\Modules\Recruitment\Domain\ApplicationStatus;
 
 /**
@@ -45,6 +46,7 @@ final class CandidatePortalController
         private readonly UserDirectory $users,
         private readonly FileStorage $files,
         private readonly CandidateProfileService $profiles,
+        private readonly SpeechToText $speech,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
@@ -200,6 +202,41 @@ final class CandidatePortalController
 
         // Post/Redirect/Get — the room page renders the updated conversation.
         return Response::redirect('/portal/interview/' . $interviewId);
+    }
+
+    /**
+     * Voice mode (B): transcribe an uploaded audio clip server-side via Whisper,
+     * using this workspace's own OpenAI key. Returns JSON {text} or {text:null}
+     * so the client can fall back to on-device recognition.
+     */
+    public function transcribe(Request $request, string $interviewId): Response
+    {
+        if (! $this->auth->check()) {
+            return Response::json(['text' => null, 'error' => 'unauthenticated'], 401);
+        }
+        if (! $this->context->resolve() || ! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return Response::json(['text' => null, 'error' => 'forbidden'], 403);
+        }
+        if ($this->ownedInterview($interviewId) === null) {
+            return Response::json(['text' => null, 'error' => 'not_found'], 404);
+        }
+
+        $audio = $request->file('audio');
+        if ($audio === null) {
+            return Response::json(['text' => null, 'error' => 'no_audio'], 422);
+        }
+
+        $text = $this->speech->transcribe(
+            (string) $this->context->workspaceId(),
+            $audio['tmp_name'],
+            $audio['name'] !== '' ? $audio['name'] : 'answer.webm',
+            $audio['type'] !== '' ? $audio['type'] : 'audio/webm',
+        );
+
+        return Response::json([
+            'text' => $text,
+            'error' => $text === null ? 'transcription_unavailable' : null,
+        ]);
     }
 
     /** @return array<string,mixed>|null an AI interview owned by the current candidate */

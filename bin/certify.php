@@ -165,6 +165,7 @@ foreach ([
     'GET /my-workspaces', 'GET /ai/analytics', 'GET /workspaces/select',
     'GET /portal', 'GET /portal/jobs', 'GET /portal/applications', 'GET /portal/profile',
     'GET /portal/interview/{interviewId}', 'POST /portal/interview/{interviewId}/answer',
+    'POST /portal/interview/{interviewId}/transcribe',
     'GET /offers', 'GET /reports/print', 'GET /jobs/{id}/edit',
     'GET /interviews/export', 'GET /interviews/{interviewId}',
     'POST /admin/workspaces/{id}/suspend', 'POST /admin/workspaces/{id}/archive',

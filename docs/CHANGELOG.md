@@ -817,6 +817,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   **logo text** fields.
 - Verified: `MaintenanceAndSettingsExtrasTest` (2); auditor **99/99**.
 
+### Voice interview — server-side speech-to-text (OpenAI Whisper)
+- The AI interview room's **voice mode (B)** can now transcribe **server-side**
+  via **OpenAI Whisper**, using **the workspace's own OpenAI key** — the same key
+  the workspace admin adds for the AI provider. Keys are per-workspace and
+  isolated: a key set in one workspace is never used by any other workspace the
+  member belongs to or owns (verified by test).
+- New `AiEngine\Contracts\SpeechToText` + `OpenAiSpeechToText` (Whisper) bound in
+  the AI module; the network call sits behind an injectable transport so logic is
+  testable and a missing key / offline call **degrades gracefully** (returns
+  null) — the room then falls back to the browser's on-device recognition.
+- New candidate endpoint `POST /portal/interview/{id}/transcribe` (CSRF-guarded,
+  ownership-checked). The room gains a **🎤 Record (AI)** button that records audio
+  and fills the answer box from the transcript.
+- Verified: `OpenAiSpeechToTextTest` (4, incl. key-isolation); auditor **100/100**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
