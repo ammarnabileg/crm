@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Recruitment\Application;
 
 use HaHireAI\Core\Database\Connection;
-use HaHireAI\Modules\Files\Application\FileService;
+use HaHireAI\Core\Contracts\FileStorage;
 
 /**
  * Builds a candidate's activity Timeline within ONE workspace by merging events
@@ -18,7 +18,7 @@ final class CandidateTimelineService
 {
     public function __construct(
         private readonly Connection $connection,
-        private readonly FileService $files,
+        private readonly FileStorage $files,
     ) {
     }
 

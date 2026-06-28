@@ -20,7 +20,7 @@ use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\JobService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
 use HaHireAI\Core\Contracts\UserDirectory;
-use HaHireAI\Modules\Files\Application\FileService;
+use HaHireAI\Core\Contracts\FileStorage;
 use HaHireAI\Modules\Recruitment\Domain\ApplicationStatus;
 
 /**
@@ -43,7 +43,7 @@ final class CandidatePortalController
         private readonly InterviewRoomService $room,
         private readonly AssessmentService $assessments,
         private readonly UserDirectory $users,
-        private readonly FileService $files,
+        private readonly FileStorage $files,
         private readonly CandidateProfileService $profiles,
         private readonly Session $session,
         private readonly AuditRecorder $audit,

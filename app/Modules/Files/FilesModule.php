@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Files;
 
 use HaHireAI\Core\Contracts\Container;
+use HaHireAI\Core\Contracts\FileStorage;
 use HaHireAI\Core\Database\Connection;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
@@ -34,6 +35,9 @@ final class FilesModule implements Module
             $c->make(Connection::class),
             storage_path('files'),
         ));
+
+        // The shared file surface other modules depend on (ARCHITECTURE.md §4).
+        $container->singleton(FileStorage::class, static fn (Container $c): FileStorage => $c->make(FileService::class));
     }
 
     public function boot(Container $container): void

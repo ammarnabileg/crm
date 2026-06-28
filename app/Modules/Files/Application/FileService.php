@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Files\Application;
 
+use HaHireAI\Core\Contracts\FileStorage;
 use HaHireAI\Core\Database\Connection;
 use HaHireAI\Modules\Files\Application\Exceptions\FileException;
 use HaHireAI\Shared\Ulid;
@@ -13,8 +14,10 @@ use HaHireAI\Shared\Ulid;
  * records metadata. Files are never web-served directly — download is streamed
  * through a permission-gated controller, so one workspace can never read
  * another's (docs/SECURITY_GUIDE.md, privacy isolation).
+ *
+ * The shared file surface is the FileStorage contract (ARCHITECTURE.md §4).
  */
-final class FileService
+final class FileService implements FileStorage
 {
     private const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
     private const ALLOWED_EXT = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'odt'];

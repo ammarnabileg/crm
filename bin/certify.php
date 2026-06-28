@@ -191,6 +191,8 @@ $candidateDir = $c->make(\HaHireAI\Core\Contracts\CandidateDirectory::class);
 $check('Candidate directory contract resolves (Recruitment ↔ Workspaces decoupled)', $candidateDir instanceof \HaHireAI\Modules\Recruitment\Application\CandidateDirectoryAdapter);
 $diagPanels = $c->make(\HaHireAI\Modules\Observability\Application\SystemDiagnostics::class)->panels();
 $check('System diagnostics report 8 infrastructure panels', count($diagPanels) === 8);
+$fileStorage = $c->make(\HaHireAI\Core\Contracts\FileStorage::class);
+$check('File storage contract resolves (Files shared service decoupled)', $fileStorage instanceof \HaHireAI\Modules\Files\Application\FileService);
 
 // ── 8. Health ───────────────────────────────────────────────────────────────
 $head('8. Health');

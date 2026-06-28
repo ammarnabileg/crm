@@ -720,6 +720,18 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   filtered `forUser`, `counts`, `categories`, `archive`/`unarchive`.
 - Verified: **184 tests** · auditor **84/84** · `NotificationsDepthTest` (2).
 
+### Sprint 1 (continued) — Files as a contract-bound shared service
+- Introduced `Core\Contracts\FileStorage` as the public surface of the shared
+  file-attachment service. `FileService` now `implements FileStorage`, the
+  contract is bound in `FilesModule`, and every cross-module consumer
+  (Candidate Portal, Candidates, Candidate Timeline, Workspace Settings) now
+  depends on the contract instead of reaching into `Files\Application\FileService`
+  directly — closing the last cross-module internal dependency introduced for the
+  logo feature (ARCHITECTURE.md §4: modules talk through Contracts, not internals).
+- Verified: auditor **85/85** (adds a FileStorage contract-resolution check);
+  full suite **184 tests / 707 assertions** green (pure decoupling — no behaviour
+  change).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

@@ -10,7 +10,7 @@ use HaHireAI\Core\Http\Session;
 use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
-use HaHireAI\Modules\Files\Application\FileService;
+use HaHireAI\Core\Contracts\FileStorage;
 use HaHireAI\Modules\Recruitment\Application\ApplicationService;
 use HaHireAI\Modules\Recruitment\Application\AssessmentService;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
@@ -42,7 +42,7 @@ final class CandidatesController
         private readonly AssessmentService $assessments,
         private readonly ComparisonService $comparison,
         private readonly TalentPoolService $talent,
-        private readonly FileService $files,
+        private readonly FileStorage $files,
         private readonly AiEngine $ai,
         private readonly Session $session,
         private readonly AuditRecorder $audit,

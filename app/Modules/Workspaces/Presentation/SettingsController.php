@@ -10,7 +10,7 @@ use HaHireAI\Core\Http\Session;
 use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Files\Application\Exceptions\FileException;
-use HaHireAI\Modules\Files\Application\FileService;
+use HaHireAI\Core\Contracts\FileStorage;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspacePreferences;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceSettingsService;
@@ -49,7 +49,7 @@ final class SettingsController
         private readonly AuthContext $auth,
         private readonly WorkspaceSettingsService $settings,
         private readonly WorkspacePreferences $prefs,
-        private readonly FileService $files,
+        private readonly FileStorage $files,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
