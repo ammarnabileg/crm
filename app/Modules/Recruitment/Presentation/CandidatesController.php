@@ -15,6 +15,7 @@ use HaHireAI\Modules\Files\Application\FileService;
 use HaHireAI\Modules\Recruitment\Application\AssessmentService;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
 use HaHireAI\Modules\Recruitment\Application\CandidateTimelineService;
+use HaHireAI\Modules\Recruitment\Application\ComparisonService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
 use HaHireAI\Modules\Recruitment\Application\TalentPoolService;
@@ -38,6 +39,7 @@ final class CandidatesController
         private readonly InterviewService $interviews,
         private readonly CandidateTimelineService $timeline,
         private readonly AssessmentService $assessments,
+        private readonly ComparisonService $comparison,
         private readonly TalentPoolService $talent,
         private readonly FileService $files,
         private readonly AiEngine $ai,
@@ -86,6 +88,31 @@ final class CandidatesController
             'searching' => $searching,
             'filters' => $filters,
             'skills' => SkillCatalog::SKILLS,
+        ]);
+    }
+
+    /** Side-by-side comparison of selected candidates, with AI Q&A (spec #15). */
+    public function compare(Request $request): Response
+    {
+        if (($r = $this->gate('candidate.view')) !== null) {
+            return $r;
+        }
+
+        $ws = (string) $this->context->workspaceId();
+        $ids = array_values(array_filter(array_map('strval', (array) $request->query('ids', []))));
+        $question = trim((string) $request->query('q', ''));
+        $answer = null;
+        if ($question !== '' && $this->context->can('ai.run')) {
+            $answer = $this->comparison->ask($ws, $ids, $question, $this->context->userId());
+        }
+
+        return $this->shell->render($this->context, 'recruitment.candidates.compare', [
+            'candidates' => $this->comparison->gather($ws, $ids),
+            'skillCatalog' => SkillCatalog::SKILLS,
+            'question' => $question,
+            'answer' => $answer,
+            'ids' => $ids,
+            'canAsk' => $this->context->can('ai.run'),
         ]);
     }
 

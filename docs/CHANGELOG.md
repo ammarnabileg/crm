@@ -446,6 +446,16 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Migration**: interview_feedback. Verified on live MySQL 8
   (`InterviewFeedbackTest`). **Suite: 128 tests / 462 assertions; auditor 51/51.**
 
+### Added — Candidate comparison + AI Q&A
+- **`ComparisonService`** + `/candidates/compare` (spec #15): select candidates
+  from the list and view their AI assessments **side by side** (fit, band, 11
+  skills, behaviour, strengths/gaps). Ask the AI a natural-language question
+  across them ("who's best for a people-facing role?", "best English?") via the
+  `compare_candidates` capability — advisory; the human decides. Workspace-isolated.
+- Candidates list gains selection checkboxes + a **Compare selected** action.
+- Auditor extended to 52 checks. Verified on live MySQL 8 (`ComparisonTest`).
+  **Suite: 130 tests / 470 assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

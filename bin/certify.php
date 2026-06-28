@@ -156,7 +156,7 @@ foreach ([
     'GET /admin/workspaces', 'GET /admin/users', 'GET /admin/subscriptions',
     'GET /interviews', 'GET /files', 'GET /notifications', 'GET /reports', 'GET /pipeline',
     'GET /talent-pool', 'GET /avatars', 'GET /my-workspaces', 'GET /ai/analytics',
-    'GET /api/v1/ping', 'GET /api/v1/jobs',
+    'GET /candidates/compare', 'GET /api/v1/ping', 'GET /api/v1/jobs',
 ] as $route) {
     $check("route registered: {$route}", isset($paths[$route]));
 }

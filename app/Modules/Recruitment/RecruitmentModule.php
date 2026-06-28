@@ -64,6 +64,7 @@ final class RecruitmentModule implements Module
 
         // Candidate profiles (workspace-scoped views).
         $router->get('/candidates', [CandidatesController::class, 'index']);
+        $router->get('/candidates/compare', [CandidatesController::class, 'compare']);
         $router->get('/candidates/{userId}', [CandidatesController::class, 'show']);
         $router->post('/candidates/{userId}/notes', [CandidatesController::class, 'addNote']);
         $router->post('/candidates/{userId}/tags', [CandidatesController::class, 'addTag']);

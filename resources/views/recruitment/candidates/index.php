@@ -41,13 +41,18 @@
     <?php if ($searching): ?><a href="/candidates" class="text-sm text-slate-500 hover:underline">Clear</a><?php endif; ?>
 </form>
 
-<div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+<form method="get" action="/candidates/compare" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
     <?php if ($candidates === []): ?>
         <p class="px-5 py-8 text-center text-sm text-slate-400"><?= $searching ? 'No candidates match these criteria.' : 'No candidates yet. They appear here when someone applies.' ?></p>
     <?php else: ?>
+        <div class="flex items-center justify-between border-b border-slate-100 px-5 py-2">
+            <span class="text-xs text-slate-400">Select candidates to compare side-by-side.</span>
+            <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700">Compare selected</button>
+        </div>
         <table class="w-full text-sm">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
                 <tr>
+                    <th class="px-5 py-3 w-8"></th>
                     <th class="px-5 py-3">Name</th>
                     <th class="px-5 py-3">Email</th>
                     <th class="px-5 py-3"><?= $searching ? 'AI score' : 'Applications' ?></th>
@@ -56,6 +61,7 @@
             <tbody class="divide-y divide-slate-100">
                 <?php foreach ($candidates as $c): ?>
                     <tr class="hover:bg-slate-50">
+                        <td class="px-5 py-3"><input type="checkbox" name="ids[]" value="<?= e($c['user_id']) ?>" class="rounded border-slate-300"></td>
                         <td class="px-5 py-3"><a href="/candidates/<?= e($c['user_id']) ?>" class="font-medium text-indigo-600 hover:underline"><?= e($c['name']) ?></a></td>
                         <td class="px-5 py-3 text-slate-600"><?= e($c['email']) ?></td>
                         <td class="px-5 py-3 text-slate-600">
@@ -71,4 +77,4 @@
             </tbody>
         </table>
     <?php endif; ?>
-</div>
+</form>

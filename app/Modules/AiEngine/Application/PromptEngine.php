@@ -21,6 +21,7 @@ final class PromptEngine
         'interview_questions' => "Generate 6 role-specific interview questions for the position {{title}}. Cover technical depth, problem-solving, and collaboration.",
         'assess_candidate' => "Assess candidate {{name}} for {{title}} from this interview transcript.\n{{transcript}}\nScore the standard competencies (0-100), infer behaviour (DISC, Big Five), flag risks with severity, and give an overall fit score with a recommendation. Advisory only — a human decides.",
         'analyze_cv' => "Analyze this CV for {{title}}: extract skills, past companies, years of experience, gaps, and a CV-to-role match score (0-100).\n{{cv_text}}",
+        'compare_candidates' => "Compare these candidates and answer the question.\nCandidates:\n{{candidates}}\nQuestion: {{question}}\nGive a concise, evidence-based answer naming the best fit. Advisory only — a human decides.",
     ];
 
     public function __construct(private readonly Connection $connection)
