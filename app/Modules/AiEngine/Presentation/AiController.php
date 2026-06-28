@@ -13,6 +13,7 @@ use HaHireAI\Modules\AiEngine\Application\ProviderRegistry;
 use HaHireAI\Modules\Audit\Application\AuditLogger;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
+use HaHireAI\Modules\Workspaces\Application\WorkspacePreferences;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
 
 /** Per-workspace AI settings + encrypted keys (docs/AI_SETTINGS.md). */
@@ -25,6 +26,7 @@ final class AiController
         private readonly AiSettingsService $settings,
         private readonly AiEngine $engine,
         private readonly ProviderRegistry $registry,
+        private readonly WorkspacePreferences $preferences,
         private readonly Session $session,
         private readonly AuditLogger $audit,
     ) {
@@ -43,9 +45,31 @@ final class AiController
             'usage' => $this->engine->usageSummary((string) $this->context->workspaceId()),
             'canConfigure' => $this->context->can('ai.configure'),
             'canManageKeys' => $this->context->can('ai.keys.manage'),
+            'interviewVideo' => $this->preferences->bool((string) $this->context->workspaceId(), 'ai.interview_video'),
+            'hasHeygenKey' => $this->settings->getKey((string) $this->context->workspaceId(), 'heygen') !== null,
             'status' => $this->session->pullFlash('status'),
             'error' => $this->session->pullFlash('error'),
         ]);
+    }
+
+    /** Owner toggles AI interviews between text-only and live video (HeyGen). */
+    public function setInterviewMode(Request $request): Response
+    {
+        if (($r = $this->gate('ai.configure', $request)) !== null) {
+            return $r;
+        }
+
+        $video = (string) $request->input('interview_video', '0') === '1';
+        $this->preferences->set((string) $this->context->workspaceId(), 'ai.interview_video', $video ? '1' : '0');
+        $this->audit->record('ai.settings.updated', [
+            'workspace_id' => $this->context->workspaceId(),
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'ai_settings',
+            'changes' => ['interview_video' => $video],
+        ]);
+        $this->session->flash('status', $video ? 'Live video interviews enabled (HeyGen).' : 'Interviews set to text-only.');
+
+        return Response::redirect('/ai');
     }
 
     public function setProvider(Request $request): Response

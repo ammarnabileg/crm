@@ -81,10 +81,11 @@ final class InterviewService
         $score = $this->extractScore($result->text);
         $recommendation = $this->recommendationFor($score);
         $now = gmdate('Y-m-d H:i:s');
+        $label = ((string) ($interview['mode'] ?? '')) === 'video' ? '[Live video · HeyGen] ' : '[Text] ';
 
         $this->connection->statement(
             "UPDATE interviews SET type = 'ai', status = 'completed', transcript = ?, summary = ?, score = ?, recommendation = ?, ai_provider = ?, completed_at = ?, updated_at = ? WHERE id = ? AND workspace_id = ?",
-            [$result->text, mb_substr($result->text, 0, 280), $score, $recommendation, $result->provider, $now, $now, $interviewId, $workspaceId],
+            [$result->text, $label . mb_substr($result->text, 0, 260), $score, $recommendation, $result->provider, $now, $now, $interviewId, $workspaceId],
         );
 
         return (array) $this->find($workspaceId, $interviewId);

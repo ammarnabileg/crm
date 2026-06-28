@@ -5,6 +5,8 @@
 /** @var array{sessions:int,tokens:int,cost_cents:int} $usage */
 /** @var bool $canConfigure */
 /** @var bool $canManageKeys */
+/** @var bool $interviewVideo */
+/** @var bool $hasHeygenKey */
 /** @var string|null $status */
 /** @var string|null $error */
 ?>
@@ -61,10 +63,25 @@
         <?php if ($canManageKeys): ?>
             <form method="post" action="/ai/keys" class="space-y-2">
                 <?= csrf_field() ?>
-                <input name="provider" placeholder="provider (e.g. openai)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                <input name="provider" placeholder="provider (e.g. openai, heygen)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
                 <input name="api_key" type="password" placeholder="API key (stored encrypted)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
                 <button class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Save key</button>
             </form>
+            <p class="mt-2 text-xs text-slate-400">Add your own keys (OpenAI, Anthropic, HeyGen for live-video interviews, …).</p>
         <?php endif; ?>
     </div>
+</div>
+
+<div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="mb-1 text-sm font-semibold text-slate-900">AI interview mode</h2>
+    <p class="mb-4 text-sm text-slate-500">Choose how AI interviews run. Live video needs a HeyGen key
+        (<?= $hasHeygenKey ? '<span class="font-medium text-emerald-600">key present</span>' : '<span class="font-medium text-rose-600">no HeyGen key yet</span>' ?>).</p>
+    <form method="post" action="/ai/interview-mode" class="flex items-center gap-3">
+        <?= csrf_field() ?>
+        <select name="interview_video" <?= $canConfigure ? '' : 'disabled' ?> class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <option value="0" <?= $interviewVideo ? '' : 'selected' ?>>Text-only interviews</option>
+            <option value="1" <?= $interviewVideo ? 'selected' : '' ?>>Live video (HeyGen)</option>
+        </select>
+        <?php if ($canConfigure): ?><button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Save</button><?php endif; ?>
+    </form>
 </div>

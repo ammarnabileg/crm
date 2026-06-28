@@ -28,6 +28,12 @@ $statusBadge = static function (?string $s): string {
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700"><?= e($error) ?></div><?php endif; ?>
 
+<?php if (! ($gatewayConnected ?? true)): ?>
+    <div class="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+        🎉 Payments aren't enabled yet — <strong>all plans are free for a limited period</strong> (<?= e($freePeriodDays ?? 30) ?> days, auto-renewing). Pick any plan to unlock its features at no cost.
+    </div>
+<?php endif; ?>
+
 <?php if ($subStatus === 'suspended'): ?>
     <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">Your subscription is <strong>suspended</strong>. Choose a plan below to reactivate.</div>
 <?php elseif ($subStatus === 'past_due'): ?>
@@ -78,6 +84,9 @@ $statusBadge = static function (?string $s): string {
             <div class="mt-1 text-2xl font-bold text-slate-900">
                 <?php if ((int) $plan['price_cents'] === 0): ?>Free<?php else: ?>$<?= number_format($plan['price_cents'] / 100, 0) ?><span class="text-sm font-normal text-slate-400">/<?= e($plan['interval']) ?></span><?php endif; ?>
             </div>
+            <?php if (! ($gatewayConnected ?? true) && (int) $plan['price_cents'] > 0): ?>
+                <div class="text-xs font-medium text-emerald-600">Free during launch</div>
+            <?php endif; ?>
             <p class="mt-1 text-sm text-slate-500"><?= e($plan['description'] ?? '') ?></p>
 
             <ul class="mt-4 space-y-1 text-sm text-slate-600">
@@ -96,7 +105,11 @@ $statusBadge = static function (?string $s): string {
                     <?= csrf_field() ?>
                     <input type="hidden" name="plan_id" value="<?= e($plan['id']) ?>">
                     <button class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
-                        <?= $sub === null ? 'Choose plan' : 'Switch to ' . e($plan['name']) ?>
+                        <?php if (! ($gatewayConnected ?? true)): ?>
+                            <?= $sub === null ? 'Activate (free)' : 'Switch to ' . e($plan['name']) . ' (free)' ?>
+                        <?php else: ?>
+                            <?= $sub === null ? 'Choose plan' : 'Switch to ' . e($plan['name']) ?>
+                        <?php endif; ?>
                     </button>
                 </form>
             <?php endif; ?>

@@ -12,6 +12,8 @@ use HaHireAI\Modules\Billing\Application\Entitlements;
 use HaHireAI\Modules\Billing\Application\InvoiceService;
 use HaHireAI\Modules\Billing\Application\PlanService;
 use HaHireAI\Modules\Billing\Application\SubscriptionService;
+use HaHireAI\Modules\Billing\Contracts\PaymentGateway;
+use HaHireAI\Modules\Billing\Domain\PaymentResult;
 use HaHireAI\Modules\Billing\Infrastructure\ManualPaymentGateway;
 use HaHireAI\Shared\Ulid;
 use PHPUnit\Framework\TestCase;
@@ -50,7 +52,9 @@ final class BillingTest extends TestCase
         $this->plans->seedDefaults();
         $this->subscriptions = new SubscriptionService($this->connection);
         $this->invoices = new InvoiceService($this->connection);
-        $this->billing = new BillingService($this->subscriptions, $this->plans, $this->invoices, new ManualPaymentGateway());
+        // Charge-path tests use a CONNECTED gateway (key != 'manual'); free-period
+        // tests below use the built-in manual gateway (= not connected).
+        $this->billing = new BillingService($this->subscriptions, $this->plans, $this->invoices, $this->connectedGateway());
         $this->entitlements = new Entitlements($this->subscriptions);
     }
 
@@ -149,9 +153,43 @@ final class BillingTest extends TestCase
         $this->assertTrue($this->entitlements->isUsable($ws));
     }
 
+    public function test_free_period_when_no_payment_gateway_is_connected(): void
+    {
+        $ws = $this->workspace();
+        // The built-in manual gateway = "not connected" → free-for-a-limited-period.
+        $free = new BillingService($this->subscriptions, $this->plans, $this->invoices, new ManualPaymentGateway(), 30);
+        $this->assertFalse($free->gatewayConnected());
+
+        $free->subscribe($ws, (string) $this->plans->findByCode('pro')['id'], $this->at('2026-01-01'));
+
+        $sub = $this->subscriptions->find($ws);
+        $this->assertSame('trialing', $sub['status']);             // granted free
+        $this->assertNotNull($sub['trial_ends_at']);
+        $this->assertCount(0, $this->invoices->listForWorkspace($ws)); // never charged
+        // Full plan features unlocked at no cost, and the workspace is usable.
+        $this->assertTrue($this->entitlements->allows($ws, 'ai'));
+        $this->assertTrue($this->entitlements->isUsable($ws));
+    }
+
     private function at(string $date): int
     {
         return (int) strtotime($date . ' 00:00:00 UTC');
+    }
+
+    /** A connected PSP stand-in (key != 'manual') that always succeeds. */
+    private function connectedGateway(): PaymentGateway
+    {
+        return new class implements PaymentGateway {
+            public function key(): string
+            {
+                return 'test';
+            }
+
+            public function charge(int $amountCents, string $currency, string $description, array $metadata = []): PaymentResult
+            {
+                return PaymentResult::ok('test_' . $amountCents);
+            }
+        };
     }
 
     private function workspace(): string

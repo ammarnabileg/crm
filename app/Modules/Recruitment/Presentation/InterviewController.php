@@ -9,9 +9,11 @@ use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
 use HaHireAI\Modules\Audit\Application\AuditLogger;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
+use HaHireAI\Modules\AiEngine\Application\AiSettingsService;
 use HaHireAI\Modules\Recruitment\Application\Exceptions\ApplicationException;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
+use HaHireAI\Modules\Workspaces\Application\WorkspacePreferences;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
 
 /** Interviews (AI + human), workspace-scoped and advisory. */
@@ -22,6 +24,8 @@ final class InterviewController
         private readonly WorkspaceContext $context,
         private readonly AuthContext $auth,
         private readonly InterviewService $interviews,
+        private readonly WorkspacePreferences $preferences,
+        private readonly AiSettingsService $aiSettings,
         private readonly Session $session,
         private readonly AuditLogger $audit,
     ) {
@@ -52,14 +56,25 @@ final class InterviewController
             return Response::redirect('/candidates/' . $userId);
         }
 
+        $type = (string) $request->input('type', 'human');
+        $ws = (string) $this->context->workspaceId();
+
+        // AI interviews follow the workspace's mode: live video (HeyGen) only when
+        // the owner enabled it AND a HeyGen key is present; otherwise text.
+        $mode = trim((string) $request->input('mode', '')) ?: null;
+        if ($type === 'ai') {
+            $videoReady = $this->preferences->bool($ws, 'ai.interview_video') && $this->aiSettings->getKey($ws, 'heygen') !== null;
+            $mode = $videoReady ? 'video' : 'text';
+        }
+
         try {
             $id = $this->interviews->schedule(
-                (string) $this->context->workspaceId(),
+                $ws,
                 $applicationId,
-                (string) $request->input('type', 'human'),
+                $type,
                 [
-                    'mode' => trim((string) $request->input('mode', '')) ?: null,
-                    'interviewer_user_id' => (string) $request->input('type', 'human') === 'human' ? $this->context->userId() : null,
+                    'mode' => $mode,
+                    'interviewer_user_id' => $type === 'human' ? $this->context->userId() : null,
                     'scheduled_at' => trim((string) $request->input('scheduled_at', '')) ?: null,
                     'created_by' => $this->context->userId(),
                 ],

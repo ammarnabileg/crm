@@ -34,5 +34,6 @@ final class AiModule implements Module
         $router->get('/ai', [AiController::class, 'index']);
         $router->post('/ai/provider', [AiController::class, 'setProvider']);
         $router->post('/ai/keys', [AiController::class, 'addKey']);
+        $router->post('/ai/interview-mode', [AiController::class, 'setInterviewMode']);
     }
 }

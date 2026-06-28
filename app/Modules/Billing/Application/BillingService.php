@@ -23,7 +23,24 @@ final class BillingService
         private readonly PlanService $plans,
         private readonly InvoiceService $invoices,
         private readonly PaymentGateway $gateway,
+        /** Length of the complimentary period while no real PSP is connected. */
+        private readonly int $freePeriodDays = 30,
     ) {
+    }
+
+    /**
+     * Whether a real payment gateway is wired. The built-in `manual` gateway
+     * means "not connected" → the platform runs in **free-for-a-limited-period**
+     * mode: every plan is granted free, nothing is ever charged or suspended.
+     */
+    public function gatewayConnected(): bool
+    {
+        return $this->gateway->key() !== 'manual';
+    }
+
+    public function freePeriodDays(): int
+    {
+        return $this->freePeriodDays;
     }
 
     /**
@@ -36,6 +53,11 @@ final class BillingService
         $nowTs ??= time();
         $plan = $this->requirePlan($planId);
         $existing = $this->subscriptions->find($workspaceId);
+
+        // No PSP connected → grant the plan free for a limited period (no charge).
+        if (! $this->gatewayConnected()) {
+            return $this->startFreePeriod($workspaceId, $plan, $nowTs);
+        }
 
         if ((int) $plan['trial_days'] > 0 && $existing === null) {
             return $this->subscriptions->place($workspaceId, (string) $plan['id'], 'trialing', [
@@ -62,6 +84,20 @@ final class BillingService
     public function activatePaidPeriod(string $workspaceId, string $subscriptionId, array $plan, ?int $nowTs = null): bool
     {
         $nowTs ??= time();
+
+        // No PSP connected → keep the workspace on a rolling free period (never
+        // charge, never suspend). This is the launch/complimentary mode.
+        if (! $this->gatewayConnected()) {
+            $this->subscriptions->update($subscriptionId, [
+                'status' => 'trialing',
+                'trial_ends_at' => $this->ts($nowTs, '+' . $this->freePeriodDays . ' days'),
+                'current_period_end' => null,
+                'grace_ends_at' => null,
+            ]);
+
+            return true;
+        }
+
         $periodStart = $this->sql($nowTs);
         $periodEnd = $this->periodEnd((string) $plan['interval'], $nowTs);
         $price = (int) $plan['price_cents'];
@@ -154,6 +190,22 @@ final class BillingService
         $this->subscriptions->update((string) $sub['id'], [
             'status' => 'canceled',
             'canceled_at' => $this->sql($nowTs),
+            'cancel_at_period_end' => 0,
+        ]);
+    }
+
+    /**
+     * Grant a plan free for the complimentary period (no charge, no invoice).
+     *
+     * @param  array<string,mixed>  $plan
+     */
+    private function startFreePeriod(string $workspaceId, array $plan, int $nowTs): string
+    {
+        return $this->subscriptions->place($workspaceId, (string) $plan['id'], 'trialing', [
+            'trial_ends_at' => $this->ts($nowTs, '+' . $this->freePeriodDays . ' days'),
+            'current_period_start' => $this->sql($nowTs),
+            'current_period_end' => null,
+            'grace_ends_at' => null,
             'cancel_at_period_end' => 0,
         ]);
     }

@@ -56,7 +56,7 @@ final class SubscriptionLifecycleTest extends TestCase
 
     public function test_trial_converts_to_active_and_charges_on_expiry(): void
     {
-        [$billing, $lifecycle] = $this->stack(new ManualPaymentGateway());
+        [$billing, $lifecycle] = $this->stack($this->connectedGateway());
         $ws = $this->workspace();
         $pro = (string) $this->plans->findByCode('pro')['id'];
 
@@ -90,7 +90,7 @@ final class SubscriptionLifecycleTest extends TestCase
 
     public function test_scheduled_cancellation_takes_effect_at_period_end(): void
     {
-        [$billing, $lifecycle] = $this->stack(new ManualPaymentGateway());
+        [$billing, $lifecycle] = $this->stack($this->connectedGateway());
         $ws = $this->workspace();
         $free = (string) $this->plans->findByCode('free')['id'];
 
@@ -101,6 +101,37 @@ final class SubscriptionLifecycleTest extends TestCase
 
         $lifecycle->tick($this->at('2026-03-01'));                       // past the period end
         $this->assertSame('canceled', $this->subscriptions->find($ws)['status']);
+    }
+
+    public function test_free_period_never_suspends_when_no_gateway_connected(): void
+    {
+        // Built-in manual gateway = not connected → rolling free period.
+        [$billing, $lifecycle] = $this->stack(new ManualPaymentGateway());
+        $ws = $this->workspace();
+        $billing->subscribe($ws, (string) $this->plans->findByCode('pro')['id'], $this->at('2026-01-01'));
+
+        // Long after any trial window — still trialing (auto-extended), never suspended.
+        $lifecycle->tick($this->at('2026-03-15'));
+
+        $sub = $this->subscriptions->find($ws);
+        $this->assertSame('trialing', $sub['status']);
+        $this->assertNotSame('suspended', $sub['status']);
+    }
+
+    /** A connected PSP stand-in (key != 'manual') that always succeeds. */
+    private function connectedGateway(): PaymentGateway
+    {
+        return new class implements PaymentGateway {
+            public function key(): string
+            {
+                return 'test';
+            }
+
+            public function charge(int $amountCents, string $currency, string $description, array $metadata = []): PaymentResult
+            {
+                return PaymentResult::ok('test_' . $amountCents);
+            }
+        };
     }
 
     /** @return array{0: BillingService, 1: SubscriptionLifecycle} */
