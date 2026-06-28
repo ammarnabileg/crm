@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Light mode is the platform's base identity. */
+  :root {
+    color-scheme: light;
+  }
+
+  /* One unified type identity across every page and component. */
+  body {
+    @apply bg-slate-100 font-sans text-slate-800 antialiased;
+  }
+}
