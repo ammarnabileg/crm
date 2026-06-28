@@ -11,7 +11,9 @@ use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Audit\Application\AuditLogger;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Memberships\Application\MembershipService;
+use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceCreator;
+use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
 use Throwable;
 
 /** Create / switch workspaces (docs/WORKSPACE_MODEL.md). Any user may create one. */
@@ -22,9 +24,32 @@ final class WorkspaceController
         private readonly AuthContext $auth,
         private readonly WorkspaceCreator $creator,
         private readonly MembershipService $memberships,
+        private readonly WorkspaceShell $shell,
+        private readonly WorkspaceContext $context,
         private readonly Session $session,
         private readonly AuditLogger $audit,
     ) {
+    }
+
+    /** "My Workspaces" — every workspace the current user belongs to, any role. */
+    public function myWorkspaces(): Response
+    {
+        if (! $this->auth->check()) {
+            return Response::redirect('/login');
+        }
+        if (! $this->context->resolve()) {
+            return Response::redirect('/workspaces/create');
+        }
+
+        $list = $this->memberships->workspacesForUserDetailed((string) $this->auth->id());
+        $active = count(array_filter($list, static fn (array $w): bool => (string) $w['status'] === 'active'));
+        $suspended = count(array_filter($list, static fn (array $w): bool => (string) ($w['sub_status'] ?? '') === 'suspended'));
+
+        return $this->shell->render($this->context, 'workspace.my', [
+            'workspaces' => $list,
+            'currentId' => $this->context->workspaceId(),
+            'stats' => ['total' => count($list), 'active' => $active, 'suspended' => $suspended],
+        ]);
     }
 
     public function showCreate(): Response

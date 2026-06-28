@@ -73,6 +73,10 @@ final class PermissionCatalog
                 'interview.ai.run' => 'Run an AI interview',
                 'interview.evaluate' => 'Submit evaluations',
             ],
+            'Avatars' => [
+                'avatar.view' => 'View AI interviewer avatars',
+                'avatar.manage' => 'Create and edit avatars',
+            ],
             'Offers' => [
                 'offer.view' => 'View offers',
                 'offer.create' => 'Create an offer',

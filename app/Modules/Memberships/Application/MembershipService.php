@@ -74,6 +74,28 @@ final class MembershipService
         );
     }
 
+    /**
+     * Workspaces a user belongs to, enriched for the "My Workspaces" page
+     * (owner, member count, plan, subscription status).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function workspacesForUserDetailed(string $userId): array
+    {
+        return $this->connection->select(
+            'SELECT w.id, w.name, w.status, w.created_at, ow.name AS owner_name,
+                    (SELECT COUNT(*) FROM memberships m2 WHERE m2.workspace_id = w.id AND m2.deleted_at IS NULL) AS members,
+                    (SELECT p.name FROM subscriptions s JOIN plans p ON p.id = s.plan_id WHERE s.workspace_id = w.id LIMIT 1) AS plan_name,
+                    (SELECT s.status FROM subscriptions s WHERE s.workspace_id = w.id LIMIT 1) AS sub_status
+               FROM memberships m
+               JOIN workspaces w ON w.id = m.workspace_id
+               LEFT JOIN users ow ON ow.id = w.owner_user_id
+              WHERE m.user_id = ? AND m.deleted_at IS NULL AND w.deleted_at IS NULL
+              ORDER BY w.created_at DESC',
+            [$userId],
+        );
+    }
+
     /** @return list<array<string, mixed>> members of a workspace with their role names */
     public function membersForWorkspace(string $workspaceId): array
     {

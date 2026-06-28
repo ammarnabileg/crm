@@ -34,6 +34,7 @@ final class WorkspaceModule implements Module
     public function routes(Router $router): void
     {
         $router->get('/dashboard', [DashboardController::class, 'index']);
+        $router->get('/my-workspaces', [WorkspaceController::class, 'myWorkspaces']);
         $router->get('/workspaces/create', [WorkspaceController::class, 'showCreate']);
         $router->post('/workspaces', [WorkspaceController::class, 'create']);
         $router->post('/workspaces/{id}/switch', [WorkspaceController::class, 'switch']);

@@ -418,6 +418,17 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Verified on live MySQL 8 (`InterviewInvitationTest`). **Suite: 123 tests / 431
   assertions.**
 
+### Added — My Workspaces + AI interviewer Avatars
+- **My Workspaces** (`/my-workspaces`): every workspace the current user belongs
+  to (any role) with owner, members, plan, created, an **Enter** (switch) button,
+  and totals (total / active / suspended). Sidebar gains **My Workspaces**.
+- **Avatars** (`AvatarService`, recruitment spec #3): AI interviewer personas —
+  name, persona, gender, language, image, style notes — workspace-scoped CRUD at
+  `/avatars`. Permissions `avatar.view` / `avatar.manage`; sidebar gains
+  **Avatars**.
+- **Migration**: ai_avatars. Auditor extended to 50 checks (routes).
+- Verified on live MySQL 8 (`AvatarTest`). **Suite: 125 tests / 448 assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

@@ -7,6 +7,7 @@ namespace HaHireAI\Modules\Recruitment;
 use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
+use HaHireAI\Modules\Recruitment\Presentation\AvatarController;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatesController;
 use HaHireAI\Modules\Recruitment\Presentation\InterviewController;
 use HaHireAI\Modules\Recruitment\Presentation\JobsController;
@@ -78,6 +79,12 @@ final class RecruitmentModule implements Module
         // Recruitment analytics.
         $router->get('/reports', [ReportsController::class, 'index']);
         $router->get('/reports/export', [ReportsController::class, 'export']);
+
+        // AI interviewer avatars.
+        $router->get('/avatars', [AvatarController::class, 'index']);
+        $router->post('/avatars', [AvatarController::class, 'create']);
+        $router->post('/avatars/{id}', [AvatarController::class, 'update']);
+        $router->post('/avatars/{id}/delete', [AvatarController::class, 'delete']);
 
         // Talent pool.
         $router->get('/talent-pool', [TalentPoolController::class, 'index']);

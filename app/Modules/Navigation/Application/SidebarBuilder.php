@@ -17,11 +17,13 @@ final class SidebarBuilder
     /** Workspace-context items: [label, route, permission, feature?]. */
     private const WORKSPACE_ITEMS = [
         ['label' => 'Dashboard', 'route' => '/dashboard', 'permission' => 'workspace.view'],
+        ['label' => 'My Workspaces', 'route' => '/my-workspaces', 'permission' => 'workspace.view'],
         ['label' => 'Jobs', 'route' => '/jobs', 'permission' => 'job.view'],
         ['label' => 'Candidates', 'route' => '/candidates', 'permission' => 'candidate.view'],
         ['label' => 'Talent Pool', 'route' => '/talent-pool', 'permission' => 'talent.view'],
         ['label' => 'Pipeline', 'route' => '/pipeline', 'permission' => 'pipeline.view'],
         ['label' => 'Interviews', 'route' => '/interviews', 'permission' => 'interview.view'],
+        ['label' => 'Avatars', 'route' => '/avatars', 'permission' => 'avatar.view'],
         ['label' => 'Offers', 'route' => '/offers', 'permission' => 'offer.view'],
         ['label' => 'Reports', 'route' => '/reports', 'permission' => 'report.view'],
         ['label' => 'Members', 'route' => '/members', 'permission' => 'member.view'],
