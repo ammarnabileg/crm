@@ -47,6 +47,7 @@ final class CoreServiceProvider extends ServiceProvider
         $c->singleton(ErrorHandler::class, static fn (Container $container): ErrorHandler => new ErrorHandler(
             (bool) $config->get('app.debug', false),
             $container->make(LoggerContract::class),
+            $container->make(EventDispatcherContract::class),
         ));
 
         // Permissive default; the Billing module overrides this with a real resolver.

@@ -258,6 +258,30 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Verified on live MySQL 8 (`BillingTest`, `SubscriptionLifecycleTest`,
   `SidebarBuilderTest`). Suite: **81 tests / 255 assertions**.
 
+### Added — Phase 15: Observability, Diagnostics & Operations
+- **Observability** (`app/Modules/Observability`) — `OBSERVABILITY.md`, in the
+  Platform Context (System Owner), reusing existing Health/Logger/ErrorHandler/
+  event-bus/Audit infrastructure:
+  - **MetricsService**: platform snapshot computed from existing domain tables
+    (tenancy, MRR, recruitment, AI, automation, integration, health) — resilient
+    (missing table ⇒ 0).
+  - **ErrorTracker**: persists captured errors to `error_events`, fed by a new
+    `system.error` event the Core `ErrorHandler` now publishes (Core stays
+    DB-agnostic; telemetry never masks the original error).
+  - **MonitorService.tick($now)**: opens/auto-resolves `alerts` for suspended/
+    past-due subscriptions, webhook failure spikes, and error spikes.
+  - **BackupService**: records runs + writes a verifiable table/row-count
+    **manifest** to storage (full `mysqldump`/snapshots deferred to ops).
+  - **Ops dashboard**: `PlatformContext` + `PlatformShell` (the **same** single
+    dynamic sidebar, `context='platform'`) with `/admin` (overview), `/admin/
+    diagnostics`, `/admin/diagnostics/json`, and run-backup.
+- **Core**: `ErrorHandler` publishes `system.error`; `DatabaseProbe` already
+  registered. `PlatformContext`/`PlatformShell` added under Workspaces.
+- **Migration**: error_events, alerts, backups.
+- Verified on live MySQL 8 (`ObservabilityTest`) **and** an end-to-end HTTP run
+  (System Owner → `/admin` + diagnostics JSON: DB/PHP/storage healthy + live
+  metrics). Suite: **88 tests / 291 assertions**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

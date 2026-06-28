@@ -234,9 +234,25 @@ SaaS monetization + licensing (`BILLING_PLATFORM.md`):
 - **Billing UI (`/billing`)** + `db:seed`/install seeding.
 - Verified on live MySQL 8. Suite: **81 tests / 255 assertions**.
 
+### Phase 15 — Observability, Diagnostics & Operations ✅ (core)
+Platform-context operability (`OBSERVABILITY.md`), reusing existing Health/
+Logger/ErrorHandler/event-bus/Audit infrastructure:
+- **Metrics** snapshot from existing domain tables (tenancy/MRR/recruitment/AI/
+  automation/integration/health), resilient to partial outages.
+- **Error tracking** via a `system.error` event the Core `ErrorHandler` now
+  publishes (Core stays DB-agnostic; persisted by an Observability reactor).
+- **Monitors & alerts** (`MonitorService.tick($now)`): suspended/past-due subs,
+  webhook-failure and error spikes; open + auto-resolve.
+- **Backups**: recorded runs + verifiable manifest to storage.
+- **Ops dashboard** via `PlatformContext` + `PlatformShell` — the **same** single
+  dynamic sidebar in `platform` context: `/admin`, `/admin/diagnostics`,
+  `/admin/diagnostics/json`.
+- Verified on live MySQL 8 + an end-to-end System-Owner HTTP run. Suite:
+  **88 tests / 291 assertions**.
+
 ### Planned (later phases)
-- **Phases 15–16 — Implementation:** Observability/Diagnostics/Operations, and
-  Release certification — each with its own documents and tests (see
+- **Phase 16 — Release Engineering & Final Certification:** production-readiness
+  audit, end-to-end verification, and the final certification report (see
   `MODULES.md`).
 
 `/docs/adr/` holds Architecture Decision Records for significant decisions.

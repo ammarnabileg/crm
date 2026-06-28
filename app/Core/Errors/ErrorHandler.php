@@ -5,20 +5,24 @@ declare(strict_types=1);
 namespace HaHireAI\Core\Errors;
 
 use ErrorException;
+use HaHireAI\Core\Contracts\EventDispatcher;
 use HaHireAI\Core\Contracts\Logger;
 use HaHireAI\Core\Http\Response;
 use Throwable;
 
 /**
  * Global error & exception handler. In production it NEVER leaks stack traces
- * to the client; in development it renders detail to aid debugging. Feeds the
- * Phase-15 error tracker via the logger. See docs/ERROR_HANDLING_GUIDE.md.
+ * to the client; in development it renders detail to aid debugging. It both logs
+ * and publishes a `system.error` event so the Observability error tracker can
+ * persist it — without Core depending on the database. See
+ * docs/ERROR_HANDLING_GUIDE.md, docs/OBSERVABILITY.md.
  */
 final class ErrorHandler
 {
     public function __construct(
         private readonly bool $debug,
         private readonly ?Logger $logger = null,
+        private readonly ?EventDispatcher $events = null,
     ) {
     }
 
@@ -48,6 +52,19 @@ final class ErrorHandler
             'file' => $e->getFile(),
             'line' => $e->getLine(),
         ]);
+
+        // Publish for the error tracker. Never let observability break handling.
+        try {
+            $this->events?->dispatch('system.error', [
+                'level' => 'error',
+                'message' => $e->getMessage(),
+                'exception_class' => $e::class,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+        } catch (Throwable) {
+            // swallow — telemetry must not mask the original error
+        }
 
         if (PHP_SAPI === 'cli') {
             fwrite(STDERR, $this->renderCli($e));

@@ -21,4 +21,5 @@ return [
     \HaHireAI\Modules\Workflow\WorkflowModule::class,
     \HaHireAI\Modules\Integration\IntegrationModule::class,
     \HaHireAI\Modules\Billing\BillingModule::class,
+    \HaHireAI\Modules\Observability\ObservabilityModule::class,
 ];
