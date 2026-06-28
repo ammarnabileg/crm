@@ -13,6 +13,7 @@ use HaHireAI\Modules\Recruitment\Presentation\JobsController;
 use HaHireAI\Modules\Recruitment\Presentation\OffersController;
 use HaHireAI\Modules\Recruitment\Presentation\PipelineController;
 use HaHireAI\Modules\Recruitment\Presentation\PublicJobController;
+use HaHireAI\Modules\Recruitment\Presentation\ReportsController;
 
 /** The Recruitment bounded context (Phase 10). */
 final class RecruitmentModule implements Module
@@ -64,5 +65,9 @@ final class RecruitmentModule implements Module
         $router->post('/candidates/{userId}/interviews', [InterviewController::class, 'schedule']);
         $router->post('/interviews/{interviewId}/ai-run', [InterviewController::class, 'runAi']);
         $router->post('/interviews/{interviewId}/evaluate', [InterviewController::class, 'evaluate']);
+
+        // Recruitment analytics.
+        $router->get('/reports', [ReportsController::class, 'index']);
+        $router->get('/reports/export', [ReportsController::class, 'export']);
     }
 }

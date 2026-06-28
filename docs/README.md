@@ -275,12 +275,15 @@ Logger/ErrorHandler/event-bus/Audit infrastructure:
 - **Notification Center**: personal, per-(workspace,user) notifications — a
   reactor on the event bus (candidate notified on application). `NotificationTest`
   green.
+- **Reports & Analytics** (`/reports`): the workspace hiring funnel +
+  applications-by-status + interview avg score + AI usage, with CSV export.
+  `ReportTest` green.
 
 ### Verifying the build
 ```
 php bin/console.php migrate && php bin/console.php db:seed
-php bin/certify.php          # 42/42
-vendor/bin/phpunit          # 104 tests
+php bin/certify.php          # 43/43
+vendor/bin/phpunit          # 106 tests
 ```
 
 `/docs/adr/` holds Architecture Decision Records for significant decisions.

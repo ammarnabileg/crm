@@ -359,6 +359,15 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Verified on live MySQL 8 (`NotificationTest`). **Suite: 104 tests / 358
   assertions.**
 
+### Added — Recruitment Reports & Analytics
+- **`ReportService`** + **`/reports`**: the workspace hiring funnel (published
+  jobs → applications → interviews → offers → hires), applications-by-status,
+  interview average score, and AI usage — aggregated from existing data (no new
+  tables), strictly workspace-scoped. CSV export gated by `report.export`.
+  - Closes the previously-empty **Reports** sidebar item with a real dashboard.
+- Auditor extended to 43 checks (`/reports` route). Verified on live MySQL 8
+  (`ReportTest`). **Suite: 106 tests / 368 assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

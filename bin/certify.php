@@ -152,7 +152,8 @@ foreach ($router->routes() as $r) {
 foreach ([
     'GET /install', 'GET /login', 'GET /dashboard', 'GET /jobs', 'GET /workflows',
     'GET /integrations', 'GET /billing', 'GET /admin', 'GET /admin/diagnostics',
-    'GET /interviews', 'GET /files', 'GET /notifications', 'GET /api/v1/ping', 'GET /api/v1/jobs',
+    'GET /interviews', 'GET /files', 'GET /notifications', 'GET /reports',
+    'GET /api/v1/ping', 'GET /api/v1/jobs',
 ] as $route) {
     $check("route registered: {$route}", isset($paths[$route]));
 }
