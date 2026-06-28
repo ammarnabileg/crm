@@ -12,6 +12,7 @@ use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
 use HaHireAI\Core\Contracts\FileStorage;
 use HaHireAI\Modules\Recruitment\Application\ApplicationService;
+use HaHireAI\Modules\AiEngine\Contracts\AiCapabilities;
 use HaHireAI\Modules\Recruitment\Application\AssessmentService;
 use HaHireAI\Modules\Recruitment\Application\ResumeParser;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
@@ -44,8 +45,9 @@ final class CandidatesController
         private readonly ComparisonService $comparison,
         private readonly TalentPoolService $talent,
         private readonly FileStorage $files,
-        private readonly AiEngine $ai,
+        private readonly AiEngine $aiEngine,
         private readonly ResumeParser $resumeParser,
+        private readonly AiCapabilities $ai,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
@@ -59,14 +61,15 @@ final class CandidatesController
 
         $ws = (string) $this->context->workspaceId();
         $filters = [
+            'q' => trim((string) $request->query('q', '')),
             'min_score' => (int) $request->query('min_score', 0),
             'recommendation' => trim((string) $request->query('recommendation', '')),
             'skill' => trim((string) $request->query('skill', '')),
             'skill_min' => (int) $request->query('skill_min', 0),
         ];
-        $searching = $filters['min_score'] > 0 || $filters['recommendation'] !== '' || $filters['skill'] !== '';
+        $aiSearching = $filters['min_score'] > 0 || $filters['recommendation'] !== '' || $filters['skill'] !== '';
 
-        if ($searching) {
+        if ($aiSearching) {
             // Advanced search: rank candidates by their AI assessment.
             $candidates = array_map(static fn (array $a): array => [
                 'user_id' => $a['candidate_user_id'],
@@ -75,15 +78,19 @@ final class CandidatesController
                 'fit_score' => (int) $a['fit_score'],
                 'recommendation' => (string) $a['recommendation'],
             ], $this->assessments->search($ws, $filters));
+        } elseif ($filters['q'] !== '') {
+            // Plain ATS keyword search over CV-derived data — no AI required.
+            $candidates = $this->candidates->searchByKeyword($ws, $filters['q']);
         } else {
             $candidates = $this->candidates->listForWorkspace($ws);
         }
 
         return $this->shell->render($this->context, 'recruitment.candidates.index', [
             'candidates' => $candidates,
-            'searching' => $searching,
+            'searching' => $aiSearching || $filters['q'] !== '',
             'filters' => $filters,
             'skills' => SkillCatalog::SKILLS,
+            'aiSearch' => $this->ai->cvAnalysisEnabled($ws),
         ]);
     }
 
@@ -174,10 +181,17 @@ final class CandidatesController
             return Response::redirect('/candidates');
         }
 
+        // AI summary / CV analysis needs this workspace's OpenAI key.
+        if (! $this->ai->cvAnalysisEnabled($workspaceId)) {
+            $this->session->flash('status', 'AI analysis is off — add an OpenAI key in AI settings to enable it.');
+
+            return Response::redirect('/candidates/' . $userId);
+        }
+
         $applications = $this->candidates->applications($workspaceId, $userId);
         $notes = $this->candidates->notes($workspaceId, (string) $profile['profile_id']);
 
-        $result = $this->ai->run($workspaceId, 'summarize_candidate', [
+        $result = $this->aiEngine->run($workspaceId, 'summarize_candidate', [
             'name' => (string) $profile['name'],
             'email' => (string) $profile['email'],
             'applications' => implode('; ', array_map(static fn (array $a): string => (string) $a['job_title'] . ' (' . (string) ($a['stage'] ?? $a['status']) . ')', $applications)),

@@ -21,6 +21,7 @@ use HaHireAI\Modules\Recruitment\Application\JobService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
 use HaHireAI\Core\Contracts\UserDirectory;
 use HaHireAI\Core\Contracts\FileStorage;
+use HaHireAI\Modules\AiEngine\Contracts\AiCapabilities;
 use HaHireAI\Modules\AiEngine\Contracts\SpeechToText;
 use HaHireAI\Modules\Recruitment\Domain\ApplicationStatus;
 
@@ -47,6 +48,7 @@ final class CandidatePortalController
         private readonly FileStorage $files,
         private readonly CandidateProfileService $profiles,
         private readonly SpeechToText $speech,
+        private readonly AiCapabilities $ai,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
@@ -132,13 +134,16 @@ final class CandidatePortalController
             }
         }
 
-        // Schedule the AI screening interview so the candidate can enter the room
-        // now or later (AI-native flow). Text mode is the always-available baseline.
+        // Schedule the AI screening interview only when this workspace has its AI
+        // configured (OpenAI key). Without it, AI interviews are off and the
+        // application simply proceeds for the team to handle manually.
         $interviewId = null;
-        try {
-            $interviewId = $this->interviews->schedule($ws, $appId, 'ai', ['mode' => 'text', 'created_by' => $uid]);
-        } catch (ApplicationException) {
-            // Non-fatal: the application stands even if scheduling fails.
+        if ($this->ai->interviewsEnabled($ws)) {
+            try {
+                $interviewId = $this->interviews->schedule($ws, $appId, 'ai', ['mode' => 'text', 'created_by' => $uid]);
+            } catch (ApplicationException) {
+                // Non-fatal: the application stands even if scheduling fails.
+            }
         }
 
         $this->audit->record('recruitment.application.submitted', [

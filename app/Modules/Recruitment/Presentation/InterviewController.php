@@ -10,6 +10,7 @@ use HaHireAI\Core\Http\Session;
 use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\AiEngine\Application\AiSettingsService;
+use HaHireAI\Modules\AiEngine\Contracts\AiCapabilities;
 use HaHireAI\Modules\Recruitment\Application\AssessmentService;
 use HaHireAI\Modules\Recruitment\Application\Exceptions\ApplicationException;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
@@ -29,6 +30,7 @@ final class InterviewController
         private readonly AssessmentService $assessments,
         private readonly WorkspacePreferences $preferences,
         private readonly AiSettingsService $aiSettings,
+        private readonly AiCapabilities $aiCapabilities,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
@@ -180,6 +182,13 @@ final class InterviewController
         $interview = $this->interviews->find((string) $this->context->workspaceId(), $interviewId);
         if ($interview === null) {
             return Response::redirect('/interviews');
+        }
+
+        // AI interviews + assessment require this workspace's OpenAI key.
+        if (! $this->aiCapabilities->interviewsEnabled((string) $this->context->workspaceId())) {
+            $this->session->flash('status', 'AI interviews are off — add an OpenAI key in AI settings to enable them.');
+
+            return Response::redirect('/candidates/' . (string) $interview['candidate_user_id']);
         }
 
         $result = $this->interviews->runAi((string) $this->context->workspaceId(), $interviewId, $this->context->userId());

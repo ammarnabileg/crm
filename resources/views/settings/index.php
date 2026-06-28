@@ -136,6 +136,12 @@ $inp = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border
     </div>
 
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-1 text-sm font-semibold text-slate-900">AI</h2>
+        <p class="mb-3 text-xs text-slate-400">Turn on AI interviews and AI CV analysis by adding your provider keys (OpenAI, HeyGen).</p>
+        <a href="/ai" class="inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Enable AI →</a>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 class="mb-1 text-sm font-semibold text-slate-900">Maintenance</h2>
         <p class="mb-3 text-xs text-slate-400">Pause the workspace for everyone except admins and allow-listed IPs.</p>
         <a href="/settings/maintenance" class="inline-block rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Open maintenance settings →</a>

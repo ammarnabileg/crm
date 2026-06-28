@@ -846,6 +846,27 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   `{param}` maps to an identically-named handler argument, so this class of bug
   can never ship silently again. Auditor **101/101**.
 
+### AI feature gating — keys drive what's on (per-workspace, isolated)
+- New `AiEngine\Contracts\AiCapabilities`: AI features are usable only when the
+  workspace has the right key. **OpenAI key → AI (text/voice) interviews + AI CV
+  analysis**; **HeyGen key (+ OpenAI) → live video avatar**. Keys are
+  per-workspace and isolated (a key in one workspace never enables another).
+- **Without the key the feature is off, not silently faked**: applying to a job no
+  longer schedules an AI interview when there's no OpenAI key (the application
+  still proceeds for the team to handle); staff "Run AI interview", the public
+  interview link, and AI candidate summaries all no-op with a clear message.
+- **AI settings** shows each feature's Active/Inactive status; the video toggle is
+  disabled without its keys and a **pop-up** explains why if you try to force it.
+- **Seamless enable**: adding an OpenAI key activates interviews + CV analysis;
+  adding a HeyGen key auto-enables video — no extra toggling.
+- **ATS works without AI**: jobs, applications, CV upload, human-interview
+  scheduling all run regardless. Added a non-AI **CV keyword search** over
+  candidate name/email + CV-derived data (`searchByKeyword`), separate from the
+  AI-assessment search.
+- Workspace Settings gains an **Enable AI** button that links to AI settings.
+- Verified: `AiCapabilityTest` (2, incl. isolation), `CandidateKeywordSearchTest`
+  (1); auditor **103/103**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

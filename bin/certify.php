@@ -228,6 +228,10 @@ $accessControl = $c->make(\HaHireAI\Core\Contracts\AccessControl::class);
 $check('Access control contract resolves (Permissions shared service decoupled)', $accessControl instanceof \HaHireAI\Modules\Permissions\Application\Authorizer);
 $memberDir = $c->make(\HaHireAI\Core\Contracts\MemberDirectory::class);
 $check('Member directory contract resolves (Memberships shared service decoupled)', $memberDir instanceof \HaHireAI\Modules\Memberships\Application\MembershipService);
+$aiCaps = $c->make(\HaHireAI\Modules\AiEngine\Contracts\AiCapabilities::class);
+$check('AI capabilities contract resolves (features gated on workspace keys)', $aiCaps instanceof \HaHireAI\Modules\AiEngine\Application\AiCapabilityService);
+$stt = $c->make(\HaHireAI\Modules\AiEngine\Contracts\SpeechToText::class);
+$check('Speech-to-text contract resolves (Whisper, per-workspace key)', $stt instanceof \HaHireAI\Modules\AiEngine\Infrastructure\OpenAiSpeechToText);
 
 // ── 8. Health ───────────────────────────────────────────────────────────────
 $head('8. Health');

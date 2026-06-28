@@ -70,6 +70,14 @@ final class AiSettingsService
         return $row === null ? null : $this->encrypter->decrypt((string) $row['encrypted_key']);
     }
 
+    /** True if this workspace has its own key for the provider (no decryption). */
+    public function hasKey(string $workspaceId, string $provider): bool
+    {
+        $row = $this->connection->selectOne('SELECT 1 AS x FROM ai_keys WHERE workspace_id = ? AND provider = ?', [$workspaceId, $provider]);
+
+        return $row !== null;
+    }
+
     /** @return list<array{provider: string, key_hint: ?string}> never exposes the secret */
     public function keyHints(string $workspaceId): array
     {

@@ -57,6 +57,29 @@ final class CandidateProfileService
     }
 
     /**
+     * Non-AI ATS keyword search: match a term against the candidate's name/email
+     * and their CV-derived data (summary + structured details: skills, education,
+     * …). Works without any AI key — details come from the deterministic résumé
+     * parser or manual entry.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function searchByKeyword(string $workspaceId, string $q): array
+    {
+        $like = '%' . $q . '%';
+
+        return $this->connection->select(
+            "SELECT cp.user_id, u.name, u.email,
+                    (SELECT COUNT(*) FROM applications a WHERE a.workspace_id = cp.workspace_id AND a.user_id = cp.user_id AND a.deleted_at IS NULL) AS applications
+               FROM candidate_profiles cp JOIN users u ON u.id = cp.user_id
+              WHERE cp.workspace_id = ?
+                AND (u.name LIKE ? OR u.email LIKE ? OR cp.summary LIKE ? OR CAST(cp.details AS CHAR) LIKE ?)
+              ORDER BY u.name",
+            [$workspaceId, $like, $like, $like, $like],
+        );
+    }
+
+    /**
      * Structured candidate data (CV-derived) for the Decision Center — education,
      * languages, skills, certifications, salary, availability. Workspace-scoped.
      *

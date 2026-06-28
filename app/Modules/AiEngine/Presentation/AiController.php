@@ -11,6 +11,7 @@ use HaHireAI\Modules\AiEngine\Application\AiAnalyticsService;
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
 use HaHireAI\Modules\AiEngine\Application\AiSettingsService;
 use HaHireAI\Modules\AiEngine\Application\ProviderRegistry;
+use HaHireAI\Modules\AiEngine\Contracts\AiCapabilities;
 use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
@@ -29,6 +30,7 @@ final class AiController
         private readonly ProviderRegistry $registry,
         private readonly WorkspacePreferences $preferences,
         private readonly AiAnalyticsService $analytics,
+        private readonly AiCapabilities $capabilities,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
@@ -52,15 +54,17 @@ final class AiController
             return $r;
         }
 
+        $ws = (string) $this->context->workspaceId();
+
         return $this->shell->render($this->context, 'ai.settings', [
-            'config' => $this->settings->forWorkspace((string) $this->context->workspaceId()),
-            'keyHints' => $this->settings->keyHints((string) $this->context->workspaceId()),
+            'config' => $this->settings->forWorkspace($ws),
+            'keyHints' => $this->settings->keyHints($ws),
             'providers' => $this->registry->keys(),
-            'usage' => $this->engine->usageSummary((string) $this->context->workspaceId()),
+            'usage' => $this->engine->usageSummary($ws),
             'canConfigure' => $this->context->can('ai.configure'),
             'canManageKeys' => $this->context->can('ai.keys.manage'),
-            'interviewVideo' => $this->preferences->bool((string) $this->context->workspaceId(), 'ai.interview_video'),
-            'hasHeygenKey' => $this->settings->getKey((string) $this->context->workspaceId(), 'heygen') !== null,
+            'interviewVideo' => $this->preferences->bool($ws, 'ai.interview_video'),
+            'capabilities' => $this->capabilities->status($ws),
             'status' => $this->session->pullFlash('status'),
             'error' => $this->session->pullFlash('error'),
         ]);
@@ -73,8 +77,17 @@ final class AiController
             return $r;
         }
 
+        $ws = (string) $this->context->workspaceId();
         $video = (string) $request->input('interview_video', '0') === '1';
-        $this->preferences->set((string) $this->context->workspaceId(), 'ai.interview_video', $video ? '1' : '0');
+
+        // Can't enable video without the keys it depends on (HeyGen + OpenAI).
+        if ($video && ! $this->capabilities->videoEnabled($ws)) {
+            $this->session->flash('error', 'Add an OpenAI key and a HeyGen key first — video interviews can’t run without them.');
+
+            return Response::redirect('/ai');
+        }
+
+        $this->preferences->set($ws, 'ai.interview_video', $video ? '1' : '0');
         $this->audit->record('ai.settings.updated', [
             'workspace_id' => $this->context->workspaceId(),
             'actor_user_id' => $this->context->userId(),
@@ -119,7 +132,8 @@ final class AiController
         $key = trim((string) $request->input('api_key', ''));
 
         if ($provider !== '' && $key !== '') {
-            $this->settings->setKey((string) $this->context->workspaceId(), $provider, $key);
+            $ws = (string) $this->context->workspaceId();
+            $this->settings->setKey($ws, $provider, $key);
             // Never log the key value.
             $this->audit->record('ai.key.added', [
                 'workspace_id' => $this->context->workspaceId(),
@@ -127,7 +141,17 @@ final class AiController
                 'entity_type' => 'ai_key',
                 'changes' => ['provider' => $provider],
             ]);
-            $this->session->flash('status', "Encrypted API key saved for {$provider}.");
+
+            // Seamless: turn the dependent feature on the moment its key arrives.
+            $note = '';
+            if ($provider === 'heygen' && $this->capabilities->videoEnabled($ws)) {
+                $this->preferences->set($ws, 'ai.interview_video', '1');
+                $note = ' Live video interviews are now enabled.';
+            } elseif ($provider === 'openai') {
+                $note = ' AI interviews and CV analysis are now active.';
+            }
+
+            $this->session->flash('status', "Encrypted API key saved for {$provider}.{$note}");
         }
 
         return Response::redirect('/ai');

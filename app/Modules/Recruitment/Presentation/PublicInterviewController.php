@@ -7,6 +7,7 @@ namespace HaHireAI\Modules\Recruitment\Presentation;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\View\View;
+use HaHireAI\Modules\AiEngine\Contracts\AiCapabilities;
 use HaHireAI\Modules\Recruitment\Application\AssessmentService;
 use HaHireAI\Modules\Recruitment\Application\InterviewFeedbackService;
 use HaHireAI\Modules\Recruitment\Application\InterviewInvitationService;
@@ -26,6 +27,7 @@ final class PublicInterviewController
         private readonly InterviewService $interviews,
         private readonly AssessmentService $assessments,
         private readonly InterviewFeedbackService $feedback,
+        private readonly AiCapabilities $ai,
     ) {
     }
 
@@ -50,8 +52,10 @@ final class PublicInterviewController
         $invitation = (array) $resolved['invitation'];
         $interviewId = null;
 
-        // If the link is tied to an application, run the AI interview now.
-        if (! empty($invitation['application_id'])) {
+        // If the link is tied to an application AND this workspace has its AI
+        // configured (OpenAI key), run the AI interview now. Otherwise the link is
+        // simply consumed — AI interviews are off without a key.
+        if (! empty($invitation['application_id']) && $this->ai->interviewsEnabled((string) $invitation['workspace_id'])) {
             try {
                 $interviewId = $this->interviews->schedule((string) $invitation['workspace_id'], (string) $invitation['application_id'], 'ai', []);
                 $this->interviews->runAi((string) $invitation['workspace_id'], $interviewId, null);
