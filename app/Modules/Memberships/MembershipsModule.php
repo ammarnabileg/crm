@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Memberships;
 
 use HaHireAI\Core\Contracts\Container;
+use HaHireAI\Core\Contracts\MemberDirectory;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
+use HaHireAI\Modules\Memberships\Application\MembershipService;
 use HaHireAI\Modules\Memberships\Presentation\InvitationController;
 use HaHireAI\Modules\Memberships\Presentation\MembersController;
 
@@ -24,6 +26,8 @@ final class MembershipsModule implements Module
 
     public function register(Container $container): void
     {
+        // The shared membership surface other modules depend on (ARCHITECTURE.md §4).
+        $container->singleton(MemberDirectory::class, static fn (Container $c): MemberDirectory => $c->make(MembershipService::class));
     }
 
     public function boot(Container $container): void

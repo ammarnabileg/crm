@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Workspaces\Application;
 
 use HaHireAI\Modules\Authentication\Application\AuthContext;
-use HaHireAI\Modules\Memberships\Application\MembershipService;
-use HaHireAI\Modules\Permissions\Application\Authorizer;
+use HaHireAI\Core\Contracts\MemberDirectory;
+use HaHireAI\Core\Contracts\AccessControl;
 
 /**
  * Resolves the current (user, workspace, membership, permissions) for a request
@@ -28,8 +28,8 @@ final class WorkspaceContext
 
     public function __construct(
         private readonly AuthContext $auth,
-        private readonly MembershipService $memberships,
-        private readonly Authorizer $authorizer,
+        private readonly MemberDirectory $memberships,
+        private readonly AccessControl $authorizer,
     ) {
     }
 

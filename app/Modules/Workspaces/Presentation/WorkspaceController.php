@@ -10,7 +10,7 @@ use HaHireAI\Core\Http\Session;
 use HaHireAI\Core\View\View;
 use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
-use HaHireAI\Modules\Memberships\Application\MembershipService;
+use HaHireAI\Core\Contracts\MemberDirectory;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceCreator;
 use HaHireAI\Core\Contracts\UserDirectory;
@@ -25,7 +25,7 @@ final class WorkspaceController
         private readonly View $view,
         private readonly AuthContext $auth,
         private readonly WorkspaceCreator $creator,
-        private readonly MembershipService $memberships,
+        private readonly MemberDirectory $memberships,
         private readonly WorkspaceShell $shell,
         private readonly WorkspaceContext $context,
         private readonly WorkspaceLifecycleService $lifecycle,

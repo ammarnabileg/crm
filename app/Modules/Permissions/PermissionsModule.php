@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Permissions;
 
+use HaHireAI\Core\Contracts\AccessControl;
 use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
+use HaHireAI\Modules\Permissions\Application\Authorizer;
 use HaHireAI\Modules\Permissions\Presentation\RolesController;
 
 final class PermissionsModule implements Module
@@ -23,6 +25,8 @@ final class PermissionsModule implements Module
 
     public function register(Container $container): void
     {
+        // The shared authorization surface other modules depend on (ARCHITECTURE.md §4).
+        $container->singleton(AccessControl::class, static fn (Container $c): AccessControl => $c->make(Authorizer::class));
     }
 
     public function boot(Container $container): void

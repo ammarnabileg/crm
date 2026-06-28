@@ -193,6 +193,10 @@ $diagPanels = $c->make(\HaHireAI\Modules\Observability\Application\SystemDiagnos
 $check('System diagnostics report 8 infrastructure panels', count($diagPanels) === 8);
 $fileStorage = $c->make(\HaHireAI\Core\Contracts\FileStorage::class);
 $check('File storage contract resolves (Files shared service decoupled)', $fileStorage instanceof \HaHireAI\Modules\Files\Application\FileService);
+$accessControl = $c->make(\HaHireAI\Core\Contracts\AccessControl::class);
+$check('Access control contract resolves (Permissions shared service decoupled)', $accessControl instanceof \HaHireAI\Modules\Permissions\Application\Authorizer);
+$memberDir = $c->make(\HaHireAI\Core\Contracts\MemberDirectory::class);
+$check('Member directory contract resolves (Memberships shared service decoupled)', $memberDir instanceof \HaHireAI\Modules\Memberships\Application\MembershipService);
 
 // ── 8. Health ───────────────────────────────────────────────────────────────
 $head('8. Health');

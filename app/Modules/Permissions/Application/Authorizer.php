@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Permissions\Application;
 
+use HaHireAI\Core\Contracts\AccessControl;
 use HaHireAI\Core\Database\Connection;
 
 /**
  * Computes effective permissions and answers authorization checks. Deny by
  * default; checks reference permission KEYS, never role names
  * (docs/PERMISSION_MODEL.md, docs/ACCESS_POLICIES.md).
+ *
+ * The shared authorization surface is the AccessControl contract (ARCHITECTURE.md §4).
  */
-final class Authorizer
+final class Authorizer implements AccessControl
 {
     public function __construct(private readonly Connection $connection)
     {

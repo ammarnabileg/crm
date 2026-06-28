@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Integration\Application;
 
 use HaHireAI\Core\Http\Request;
-use HaHireAI\Modules\Memberships\Application\MembershipService;
-use HaHireAI\Modules\Permissions\Application\Authorizer;
+use HaHireAI\Core\Contracts\MemberDirectory;
+use HaHireAI\Core\Contracts\AccessControl;
 
 /**
  * The per-request authorization context for the API Gateway. Mirrors
@@ -27,8 +27,8 @@ final class ApiContext
 
     public function __construct(
         private readonly ApiTokenService $tokens,
-        private readonly MembershipService $memberships,
-        private readonly Authorizer $authorizer,
+        private readonly MemberDirectory $memberships,
+        private readonly AccessControl $authorizer,
     ) {
     }
 

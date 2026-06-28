@@ -732,6 +732,23 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   full suite **184 tests / 707 assertions** green (pure decoupling — no behaviour
   change).
 
+### Sprint 1 (continued) — Memberships & Permissions as contract-bound services
+- Added `Core\Contracts\AccessControl` (the authorization surface) and
+  `Core\Contracts\MemberDirectory` (the workspace-membership surface). `Authorizer`
+  and `MembershipService` now implement them; both are bound in their modules.
+- Rewired every cross-module consumer to depend on the contracts instead of the
+  concrete classes: `WorkspaceContext`, `PlatformContext`, `WorkspaceCreator`,
+  `WorkspaceLifecycleService`, `WorkspaceController`, `DashboardController`,
+  `ApiContext`, `WorkspaceChooserController`. The Workspaces module no longer
+  reaches into Permissions/Memberships internals — the per-request authorization
+  context now speaks only to Core contracts (ARCHITECTURE.md §4).
+- Together with `FileStorage`, this completes the contract-ization of the shared
+  services flagged in the Sprint 1 architecture pass (`UserDirectory`,
+  `AuditRecorder`, `CandidateDirectory`, `RecruitmentSnapshot`, `EntitlementResolver`,
+  `FileStorage`, `AccessControl`, `MemberDirectory`).
+- Verified: auditor **87/87** (adds AccessControl + MemberDirectory checks);
+  full suite green (pure decoupling — no behaviour change).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

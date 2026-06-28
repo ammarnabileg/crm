@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Workspaces\Application;
 
 use HaHireAI\Modules\Authentication\Application\AuthContext;
-use HaHireAI\Modules\Permissions\Application\Authorizer;
+use HaHireAI\Core\Contracts\AccessControl;
 
 /**
  * The per-request authorization context for the Platform Context (System Owner).
@@ -22,7 +22,7 @@ final class PlatformContext
 
     public function __construct(
         private readonly AuthContext $auth,
-        private readonly Authorizer $authorizer,
+        private readonly AccessControl $authorizer,
     ) {
     }
 

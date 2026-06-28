@@ -10,7 +10,7 @@ use HaHireAI\Core\Contracts\RecruitmentSnapshot;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
-use HaHireAI\Modules\Memberships\Application\MembershipService;
+use HaHireAI\Core\Contracts\MemberDirectory;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 
 /**
@@ -26,7 +26,7 @@ final class DashboardController
         private readonly AuthContext $auth,
         private readonly WorkspaceContext $context,
         private readonly WorkspaceShell $shell,
-        private readonly MembershipService $memberships,
+        private readonly MemberDirectory $memberships,
         private readonly CandidateDirectory $candidates,
         private readonly RecruitmentSnapshot $snapshot,
         private readonly EntitlementResolver $entitlements,

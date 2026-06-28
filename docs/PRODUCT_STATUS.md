@@ -30,7 +30,7 @@ MySQL 8, server-rendered, no framework._
 | Job **criteria / rubric** (#2) | ✅ | weighted dimensions |
 | Candidates: list / search / compare | ✅ | advanced search by score/skill |
 | Candidate file (HR decision center) | ✅ | AI assessment, decision bar, timeline, files |
-| Pipeline (Kanban) | ✅ | 11 statuses; move via action |
+| Pipeline (Kanban) | ✅ | 11 statuses; **HTML5 drag-&-drop** + bulk move |
 | AI Interviews | ✅ | advisory, scored |
 | Human Interviews | ✅ | schedule online/onsite + structured 1–5 evaluation, reschedule/archive |
 | Offers | ✅ | send / decline / **withdraw** + **printable letter (PDF)** |
@@ -38,10 +38,11 @@ MySQL 8, server-rendered, no framework._
 | Avatars | ✅ | AI interviewer avatars |
 | Reports | ✅ | funnel + **print (PDF)** + **CSV (Excel)** export |
 | AI analytics | ✅ | usage & tokens per workspace |
-| Members / Roles | ✅ | roles as data |
-| Settings | ✅ | general + **company / branding / security / maintenance mode** |
+| Members / Roles | ✅ | roles as data; member **suspend/reactivate/remove** + last login/activity; role **clone/delete** + usage count |
+| Settings | ✅ | general + company / branding (**logo upload**) / **SMTP email** / **legal** / security / maintenance |
 | AI settings | ✅ | provider, encrypted keys, interview mode (text/video) |
-| Notifications / Activity / Search / Files | ✅ | |
+| Notifications / Activity / Search / Files | ✅ | notifications: **categories, search, archive** |
+| Diagnostics (platform) | ✅ | 8 read-only infra panels (DB/storage/cache/queue/mail/SSL/workers/runtime) |
 | Billing | ✅ | **free period when no gateway connected** |
 | Workflows / Integrations | ✅ | event-driven automations + API gateway |
 
@@ -49,11 +50,11 @@ MySQL 8, server-rendered, no framework._
 | Page | Status | Notes |
 |---|---|---|
 | Candidate Portal overview | ✅ | application status, interviews, offers, latest jobs |
-| Available jobs + apply | ✅ | **CV select/upload** (PDF/Word) |
+| Available jobs + apply | ✅ | **search + filters** (type/seniority/location); **CV select/upload** (PDF/Word) |
 | AI interview room — **text (mode A)** | ✅ | chat, question counter, 20-min timer, resumable, auto-close, completion screen |
 | AI interview room — **voice (mode B)** | 🟡 | browser speech-to-text over the same engine |
 | AI interview room — **video avatar (mode C)** | 🟡 | mounts where a HeyGen key is set; not exercised offline |
-| My applications + detail | ✅ | stage map, AI notes, "next step", accept/decline/**counter-offer** |
+| My applications + detail | ✅ | stage map, AI notes, "next step", accept/decline/**counter-offer**, **withdraw** |
 | My profile + CV library | ✅ | name/phone/experience/target salary + CVs |
 | Workspace chooser | ✅ | where you work → dashboard; where you applied → portal; create |
 
@@ -71,10 +72,18 @@ MySQL 8, server-rendered, no framework._
 ### Platform (System Owner)
 Overview · Workspaces · Users · Subscriptions · Audit logs · Diagnostics — ✅
 
+## Architecture (ARCHITECTURE.md §4)
+
+- Modules communicate only through **Core contracts** + events — never another
+  module's internal classes. Shared services exposed as contracts:
+  `UserDirectory`, `AuditRecorder`, `CandidateDirectory`, `RecruitmentSnapshot`,
+  `EntitlementResolver`, `FileStorage`, `AccessControl`, `MemberDirectory`.
+
 ## Quality
 
-- **155 tests / 550 assertions** green on live MySQL 8.
-- **Production auditor: 65/65** checks (`bin/certify.php`).
+- **184 tests / 707 assertions** green on live MySQL 8.
+- **Production auditor: 87/87** checks (`bin/certify.php`), including contract-
+  resolution and permission-catalog↔DB parity.
 - Verified end-to-end over real HTTP: login → portal → apply → AI interview room
   → completion → scored; offer accept → hired; staff vs candidate routing.
 - **43 full-page screenshots** of every page in `docs/screenshots/`.
@@ -83,9 +92,9 @@ Overview · Workspaces · Users · Subscriptions · Audit logs · Diagnostics �
 
 - **Live-video avatar (HeyGen, mode C)** is wired and gated but cannot be
   exercised in this environment (no outbound to HeyGen).
+- **Voice interview (mode B)** uses the browser's built-in speech-to-text over
+  the same engine; there is no server-side audio transcription.
 - The standalone **tokenized interview link** (`/interview/{token}`) still uses
   the older one-shot flow; the **job-link path** already converges on the new
   conversational room.
 - **Excel** export is CSV (opens in Excel); not native `.xlsx`.
-- **Branding** covers colour/tagline/company; a **logo upload** is not yet wired.
-- Pipeline stage change is via action, not HTML5 drag-and-drop.

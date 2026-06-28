@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Workspaces\Application;
 
 use HaHireAI\Core\Database\Connection;
-use HaHireAI\Modules\Memberships\Application\MembershipService;
+use HaHireAI\Core\Contracts\MemberDirectory;
 use HaHireAI\Modules\Permissions\Application\RoleService;
 use HaHireAI\Modules\Permissions\Domain\PermissionCatalog;
 
@@ -19,7 +19,7 @@ final class WorkspaceLifecycleService
 {
     public function __construct(
         private readonly Connection $connection,
-        private readonly MembershipService $memberships,
+        private readonly MemberDirectory $memberships,
         private readonly RoleService $roles,
     ) {
     }

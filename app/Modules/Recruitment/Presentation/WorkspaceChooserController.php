@@ -7,7 +7,7 @@ namespace HaHireAI\Modules\Recruitment\Presentation;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
-use HaHireAI\Modules\Memberships\Application\MembershipService;
+use HaHireAI\Core\Contracts\MemberDirectory;
 use HaHireAI\Modules\Recruitment\Application\CandidacyService;
 
 /**
@@ -22,7 +22,7 @@ final class WorkspaceChooserController
     public function __construct(
         private readonly View $view,
         private readonly AuthContext $auth,
-        private readonly MembershipService $memberships,
+        private readonly MemberDirectory $memberships,
         private readonly CandidacyService $candidacy,
     ) {
     }

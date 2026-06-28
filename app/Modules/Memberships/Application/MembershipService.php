@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Memberships\Application;
 
+use HaHireAI\Core\Contracts\MemberDirectory;
 use HaHireAI\Core\Database\Connection;
 use HaHireAI\Shared\Ulid;
 
-/** Links a User to a Workspace (docs/MEMBERSHIP_ENGINE.md). */
-final class MembershipService
+/**
+ * Links a User to a Workspace (docs/MEMBERSHIP_ENGINE.md). The shared membership
+ * surface is the MemberDirectory contract (ARCHITECTURE.md §4).
+ */
+final class MembershipService implements MemberDirectory
 {
     public function __construct(private readonly Connection $connection)
     {
