@@ -2,7 +2,11 @@
 /** @var array<string,mixed> $workspace */
 /** @var array<string,string> $prefs */
 /** @var bool $canUpdate */
+/** @var bool $hasLogo */
+/** @var string $logoVersion */
+/** @var bool $mailPasswordSet */
 /** @var string|null $status */
+/** @var string|null $error */
 $p = static fn (string $k): string => (string) ($prefs[$k] ?? '');
 $on = static fn (string $k): bool => ($prefs[$k] ?? '') === '1';
 $dis = $canUpdate ? '' : 'disabled';
@@ -14,11 +18,12 @@ $inp = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border
 </div>
 
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
+<?php if (! empty($error)): ?><div class="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700"><?= e($error) ?></div><?php endif; ?>
 <?php if ($on('maintenance.enabled')): ?>
     <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">⚠ Maintenance mode is ON — only members with <span class="font-mono">settings.update</span> can use the workspace.</div>
 <?php endif; ?>
 
-<form method="post" action="/settings" class="max-w-2xl space-y-6">
+<form method="post" action="/settings" enctype="multipart/form-data" class="max-w-2xl space-y-6">
     <?= csrf_field() ?>
 
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -50,9 +55,65 @@ $inp = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border
 
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 class="mb-4 text-sm font-semibold text-slate-900">Branding</h2>
+        <div class="mb-4 flex items-center gap-4">
+            <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                <?php if ($hasLogo): ?>
+                    <img src="/settings/logo?v=<?= e($logoVersion) ?>" alt="Workspace logo" class="h-full w-full object-contain">
+                <?php else: ?>
+                    <span class="text-xs text-slate-400">No logo</span>
+                <?php endif; ?>
+            </div>
+            <div class="grow">
+                <label class="mb-1 block text-sm font-medium text-slate-700">Logo</label>
+                <input name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif" <?= $dis ?> class="block w-full text-sm text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100">
+                <p class="mt-1 text-xs text-slate-400">PNG, JPG, WEBP or GIF · up to 10 MB.</p>
+                <?php if ($hasLogo && $canUpdate): ?>
+                    <label class="mt-2 flex items-center gap-2 text-xs text-slate-500"><input type="checkbox" name="remove_logo" value="1" class="rounded border-slate-300"> Remove current logo</label>
+                <?php endif; ?>
+            </div>
+        </div>
         <div class="grid grid-cols-2 gap-3">
             <div><label class="mb-1 block text-sm font-medium text-slate-700">Brand colour</label><input name="brand_color" type="text" value="<?= e($p('brand.color')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="#4f46e5"></div>
             <div><label class="mb-1 block text-sm font-medium text-slate-700">Tagline</label><input name="brand_tagline" value="<?= e($p('brand.tagline')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="Hiring, reimagined"></div>
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-1 text-sm font-semibold text-slate-900">Email (SMTP)</h2>
+        <p class="mb-4 text-xs text-slate-400">Outbound email for invitations, offers and notifications is sent from this workspace's own mailbox.</p>
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="mb-1 block text-sm font-medium text-slate-700">From name</label><input name="mail_from_name" value="<?= e($p('mail.from_name')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="Acme Talent"></div>
+                <div><label class="mb-1 block text-sm font-medium text-slate-700">From email</label><input name="mail_from_email" type="email" value="<?= e($p('mail.from_email')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="hiring@acme.com"></div>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <div class="col-span-2"><label class="mb-1 block text-sm font-medium text-slate-700">SMTP host</label><input name="mail_smtp_host" value="<?= e($p('mail.smtp_host')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="smtp.mailgun.org"></div>
+                <div><label class="mb-1 block text-sm font-medium text-slate-700">Port</label><input name="mail_smtp_port" type="number" value="<?= e($p('mail.smtp_port')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="587"></div>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <div><label class="mb-1 block text-sm font-medium text-slate-700">Username</label><input name="mail_smtp_username" value="<?= e($p('mail.smtp_username')) ?>" <?= $dis ?> class="<?= $inp ?>" autocomplete="off"></div>
+                <div><label class="mb-1 block text-sm font-medium text-slate-700">Password</label><input name="mail_smtp_password" type="password" <?= $dis ?> class="<?= $inp ?>" autocomplete="new-password" placeholder="<?= $mailPasswordSet ? '•••••••• (set — leave blank to keep)' : 'not set' ?>"></div>
+                <div><label class="mb-1 block text-sm font-medium text-slate-700">Encryption</label>
+                    <select name="mail_encryption" <?= $dis ?> class="<?= $inp ?>">
+                        <?php $enc = $p('mail.encryption'); foreach (['' => 'None', 'tls' => 'TLS', 'ssl' => 'SSL'] as $v => $l): ?>
+                            <option value="<?= $v ?>" <?= $enc === $v ? 'selected' : '' ?>><?= $l ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-1 text-sm font-semibold text-slate-900">Legal</h2>
+        <p class="mb-4 text-xs text-slate-400">Shown to candidates on careers and application pages.</p>
+        <div class="space-y-4">
+            <div><label class="mb-1 block text-sm font-medium text-slate-700">Legal company name</label><input name="legal_company_legal_name" value="<?= e($p('legal.company_legal_name')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="Acme Inc."></div>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="mb-1 block text-sm font-medium text-slate-700">Terms URL</label><input name="legal_terms_url" value="<?= e($p('legal.terms_url')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="https://acme.com/terms"></div>
+                <div><label class="mb-1 block text-sm font-medium text-slate-700">Privacy URL</label><input name="legal_privacy_url" value="<?= e($p('legal.privacy_url')) ?>" <?= $dis ?> class="<?= $inp ?>" placeholder="https://acme.com/privacy"></div>
+            </div>
+            <div><label class="mb-1 block text-sm font-medium text-slate-700">Registered address</label><textarea name="legal_address" rows="2" <?= $dis ?> class="<?= $inp ?>" placeholder="Street, City, Country"><?= e($p('legal.address')) ?></textarea></div>
         </div>
     </div>
 

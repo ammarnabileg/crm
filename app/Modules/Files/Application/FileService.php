@@ -17,7 +17,7 @@ use HaHireAI\Shared\Ulid;
 final class FileService
 {
     private const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-    private const ALLOWED_EXT = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'png', 'jpg', 'jpeg', 'odt'];
+    private const ALLOWED_EXT = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'odt'];
 
     public function __construct(
         private readonly Connection $connection,
@@ -154,6 +154,8 @@ final class FileService
             'pdf' => 'application/pdf',
             'png' => 'image/png',
             'jpg', 'jpeg' => 'image/jpeg',
+            'webp' => 'image/webp',
+            'gif' => 'image/gif',
             'txt' => 'text/plain',
             default => 'application/octet-stream',
         };

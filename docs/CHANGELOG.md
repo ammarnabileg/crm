@@ -660,6 +660,25 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   `permissions.role.deleted`).
 - Verified: **170 tests** · auditor **79/79** · `MemberAndRoleDepthTest` (2).
 
+### Sprint 3 (Slice 3g-i) — Workspace Settings depth (logo · SMTP · legal)
+- **Logo upload**: the Branding section now accepts a workspace logo (PNG/JPG/
+  WEBP/GIF, ≤10 MB) stored via the shared, tenant-isolated `FileService` and
+  streamed inline through a permission-gated `GET /settings/logo`. Replacing or
+  removing a logo deletes the previous file so no orphans accrue.
+- **Email (SMTP)**: from-name/from-email, host, port, username, password and
+  encryption per workspace. The SMTP password is a secret — never echoed back,
+  only overwritten when a new value is typed.
+- **Legal**: legal company name, terms URL, privacy URL, registered address.
+- `FileService` now also accepts `webp`/`gif` (SVG remains disallowed — XSS risk
+  when served inline).
+- **Bug fix (latent)**: `workspace_settings.value` is a JSON column, but
+  `WorkspacePreferences` wrote raw strings — so any non-numeric preference
+  (hex colours, URLs, free text) would fail to save with "Invalid JSON text".
+  Saving worked only because every pref written so far was `'1'`/`'0'`. The
+  service now JSON-encodes on write and decodes on read (with a raw fallback for
+  legacy values), so all string preferences round-trip safely.
+- Verified: **173 tests** · auditor **80/80** · `SettingsDepthTest` (3).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
