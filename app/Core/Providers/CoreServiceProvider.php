@@ -61,5 +61,11 @@ final class CoreServiceProvider extends ServiceProvider
             \HaHireAI\Core\Contracts\CandidateDirectory::class,
             \HaHireAI\Core\Recruitment\NullCandidateDirectory::class,
         );
+
+        // Empty dashboard snapshot; Recruitment overrides with real KPIs.
+        $c->singleton(
+            \HaHireAI\Core\Contracts\RecruitmentSnapshot::class,
+            \HaHireAI\Core\Recruitment\NullRecruitmentSnapshot::class,
+        );
     }
 }

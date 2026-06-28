@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Workspaces\Presentation;
 
 use HaHireAI\Core\Contracts\CandidateDirectory;
+use HaHireAI\Core\Contracts\EntitlementResolver;
+use HaHireAI\Core\Contracts\RecruitmentSnapshot;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
@@ -26,6 +28,8 @@ final class DashboardController
         private readonly WorkspaceShell $shell,
         private readonly MembershipService $memberships,
         private readonly CandidateDirectory $candidates,
+        private readonly RecruitmentSnapshot $snapshot,
+        private readonly EntitlementResolver $entitlements,
     ) {
     }
 
@@ -48,14 +52,27 @@ final class DashboardController
         }
 
         $workspaces = $this->memberships->workspacesForUser((string) $user['id']);
+        $ws = (string) $this->context->workspaceId();
+        $features = $this->entitlements->gateFeatures($ws);
 
         return $this->shell->render($this->context, 'dashboard.index', [
             'user' => $user,
             'workspace' => $this->context->workspace(),
             'workspaces' => $workspaces,
-            'currentWorkspaceId' => $this->context->workspaceId(),
+            'currentWorkspaceId' => $ws,
             'permissionCount' => count($this->context->permissions()),
             'isSystemOwner' => (int) ($user['is_system_owner'] ?? 0) === 1,
+            'kpi' => $this->snapshot->dashboard($ws),
+            'subscription' => [
+                'usable' => $this->entitlements->isUsable($ws),
+                'features' => $features === null ? null : count($features),
+            ],
+            'can' => [
+                'job' => $this->context->can('job.create'),
+                'candidate' => $this->context->can('candidate.view'),
+                'interview' => $this->context->can('interview.view'),
+                'pipeline' => $this->context->can('pipeline.view'),
+            ],
         ]);
     }
 }

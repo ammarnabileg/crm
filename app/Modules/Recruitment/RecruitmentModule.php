@@ -6,9 +6,11 @@ namespace HaHireAI\Modules\Recruitment;
 
 use HaHireAI\Core\Contracts\CandidateDirectory;
 use HaHireAI\Core\Contracts\Container;
+use HaHireAI\Core\Contracts\RecruitmentSnapshot;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Recruitment\Application\CandidateDirectoryAdapter;
+use HaHireAI\Modules\Recruitment\Application\DashboardService;
 use HaHireAI\Modules\Recruitment\Presentation\AvatarController;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatePortalController;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatesController;
@@ -41,6 +43,8 @@ final class RecruitmentModule implements Module
         // Expose candidacy to decoupled layers (the workspace chooser) via the
         // Core contract, so the Workspaces module need not depend on Recruitment.
         $container->singleton(CandidateDirectory::class, CandidateDirectoryAdapter::class);
+        // Real Executive Dashboard KPIs for the Workspaces dashboard.
+        $container->singleton(RecruitmentSnapshot::class, DashboardService::class);
     }
 
     public function boot(Container $container): void

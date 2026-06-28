@@ -583,6 +583,18 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Verified: **159 tests / 563 assertions** green · auditor **69/69** ·
   `WorkspaceLifecycleTest` (4).
 
+### Sprint 3 (Slice 1) — Executive Dashboard
+- The Dashboard is now a real executive view (no placeholder data): KPIs
+  (employees, jobs, open/closed, applicants, **needs-attention** = strong AI screen
+  awaiting a human), **hiring funnel**, **pipeline summary**, **today’s
+  interviews**, **recent activity**, **recent jobs**, **AI recommendations**,
+  **workspace health** score + signals, **subscription status**, and **quick actions**.
+- Computed by a Recruitment-owned **`DashboardService`** exposed via the new Core
+  contract **`RecruitmentSnapshot`** (null default in Core), so the Workspaces
+  dashboard renders real KPIs without reading Recruitment tables — consistent with
+  the Sprint 1 architecture.
+- Verified: **161 tests / 573 assertions** · auditor **69/69** · `DashboardServiceTest` (2).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
