@@ -679,6 +679,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   legacy values), so all string preferences round-trip safely.
 - Verified: **173 tests** · auditor **80/80** · `SettingsDepthTest` (3).
 
+### Sprint 3 (Slice 3g-ii) — Diagnostics infrastructure panels
+- The Platform diagnostics screen gains a read-only **infrastructure** grid of 8
+  panels, each reporting *observed* facts (nothing mocked) via a new
+  `SystemDiagnostics` service:
+  - **Database** — driver, MySQL version, schema, table count, on-disk size.
+  - **Storage** — path, writable, disk free/total/used %, uploads size.
+  - **Cache** — filesystem driver, cache/compiled-view sizes, OPcache state.
+  - **Automation queue** — workflow executions total / in-flight / failed.
+  - **Mail** — per-workspace SMTP model, workspaces configured, OpenSSL/PHP mail.
+  - **SSL / Transport** — scheme, host, proxy (X-Forwarded-Proto), OpenSSL.
+  - **Scheduler & workers** — on-demand model, last backup, last error event.
+  - **Runtime** — PHP version, memory limit/usage/peak, load average, extensions.
+- Each panel carries an ok/warn/down/info status (e.g. storage ≥90 % ⇒ warn,
+  failed executions ⇒ warn, non-https ⇒ warn) so problems stand out at a glance.
+- Verified: **177 tests** · auditor **81/81** · `SystemDiagnosticsTest` (4).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

@@ -187,6 +187,8 @@ $check('Observability persists system.error', $events->hasListeners('system.erro
 $check('Billing seeds on platform.installed', $events->hasListeners('platform.installed'));
 $candidateDir = $c->make(\HaHireAI\Core\Contracts\CandidateDirectory::class);
 $check('Candidate directory contract resolves (Recruitment ↔ Workspaces decoupled)', $candidateDir instanceof \HaHireAI\Modules\Recruitment\Application\CandidateDirectoryAdapter);
+$diagPanels = $c->make(\HaHireAI\Modules\Observability\Application\SystemDiagnostics::class)->panels();
+$check('System diagnostics report 8 infrastructure panels', count($diagPanels) === 8);
 
 // ── 8. Health ───────────────────────────────────────────────────────────────
 $head('8. Health');

@@ -14,6 +14,7 @@ use HaHireAI\Modules\Observability\Application\BackupService;
 use HaHireAI\Modules\Observability\Application\ErrorTracker;
 use HaHireAI\Modules\Observability\Application\MetricsService;
 use HaHireAI\Modules\Observability\Application\MonitorService;
+use HaHireAI\Modules\Observability\Application\SystemDiagnostics;
 use HaHireAI\Modules\Workspaces\Application\PlatformContext;
 use HaHireAI\Modules\Workspaces\Presentation\PlatformShell;
 
@@ -29,6 +30,7 @@ final class ObservabilityController
         private readonly ErrorTracker $errors,
         private readonly MonitorService $monitors,
         private readonly BackupService $backups,
+        private readonly SystemDiagnostics $diagnosticsService,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
@@ -51,7 +53,7 @@ final class ObservabilityController
         ]);
     }
 
-    public function diagnostics(): Response
+    public function diagnostics(Request $request): Response
     {
         if (($r = $this->gate('system.diagnostics.run')) !== null) {
             return $r;
@@ -62,6 +64,11 @@ final class ObservabilityController
 
         return $this->shell->render($this->context, 'admin.diagnostics', [
             'health' => $health,
+            'panels' => $this->diagnosticsService->panels([
+                'https' => $request->server('HTTPS') !== null && $request->server('HTTPS') !== 'off',
+                'forwarded_proto' => (string) $request->server('HTTP_X_FORWARDED_PROTO', ''),
+                'host' => (string) $request->server('HTTP_HOST', ''),
+            ]),
             'errors' => $this->errors->recent(15),
             'alerts' => $this->monitors->openAlerts(25),
             'backups' => $this->backups->recent(10),

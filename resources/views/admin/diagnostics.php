@@ -1,5 +1,6 @@
 <?php
 /** @var array{status: object, probes: array<string,array{status:string,severity:string,message:string}>} $health */
+/** @var list<array{key:string,label:string,status:string,items:list<array{k:string,v:string}>}> $panels */
 /** @var list<array<string,mixed>> $errors */
 /** @var list<array<string,mixed>> $alerts */
 /** @var list<array<string,mixed>> $backups */
@@ -8,6 +9,12 @@
 $overall = $health['status']->value;
 $overallCls = $overall === 'healthy' ? 'bg-emerald-50 text-emerald-700' : ($overall === 'degraded' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700');
 $dot = static fn (string $s): string => $s === 'healthy' ? 'text-emerald-500' : ($s === 'degraded' ? 'text-amber-500' : 'text-rose-500');
+$panelBadge = static fn (string $s): string => match ($s) {
+    'ok' => 'bg-emerald-50 text-emerald-700',
+    'warn' => 'bg-amber-50 text-amber-700',
+    'down' => 'bg-rose-50 text-rose-700',
+    default => 'bg-slate-100 text-slate-500',
+};
 ?>
 <div class="mb-6 flex items-center justify-between">
     <div>
@@ -18,6 +25,26 @@ $dot = static fn (string $s): string => $s === 'healthy' ? 'text-emerald-500' : 
 </div>
 
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
+
+<!-- Infrastructure panels (read-only, observed facts) -->
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <?php foreach ($panels as $panel): ?>
+        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-3 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-slate-900"><?= e($panel['label']) ?></h3>
+                <span class="rounded-full px-2 py-0.5 text-xs font-medium <?= $panelBadge($panel['status']) ?>"><?= e($panel['status']) ?></span>
+            </div>
+            <dl class="space-y-1.5 text-xs">
+                <?php foreach ($panel['items'] as $item): ?>
+                    <div class="flex items-start justify-between gap-2">
+                        <dt class="shrink-0 text-slate-400"><?= e($item['k']) ?></dt>
+                        <dd class="text-right font-medium text-slate-700"><?= e($item['v']) ?></dd>
+                    </div>
+                <?php endforeach; ?>
+            </dl>
+        </div>
+    <?php endforeach; ?>
+</div>
 
 <div class="grid gap-6 lg:grid-cols-2">
     <!-- Health probes -->

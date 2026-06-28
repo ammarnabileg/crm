@@ -11,6 +11,7 @@ use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Observability\Application\BackupService;
 use HaHireAI\Modules\Observability\Application\ErrorTracker;
+use HaHireAI\Modules\Observability\Application\SystemDiagnostics;
 use HaHireAI\Modules\Observability\Presentation\ObservabilityController;
 
 /**
@@ -35,6 +36,12 @@ final class ObservabilityModule implements Module
         $container->singleton(BackupService::class, static fn (Container $c): BackupService => new BackupService(
             $c->make(Connection::class),
             storage_path('backups'),
+        ));
+
+        $container->singleton(SystemDiagnostics::class, static fn (Container $c): SystemDiagnostics => new SystemDiagnostics(
+            $c->make(Connection::class),
+            storage_path(),
+            base_path(),
         ));
     }
 
