@@ -40,7 +40,7 @@ final class InterviewController
         }
 
         return $this->shell->render($this->context, 'recruitment.interviews.index', [
-            'interviews' => $this->interviews->listForWorkspace((string) $this->context->workspaceId()),
+            'interviews' => $this->interviews->listForWorkspace((string) $this->context->workspaceId(), 'ai'),
             'status' => $this->session->pullFlash('status'),
         ]);
     }

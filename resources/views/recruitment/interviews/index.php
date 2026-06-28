@@ -3,8 +3,8 @@
 /** @var string|null $status */
 ?>
 <div class="mb-6">
-    <h1 class="text-2xl font-semibold text-slate-900">Interviews</h1>
-    <p class="mt-1 text-sm text-slate-500">AI and human interviews across this workspace. Every result is advisory — a human decision always wins.</p>
+    <h1 class="text-2xl font-semibold text-slate-900">AI Interviews</h1>
+    <p class="mt-1 text-sm text-slate-500">AI-run screening interviews across this workspace. Every result is advisory — a human decision always wins. For panel interviews, see <a href="/human-interviews" class="text-indigo-600 hover:underline">Human Interviews</a>.</p>
 </div>
 
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>

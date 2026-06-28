@@ -456,6 +456,23 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Auditor extended to 52 checks. Verified on live MySQL 8 (`ComparisonTest`).
   **Suite: 130 tests / 470 assertions.**
 
+### Added — Human Interviews (panel stage + structured evaluation)
+- **`HumanInterviewController`** + `/human-interviews` (spec #12): a dedicated
+  second-stage page to **search / view / schedule / reschedule / archive** panel
+  interviews (online with a meeting link, or onsite) and record the structured
+  evaluation — six 1–5 dimensions (Technical depth, Problem solving,
+  Communication, Culture fit, Takes ownership, Seniority fit) plus Strengths,
+  Weaknesses, Overall (1–5 → 0–100 score), Recommendation and Notes. The detail
+  ratings are persisted as JSON on the interview; AI stays advisory, the human wins.
+- `InterviewService`: `listForWorkspace($ws, $type)` type filter, plus
+  `schedulableApplications`, `findDetailed` (decodes `details`), `reschedule`,
+  `archive`, and `meeting_link` on `schedule`. Migration adds
+  `interviews.meeting_link` + `interviews.details` (JSON).
+- Sidebar splits **AI Interviews** (`/interviews`, now AI-only) from **Human
+  Interviews** (`/human-interviews`); both gated by `interview.view`.
+- Auditor extended to 53 checks. Verified on live MySQL 8 (`HumanInterviewTest`).
+  **Suite: 136 tests / 496 assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

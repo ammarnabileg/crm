@@ -9,6 +9,7 @@ use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Recruitment\Presentation\AvatarController;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatesController;
+use HaHireAI\Modules\Recruitment\Presentation\HumanInterviewController;
 use HaHireAI\Modules\Recruitment\Presentation\InterviewController;
 use HaHireAI\Modules\Recruitment\Presentation\JobsController;
 use HaHireAI\Modules\Recruitment\Presentation\OffersController;
@@ -72,11 +73,19 @@ final class RecruitmentModule implements Module
         $router->post('/candidates/{userId}/offer', [OffersController::class, 'make']);
         $router->post('/offers/{offerId}/accept', [OffersController::class, 'accept']);
 
-        // Interviews (AI + human) — workspace-scoped, advisory.
+        // AI interviews — workspace-scoped, advisory.
         $router->get('/interviews', [InterviewController::class, 'index']);
         $router->post('/candidates/{userId}/interviews', [InterviewController::class, 'schedule']);
         $router->post('/interviews/{interviewId}/ai-run', [InterviewController::class, 'runAi']);
         $router->post('/interviews/{interviewId}/evaluate', [InterviewController::class, 'evaluate']);
+
+        // Human (panel) interviews — second stage, with the structured 1–5 evaluation.
+        $router->get('/human-interviews', [HumanInterviewController::class, 'index']);
+        $router->post('/human-interviews', [HumanInterviewController::class, 'schedule']);
+        $router->get('/human-interviews/{interviewId}', [HumanInterviewController::class, 'show']);
+        $router->post('/human-interviews/{interviewId}/reschedule', [HumanInterviewController::class, 'reschedule']);
+        $router->post('/human-interviews/{interviewId}/evaluate', [HumanInterviewController::class, 'evaluate']);
+        $router->post('/human-interviews/{interviewId}/archive', [HumanInterviewController::class, 'archive']);
 
         // Recruitment analytics.
         $router->get('/reports', [ReportsController::class, 'index']);

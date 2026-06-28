@@ -24,7 +24,7 @@ final class InterviewService
     }
 
     /**
-     * @param  array{interviewer_user_id?: ?string, scheduled_at?: ?string, mode?: ?string, created_by?: ?string}  $opts
+     * @param  array{interviewer_user_id?: ?string, scheduled_at?: ?string, mode?: ?string, meeting_link?: ?string, created_by?: ?string}  $opts
      */
     public function schedule(string $workspaceId, string $applicationId, string $type, array $opts = []): string
     {
@@ -39,16 +39,40 @@ final class InterviewService
         $id = Ulid::generate();
         $now = gmdate('Y-m-d H:i:s');
         $this->connection->statement(
-            'INSERT INTO interviews (id, workspace_id, application_id, candidate_user_id, job_id, type, status, mode, interviewer_user_id, scheduled_at, created_by, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO interviews (id, workspace_id, application_id, candidate_user_id, job_id, type, status, mode, meeting_link, interviewer_user_id, scheduled_at, created_by, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $id, $workspaceId, $applicationId, (string) $application['user_id'], (string) $application['job_id'],
-                $type === 'ai' ? 'ai' : 'human', 'scheduled', $opts['mode'] ?? null,
+                $type === 'ai' ? 'ai' : 'human', 'scheduled', $opts['mode'] ?? null, $opts['meeting_link'] ?? null,
                 $opts['interviewer_user_id'] ?? null, $opts['scheduled_at'] ?? null, $opts['created_by'] ?? null, $now, $now,
             ],
         );
 
         return $id;
+    }
+
+    /**
+     * Record a structured human evaluation (the second-stage form, spec #12).
+     * Overall 1–5 maps to the 0–100 score; the detailed ratings are stored as JSON.
+     *
+     * @param  array<string, int>  $ratings  dimension => 1..5
+     */
+    public function submitHumanEvaluation(string $workspaceId, string $interviewId, ?string $evaluatorUserId, array $ratings, int $overall, string $recommendation, ?string $strengths, ?string $weaknesses, ?string $notes): void
+    {
+        $overall = max(1, min(5, $overall));
+        $recommendation = in_array($recommendation, ['advance', 'hold', 'reject'], true) ? $recommendation : 'hold';
+        $clean = [];
+        foreach ($ratings as $k => $v) {
+            $clean[$k] = max(1, min(5, (int) $v));
+        }
+        $details = ['ratings' => $clean, 'overall' => $overall, 'strengths' => $strengths, 'weaknesses' => $weaknesses, 'notes' => $notes];
+        $now = gmdate('Y-m-d H:i:s');
+
+        $this->connection->statement(
+            "UPDATE interviews SET status = 'completed', score = ?, recommendation = ?, summary = ?, details = ?, interviewer_user_id = COALESCE(interviewer_user_id, ?), completed_at = ?, updated_at = ?
+              WHERE id = ? AND workspace_id = ?",
+            [$overall * 20, $recommendation, $notes, json_encode($details), $evaluatorUserId, $now, $now, $interviewId, $workspaceId],
+        );
     }
 
     /**
@@ -113,6 +137,34 @@ final class InterviewService
         );
     }
 
+    /**
+     * One interview joined with candidate / job / interviewer names and the
+     * structured evaluation `details` decoded — for the Human Interview detail page.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findDetailed(string $workspaceId, string $interviewId): ?array
+    {
+        $row = $this->connection->selectOne(
+            "SELECT i.*, j.title AS job_title, u.name AS candidate_name, iu.name AS interviewer_name
+               FROM interviews i
+               JOIN jobs j ON j.id = i.job_id
+               JOIN users u ON u.id = i.candidate_user_id
+               LEFT JOIN users iu ON iu.id = i.interviewer_user_id
+              WHERE i.id = ? AND i.workspace_id = ? AND i.deleted_at IS NULL",
+            [$interviewId, $workspaceId],
+        );
+        if ($row === null) {
+            return null;
+        }
+
+        $row['details_decoded'] = isset($row['details']) && $row['details'] !== null && $row['details'] !== ''
+            ? (json_decode((string) $row['details'], true) ?: [])
+            : [];
+
+        return $row;
+    }
+
     /** @return list<array<string, mixed>> a candidate's interviews IN THIS workspace */
     public function forCandidate(string $workspaceId, string $userId): array
     {
@@ -127,17 +179,70 @@ final class InterviewService
         );
     }
 
-    /** @return list<array<string, mixed>> */
-    public function listForWorkspace(string $workspaceId): array
+    /**
+     * @param  'ai'|'human'|null  $type  filter to one interview kind (null = all)
+     * @return list<array<string, mixed>>
+     */
+    public function listForWorkspace(string $workspaceId, ?string $type = null): array
     {
-        return $this->connection->select(
-            "SELECT i.*, j.title AS job_title, u.name AS candidate_name
+        $sql = "SELECT i.*, j.title AS job_title, u.name AS candidate_name, iu.name AS interviewer_name
                FROM interviews i
                JOIN jobs j ON j.id = i.job_id
                JOIN users u ON u.id = i.candidate_user_id
-              WHERE i.workspace_id = ? AND i.deleted_at IS NULL
-              ORDER BY i.created_at DESC",
+               LEFT JOIN users iu ON iu.id = i.interviewer_user_id
+              WHERE i.workspace_id = ? AND i.deleted_at IS NULL";
+        $bindings = [$workspaceId];
+        if ($type === 'ai' || $type === 'human') {
+            $sql .= ' AND i.type = ?';
+            $bindings[] = $type;
+        }
+        $sql .= ' ORDER BY i.created_at DESC';
+
+        return $this->connection->select($sql, $bindings);
+    }
+
+    /**
+     * Applications that can still be scheduled for a (human) interview — used to
+     * populate the "schedule" picker on the Human Interviews page.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function schedulableApplications(string $workspaceId): array
+    {
+        return $this->connection->select(
+            "SELECT a.id, u.name AS candidate_name, j.title AS job_title
+               FROM applications a
+               JOIN users u ON u.id = a.user_id
+               JOIN jobs j ON j.id = a.job_id
+              WHERE a.workspace_id = ? AND a.deleted_at IS NULL
+              ORDER BY a.created_at DESC
+              LIMIT 200",
             [$workspaceId],
+        );
+    }
+
+    /** Archive (soft-delete) an interview within this workspace. */
+    public function archive(string $workspaceId, string $interviewId): void
+    {
+        $now = gmdate('Y-m-d H:i:s');
+        $this->connection->statement(
+            'UPDATE interviews SET deleted_at = ?, updated_at = ? WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL',
+            [$now, $now, $interviewId, $workspaceId],
+        );
+    }
+
+    /** Reschedule / edit logistics (time, mode, meeting link, interviewer). */
+    public function reschedule(string $workspaceId, string $interviewId, array $opts = []): void
+    {
+        $now = gmdate('Y-m-d H:i:s');
+        $this->connection->statement(
+            "UPDATE interviews
+                SET scheduled_at = ?, mode = ?, meeting_link = ?, interviewer_user_id = ?, status = CASE WHEN status = 'completed' THEN status ELSE 'scheduled' END, updated_at = ?
+              WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL",
+            [
+                $opts['scheduled_at'] ?? null, $opts['mode'] ?? null, $opts['meeting_link'] ?? null,
+                $opts['interviewer_user_id'] ?? null, $now, $interviewId, $workspaceId,
+            ],
         );
     }
 
