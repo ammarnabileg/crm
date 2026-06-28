@@ -142,6 +142,11 @@ $check('roles are created at runtime (RoleService.createRole + assignPermissions
 if ($dbOk) {
     $roleCols = array_map(static fn (array $r): string => (string) $r['Field'], $conn->select('SHOW COLUMNS FROM roles'));
     $check('roles are workspace-scoped (roles.workspace_id) — no global reserved roles', in_array('workspace_id', $roleCols, true));
+    // Catalog↔table parity: every catalog permission must exist in the DB, else
+    // workspace owners silently lack newly added permissions after an upgrade.
+    $dbKeys = array_flip(array_map(static fn (array $r): string => (string) $r['key'], $conn->select('SELECT `key` FROM permissions')));
+    $missingPerms = array_values(array_filter($keys, static fn (string $k): bool => ! isset($dbKeys[$k])));
+    $check('permission catalog is synced to the DB (run `console.php migrate`)', $missingPerms === [], $missingPerms === [] ? count($dbKeys) . ' in DB' : 'missing: ' . implode(', ', $missingPerms));
 }
 
 // ── 6. Routing surface ──────────────────────────────────────────────────────

@@ -36,6 +36,12 @@ switch ($command) {
     case 'migrate':
         $applied = $runner->run($migrationsDir, $out);
         $out($applied === [] ? 'Nothing to migrate.' : 'Migrated ' . count($applied) . ' migration(s).');
+        // Keep the permission table in sync with the catalog on every deploy so
+        // newly added permissions reach existing installs (idempotent).
+        $synced = $kernel->container()->make(PermissionSeeder::class)->seed();
+        if ($synced > 0) {
+            $out("Synced {$synced} new permission(s) from the catalog.");
+        }
         break;
 
     case 'migrate:rollback':
@@ -76,5 +82,5 @@ switch ($command) {
         break;
 
     default:
-        $out('Commands: migrate | migrate:rollback | migrate:status | db:wipe | health');
+        $out('Commands: migrate | migrate:rollback | migrate:status | db:wipe | db:seed | health');
 }

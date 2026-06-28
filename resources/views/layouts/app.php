@@ -10,7 +10,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HaHireAI</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <?php if (is_file(dirname(__DIR__, 3) . '/public/assets/tailwind.css')): ?>
+        <link rel="stylesheet" href="/assets/tailwind.css">
+    <?php else: ?>
+        <script src="https://cdn.tailwindcss.com"></script>
+    <?php endif; ?>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800 antialiased">
 <div class="flex min-h-screen">
