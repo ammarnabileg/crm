@@ -103,7 +103,7 @@ if ($dbOk) {
 
     $required = ['users', 'workspaces', 'memberships', 'roles', 'permissions', 'jobs', 'applications',
         'candidate_profiles', 'interviews', 'interview_messages', 'candidate_assessments', 'interview_feedback',
-        'job_questions', 'job_criteria', 'offers',
+        'job_questions', 'job_criteria', 'offers', 'application_status_history',
         'talent_pools', 'interview_invitations', 'ai_avatars', 'files', 'notifications',
         'ai_sessions', 'workflows', 'webhook_endpoints', 'subscriptions', 'plans', 'error_events', 'alerts'];
     $existing = array_map(static fn (array $r): string => (string) $r['t'], $conn->select('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = DATABASE()'));

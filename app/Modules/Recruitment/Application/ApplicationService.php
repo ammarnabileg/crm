@@ -136,13 +136,38 @@ final class ApplicationService
         if (! ApplicationStatus::isValid($status)) {
             throw new ApplicationException("Unknown application status [{$status}].");
         }
-        if ($this->find($workspaceId, $applicationId) === null) {
+        $application = $this->find($workspaceId, $applicationId);
+        if ($application === null) {
             throw new ApplicationException('Application not found in this workspace.');
         }
 
-        $this->connection->statement(
-            'UPDATE applications SET status = ?, updated_at = ? WHERE id = ? AND workspace_id = ?',
-            [$status, gmdate('Y-m-d H:i:s'), $applicationId, $workspaceId],
+        $from = (string) ($application['status'] ?? '');
+        if ($from === $status) {
+            return;
+        }
+        $now = gmdate('Y-m-d H:i:s');
+        $this->connection->transaction(function () use ($workspaceId, $applicationId, $status, $from, $actorUserId, $now): void {
+            $this->connection->statement(
+                'UPDATE applications SET status = ?, updated_at = ? WHERE id = ? AND workspace_id = ?',
+                [$status, $now, $applicationId, $workspaceId],
+            );
+            $this->connection->statement(
+                'INSERT INTO application_status_history (id, workspace_id, application_id, from_status, to_status, changed_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [Ulid::generate(), $workspaceId, $applicationId, $from !== '' ? $from : null, $status, $actorUserId, $now],
+            );
+        });
+    }
+
+    /** @return list<array<string,mixed>> the decision-status history for an application */
+    public function statusHistory(string $workspaceId, string $applicationId): array
+    {
+        return $this->connection->select(
+            'SELECT h.from_status, h.to_status, h.created_at, u.name AS changed_by_name
+               FROM application_status_history h
+               LEFT JOIN users u ON u.id = h.changed_by
+              WHERE h.workspace_id = ? AND h.application_id = ?
+              ORDER BY h.created_at DESC, h.id DESC',
+            [$workspaceId, $applicationId],
         );
     }
 

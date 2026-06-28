@@ -1,8 +1,10 @@
 <?php
 /** @var array<string,mixed>|null $user */
 /** @var list<array<string,mixed>> $cvs */
+/** @var array<string,mixed> $details */
 /** @var string $workspaceName */
 /** @var string|null $status */
+$d = static fn (string $k): string => (string) ($details[$k] ?? '');
 ?>
 <div class="mb-6">
     <h1 class="text-2xl font-semibold text-slate-900">My profile</h1>
@@ -36,6 +38,36 @@
                 <label class="mb-1 block text-sm font-medium text-slate-700">Target salary</label>
                 <input name="target_salary" type="number" min="0" value="<?= e($user['target_salary'] ?? '') ?>" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
             </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Current salary</label>
+                <input name="current_salary" type="number" min="0" value="<?= e($d('current_salary')) ?>" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Availability</label>
+                <input name="availability" value="<?= e($d('availability')) ?>" placeholder="e.g. Immediate, 1 month" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+            </div>
+        </div>
+        <div>
+            <label class="mb-1 block text-sm font-medium text-slate-700">Location</label>
+            <input name="location" value="<?= e($d('location')) ?>" placeholder="City, Country" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+        </div>
+        <div>
+            <label class="mb-1 block text-sm font-medium text-slate-700">Skills <span class="text-xs text-slate-400">(comma-separated)</span></label>
+            <input name="skills" value="<?= e($d('skills')) ?>" placeholder="PHP, MySQL, System design" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+        </div>
+        <div>
+            <label class="mb-1 block text-sm font-medium text-slate-700">Languages</label>
+            <input name="languages" value="<?= e($d('languages')) ?>" placeholder="Arabic (native), English (fluent)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+        </div>
+        <div>
+            <label class="mb-1 block text-sm font-medium text-slate-700">Education</label>
+            <textarea name="education" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" placeholder="Degrees, institutions, years"><?= e($d('education')) ?></textarea>
+        </div>
+        <div>
+            <label class="mb-1 block text-sm font-medium text-slate-700">Certifications</label>
+            <textarea name="certifications" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" placeholder="Certificates, licenses"><?= e($d('certifications')) ?></textarea>
         </div>
         <button class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Save changes</button>
     </form>

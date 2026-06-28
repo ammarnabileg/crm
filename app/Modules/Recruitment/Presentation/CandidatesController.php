@@ -11,6 +11,7 @@ use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
 use HaHireAI\Modules\Files\Application\FileService;
+use HaHireAI\Modules\Recruitment\Application\ApplicationService;
 use HaHireAI\Modules\Recruitment\Application\AssessmentService;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
 use HaHireAI\Modules\Recruitment\Application\CandidateTimelineService;
@@ -34,6 +35,7 @@ final class CandidatesController
         private readonly WorkspaceContext $context,
         private readonly AuthContext $auth,
         private readonly CandidateProfileService $candidates,
+        private readonly ApplicationService $applications,
         private readonly OfferService $offers,
         private readonly InterviewService $interviews,
         private readonly CandidateTimelineService $timeline,
@@ -120,9 +122,14 @@ final class CandidatesController
             return Response::redirect('/candidates');
         }
 
+        $applications = $this->candidates->applications($workspaceId, $userId);
+        $latestAppId = $applications[0]['id'] ?? null;
+
         return $this->shell->render($this->context, 'recruitment.candidates.show', [
             'profile' => $profile,
-            'applications' => $this->candidates->applications($workspaceId, $userId),
+            'details' => $this->candidates->details($workspaceId, $userId),
+            'statusHistory' => $latestAppId !== null ? $this->applications->statusHistory($workspaceId, (string) $latestAppId) : [],
+            'applications' => $applications,
             'notes' => $this->candidates->notes($workspaceId, (string) $profile['profile_id']),
             'tags' => $this->candidates->tags((string) $profile['profile_id']),
             'offers' => $this->offers->forCandidate($workspaceId, $userId),

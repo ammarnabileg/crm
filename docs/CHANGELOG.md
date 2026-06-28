@@ -595,6 +595,16 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   the Sprint 1 architecture.
 - Verified: **161 tests / 573 assertions** · auditor **69/69** · `DashboardServiceTest` (2).
 
+### Sprint 3 (Slice 2) — Candidate Decision Center
+- **Stage history**: every decision-status change is recorded to a new
+  `application_status_history` table (from→to, who, when) at the source
+  (`ApplicationService::setStatus`), and shown on the candidate Decision Center.
+- **Structured candidate data** on the per-workspace profile (`candidate_profiles.details`):
+  skills, languages, education, certifications, current/expected salary, availability,
+  location — edited by the candidate in their portal **Profile**, displayed on the
+  recruiter's **Decision Center** so the hiring decision is made on one screen.
+- Verified: **163 tests / 579 assertions** · auditor **69/69** · `DecisionCenterTest` (2).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

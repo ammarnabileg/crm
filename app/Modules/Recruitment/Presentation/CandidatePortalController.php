@@ -13,6 +13,7 @@ use HaHireAI\Modules\Recruitment\Application\ApplicationService;
 use HaHireAI\Modules\Recruitment\Application\AssessmentService;
 use HaHireAI\Modules\Recruitment\Application\CandidacyService;
 use HaHireAI\Modules\Recruitment\Application\CandidateContext;
+use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
 use HaHireAI\Modules\Recruitment\Application\Exceptions\ApplicationException;
 use HaHireAI\Modules\Recruitment\Application\InterviewRoomService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
@@ -43,6 +44,7 @@ final class CandidatePortalController
         private readonly AssessmentService $assessments,
         private readonly UserDirectory $users,
         private readonly FileService $files,
+        private readonly CandidateProfileService $profiles,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
@@ -259,6 +261,7 @@ final class CandidatePortalController
         return $this->shell->render($this->context, 'portal.profile', [
             'user' => $this->auth->user(),
             'cvs' => $this->files->listForEntity((string) $this->context->workspaceId(), 'cv', (string) $this->context->userId()),
+            'details' => $this->profiles->details((string) $this->context->workspaceId(), (string) $this->context->userId()),
             'workspaceName' => $this->context->workspace()['name'] ?? '',
             'status' => $this->session->pullFlash('status'),
         ]);
@@ -306,6 +309,18 @@ final class CandidatePortalController
             $this->intOrNull($request->input('years_experience')),
             $this->intOrNull($request->input('target_salary')),
         );
+
+        // Structured CV data shown on the recruiter's Decision Center.
+        $this->profiles->saveDetails((string) $this->context->workspaceId(), (string) $this->context->userId(), [
+            'education' => trim((string) $request->input('education', '')),
+            'languages' => trim((string) $request->input('languages', '')),
+            'skills' => trim((string) $request->input('skills', '')),
+            'certifications' => trim((string) $request->input('certifications', '')),
+            'current_salary' => $this->intOrNull($request->input('current_salary')),
+            'expected_salary' => $this->intOrNull($request->input('target_salary')),
+            'availability' => trim((string) $request->input('availability', '')),
+            'location' => trim((string) $request->input('location', '')),
+        ]);
         $this->session->flash('status', 'Profile updated.');
 
         return Response::redirect('/portal/profile');

@@ -56,6 +56,35 @@ final class CandidateProfileService
         );
     }
 
+    /**
+     * Structured candidate data (CV-derived) for the Decision Center — education,
+     * languages, skills, certifications, salary, availability. Workspace-scoped.
+     *
+     * @return array<string, mixed>
+     */
+    public function details(string $workspaceId, string $userId): array
+    {
+        $row = $this->connection->selectOne(
+            'SELECT details FROM candidate_profiles WHERE workspace_id = ? AND user_id = ?',
+            [$workspaceId, $userId],
+        );
+        if ($row === null || empty($row['details'])) {
+            return [];
+        }
+
+        return is_array($row['details']) ? $row['details'] : (json_decode((string) $row['details'], true) ?: []);
+    }
+
+    /** @param array<string,mixed> $details */
+    public function saveDetails(string $workspaceId, string $userId, array $details): void
+    {
+        $this->getOrCreate($workspaceId, $userId);
+        $this->connection->statement(
+            'UPDATE candidate_profiles SET details = ?, updated_at = ? WHERE workspace_id = ? AND user_id = ?',
+            [json_encode($details), gmdate('Y-m-d H:i:s'), $workspaceId, $userId],
+        );
+    }
+
     /** @return array<string, mixed>|null the profile + the user identity, workspace-scoped */
     public function profile(string $workspaceId, string $userId): ?array
     {

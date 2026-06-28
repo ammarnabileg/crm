@@ -34,6 +34,52 @@
 <?php if (! empty($status)): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
 
 <?php
+/** @var array<string,mixed> $details */
+/** @var list<array<string,mixed>> $statusHistory */
+$dv = static fn (string $k): string => trim((string) ($details[$k] ?? ''));
+$hasDetails = $dv('education') || $dv('languages') || $dv('skills') || $dv('certifications') || $dv('current_salary') || $dv('expected_salary') || $dv('availability') || $dv('location');
+?>
+<?php if ($hasDetails || ($statusHistory ?? []) !== []): ?>
+    <div class="mb-6 grid gap-6 lg:grid-cols-3">
+        <!-- Candidate details (CV-derived) -->
+        <div class="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="mb-3 text-sm font-semibold text-slate-900">Candidate details</h2>
+            <?php if (! $hasDetails): ?>
+                <p class="text-sm text-slate-400">The candidate hasn’t completed their professional profile yet.</p>
+            <?php else: ?>
+                <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                    <?php foreach (['skills' => 'Skills', 'languages' => 'Languages', 'education' => 'Education', 'certifications' => 'Certifications', 'location' => 'Location', 'availability' => 'Availability', 'current_salary' => 'Current salary', 'expected_salary' => 'Expected salary'] as $k => $label): ?>
+                        <?php if ($dv($k) !== ''): ?>
+                            <div<?= in_array($k, ['education', 'certifications', 'skills'], true) ? ' class="col-span-2"' : '' ?>>
+                                <dt class="text-xs font-semibold uppercase tracking-wide text-slate-400"><?= e($label) ?></dt>
+                                <dd class="mt-0.5 text-slate-700"><?= in_array($k, ['current_salary', 'expected_salary'], true) ? e(number_format((float) $dv($k))) : nl2br(e($dv($k))) ?></dd>
+                            </div>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </dl>
+            <?php endif; ?>
+        </div>
+
+        <!-- Stage history -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="mb-3 text-sm font-semibold text-slate-900">Stage history</h2>
+            <?php if (($statusHistory ?? []) === []): ?>
+                <p class="text-sm text-slate-400">No stage changes yet.</p>
+            <?php else: ?>
+                <ol class="space-y-2 text-xs">
+                    <?php foreach ($statusHistory as $h): ?>
+                        <li class="border-l-2 border-slate-200 pl-3">
+                            <div class="font-medium text-slate-700"><?= e(\HaHireAI\Modules\Recruitment\Domain\ApplicationStatus::label((string) ($h['from_status'] ?? 'applied'))) ?> → <?= e(\HaHireAI\Modules\Recruitment\Domain\ApplicationStatus::label((string) $h['to_status'])) ?></div>
+                            <div class="text-slate-400"><?= e($h['created_at']) ?><?php if (! empty($h['changed_by_name'])): ?> · <?= e($h['changed_by_name']) ?><?php endif; ?></div>
+                        </li>
+                    <?php endforeach; ?>
+                </ol>
+            <?php endif; ?>
+        </div>
+    </div>
+<?php endif; ?>
+
+<?php
 /** @var array<string,mixed>|null $assessment */
 /** @var array<string,array{label:string,weight:int}> $skillCatalog */
 $a = $assessment ?? null;
