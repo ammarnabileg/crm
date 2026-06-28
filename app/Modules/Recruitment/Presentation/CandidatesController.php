@@ -12,10 +12,12 @@ use HaHireAI\Modules\Audit\Application\AuditLogger;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
 use HaHireAI\Modules\Files\Application\FileService;
+use HaHireAI\Modules\Recruitment\Application\AssessmentService;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
 use HaHireAI\Modules\Recruitment\Application\CandidateTimelineService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
+use HaHireAI\Modules\Recruitment\Domain\SkillCatalog;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
 
@@ -33,6 +35,7 @@ final class CandidatesController
         private readonly OfferService $offers,
         private readonly InterviewService $interviews,
         private readonly CandidateTimelineService $timeline,
+        private readonly AssessmentService $assessments,
         private readonly FileService $files,
         private readonly AiEngine $ai,
         private readonly Connection $connection,
@@ -41,21 +44,46 @@ final class CandidatesController
     ) {
     }
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         if (($r = $this->gate('candidate.view')) !== null) {
             return $r;
         }
 
-        $rows = $this->connection->select(
-            'SELECT cp.user_id, u.name, u.email,
-                    (SELECT COUNT(*) FROM applications a WHERE a.workspace_id = cp.workspace_id AND a.user_id = cp.user_id AND a.deleted_at IS NULL) AS applications
-               FROM candidate_profiles cp JOIN users u ON u.id = cp.user_id
-              WHERE cp.workspace_id = ? ORDER BY u.name',
-            [(string) $this->context->workspaceId()],
-        );
+        $ws = (string) $this->context->workspaceId();
+        $filters = [
+            'min_score' => (int) $request->query('min_score', 0),
+            'recommendation' => trim((string) $request->query('recommendation', '')),
+            'skill' => trim((string) $request->query('skill', '')),
+            'skill_min' => (int) $request->query('skill_min', 0),
+        ];
+        $searching = $filters['min_score'] > 0 || $filters['recommendation'] !== '' || $filters['skill'] !== '';
 
-        return $this->shell->render($this->context, 'recruitment.candidates.index', ['candidates' => $rows]);
+        if ($searching) {
+            // Advanced search: rank candidates by their AI assessment.
+            $candidates = array_map(static fn (array $a): array => [
+                'user_id' => $a['candidate_user_id'],
+                'name' => $a['name'],
+                'email' => $a['email'],
+                'fit_score' => (int) $a['fit_score'],
+                'recommendation' => (string) $a['recommendation'],
+            ], $this->assessments->search($ws, $filters));
+        } else {
+            $candidates = $this->connection->select(
+                'SELECT cp.user_id, u.name, u.email,
+                        (SELECT COUNT(*) FROM applications a WHERE a.workspace_id = cp.workspace_id AND a.user_id = cp.user_id AND a.deleted_at IS NULL) AS applications
+                   FROM candidate_profiles cp JOIN users u ON u.id = cp.user_id
+                  WHERE cp.workspace_id = ? ORDER BY u.name',
+                [$ws],
+            );
+        }
+
+        return $this->shell->render($this->context, 'recruitment.candidates.index', [
+            'candidates' => $candidates,
+            'searching' => $searching,
+            'filters' => $filters,
+            'skills' => SkillCatalog::SKILLS,
+        ]);
     }
 
     public function show(string $userId): Response
@@ -80,6 +108,8 @@ final class CandidatesController
             'score' => $this->interviews->averageScore($workspaceId, $userId),
             'files' => $this->files->listForEntity($workspaceId, 'candidate_profile', (string) $profile['profile_id']),
             'timeline' => $this->timeline->timeline($workspaceId, $userId, (string) $profile['profile_id']),
+            'assessment' => $this->assessments->latestForCandidate($workspaceId, $userId),
+            'skillCatalog' => SkillCatalog::SKILLS,
             'canUploadFile' => $this->context->can('files.upload'),
             'canDeleteFile' => $this->context->can('files.delete'),
             'canViewFile' => $this->context->can('files.view'),

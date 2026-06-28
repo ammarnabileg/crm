@@ -10,6 +10,7 @@ use HaHireAI\Core\Http\Session;
 use HaHireAI\Modules\Audit\Application\AuditLogger;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\AiEngine\Application\AiSettingsService;
+use HaHireAI\Modules\Recruitment\Application\AssessmentService;
 use HaHireAI\Modules\Recruitment\Application\Exceptions\ApplicationException;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
@@ -24,6 +25,7 @@ final class InterviewController
         private readonly WorkspaceContext $context,
         private readonly AuthContext $auth,
         private readonly InterviewService $interviews,
+        private readonly AssessmentService $assessments,
         private readonly WorkspacePreferences $preferences,
         private readonly AiSettingsService $aiSettings,
         private readonly Session $session,
@@ -109,6 +111,14 @@ final class InterviewController
         }
 
         $result = $this->interviews->runAi((string) $this->context->workspaceId(), $interviewId, $this->context->userId());
+
+        // Produce the advisory AI assessment (skills, behaviour, red flags, fit).
+        try {
+            $this->assessments->assessFromInterview((string) $this->context->workspaceId(), $interviewId, $this->context->userId());
+        } catch (\Throwable) {
+            // Assessment is best-effort; the interview result still stands.
+        }
+
         $this->audit->record('recruitment.interview.ai_run', [
             'workspace_id' => $this->context->workspaceId(),
             'actor_user_id' => $this->context->userId(),

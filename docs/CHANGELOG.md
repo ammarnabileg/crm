@@ -368,6 +368,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Auditor extended to 43 checks (`/reports` route). Verified on live MySQL 8
   (`ReportTest`). **Suite: 106 tests / 368 assertions.**
 
+### Added — AI Candidate Assessment + Advanced Search
+- **`AssessmentService`** + `candidate_assessments`: an **advisory** AI assessment
+  produced through the central AI Engine (`assess_candidate` capability) when an
+  AI interview completes — overall **fit score**, **recommendation band**
+  (82+ strong / 68–81 suitable / 50–67 maybe / <50 not suitable), **11 weighted
+  skills** (`SkillCatalog`) with confidence + evidence, **behaviour** (DISC, Big
+  Five, growth, stress tolerance, leadership), **red flags** with severity, and
+  strengths/gaps. The AI never decides — a human does.
+  - The candidate profile shows an **AI Assessment** panel (the HR-decision
+    summary): score + band, skill bars, behaviour, strengths/gaps, red flags.
+  - **Advanced search** on the candidates list: filter by min score,
+    recommendation band, and a specific skill ≥ threshold (`search()`).
+- **Migration**: candidate_assessments. Auditor now requires the table.
+- Verified on live MySQL 8 (`AssessmentTest`). **Suite: 112 tests / 405
+  assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

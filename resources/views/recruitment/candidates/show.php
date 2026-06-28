@@ -33,6 +33,69 @@
 
 <?php if (! empty($status)): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
 
+<?php
+/** @var array<string,mixed>|null $assessment */
+/** @var array<string,array{label:string,weight:int}> $skillCatalog */
+$a = $assessment ?? null;
+$bandMeta = [
+    'strong' => ['Strong recommend', 'bg-emerald-50 text-emerald-700'],
+    'suitable' => ['Suitable', 'bg-emerald-50 text-emerald-700'],
+    'maybe' => ['Maybe suitable', 'bg-amber-50 text-amber-700'],
+    'unsuitable' => ['Not suitable', 'bg-rose-50 text-rose-700'],
+];
+?>
+<?php if ($a !== null): ?>
+    <div class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-slate-900">AI Assessment <span class="font-normal text-slate-400">(advisory — you decide)</span></h2>
+            <?php $bm = $bandMeta[(string) $a['recommendation']] ?? ['—', 'bg-slate-100 text-slate-500']; ?>
+            <div class="flex items-center gap-2">
+                <span class="text-lg font-bold text-slate-900"><?= e($a['fit_score']) ?>/100</span>
+                <span class="rounded-full px-3 py-1 text-xs font-semibold <?= $bm[1] ?>"><?= e($bm[0]) ?></span>
+            </div>
+        </div>
+        <p class="mb-4 text-sm text-slate-600"><?= e($a['summary']) ?></p>
+
+        <div class="grid gap-6 md:grid-cols-2">
+            <div>
+                <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Skills</h3>
+                <div class="space-y-1.5">
+                    <?php foreach (($a['skills'] ?? []) as $key => $s): ?>
+                        <?php $score = (int) ($s['score'] ?? 0); $cls = $score >= 75 ? 'bg-emerald-500' : ($score >= 55 ? 'bg-amber-500' : 'bg-rose-400'); ?>
+                        <div class="flex items-center gap-2 text-xs">
+                            <div class="w-32 shrink-0 text-slate-500"><?= e($skillCatalog[$key]['label'] ?? $key) ?></div>
+                            <div class="h-2 grow rounded bg-slate-100"><div class="h-2 rounded <?= $cls ?>" style="width: <?= $score ?>%"></div></div>
+                            <div class="w-7 shrink-0 text-right font-medium text-slate-700"><?= $score ?></div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <h3 class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Behaviour</h3>
+                    <?php $b = $a['behavior'] ?? []; ?>
+                    <p class="text-xs text-slate-600">DISC <strong><?= e($b['disc'] ?? '—') ?></strong> · Big Five: <?= e($b['big_five'] ?? '—') ?> · Leadership: <?= e($b['leadership_style'] ?? '—') ?></p>
+                    <p class="text-xs text-slate-500">Growth <?= e($b['growth'] ?? '—') ?>/100 · Stress tolerance <?= e($b['stress_tolerance'] ?? '—') ?>/100</p>
+                </div>
+                <div>
+                    <h3 class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Strengths / Gaps</h3>
+                    <p class="text-xs text-emerald-700">+ <?= e(implode(', ', (array) ($a['strengths'] ?? []))) ?></p>
+                    <p class="text-xs text-rose-600">– <?= e(implode(', ', (array) ($a['weaknesses'] ?? []))) ?></p>
+                </div>
+                <?php if (($a['red_flags'] ?? []) !== []): ?>
+                    <div>
+                        <h3 class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Red flags</h3>
+                        <?php foreach ($a['red_flags'] as $rf): ?>
+                            <?php $dot = ($rf['severity'] ?? '') === 'high' ? 'text-rose-600' : (($rf['severity'] ?? '') === 'medium' ? 'text-amber-600' : 'text-yellow-600'); ?>
+                            <p class="text-xs text-slate-600"><span class="<?= $dot ?>">●</span> <?= e($rf['note'] ?? '') ?></p>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
 <div class="grid gap-6 lg:grid-cols-3">
     <div class="lg:col-span-2 space-y-6">
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

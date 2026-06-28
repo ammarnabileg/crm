@@ -19,6 +19,8 @@ final class PromptEngine
         'candidate_recommendation' => "Given candidate {{name}} for the role {{title}}, provide a hiring recommendation (advance / hold / reject) with a short rationale.",
         'ai_interview' => "Conduct a structured screening interview for {{name}} applying to {{title}}.\nContext: {{notes}}\nAsk role-relevant questions, evaluate the answers, then end with: a 2-3 sentence summary, a SCORE from 0-100, and a recommendation (advance / hold / reject).",
         'interview_questions' => "Generate 6 role-specific interview questions for the position {{title}}. Cover technical depth, problem-solving, and collaboration.",
+        'assess_candidate' => "Assess candidate {{name}} for {{title}} from this interview transcript.\n{{transcript}}\nScore the standard competencies (0-100), infer behaviour (DISC, Big Five), flag risks with severity, and give an overall fit score with a recommendation. Advisory only — a human decides.",
+        'analyze_cv' => "Analyze this CV for {{title}}: extract skills, past companies, years of experience, gaps, and a CV-to-role match score (0-100).\n{{cv_text}}",
     ];
 
     public function __construct(private readonly Connection $connection)
