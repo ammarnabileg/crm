@@ -207,6 +207,7 @@ $bandMeta = [
                             </div>
                             <?php if (! empty($iv['summary'])): ?><div class="mt-1 text-xs text-slate-500"><?= e($iv['summary']) ?></div><?php endif; ?>
                             <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <a href="/interviews/<?= e($iv['id']) ?>" class="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50">Transcript / report →</a>
                                 <?php if ($iv['type'] === 'ai' && $iv['status'] === 'scheduled' && ($canRunAiInterview ?? false)): ?>
                                     <form method="post" action="/interviews/<?= e($iv['id']) ?>/ai-run">
                                         <?= csrf_field() ?>

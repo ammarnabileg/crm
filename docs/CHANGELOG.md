@@ -749,6 +749,13 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Verified: auditor **87/87** (adds AccessControl + MemberDirectory checks);
   full suite green (pure decoupling — no behaviour change).
 
+### Decision Center — interview transcript on the candidate profile
+- Each interview in the staff candidate profile now links to its **transcript /
+  report** page (the AI transcript, score, recommendation and assessment), so the
+  decision view reaches the full conversation in one click.
+- Refreshed `docs/AUDIT_REPORT.md` with a remediation-progress section and the
+  updated verified baseline (184 tests · 87/87 · 0 CRITICAL).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

@@ -23,6 +23,34 @@ interview room** greeting → 12 answers → **auto-complete** → **candidate p
 owner **sends offer** → candidate **counter-offer** → candidate **accepts** → **hired**.
 **No journey-breaking (CRITICAL) defects.** The gaps below are depth/compliance, not breaks.
 
+## Remediation progress (Enterprise Remediation Program — update)
+
+The backlog below is being worked as sequential sprints. Closed since the
+original audit (each verified by a focused test + the auditor + the full suite):
+
+- **Architecture §4 — DONE.** All shared services now cross module boundaries
+  through Core contracts only: `UserDirectory`, `AuditRecorder`,
+  `CandidateDirectory`, `RecruitmentSnapshot`, `EntitlementResolver`,
+  `FileStorage`, `AccessControl`, `MemberDirectory`. No module imports another
+  module's internal classes (verified by sweep + auditor contract checks).
+- **Workspace lifecycle** — archive/restore/suspend/resume/transfer-ownership.
+- **Executive dashboard**, **Decision Center** (status history, candidate details),
+  **Pipeline** HTML5 drag-&-drop + bulk move, **Jobs** depth (filters/clone),
+  **AI Interviews** search/report/export, **Talent Pool** smart lists + bulk add,
+  **Avatars** depth (prompt/greeting/voice/knowledge/status + preview).
+- **Members** suspend/reactivate/remove + last login/activity; **Roles** clone/
+  delete + usage count.
+- **Settings** logo upload + SMTP + legal (fixed a latent JSON-column bug in
+  `WorkspacePreferences`); **Diagnostics** 8 read-only infrastructure panels.
+- **Careers** search/filters; **Withdraw application**; **Notifications**
+  categories/search/archive; **interview transcript link** on the candidate profile.
+
+**Updated baseline:** full suite **184 tests / 707 assertions** green · auditor
+**87/87** · still **0 CRITICAL** (journey intact). Remaining items are external/
+gated (HeyGen live video; server-side voice transcription) or niche (native
+`.xlsx`; tokenized one-shot link). The original per-area tables below predate
+this remediation and are kept for historical context.
+
 ## Severity legend
 `EXISTS` (works) · `PARTIAL` · `MISSING` · `BROKEN` · `REFACTOR` (works but violates the constitution)
 
