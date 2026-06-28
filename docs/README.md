@@ -260,11 +260,17 @@ Logger/ErrorHandler/event-bus/Audit infrastructure:
   (`bin/loadtest.sh`), and the **`RELEASE_CERTIFICATION.md`** report.
 - **Suite: 89 tests / 303 assertions.** 🎯 **All 16 phases complete & certified.**
 
+### Post-certification enhancements
+- **Interviews (AI + human) + Candidate Score** on the workspace-scoped profile:
+  schedule AI/human interviews, AI routes through the central AI Engine (advisory),
+  human evaluations override, and the candidate Score = average of completed
+  interview scores **per workspace** (privacy-isolated). `InterviewTest` green.
+
 ### Verifying the build
 ```
 php bin/console.php migrate && php bin/console.php db:seed
-php bin/certify.php          # 39/39
-vendor/bin/phpunit          # 89 tests
+php bin/certify.php          # 40/40
+vendor/bin/phpunit          # 94 tests
 ```
 
 `/docs/adr/` holds Architecture Decision Records for significant decisions.

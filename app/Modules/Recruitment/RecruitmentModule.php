@@ -8,6 +8,7 @@ use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatesController;
+use HaHireAI\Modules\Recruitment\Presentation\InterviewController;
 use HaHireAI\Modules\Recruitment\Presentation\JobsController;
 use HaHireAI\Modules\Recruitment\Presentation\OffersController;
 use HaHireAI\Modules\Recruitment\Presentation\PipelineController;
@@ -57,5 +58,11 @@ final class RecruitmentModule implements Module
         $router->post('/candidates/{userId}/ai-summary', [CandidatesController::class, 'aiSummary']);
         $router->post('/candidates/{userId}/offer', [OffersController::class, 'make']);
         $router->post('/offers/{offerId}/accept', [OffersController::class, 'accept']);
+
+        // Interviews (AI + human) — workspace-scoped, advisory.
+        $router->get('/interviews', [InterviewController::class, 'index']);
+        $router->post('/candidates/{userId}/interviews', [InterviewController::class, 'schedule']);
+        $router->post('/interviews/{interviewId}/ai-run', [InterviewController::class, 'runAi']);
+        $router->post('/interviews/{interviewId}/evaluate', [InterviewController::class, 'evaluate']);
     }
 }

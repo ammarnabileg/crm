@@ -304,6 +304,23 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   gitignored. **Suite: 89 tests / 303 assertions.**
 - **🎯 All 16 phases complete and certified.**
 
+### Added — Interviews (AI + human) & Candidate Score
+- **Interviews** on the workspace-scoped Candidate Profile (`InterviewService`):
+  schedule **AI** or **human** interviews against an application; AI interviews
+  route through the **central AI Engine** (`ai_interview` capability) and store a
+  transcript + advisory score + recommendation; humans submit evaluations that
+  **override** any AI suggestion (human-in-the-loop).
+  - **Candidate Score** = average of completed interview scores **in that
+    workspace** (privacy-isolated — Microsoft ≠ Google).
+  - `InterviewController` + routes: `/interviews`, schedule from a profile, AI
+    run, human evaluate — gated by `interview.view/schedule/ai.run/evaluate`.
+  - Surfaced on the candidate profile (interviews list, score badge, forms) and
+    a workspace Interviews index.
+- **Migration**: interviews (workspace-scoped, FK application/job/user). Prompt
+  catalog gains `ai_interview` + `interview_questions`.
+- Auditor extended to 40 checks (interviews table + route). Verified on live
+  MySQL 8 (`InterviewTest`). **Suite: 94 tests / 325 assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

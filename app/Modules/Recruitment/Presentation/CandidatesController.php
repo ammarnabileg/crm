@@ -12,6 +12,7 @@ use HaHireAI\Modules\Audit\Application\AuditLogger;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
+use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
@@ -28,6 +29,7 @@ final class CandidatesController
         private readonly AuthContext $auth,
         private readonly CandidateProfileService $candidates,
         private readonly OfferService $offers,
+        private readonly InterviewService $interviews,
         private readonly AiEngine $ai,
         private readonly Connection $connection,
         private readonly Session $session,
@@ -70,11 +72,17 @@ final class CandidatesController
             'notes' => $this->candidates->notes($workspaceId, (string) $profile['profile_id']),
             'tags' => $this->candidates->tags((string) $profile['profile_id']),
             'offers' => $this->offers->forCandidate($workspaceId, $userId),
+            'interviews' => $this->interviews->forCandidate($workspaceId, $userId),
+            'score' => $this->interviews->averageScore($workspaceId, $userId),
             'canNote' => $this->context->can('candidate.note'),
             'canTag' => $this->context->can('candidate.tag'),
             'canOffer' => $this->context->can('offer.create'),
             'canDecide' => $this->context->can('offer.send'),
             'canAi' => $this->context->can('ai.run'),
+            'canScheduleInterview' => $this->context->can('interview.schedule'),
+            'canRunAiInterview' => $this->context->can('interview.ai.run'),
+            'canEvaluate' => $this->context->can('interview.evaluate'),
+            'status' => $this->session->pullFlash('status'),
         ]);
     }
 

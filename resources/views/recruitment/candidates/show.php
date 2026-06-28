@@ -5,10 +5,18 @@
 /** @var list<string> $tags */
 /** @var bool $canNote */
 /** @var bool $canTag */
+/** @var list<array<string,mixed>> $interviews */
+/** @var int|null $score */
 ?>
 <div class="mb-6">
     <a href="/candidates" class="text-sm text-indigo-600 hover:underline">&larr; Candidates</a>
-    <h1 class="mt-1 text-2xl font-semibold text-slate-900"><?= e($profile['name']) ?></h1>
+    <div class="mt-1 flex items-center gap-3">
+        <h1 class="text-2xl font-semibold text-slate-900"><?= e($profile['name']) ?></h1>
+        <?php if ($score !== null): ?>
+            <?php $sc = $score >= 75 ? 'bg-emerald-50 text-emerald-700' : ($score >= 55 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'); ?>
+            <span class="rounded-full px-3 py-1 text-sm font-semibold <?= $sc ?>" title="Average interview score in this workspace">Score: <?= e($score) ?>/100</span>
+        <?php endif; ?>
+    </div>
     <p class="text-sm text-slate-500"><?= e($profile['email']) ?></p>
     <div class="mt-2 flex flex-wrap items-center gap-2">
         <?php foreach ($tags as $tag): ?>
@@ -23,6 +31,8 @@
     </div>
 </div>
 
+<?php if (! empty($status)): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
+
 <div class="grid gap-6 lg:grid-cols-3">
     <div class="lg:col-span-2 space-y-6">
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -35,6 +45,67 @@
                         <li class="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2">
                             <span class="font-medium text-slate-800"><?= e($a['job_title']) ?></span>
                             <span class="text-slate-500"><?= e($a['stage'] ?? $a['status']) ?></span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="mb-3 text-sm font-semibold text-slate-900">Interviews</h2>
+            <?php if (($canScheduleInterview ?? false) && $applications !== []): ?>
+                <form method="post" action="/candidates/<?= e($profile['user_id']) ?>/interviews" class="mb-4 flex flex-wrap items-center gap-2">
+                    <?= csrf_field() ?>
+                    <select name="application_id" class="rounded-lg border border-slate-300 px-2 py-2 text-sm">
+                        <?php foreach ($applications as $a): ?>
+                            <option value="<?= e($a['id']) ?>"><?= e($a['job_title']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <select name="type" class="rounded-lg border border-slate-300 px-2 py-2 text-sm">
+                        <option value="human">Human</option>
+                        <option value="ai">AI</option>
+                    </select>
+                    <button class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Schedule</button>
+                </form>
+            <?php endif; ?>
+            <?php if (($interviews ?? []) === []): ?>
+                <p class="text-sm text-slate-400">No interviews yet.</p>
+            <?php else: ?>
+                <ul class="space-y-3 text-sm">
+                    <?php foreach ($interviews as $iv): ?>
+                        <li class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <span class="rounded bg-slate-200 px-1.5 py-0.5 text-xs font-medium uppercase text-slate-600"><?= e($iv['type']) ?></span>
+                                    <span class="font-medium text-slate-800"><?= e($iv['job_title']) ?></span>
+                                    <span class="text-xs text-slate-400">· <?= e($iv['status']) ?></span>
+                                </div>
+                                <?php if ($iv['score'] !== null): ?>
+                                    <span class="text-xs font-semibold text-slate-700"><?= e($iv['score']) ?>/100 · <?= e($iv['recommendation'] ?? '—') ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if (! empty($iv['summary'])): ?><div class="mt-1 text-xs text-slate-500"><?= e($iv['summary']) ?></div><?php endif; ?>
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <?php if ($iv['type'] === 'ai' && $iv['status'] === 'scheduled' && ($canRunAiInterview ?? false)): ?>
+                                    <form method="post" action="/interviews/<?= e($iv['id']) ?>/ai-run">
+                                        <?= csrf_field() ?>
+                                        <button class="rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-700">✦ Run AI interview</button>
+                                    </form>
+                                <?php endif; ?>
+                                <?php if ($canEvaluate ?? false): ?>
+                                    <form method="post" action="/interviews/<?= e($iv['id']) ?>/evaluate" class="flex flex-wrap items-center gap-1">
+                                        <?= csrf_field() ?>
+                                        <input name="score" type="number" min="0" max="100" placeholder="0-100" class="w-20 rounded border border-slate-300 px-2 py-1 text-xs">
+                                        <select name="recommendation" class="rounded border border-slate-300 px-1 py-1 text-xs">
+                                            <option value="advance">advance</option>
+                                            <option value="hold">hold</option>
+                                            <option value="reject">reject</option>
+                                        </select>
+                                        <input name="summary" placeholder="evaluation note" class="w-40 rounded border border-slate-300 px-2 py-1 text-xs">
+                                        <button class="rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700">Save</button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
                         </li>
                     <?php endforeach; ?>
                 </ul>
