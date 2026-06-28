@@ -832,6 +832,20 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   and fills the answer box from the transcript.
 - Verified: `OpenAiSpeechToTextTest` (4, incl. key-isolation); auditor **100/100**.
 
+### Fix — route {param} names must match handler arguments
+- The dispatcher binds route parameters to controller arguments **by name**, so a
+  route like `/roles/{id}` calling `show(string $roleId)` failed to resolve and
+  500'd at runtime. Found via HTTP/E2E verification (service tests + the
+  route-registration check didn't exercise param binding).
+- Fixed the 7 affected routes by aligning the path param to the argument:
+  `/roles/{id}…` → `/roles/{roleId}…` (show/edit/clone/delete) and
+  `/members/{id}/…` → `/members/{membershipId}/…` (suspend/activate/remove).
+  The members and role clone/delete routes had been latently broken since they
+  were added.
+- Added an auditor guard that reflects over **every** route and asserts each
+  `{param}` maps to an identically-named handler argument, so this class of bug
+  can never ship silently again. Auditor **101/101**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

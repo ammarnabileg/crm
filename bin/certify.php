@@ -171,9 +171,9 @@ foreach ([
     'POST /admin/workspaces/{id}/suspend', 'POST /admin/workspaces/{id}/archive',
     'POST /admin/users/{id}/activate', 'POST /admin/users/{id}/deactivate',
     'POST /workspaces/transfer-ownership', 'POST /workspaces/archive', 'POST /pipeline/bulk-status', 'POST /talent-pool/bulk-add', 'GET /avatars/{id}/preview',
-    'POST /members/{id}/suspend', 'POST /members/{id}/activate', 'POST /members/{id}/remove',
-    'POST /roles/{id}/clone', 'POST /roles/{id}/delete',
-    'GET /roles/{id}', 'POST /roles/{id}/edit',
+    'POST /members/{membershipId}/suspend', 'POST /members/{membershipId}/activate', 'POST /members/{membershipId}/remove',
+    'POST /roles/{roleId}/clone', 'POST /roles/{roleId}/delete',
+    'GET /roles/{roleId}', 'POST /roles/{roleId}/edit',
     'GET /settings/logo',
     'GET /settings/maintenance', 'POST /settings/maintenance/enable', 'POST /settings/maintenance/disable',
     'POST /portal/applications/{applicationId}/withdraw',
@@ -184,6 +184,31 @@ foreach ([
 ] as $route) {
     $check("route registered: {$route}", isset($paths[$route]));
 }
+
+// Every {param} in a route path must map to an identically-named handler argument
+// (the dispatcher binds route params by name) — else the call 500s at runtime.
+$paramMismatches = [];
+foreach ($router->routes() as $r) {
+    if (! preg_match_all('/\{([a-zA-Z0-9_]+)\}/', $r->path(), $m)) {
+        continue;
+    }
+    $handler = $r->handler();
+    if (! is_array($handler)) {
+        continue;
+    }
+    try {
+        $names = array_map(static fn ($p) => $p->getName(), (new \ReflectionMethod($handler[0], $handler[1]))->getParameters());
+    } catch (\Throwable) {
+        $paramMismatches[] = $r->method() . ' ' . $r->path() . ' (no handler)';
+        continue;
+    }
+    foreach ($m[1] as $p) {
+        if (! in_array($p, $names, true)) {
+            $paramMismatches[] = $r->method() . ' ' . $r->path() . ' missing $' . $p;
+        }
+    }
+}
+$check('every route {param} binds to a handler argument', $paramMismatches === [], implode('; ', $paramMismatches));
 
 // ── 7. Engines & event-bus wiring ───────────────────────────────────────────
 $head('7. Engines & Event Bus');
