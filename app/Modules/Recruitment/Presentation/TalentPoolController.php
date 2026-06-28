@@ -34,9 +34,30 @@ final class TalentPoolController
 
         return $this->shell->render($this->context, 'recruitment.talent.index', [
             'pools' => $this->pools->listPools((string) $this->context->workspaceId()),
+            'smartLists' => $this->pools->smartLists((string) $this->context->workspaceId()),
             'canManage' => $this->context->can('talent.manage'),
             'status' => $this->session->pullFlash('status'),
         ]);
+    }
+
+    /** Bulk-add candidates (e.g. a whole smart list) to a pool. */
+    public function bulkAdd(Request $request): Response
+    {
+        if (($r = $this->gate('talent.manage', $request)) !== null) {
+            return $r;
+        }
+
+        $ids = $request->input('candidate_user_ids', []);
+        $ids = is_array($ids) ? $ids : [];
+        $n = $this->pools->addCandidates(
+            (string) $this->context->workspaceId(),
+            (string) $request->input('pool_id', ''),
+            $ids,
+            $this->context->userId(),
+        );
+        $this->session->flash('status', $n > 0 ? "Added {$n} candidate(s) to the pool." : 'Nothing added.');
+
+        return Response::redirect('/talent-pool');
     }
 
     public function show(string $poolId): Response

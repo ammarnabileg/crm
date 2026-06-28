@@ -149,6 +149,7 @@ final class RecruitmentModule implements Module
         $router->post('/talent-pool', [TalentPoolController::class, 'create']);
         $router->get('/talent-pool/{poolId}', [TalentPoolController::class, 'show']);
         $router->post('/talent-pool/add', [TalentPoolController::class, 'addCandidate']);
+        $router->post('/talent-pool/bulk-add', [TalentPoolController::class, 'bulkAdd']);
         $router->post('/talent-pool/{poolId}/remove', [TalentPoolController::class, 'removeCandidate']);
     }
 }

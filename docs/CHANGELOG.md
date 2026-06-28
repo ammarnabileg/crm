@@ -625,6 +625,12 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   provider, summary, and the advisory AI assessment.
 - Verified: **165 tests** · auditor **72/72**.
 
+### Sprint 3 (Slice 3d) — Talent Pool depth
+- **Smart lists** (auto-computed segments for re-engagement): “Strong AI, not hired”,
+  “Previously rejected”, “Interviewed, no offer” — each with a one-click **bulk add** to
+  any pool (`/talent-pool/bulk-add`).
+- Verified: **167 tests** · auditor **73/73** · `TalentPoolDepthTest` (2).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).
