@@ -159,6 +159,7 @@ final class FoundationAcceptanceTest extends TestCase
             new MigrationRunner($this->connection, $this->schema),
             new PermissionSeeder(new PermissionRepository($this->connection)),
             $this->registrar(),
+            new \HaHireAI\Core\Events\Dispatcher(),
             $this->lockPath,
             dirname(__DIR__, 2) . '/database/migrations',
         );

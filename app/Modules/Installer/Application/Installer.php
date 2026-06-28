@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Installer\Application;
 
+use HaHireAI\Core\Contracts\EventDispatcher;
 use HaHireAI\Core\Database\Migrations\MigrationRunner;
 use HaHireAI\Modules\Installer\Application\Exceptions\InstallerException;
 use HaHireAI\Modules\Permissions\Application\PermissionSeeder;
@@ -20,6 +21,7 @@ final class Installer
         private readonly MigrationRunner $migrations,
         private readonly PermissionSeeder $permissions,
         private readonly UserRegistrar $users,
+        private readonly EventDispatcher $events,
         private readonly string $lockPath,
         private readonly string $migrationsDir,
     ) {
@@ -86,6 +88,9 @@ final class Installer
 
         $log && $log('Finalizing & locking setup...');
         $this->lock();
+
+        // Reactor modules (e.g. Billing) seed their own data on install.
+        $this->events->dispatch('platform.installed', ['system_owner_id' => $ownerId]);
 
         $log && $log('Completed.');
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Installer;
 
 use HaHireAI\Core\Contracts\Container;
+use HaHireAI\Core\Contracts\EventDispatcher;
 use HaHireAI\Core\Database\Migrations\MigrationRunner;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
@@ -31,6 +32,7 @@ final class InstallerModule implements Module
             $c->make(MigrationRunner::class),
             $c->make(PermissionSeeder::class),
             $c->make(UserRegistrar::class),
+            $c->make(EventDispatcher::class),
             storage_path('installed.lock'),
             base_path('database/migrations'),
         ));

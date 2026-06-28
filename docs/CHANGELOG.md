@@ -232,6 +232,32 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   webhook delivery, and the event→webhook path through the real container.
   Suite: **71 tests / 219 assertions**.
 
+### Added — Phase 14: SaaS Billing, Subscriptions & Licensing
+- **Billing Platform** (`app/Modules/Billing`) — `BILLING_PLATFORM.md`:
+  - **Plans as data** (`PlanCatalog` + `PlanService`): Free/Pro/Enterprise seeded
+    on install (`platform.installed` event) and via `php bin/console.php db:seed`;
+    each plan carries `features` (flags) and `limits` (caps, -1 = unlimited).
+  - **Subscriptions** (`SubscriptionService` + `BillingService`): one row per
+    workspace with a trial→active→past_due→grace→suspended/canceled lifecycle.
+  - **SubscriptionLifecycle**: time-driven transitions (`tick($now)`, injectable
+    clock) — trial conversion, renewal, dunning → suspension, scheduled cancel.
+  - **Payment gateway** (`PaymentGateway` contract + built-in network-free
+    `ManualPaymentGateway`; Stripe/Moyasar are deferred adapters).
+  - **Invoices** (`InvoiceService`): immutable, paid on successful charge.
+  - **Licensing** (`Entitlements`): feature flags + numeric limits from the plan;
+    permissive when unsubscribed; suspended/canceled ⇒ not usable.
+  - **Billing UI** (`/billing`): plan/status, trial/renewal dates, switch plan,
+    scheduled cancel, invoices; CSRF-protected and audited.
+- **Single dynamic sidebar is now subscription-aware**: `SidebarBuilder` gains an
+  optional enabled-features argument; AI/Workflows/Developer are feature-gated.
+  Decoupled via a new Core `EntitlementResolver` contract (permissive null
+  default in Core; real resolver bound by Billing) so Navigation/Workspaces never
+  depend on Billing internals.
+- **Migration**: plans, subscriptions, invoices. Installer now emits
+  `platform.installed`; `db:seed` console command added.
+- Verified on live MySQL 8 (`BillingTest`, `SubscriptionLifecycleTest`,
+  `SidebarBuilderTest`). Suite: **81 tests / 255 assertions**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

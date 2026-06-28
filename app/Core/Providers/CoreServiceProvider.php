@@ -48,5 +48,11 @@ final class CoreServiceProvider extends ServiceProvider
             (bool) $config->get('app.debug', false),
             $container->make(LoggerContract::class),
         ));
+
+        // Permissive default; the Billing module overrides this with a real resolver.
+        $c->singleton(
+            \HaHireAI\Core\Contracts\EntitlementResolver::class,
+            \HaHireAI\Core\Billing\NullEntitlementResolver::class,
+        );
     }
 }

@@ -221,10 +221,23 @@ Inbound API + outbound webhooks (`INTEGRATION_PLATFORM.md`):
 - Verified on live MySQL 8 + an end-to-end HTTP run. Suite: **71 tests / 219
   assertions**.
 
+### Phase 14 — SaaS Billing, Subscriptions & Licensing ✅ (core)
+SaaS monetization + licensing (`BILLING_PLATFORM.md`):
+- **Plans as data** (Free/Pro/Enterprise) with `features` flags and `limits`.
+- **Subscriptions** with a trial→active→past_due→grace→suspended/canceled
+  lifecycle; **SubscriptionLifecycle.tick($now)** drives time-based transitions.
+- **Payment gateway** contract + built-in network-free `ManualPaymentGateway`
+  (Stripe/Moyasar deferred adapters); immutable **invoices**, paid on charge.
+- **Licensing** (`Entitlements`): feature flags + limits; the **single dynamic
+  sidebar is now subscription-aware** (decoupled via a Core `EntitlementResolver`
+  contract). Permissive when unsubscribed.
+- **Billing UI (`/billing`)** + `db:seed`/install seeding.
+- Verified on live MySQL 8. Suite: **81 tests / 255 assertions**.
+
 ### Planned (later phases)
-- **Phases 14–16 — Implementation:** Billing/Subscriptions/Licensing,
-  Observability/Diagnostics/Operations, and Release certification — each with its
-  own documents and tests (see `MODULES.md`).
+- **Phases 15–16 — Implementation:** Observability/Diagnostics/Operations, and
+  Release certification — each with its own documents and tests (see
+  `MODULES.md`).
 
 `/docs/adr/` holds Architecture Decision Records for significant decisions.
 
