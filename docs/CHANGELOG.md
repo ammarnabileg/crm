@@ -695,6 +695,31 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   failed executions ⇒ warn, non-https ⇒ warn) so problems stand out at a glance.
 - Verified: **177 tests** · auditor **81/81** · `SystemDiagnosticsTest` (4).
 
+### Sprint 4 (Slice 4a) — Careers search & filters (candidate portal)
+- The candidate **Available jobs** page gains search (title/location/keyword) and
+  structured filters (employment type, seniority, location) with a live result
+  count and a clear-filters action. Filter dropdowns are populated from the
+  workspace's actual published roles (`JobService::publishedFacets`), so only
+  meaningful options appear.
+- Verified: `CareersSearchTest` (2); full suite green at Sprint 4 close.
+
+### Sprint 4 (Slice 4b) — Withdraw application (candidate portal)
+- Candidates can **withdraw** their own active application from the application
+  detail page (with confirmation). Only the owning candidate may withdraw, and
+  only while the application is still active — hired/rejected/already-withdrawn
+  applications cannot be withdrawn. The transition is recorded in the status
+  history (`ApplicationService::withdraw`, reusing `setStatus`) and audited.
+- Verified: `WithdrawApplicationTest` (3); full suite green at Sprint 4 close.
+
+### Sprint 4 (Slice 4c) — Notifications: categories, search & archive
+- The Notification Center gains **All / Unread / Archived** tabs with live
+  counts, a **category** filter (by notification type) and **search** across
+  title and body. Each notification can be **archived** (and restored);
+  archiving removes it from the active list and the unread count.
+- New `archived_at` column (migration), and `NotificationService` gains
+  filtered `forUser`, `counts`, `categories`, `archive`/`unarchive`.
+- Verified: **184 tests** · auditor **84/84** · `NotificationsDepthTest` (2).
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

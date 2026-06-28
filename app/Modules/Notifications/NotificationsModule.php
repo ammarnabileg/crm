@@ -63,5 +63,7 @@ final class NotificationsModule implements Module
         $router->get('/notifications', [NotificationsController::class, 'index']);
         $router->post('/notifications/read', [NotificationsController::class, 'markAll']);
         $router->post('/notifications/{id}/read', [NotificationsController::class, 'read']);
+        $router->post('/notifications/{id}/archive', [NotificationsController::class, 'archive']);
+        $router->post('/notifications/{id}/unarchive', [NotificationsController::class, 'unarchive']);
     }
 }

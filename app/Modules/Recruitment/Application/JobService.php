@@ -179,16 +179,62 @@ final class JobService
      *
      * @return list<array<string, mixed>>
      */
-    public function listPublished(string $workspaceId, ?string $forUserId = null): array
+    /**
+     * Published jobs for the candidate careers page, with optional search/filters.
+     *
+     * @param  array{q?: string, employment_type?: string, seniority?: string, location?: string}  $filters
+     * @return list<array<string, mixed>>
+     */
+    public function listPublished(string $workspaceId, ?string $forUserId = null, array $filters = []): array
     {
+        $where = "j.workspace_id = ? AND j.status = 'published' AND j.deleted_at IS NULL";
+        $bindings = [(string) $forUserId, $workspaceId];
+
+        $q = trim((string) ($filters['q'] ?? ''));
+        if ($q !== '') {
+            $where .= ' AND (j.title LIKE ? OR j.location LIKE ? OR j.description LIKE ?)';
+            $like = '%' . $q . '%';
+            array_push($bindings, $like, $like, $like);
+        }
+        foreach (['employment_type', 'seniority', 'location'] as $col) {
+            $val = trim((string) ($filters[$col] ?? ''));
+            if ($val !== '') {
+                $where .= " AND j.{$col} = ?";
+                $bindings[] = $val;
+            }
+        }
+
         return $this->connection->select(
             "SELECT j.*, j.public_token,
                     (SELECT COUNT(*) FROM applications a WHERE a.job_id = j.id AND a.user_id = ? AND a.deleted_at IS NULL) AS has_applied
                FROM jobs j
-              WHERE j.workspace_id = ? AND j.status = 'published' AND j.deleted_at IS NULL
+              WHERE {$where}
               ORDER BY j.published_at DESC, j.created_at DESC",
-            [(string) $forUserId, $workspaceId],
+            $bindings,
         );
+    }
+
+    /**
+     * Distinct filter values across the workspace's published jobs (for the
+     * careers page filter dropdowns).
+     *
+     * @return array{employment_type: list<string>, seniority: list<string>, location: list<string>}
+     */
+    public function publishedFacets(string $workspaceId): array
+    {
+        $facets = ['employment_type' => [], 'seniority' => [], 'location' => []];
+        foreach (array_keys($facets) as $col) {
+            $rows = $this->connection->select(
+                "SELECT DISTINCT j.{$col} AS v FROM jobs j
+                  WHERE j.workspace_id = ? AND j.status = 'published' AND j.deleted_at IS NULL
+                    AND j.{$col} IS NOT NULL AND j.{$col} <> ''
+                  ORDER BY j.{$col} ASC",
+                [$workspaceId],
+            );
+            $facets[$col] = array_map(static fn (array $r): string => (string) $r['v'], $rows);
+        }
+
+        return $facets;
     }
 
     /** @return array<string, mixed>|null a published job, for the public page */

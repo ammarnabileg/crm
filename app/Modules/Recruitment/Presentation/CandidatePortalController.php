@@ -71,7 +71,7 @@ final class CandidatePortalController
     }
 
     /** Page 2 — Available Jobs in this workspace. */
-    public function jobs(): Response
+    public function jobs(Request $request): Response
     {
         if (($r = $this->gate()) !== null) {
             return $r;
@@ -80,8 +80,17 @@ final class CandidatePortalController
         $ws = (string) $this->context->workspaceId();
         $uid = (string) $this->context->userId();
 
+        $filters = [
+            'q' => trim((string) $request->input('q', '')),
+            'employment_type' => trim((string) $request->input('employment_type', '')),
+            'seniority' => trim((string) $request->input('seniority', '')),
+            'location' => trim((string) $request->input('location', '')),
+        ];
+
         return $this->shell->render($this->context, 'portal.jobs', [
-            'jobs' => $this->jobs->listPublished($ws, $uid),
+            'jobs' => $this->jobs->listPublished($ws, $uid, $filters),
+            'facets' => $this->jobs->publishedFacets($ws),
+            'filters' => $filters,
             'workspaceName' => $this->context->workspace()['name'] ?? '',
             'status' => $this->session->pullFlash('status'),
         ]);
@@ -220,6 +229,32 @@ final class CandidatePortalController
             'workspaceName' => $this->context->workspace()['name'] ?? '',
             'status' => $this->session->pullFlash('status'),
         ]);
+    }
+
+    /** Candidate withdraws their own application. */
+    public function withdrawApplication(Request $request, string $applicationId): Response
+    {
+        if (($r = $this->gate($request)) !== null) {
+            return $r;
+        }
+
+        $ws = (string) $this->context->workspaceId();
+        $uid = (string) $this->context->userId();
+
+        if ($this->applications->withdraw($ws, $applicationId, $uid)) {
+            $this->audit->record('recruitment.application.withdrawn', [
+                'workspace_id' => $ws,
+                'actor_user_id' => $uid,
+                'entity_type' => 'application',
+                'entity_id' => $applicationId,
+                'ip' => $request->server('REMOTE_ADDR'),
+            ]);
+            $this->session->flash('status', 'Your application has been withdrawn.');
+        } else {
+            $this->session->flash('status', 'This application can no longer be withdrawn.');
+        }
+
+        return Response::redirect('/portal/applications/' . $applicationId);
     }
 
     /** Page 3b — one application: stage map, what the AI noted, next step, offers. */

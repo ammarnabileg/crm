@@ -77,6 +77,27 @@ final class ApplicationService
     }
 
     /**
+     * Candidate withdraws their own application. Only the owning candidate may
+     * do this, and only while the application is still active (not already
+     * hired/rejected/withdrawn). Returns false if not permitted.
+     */
+    public function withdraw(string $workspaceId, string $applicationId, string $userId): bool
+    {
+        $application = $this->findForCandidate($workspaceId, $applicationId, $userId);
+        if ($application === null) {
+            return false;
+        }
+        if (in_array((string) $application['status'], ['hired', 'rejected', 'withdrawn'], true)) {
+            return false;
+        }
+
+        // Reuses setStatus so the status-history trail is recorded consistently.
+        $this->setStatus($workspaceId, $applicationId, 'withdrawn', $userId);
+
+        return true;
+    }
+
+    /**
      * Applications grouped by pipeline stage for the Kanban board.
      *
      * @return array<string, list<array<string,mixed>>>  stageId => applications

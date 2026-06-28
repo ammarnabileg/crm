@@ -1,7 +1,11 @@
 <?php
 /** @var list<array<string,mixed>> $jobs */
+/** @var array{employment_type:list<string>,seniority:list<string>,location:list<string>} $facets */
+/** @var array{q:string,employment_type:string,seniority:string,location:string} $filters */
 /** @var string $workspaceName */
 /** @var string|null $status */
+$sel = 'rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none';
+$hasFilters = $filters['q'] !== '' || $filters['employment_type'] !== '' || $filters['seniority'] !== '' || $filters['location'] !== '';
 ?>
 <div class="mb-6">
     <h1 class="text-2xl font-semibold text-slate-900">Available jobs</h1>
@@ -10,8 +14,34 @@
 
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
 
+<form method="get" action="/portal/jobs" class="mb-5 flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="grow">
+        <label class="mb-1 block text-xs font-medium text-slate-600">Search</label>
+        <input name="q" value="<?= e($filters['q']) ?>" placeholder="Title, location or keyword…" class="<?= $sel ?> w-full">
+    </div>
+    <?php
+    $facetLabels = ['employment_type' => 'Type', 'seniority' => 'Seniority', 'location' => 'Location'];
+    foreach ($facetLabels as $key => $label): ?>
+        <?php if ($facets[$key] !== []): ?>
+            <div>
+                <label class="mb-1 block text-xs font-medium text-slate-600"><?= e($label) ?></label>
+                <select name="<?= e($key) ?>" class="<?= $sel ?>">
+                    <option value="">All</option>
+                    <?php foreach ($facets[$key] as $opt): ?>
+                        <option value="<?= e($opt) ?>" <?= $filters[$key] === $opt ? 'selected' : '' ?>><?= e($opt) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        <?php endif; ?>
+    <?php endforeach; ?>
+    <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Filter</button>
+    <?php if ($hasFilters): ?><a href="/portal/jobs" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Clear</a><?php endif; ?>
+</form>
+
+<p class="mb-3 text-xs text-slate-400"><?= count($jobs) ?> open role<?= count($jobs) === 1 ? '' : 's' ?><?= $hasFilters ? ' matching your filters' : '' ?>.</p>
+
 <?php if ($jobs === []): ?>
-    <div class="rounded-2xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-400 shadow-sm">No open jobs right now. Check back soon.</div>
+    <div class="rounded-2xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-400 shadow-sm"><?= $hasFilters ? 'No roles match these filters. Try clearing them.' : 'No open jobs right now. Check back soon.' ?></div>
 <?php else: ?>
     <div class="space-y-3">
         <?php foreach ($jobs as $j): ?>

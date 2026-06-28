@@ -143,5 +143,19 @@ $pendingOffers = array_values(array_filter($offers, static fn (array $o): bool =
                 <button class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Send proposal</button>
             </form>
         </div>
+
+        <!-- Withdraw -->
+        <?php if (! in_array($currentStatus, ['hired', 'rejected', 'withdrawn'], true)): ?>
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 class="mb-1 text-sm font-semibold text-slate-900">Withdraw</h2>
+                <p class="mb-3 text-xs text-slate-400">No longer interested? You can withdraw your application at any time. This can't be undone.</p>
+                <form method="post" action="/portal/applications/<?= e($application['id']) ?>/withdraw" onsubmit="return confirm('Withdraw your application for “<?= e($application['job_title']) ?>”? This cannot be undone.');">
+                    <?= csrf_field() ?>
+                    <button class="rounded-lg border border-rose-300 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50">Withdraw application</button>
+                </form>
+            </div>
+        <?php elseif ($currentStatus === 'withdrawn'): ?>
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500 shadow-sm">You withdrew this application.</div>
+        <?php endif; ?>
     </div>
 </div>
