@@ -89,7 +89,7 @@ final class MembershipService implements MemberDirectory
     public function workspacesForUserDetailed(string $userId): array
     {
         return $this->connection->select(
-            'SELECT w.id, w.name, w.status, w.created_at, ow.name AS owner_name,
+            'SELECT w.id, w.name, w.status, w.created_at, w.owner_user_id, ow.name AS owner_name,
                     (SELECT COUNT(*) FROM memberships m2 WHERE m2.workspace_id = w.id AND m2.deleted_at IS NULL) AS members,
                     (SELECT p.name FROM subscriptions s JOIN plans p ON p.id = s.plan_id WHERE s.workspace_id = w.id LIMIT 1) AS plan_name,
                     (SELECT s.status FROM subscriptions s WHERE s.workspace_id = w.id LIMIT 1) AS sub_status

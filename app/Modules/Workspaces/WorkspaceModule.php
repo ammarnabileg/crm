@@ -41,6 +41,8 @@ final class WorkspaceModule implements Module
         $router->post('/workspaces/{id}/switch', [WorkspaceController::class, 'switch']);
         $router->post('/workspaces/transfer-ownership', [WorkspaceController::class, 'transferOwnership']);
         $router->post('/workspaces/archive', [WorkspaceController::class, 'archiveOwn']);
+        $router->post('/workspaces/{id}/deactivate', [WorkspaceController::class, 'deactivateWorkspace']);
+        $router->post('/workspaces/{id}/activate', [WorkspaceController::class, 'activateWorkspace']);
         $router->get('/settings', [SettingsController::class, 'index']);
         $router->get('/settings/logo', [SettingsController::class, 'logo']);
         $router->post('/settings', [SettingsController::class, 'update']);

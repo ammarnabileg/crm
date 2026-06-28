@@ -1,14 +1,20 @@
 <?php
 /** @var string|null $workspaceName */
 /** @var array{email:string,url:string,phone:string,message:string} $support */
+/** @var string|null $reason */
 $contactUrl = $support['url'] !== '' ? $support['url'] : ($support['email'] !== '' ? 'mailto:' . $support['email'] : '');
+$reasons = [
+    'suspended' => 'has been stopped by the platform.',
+    'archived' => 'has been paused by its owner.',
+    'plan' => 'is unavailable because the subscription has not been renewed.',
+];
+$lead = $reasons[$reason ?? ''] ?? 'is currently unavailable.';
 ?>
 <div class="mx-auto max-w-lg px-6 py-16 text-center">
     <div class="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-3xl">⏸</div>
     <h1 class="text-2xl font-semibold text-slate-900">Service paused</h1>
     <p class="mt-2 text-sm text-slate-600">
-        <?php if (! empty($workspaceName)): ?><span class="font-medium text-slate-800"><?= e($workspaceName) ?></span> is <?php endif; ?>
-        currently unavailable. The subscription is suspended or has not been renewed.
+        <?php if (! empty($workspaceName)): ?><span class="font-medium text-slate-800"><?= e($workspaceName) ?></span> <?= e($lead) ?><?php else: ?>This workspace <?= e($lead) ?><?php endif; ?>
     </p>
     <?php if ($support['message'] !== ''): ?>
         <p class="mt-3 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600"><?= nl2br(e($support['message'])) ?></p>

@@ -18,6 +18,15 @@ interface WorkspaceAllowance
      */
     public function canCreateWorkspace(string $userId): array;
 
+    /**
+     * May this account turn an *existing* workspace back on (within the plan
+     * cap)? Unlike creation this ignores the block flag — it governs how many
+     * workspaces run at once, not whether new ones may be made.
+     *
+     * @return array{allowed: bool, reason: string}
+     */
+    public function canActivateWorkspace(string $userId): array;
+
     /** Max workspaces the account may run active at once. */
     public function maxWorkspaces(string $userId): int;
 

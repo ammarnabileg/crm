@@ -105,6 +105,56 @@ final class AccountPlanTest extends TestCase
         $this->assertFalse($this->accounts->isUsable($user));
     }
 
+    public function test_downgrade_archives_excess_keeping_oldest(): void
+    {
+        $user = $this->user();
+        $big = $this->plan('Scale', ['workspaces' => 5]);
+        $this->accounts->assignPlan($user, $big);
+
+        // Four active workspaces, distinct creation order (oldest → newest).
+        $w1 = $this->workspace($user, 'active', '2026-01-01 00:00:00');
+        $w2 = $this->workspace($user, 'active', '2026-02-01 00:00:00');
+        $w3 = $this->workspace($user, 'active', '2026-03-01 00:00:00');
+        $w4 = $this->workspace($user, 'active', '2026-04-01 00:00:00');
+        $this->assertSame(4, $this->accounts->activeWorkspaceCount($user));
+
+        // Downgrade to a 2-workspace plan → the two oldest keep running.
+        $small = $this->plan('Duo', ['workspaces' => 2]);
+        $this->accounts->assignPlan($user, $small);
+
+        $this->assertSame(2, $this->accounts->activeWorkspaceCount($user));
+        $this->assertSame('active', $this->wsStatus($w1));
+        $this->assertSame('active', $this->wsStatus($w2));
+        $this->assertSame('archived', $this->wsStatus($w3));
+        $this->assertSame('archived', $this->wsStatus($w4));
+    }
+
+    public function test_can_activate_respects_cap_and_usability(): void
+    {
+        $user = $this->user();
+        $this->accounts->assignPlan($user, $this->plan('Duo', ['workspaces' => 2]));
+
+        $this->workspace($user, 'active');
+        $this->assertTrue($this->accounts->canActivateWorkspace($user)['allowed']); // 1/2
+
+        $this->workspace($user, 'active');
+        $this->assertFalse($this->accounts->canActivateWorkspace($user)['allowed']); // 2/2, full
+
+        // Block flag does NOT stop re-activation (only creation does).
+        $this->connection->statement('UPDATE users SET can_create_workspaces = 0 WHERE id = ?', [$user]);
+        $this->connection->statement("UPDATE workspaces SET status = 'archived' WHERE owner_user_id = ? ORDER BY created_at DESC LIMIT 1", [$user]);
+        $this->assertTrue($this->accounts->canActivateWorkspace($user)['allowed']); // 1/2 again, flag irrelevant
+
+        // Expired plan blocks activation entirely.
+        $this->connection->statement('UPDATE account_plans SET expires_at = ? WHERE user_id = ?', [gmdate('Y-m-d H:i:s', time() - 86400), $user]);
+        $this->assertFalse($this->accounts->canActivateWorkspace($user)['allowed']);
+    }
+
+    private function wsStatus(string $id): string
+    {
+        return (string) $this->connection->selectOne('SELECT status FROM workspaces WHERE id = ?', [$id])['status'];
+    }
+
     private function plan(string $name, array $limits): string
     {
         $id = Ulid::generate();
@@ -118,13 +168,14 @@ final class AccountPlanTest extends TestCase
         return $id;
     }
 
-    private function workspace(string $owner, string $status): string
+    private function workspace(string $owner, string $status, ?string $createdAt = null): string
     {
         $id = Ulid::generate();
         $now = gmdate('Y-m-d H:i:s');
+        $created = $createdAt ?? $now;
         $this->connection->statement(
             'INSERT INTO workspaces (id, name, slug, owner_user_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [$id, 'WS', 'ws-' . substr($id, -8), $owner, $status, $now, $now],
+            [$id, 'WS', 'ws-' . substr($id, -8), $owner, $status, $created, $now],
         );
 
         return $id;

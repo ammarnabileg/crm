@@ -905,6 +905,23 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   from these controls.
 - Verified: `GovernanceEnforcementTest` (3); auditor **114/114**.
 
+### Platform governance — owner activate/deactivate within the plan cap
+- The account owner now controls **which** of their workspaces run, never more
+  than the plan allows. On **My Workspaces** each owned workspace shows its state
+  (active / paused) with **Deactivate** / **Activate** controls and an
+  "owned running / plan" meter; Activate is blocked once the cap is reached.
+  Routes `POST /workspaces/{id}/deactivate|activate` (owner-only, CSRF, audited).
+- **Downgrade enforcement**: assigning a smaller plan auto-pauses the excess —
+  the oldest `cap` workspaces keep running, the newest are archived; the owner
+  re-activates whichever they want within the cap (`AccountPlanService::
+  enforceActiveCap`). New `WorkspaceAllowance::canActivateWorkspace` mirrors the
+  creation check minus the block flag (it governs concurrency, not new builds).
+- Paused workspaces are non-operational: the shell serves the 503 "Service
+  paused" screen for owner-paused (`archived`), platform-stopped (`suspended`)
+  and non-renewed (plan) states, each with a tailored message. Account-level
+  pages (My Workspaces) bypass the gate so the owner can always recover.
+- Verified: `AccountPlanTest` (+2 → 5); auditor **116/116**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

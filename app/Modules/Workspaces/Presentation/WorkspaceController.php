@@ -117,15 +117,102 @@ final class WorkspaceController
             return Response::redirect('/workspaces/create');
         }
 
-        $list = $this->memberships->workspacesForUserDetailed((string) $this->auth->id());
+        $userId = (string) $this->auth->id();
+        $list = $this->memberships->workspacesForUserDetailed($userId);
         $active = count(array_filter($list, static fn (array $w): bool => (string) $w['status'] === 'active'));
         $suspended = count(array_filter($list, static fn (array $w): bool => (string) ($w['sub_status'] ?? '') === 'suspended'));
 
+        // Owner cap: how many of the account's owned workspaces run vs. the plan
+        // allows, so the owner can deactivate one and activate another in place.
         return $this->shell->render($this->context, 'workspace.my', [
             'workspaces' => $list,
             'currentId' => $this->context->workspaceId(),
+            'userId' => $userId,
+            'cap' => $this->allowance->maxWorkspaces($userId),
+            'ownedActive' => $this->allowance->activeWorkspaceCount($userId),
             'stats' => ['total' => count($list), 'active' => $active, 'suspended' => $suspended],
+            'status' => $this->session->pullFlash('status'),
+            'error' => $this->session->pullFlash('error'),
+        ], ['bypassGate' => true]);
+    }
+
+    /** Owner pauses one of their workspaces (frees a plan slot). */
+    public function deactivateWorkspace(Request $request, string $id): Response
+    {
+        if (($guard = $this->ownedWorkspaceGate($request, $id)) instanceof Response) {
+            return $guard;
+        }
+
+        $this->lifecycle->archive($id);
+        $this->audit->record('workspaces.workspace.deactivated', [
+            'workspace_id' => $id, 'actor_user_id' => $this->auth->id(),
+            'entity_type' => 'workspace', 'entity_id' => $id,
         ]);
+
+        // Don't strand the owner inside the workspace they just paused — move them
+        // to another active workspace they belong to, if any.
+        if ($id === (string) $this->auth->currentWorkspaceId()) {
+            foreach ($this->memberships->workspacesForUserDetailed((string) $this->auth->id()) as $w) {
+                if ((string) $w['id'] !== $id && (string) $w['status'] === 'active') {
+                    $this->auth->setCurrentWorkspace((string) $w['id']);
+                    break;
+                }
+            }
+        }
+        $this->session->flash('status', 'Workspace deactivated. A plan slot is now free.');
+
+        return Response::redirect('/my-workspaces');
+    }
+
+    /** Owner re-activates a paused workspace, within the plan cap. */
+    public function activateWorkspace(Request $request, string $id): Response
+    {
+        if (($guard = $this->ownedWorkspaceGate($request, $id)) instanceof Response) {
+            return $guard;
+        }
+
+        $allow = $this->allowance->canActivateWorkspace((string) $this->auth->id());
+        if (! $allow['allowed']) {
+            $this->session->flash('error', $allow['reason']);
+
+            return Response::redirect('/my-workspaces');
+        }
+
+        $this->lifecycle->restore($id);
+        $this->audit->record('workspaces.workspace.activated', [
+            'workspace_id' => $id, 'actor_user_id' => $this->auth->id(),
+            'entity_type' => 'workspace', 'entity_id' => $id,
+        ]);
+        $this->session->flash('status', 'Workspace activated.');
+
+        return Response::redirect('/my-workspaces');
+    }
+
+    /**
+     * Auth + CSRF + the actor owns workspace {id}. Returns a Response to short-
+     * circuit, or null when the action may proceed.
+     */
+    private function ownedWorkspaceGate(Request $request, string $id): ?Response
+    {
+        if (! $this->auth->check()) {
+            return Response::redirect('/login');
+        }
+        if (! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return Response::html('<h1>419</h1><p>Security check failed.</p>', 419);
+        }
+        $userId = (string) $this->auth->id();
+        $owned = null;
+        foreach ($this->memberships->workspacesForUserDetailed($userId) as $w) {
+            if ((string) $w['id'] === $id) {
+                $owned = $w;
+                break;
+            }
+        }
+        if ($owned === null || (string) ($owned['owner_user_id'] ?? '') !== $userId) {
+            return Response::html('<h1>403</h1><p>Only the workspace owner can do this.</p>', 403);
+        }
+
+        return null;
     }
 
     public function showCreate(): Response

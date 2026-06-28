@@ -41,14 +41,45 @@ final class AccountPlanService implements WorkspaceAllowance
                 'INSERT INTO account_plans (id, user_id, plan_id, status, started_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
                 [Ulid::generate(), $userId, $planId, 'active', $now, $now, $now],
             );
-
-            return;
+        } else {
+            $this->connection->statement(
+                'UPDATE account_plans SET plan_id = ?, status = ?, updated_at = ? WHERE user_id = ?',
+                [$planId, 'active', $now, $userId],
+            );
         }
 
-        $this->connection->statement(
-            'UPDATE account_plans SET plan_id = ?, status = ?, updated_at = ? WHERE user_id = ?',
-            [$planId, 'active', $now, $userId],
+        // Downgrade enforcement: if the new plan caps the account below what it
+        // currently runs, pause the excess (newest first; the oldest stay on).
+        $this->enforceActiveCap($userId);
+    }
+
+    /**
+     * Pause active workspaces beyond the account's cap so it never runs more
+     * than its plan allows. Keeps the oldest `cap` running and archives the rest
+     * (recoverable — the owner re-activates within the cap). Returns the count
+     * paused. The owner picks which run by re-activating from "My Workspaces".
+     */
+    public function enforceActiveCap(string $userId): int
+    {
+        $cap = $this->maxWorkspaces($userId);
+        $active = $this->connection->select(
+            "SELECT id FROM workspaces WHERE owner_user_id = ? AND status = 'active' AND deleted_at IS NULL ORDER BY created_at ASC",
+            [$userId],
         );
+        if (count($active) <= $cap) {
+            return 0;
+        }
+
+        $excess = array_slice($active, $cap);
+        $now = gmdate('Y-m-d H:i:s');
+        foreach ($excess as $row) {
+            $this->connection->statement(
+                "UPDATE workspaces SET status = 'archived', archived_at = ?, updated_at = ? WHERE id = ?",
+                [$now, $now, (string) $row['id']],
+            );
+        }
+
+        return count($excess);
     }
 
     /** Grant N free months: extend the renewal date from max(now, current expiry). */
@@ -140,6 +171,26 @@ final class AccountPlanService implements WorkspaceAllowance
         $max = $this->maxWorkspaces($userId);
         if ($this->activeWorkspaceCount($userId) >= $max) {
             return ['allowed' => false, 'reason' => "Your plan allows {$max} active workspace(s). Deactivate one or upgrade to add more."];
+        }
+
+        return ['allowed' => true, 'reason' => ''];
+    }
+
+    /**
+     * May this account turn an existing workspace back on? Same cap + standing
+     * rules as creation, but the block flag does not apply (that only stops
+     * making *new* workspaces).
+     *
+     * @return array{allowed: bool, reason: string}
+     */
+    public function canActivateWorkspace(string $userId): array
+    {
+        if (! $this->isUsable($userId)) {
+            return ['allowed' => false, 'reason' => 'Your plan is suspended or expired. Please renew or contact support.'];
+        }
+        $max = $this->maxWorkspaces($userId);
+        if ($this->activeWorkspaceCount($userId) >= $max) {
+            return ['allowed' => false, 'reason' => "Your plan allows {$max} active workspace(s). Deactivate another one first."];
         }
 
         return ['allowed' => true, 'reason' => ''];

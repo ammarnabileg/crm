@@ -32,23 +32,40 @@ final class WorkspaceShell
     ) {
     }
 
-    /** @param array<string, mixed> $data */
-    public function render(WorkspaceContext $context, string $page, array $data = []): Response
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array{bypassGate?: bool}  $options  bypassGate skips the
+     *         suspended/maintenance gates for account-level pages (e.g. "My
+     *         Workspaces") that must stay reachable even when the current
+     *         workspace is paused.
+     */
+    public function render(WorkspaceContext $context, string $page, array $data = [], array $options = []): Response
     {
         $workspaceId = $context->workspaceId();
         $workspace = $context->workspace();
+        $bypassGate = ($options['bypassGate'] ?? false) === true;
 
-        // Suspended: the workspace was stopped by the platform (System Owner) or
-        // its owner's plan lapsed/was suspended (non-renewal). Members see a
-        // "service paused" screen with a way to reach support.
+        // Paused: the workspace was stopped by the platform (System Owner),
+        // paused by its owner (cap/archive), or its owner's plan lapsed/was
+        // suspended (non-renewal). Members see a "service paused" screen with a
+        // way to reach support.
         $ownerId = (string) ($workspace['owner_user_id'] ?? '');
-        $suspended = $workspace !== null
-            && ((string) ($workspace['status'] ?? 'active') === 'suspended'
-                || ($ownerId !== '' && ! $this->allowance->isUsable($ownerId)));
-        if ($suspended) {
+        $status = (string) ($workspace['status'] ?? 'active');
+        $reason = null;
+        if (! $bypassGate && $workspace !== null) {
+            if ($status === 'suspended') {
+                $reason = 'suspended';
+            } elseif ($status === 'archived') {
+                $reason = 'archived';
+            } elseif ($ownerId !== '' && ! $this->allowance->isUsable($ownerId)) {
+                $reason = 'plan';
+            }
+        }
+        if ($reason !== null) {
             return Response::html($this->view->page('workspace.suspended', [
                 'workspaceName' => $workspace['name'] ?? null,
                 'support' => $this->support->support(),
+                'reason' => $reason,
             ], 'layouts.guest', ['title' => 'Service paused']), 503);
         }
 
