@@ -9,6 +9,7 @@ use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatesController;
 use HaHireAI\Modules\Recruitment\Presentation\JobsController;
+use HaHireAI\Modules\Recruitment\Presentation\OffersController;
 use HaHireAI\Modules\Recruitment\Presentation\PipelineController;
 use HaHireAI\Modules\Recruitment\Presentation\PublicJobController;
 
@@ -53,5 +54,7 @@ final class RecruitmentModule implements Module
         $router->get('/candidates/{userId}', [CandidatesController::class, 'show']);
         $router->post('/candidates/{userId}/notes', [CandidatesController::class, 'addNote']);
         $router->post('/candidates/{userId}/tags', [CandidatesController::class, 'addTag']);
+        $router->post('/candidates/{userId}/offer', [OffersController::class, 'make']);
+        $router->post('/offers/{offerId}/accept', [OffersController::class, 'accept']);
     }
 }

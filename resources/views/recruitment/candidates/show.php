@@ -71,4 +71,28 @@
             <p class="text-sm text-slate-400">You don't have permission to tag.</p>
         <?php endif; ?>
     </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-3 text-sm font-semibold text-slate-900">Offers</h2>
+        <?php foreach (($offers ?? []) as $offer): ?>
+            <div class="mb-2 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                <span><?= e($offer['title'] ?: 'Offer') ?> · <span class="text-slate-500"><?= e($offer['status']) ?></span></span>
+                <?php if (($canDecide ?? false) && $offer['status'] === 'sent'): ?>
+                    <form method="post" action="/offers/<?= e($offer['id']) ?>/accept">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="user_id" value="<?= e($profile['user_id']) ?>">
+                        <button class="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700">Mark accepted → hire</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+        <?php if (($offers ?? []) === []): ?><p class="mb-3 text-sm text-slate-400">No offers yet.</p><?php endif; ?>
+        <?php if ($canOffer ?? false): ?>
+            <form method="post" action="/candidates/<?= e($profile['user_id']) ?>/offer" class="mt-2 flex gap-2">
+                <?= csrf_field() ?>
+                <input name="title" placeholder="Offer title" class="grow rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+                <button class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Make &amp; send</button>
+            </form>
+        <?php endif; ?>
+    </div>
 </div>

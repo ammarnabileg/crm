@@ -15,6 +15,7 @@ use HaHireAI\Modules\Recruitment\Application\ApplicationService;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
 use HaHireAI\Modules\Recruitment\Application\Exceptions\ApplicationException;
 use HaHireAI\Modules\Recruitment\Application\JobService;
+use HaHireAI\Modules\Recruitment\Application\OfferService;
 use HaHireAI\Modules\Users\Application\PasswordHasher;
 use HaHireAI\Modules\Users\Infrastructure\UserRepository;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceCreator;
@@ -101,6 +102,33 @@ final class RecruitmentTest extends TestCase
         $this->assertSame('Strong PHP background', $this->candidates->notes($workspaceId, $profileId)[0]['body']);
         $this->assertContains('strong-fit', $this->candidates->tags($profileId));
         $this->assertSame('PHP Engineer', $this->candidates->applications($workspaceId, $applicantId)[0]['job_title']);
+    }
+
+    public function test_offer_acceptance_hires_candidate_and_creates_employee(): void
+    {
+        [$workspaceId, $ownerId] = $this->workspace('Acme');
+        $applicantId = $this->user('Sara', 'sara@example.com');
+
+        $jobId = $this->jobs->create($workspaceId, $ownerId, 'PHP Engineer');
+        $this->jobs->publish($workspaceId, $jobId);
+        $appId = $this->applications->apply($workspaceId, $jobId, $applicantId);
+
+        $offers = new OfferService($this->connection);
+        $offerId = $offers->create($workspaceId, $appId, 'Senior PHP', 5000, 'USD', $ownerId);
+        $offers->send($workspaceId, $offerId);
+        $employeeId = $offers->accept($workspaceId, $offerId);
+
+        // Application is Hired, offer Accepted, and the Employee context exists.
+        $this->assertSame('hired', $this->applications->find($workspaceId, $appId)['status']);
+        $this->assertSame('accepted', $offers->find($workspaceId, $offerId)['status']);
+
+        $employee = $this->connection->selectOne('SELECT * FROM employees WHERE id = ?', [$employeeId]);
+        $this->assertSame($applicantId, (string) $employee['user_id']);
+        $this->assertSame('onboarding', $employee['status']);
+
+        // An already-accepted offer cannot be accepted again.
+        $this->expectException(ApplicationException::class);
+        $offers->accept($workspaceId, $offerId);
     }
 
     public function test_candidate_profile_is_isolated_per_workspace(): void
