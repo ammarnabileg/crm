@@ -58,6 +58,25 @@ final class ApplicationService
     }
 
     /**
+     * One application owned by the given candidate, joined with its job and stage.
+     * Scoped to the user so a candidate can only ever see their own application.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findForCandidate(string $workspaceId, string $applicationId, string $userId): ?array
+    {
+        return $this->connection->selectOne(
+            'SELECT a.*, j.title AS job_title, j.description AS job_description, j.location, j.employment_type,
+                    s.name AS stage_name
+               FROM applications a
+               JOIN jobs j ON j.id = a.job_id
+               LEFT JOIN pipeline_stages s ON s.id = a.current_stage_id
+              WHERE a.id = ? AND a.workspace_id = ? AND a.user_id = ? AND a.deleted_at IS NULL',
+            [$applicationId, $workspaceId, $userId],
+        );
+    }
+
+    /**
      * Applications grouped by pipeline stage for the Kanban board.
      *
      * @return array<string, list<array<string,mixed>>>  stageId => applications

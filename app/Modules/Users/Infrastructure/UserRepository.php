@@ -49,6 +49,15 @@ final class UserRepository
         $this->connection->statement('UPDATE users SET last_login_at = ? WHERE id = ?', [gmdate('Y-m-d H:i:s'), $id]);
     }
 
+    /** Update the candidate's editable personal data (Profile page, spec #4). */
+    public function updatePersonal(string $id, string $name, ?string $phone, ?int $yearsExperience, ?int $targetSalary): void
+    {
+        $this->connection->statement(
+            'UPDATE users SET name = ?, phone = ?, years_experience = ?, target_salary = ?, updated_at = ? WHERE id = ?',
+            [$name, $phone, $yearsExperience, $targetSalary, gmdate('Y-m-d H:i:s'), $id],
+        );
+    }
+
     public function systemOwnerCount(): int
     {
         $row = $this->connection->selectOne('SELECT COUNT(*) AS c FROM users WHERE is_system_owner = 1');

@@ -165,6 +165,19 @@ final class InterviewService
         return $row;
     }
 
+    /** @return list<array<string, mixed>> interviews for one application */
+    public function forApplication(string $workspaceId, string $applicationId): array
+    {
+        return $this->connection->select(
+            "SELECT i.*, iu.name AS interviewer_name
+               FROM interviews i
+               LEFT JOIN users iu ON iu.id = i.interviewer_user_id
+              WHERE i.workspace_id = ? AND i.application_id = ? AND i.deleted_at IS NULL
+              ORDER BY i.created_at DESC",
+            [$workspaceId, $applicationId],
+        );
+    }
+
     /** @return list<array<string, mixed>> a candidate's interviews IN THIS workspace */
     public function forCandidate(string $workspaceId, string $userId): array
     {

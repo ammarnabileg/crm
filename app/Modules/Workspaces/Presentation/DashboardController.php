@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Workspaces\Presentation;
 
+use HaHireAI\Core\Contracts\CandidateDirectory;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
@@ -11,8 +12,9 @@ use HaHireAI\Modules\Memberships\Application\MembershipService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 
 /**
- * The workspace dashboard. A user with no workspace sees Create/Join only;
- * otherwise the single dynamic sidebar is rendered from their permissions
+ * The workspace dashboard. A member sees the permission-driven staff sidebar; a
+ * user with no role who has applied somewhere is sent to their Candidate Portal;
+ * anyone else is sent to the workspace chooser to create or pick one
  * (docs/DASHBOARD_GUIDE.md, docs/SIDEBAR_MODEL.md).
  */
 final class DashboardController
@@ -23,6 +25,7 @@ final class DashboardController
         private readonly WorkspaceContext $context,
         private readonly WorkspaceShell $shell,
         private readonly MembershipService $memberships,
+        private readonly CandidateDirectory $candidates,
     ) {
     }
 
@@ -35,9 +38,13 @@ final class DashboardController
         $user = $this->auth->user();
 
         if (! $this->context->resolve()) {
-            return Response::html($this->view->page('workspace.none', [
-                'user' => $user,
-            ], 'layouts.app', ['user' => $user, 'sidebar' => [], 'workspaceName' => null]));
+            // No staff role anywhere: route candidates to their portal, everyone
+            // else to the chooser (which offers "create your workspace").
+            if ($this->candidates->workspacesForCandidate((string) $user['id']) !== []) {
+                return Response::redirect('/portal');
+            }
+
+            return Response::redirect('/workspaces/select');
         }
 
         $workspaces = $this->memberships->workspacesForUser((string) $user['id']);

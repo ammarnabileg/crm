@@ -40,6 +40,18 @@ final class SidebarBuilder
         ['label' => 'Billing', 'route' => '/billing', 'permission' => 'billing.view'],
     ];
 
+    /**
+     * Candidate-context items. A candidate holds no role/permissions in the
+     * workspace, so these are NOT permission-gated — they're the portal every
+     * applicant sees (docs/SIDEBAR_MODEL.md: context decides the menu).
+     */
+    private const CANDIDATE_ITEMS = [
+        ['label' => 'Candidate Portal', 'route' => '/portal', 'permission' => '*'],
+        ['label' => 'Available Jobs', 'route' => '/portal/jobs', 'permission' => '*'],
+        ['label' => 'My Applications', 'route' => '/portal/applications', 'permission' => '*'],
+        ['label' => 'My Profile', 'route' => '/portal/profile', 'permission' => '*'],
+    ];
+
     /** Platform-context items (System Owners): [label, route, permission]. */
     private const PLATFORM_ITEMS = [
         ['label' => 'Overview', 'route' => '/admin', 'permission' => 'system.dashboard.view'],
@@ -59,6 +71,14 @@ final class SidebarBuilder
      */
     public function build(string $context, array $heldPermissionKeys, ?array $enabledFeatures = null): array
     {
+        // The candidate menu is context-driven, not permission-gated.
+        if ($context === 'candidate') {
+            return array_map(
+                static fn (array $i): array => ['label' => $i['label'], 'route' => $i['route'], 'permission' => $i['permission']],
+                self::CANDIDATE_ITEMS,
+            );
+        }
+
         $items = $context === 'platform' ? self::PLATFORM_ITEMS : self::WORKSPACE_ITEMS;
         $held = array_flip($heldPermissionKeys);
         $features = $enabledFeatures !== null ? array_flip($enabledFeatures) : null;

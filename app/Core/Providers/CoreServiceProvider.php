@@ -55,5 +55,11 @@ final class CoreServiceProvider extends ServiceProvider
             \HaHireAI\Core\Contracts\EntitlementResolver::class,
             \HaHireAI\Core\Billing\NullEntitlementResolver::class,
         );
+
+        // Empty default; the Recruitment module overrides this with a real directory.
+        $c->singleton(
+            \HaHireAI\Core\Contracts\CandidateDirectory::class,
+            \HaHireAI\Core\Recruitment\NullCandidateDirectory::class,
+        );
     }
 }

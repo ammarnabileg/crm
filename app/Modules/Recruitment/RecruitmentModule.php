@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Recruitment;
 
+use HaHireAI\Core\Contracts\CandidateDirectory;
 use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
+use HaHireAI\Modules\Recruitment\Application\CandidateDirectoryAdapter;
 use HaHireAI\Modules\Recruitment\Presentation\AvatarController;
+use HaHireAI\Modules\Recruitment\Presentation\CandidatePortalController;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatesController;
 use HaHireAI\Modules\Recruitment\Presentation\HumanInterviewController;
 use HaHireAI\Modules\Recruitment\Presentation\InterviewController;
+use HaHireAI\Modules\Recruitment\Presentation\WorkspaceChooserController;
 use HaHireAI\Modules\Recruitment\Presentation\JobsController;
 use HaHireAI\Modules\Recruitment\Presentation\OffersController;
 use HaHireAI\Modules\Recruitment\Presentation\PipelineController;
@@ -34,6 +38,9 @@ final class RecruitmentModule implements Module
 
     public function register(Container $container): void
     {
+        // Expose candidacy to decoupled layers (the workspace chooser) via the
+        // Core contract, so the Workspaces module need not depend on Recruitment.
+        $container->singleton(CandidateDirectory::class, CandidateDirectoryAdapter::class);
     }
 
     public function boot(Container $container): void
@@ -96,6 +103,22 @@ final class RecruitmentModule implements Module
         $router->post('/avatars', [AvatarController::class, 'create']);
         $router->post('/avatars/{id}', [AvatarController::class, 'update']);
         $router->post('/avatars/{id}/delete', [AvatarController::class, 'delete']);
+
+        // Workspace chooser — "Choose a workspace to enter" (member or candidate).
+        $router->get('/workspaces/select', [WorkspaceChooserController::class, 'select']);
+
+        // Candidate Portal — the applicant's view of a workspace (no role required).
+        $router->get('/portal', [CandidatePortalController::class, 'index']);
+        $router->post('/portal/switch/{workspaceId}', [CandidatePortalController::class, 'switchWorkspace']);
+        $router->get('/portal/jobs', [CandidatePortalController::class, 'jobs']);
+        $router->post('/portal/jobs/{jobId}/apply', [CandidatePortalController::class, 'apply']);
+        $router->get('/portal/applications', [CandidatePortalController::class, 'applications']);
+        $router->get('/portal/applications/{applicationId}', [CandidatePortalController::class, 'applicationDetail']);
+        $router->post('/portal/applications/{applicationId}/counter-offer', [CandidatePortalController::class, 'counterOffer']);
+        $router->post('/portal/offers/{offerId}/accept', [CandidatePortalController::class, 'acceptOffer']);
+        $router->post('/portal/offers/{offerId}/decline', [CandidatePortalController::class, 'declineOffer']);
+        $router->get('/portal/profile', [CandidatePortalController::class, 'profile']);
+        $router->post('/portal/profile', [CandidatePortalController::class, 'updateProfile']);
 
         // Talent pool.
         $router->get('/talent-pool', [TalentPoolController::class, 'index']);

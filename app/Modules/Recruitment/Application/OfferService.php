@@ -18,22 +18,71 @@ final class OfferService
     {
     }
 
-    public function create(string $workspaceId, string $applicationId, string $title, ?int $salary, string $currency, ?string $createdBy): string
+    public function create(string $workspaceId, string $applicationId, string $title, ?int $salary, string $currency, ?string $createdBy, ?string $note = null, string $proposedBy = 'company'): string
     {
         $application = $this->connection->selectOne('SELECT id FROM applications WHERE id = ? AND workspace_id = ?', [$applicationId, $workspaceId]);
         if ($application === null) {
             throw new ApplicationException('Application not found in this workspace.');
         }
 
+        // A candidate proposal starts life as 'proposed' (awaiting the company);
+        // a company offer starts as a 'draft' it then sends.
+        $proposedBy = $proposedBy === 'candidate' ? 'candidate' : 'company';
+        $status = $proposedBy === 'candidate' ? 'proposed' : 'draft';
+
         $id = Ulid::generate();
         $now = gmdate('Y-m-d H:i:s');
         $this->connection->statement(
-            'INSERT INTO offers (id, workspace_id, application_id, title, salary, currency, status, created_by, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [$id, $workspaceId, $applicationId, $title, $salary, $currency, 'draft', $createdBy, $now, $now],
+            'INSERT INTO offers (id, workspace_id, application_id, title, salary, currency, status, note, proposed_by, created_by, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$id, $workspaceId, $applicationId, $title, $salary, $currency, $status, $note, $proposedBy, $createdBy, $now, $now],
         );
 
         return $id;
+    }
+
+    /**
+     * A candidate proposes a counter-offer back to the company, with a short
+     * message explaining why (spec #3). The application must belong to the user.
+     */
+    public function counter(string $workspaceId, string $applicationId, string $userId, string $title, ?int $salary, string $currency, ?string $note): string
+    {
+        $owned = $this->connection->selectOne(
+            'SELECT id FROM applications WHERE id = ? AND workspace_id = ? AND user_id = ? AND deleted_at IS NULL',
+            [$applicationId, $workspaceId, $userId],
+        );
+        if ($owned === null) {
+            throw new ApplicationException('That application is not yours.');
+        }
+
+        return $this->create($workspaceId, $applicationId, $title, $salary, $currency, $userId, $note, 'candidate');
+    }
+
+    /** Accept an offer the candidate owns (verifies the offer belongs to them). */
+    public function acceptAsCandidate(string $workspaceId, string $offerId, string $userId): string
+    {
+        $this->assertCandidateOwns($workspaceId, $offerId, $userId);
+
+        return $this->accept($workspaceId, $offerId);
+    }
+
+    /** Decline an offer the candidate owns. */
+    public function declineAsCandidate(string $workspaceId, string $offerId, string $userId): void
+    {
+        $this->assertCandidateOwns($workspaceId, $offerId, $userId);
+        $this->decline($workspaceId, $offerId);
+    }
+
+    private function assertCandidateOwns(string $workspaceId, string $offerId, string $userId): void
+    {
+        $owned = $this->connection->selectOne(
+            'SELECT o.id FROM offers o JOIN applications a ON a.id = o.application_id
+              WHERE o.id = ? AND o.workspace_id = ? AND a.user_id = ? AND o.deleted_at IS NULL',
+            [$offerId, $workspaceId, $userId],
+        );
+        if ($owned === null) {
+            throw new ApplicationException('That offer is not yours.');
+        }
     }
 
     public function send(string $workspaceId, string $offerId): void
@@ -84,7 +133,9 @@ final class OfferService
     public function forCandidate(string $workspaceId, string $userId): array
     {
         return $this->connection->select(
-            'SELECT o.* FROM offers o JOIN applications a ON a.id = o.application_id
+            'SELECT o.*, j.title AS job_title FROM offers o
+               JOIN applications a ON a.id = o.application_id
+               JOIN jobs j ON j.id = a.job_id
               WHERE o.workspace_id = ? AND a.user_id = ? AND o.deleted_at IS NULL ORDER BY o.created_at DESC',
             [$workspaceId, $userId],
         );

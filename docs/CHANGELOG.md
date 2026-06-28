@@ -473,6 +473,43 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Auditor extended to 53 checks. Verified on live MySQL 8 (`HumanInterviewTest`).
   **Suite: 136 tests / 496 assertions.**
 
+### Added — Candidate Portal & Workspace Chooser (the applicant side)
+- **The candidate context** — the mirror of a membership. A User is a *candidate*
+  in a Workspace when they have applied there and hold **no role**; a member with
+  a role never sees the portal (constitutional: User is the origin, the workspace
+  decides the menu by context, not by account type).
+  - `CandidacyService` (workspaces-for-candidate excluding member workspaces,
+    `isCandidate`, and the portal `overview`), `CandidateContext` (resolves the
+    current candidate workspace, honoring the user's current workspace),
+    `CandidateShell` (renders the portal with a context-driven, non-permission
+    sidebar).
+  - `SidebarBuilder` gains a **candidate** context: Candidate Portal / Available
+    Jobs / My Applications / My Profile — shown to applicants, hidden from staff.
+- **`CandidatePortalController`** + `/portal/*`:
+  - **Candidate Portal** (`/portal`) — overview of application statuses, interview
+    appointments, offers awaiting you, and the latest open jobs.
+  - **Available Jobs** (`/portal/jobs`) — the workspace's open roles with one-click
+    apply (already-applied roles are marked).
+  - **My Applications** (`/portal/applications`) + **detail** — a stage map
+    (progress through the 11 statuses), the AI's advisory notes, "next step",
+    interviews, and offers. Accept / decline a company offer, or **propose a
+    counter-offer** with an explanatory note (spec #3).
+  - **My Profile** (`/portal/profile`) — edit personal data (name, phone, years of
+    experience, target salary).
+- **Workspace chooser** (`/workspaces/select`) — "Choose a workspace to enter":
+  lists where you work (→ dashboard) and where you've applied (→ portal), plus
+  **Create your workspace**. Login landing now routes members → dashboard,
+  applicants → portal, everyone else → the chooser.
+- **Decoupling**: new Core contract `CandidateDirectory` (null default in Core,
+  real adapter bound by Recruitment) lets the Workspaces module list a user's
+  candidate workspaces without depending on Recruitment — mirrors
+  `EntitlementResolver` (ARCHITECTURE.md §4).
+- Migration adds candidate personal data (`users.phone/years_experience/
+  target_salary`) and counter-offers (`offers.note/proposed_by`).
+- Auditor extended to 59 checks (portal routes + the directory contract). Verified
+  on live MySQL 8 (`CandidatePortalTest`) and end-to-end over HTTP (login →
+  portal → apply → accept → hired). **Suite: 146 tests / 522 assertions.**
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

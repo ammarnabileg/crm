@@ -75,6 +75,24 @@ final class JobService
         return $this->connection->selectOne('SELECT * FROM jobs WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL', [$jobId, $workspaceId]);
     }
 
+    /**
+     * Published (open) jobs in a workspace — the candidate-facing "Available Jobs"
+     * list. Includes whether the given user has already applied.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function listPublished(string $workspaceId, ?string $forUserId = null): array
+    {
+        return $this->connection->select(
+            "SELECT j.*, j.public_token,
+                    (SELECT COUNT(*) FROM applications a WHERE a.job_id = j.id AND a.user_id = ? AND a.deleted_at IS NULL) AS has_applied
+               FROM jobs j
+              WHERE j.workspace_id = ? AND j.status = 'published' AND j.deleted_at IS NULL
+              ORDER BY j.published_at DESC, j.created_at DESC",
+            [(string) $forUserId, $workspaceId],
+        );
+    }
+
     /** @return array<string, mixed>|null a published job, for the public page */
     public function findPublished(string $token): ?array
     {

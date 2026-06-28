@@ -156,7 +156,8 @@ foreach ([
     'GET /admin/workspaces', 'GET /admin/users', 'GET /admin/subscriptions',
     'GET /interviews', 'GET /human-interviews', 'GET /files', 'GET /notifications',
     'GET /reports', 'GET /pipeline', 'GET /talent-pool', 'GET /avatars',
-    'GET /my-workspaces', 'GET /ai/analytics',
+    'GET /my-workspaces', 'GET /ai/analytics', 'GET /workspaces/select',
+    'GET /portal', 'GET /portal/jobs', 'GET /portal/applications', 'GET /portal/profile',
     'GET /candidates/compare', 'GET /api/v1/ping', 'GET /api/v1/jobs',
 ] as $route) {
     $check("route registered: {$route}", isset($paths[$route]));
@@ -170,6 +171,8 @@ $events = $c->make(EventDispatcher::class);
 $check('Workflow + Webhooks react to application.submitted', $events->hasListeners('application.submitted'));
 $check('Observability persists system.error', $events->hasListeners('system.error'));
 $check('Billing seeds on platform.installed', $events->hasListeners('platform.installed'));
+$candidateDir = $c->make(\HaHireAI\Core\Contracts\CandidateDirectory::class);
+$check('Candidate directory contract resolves (Recruitment ↔ Workspaces decoupled)', $candidateDir instanceof \HaHireAI\Modules\Recruitment\Application\CandidateDirectoryAdapter);
 
 // ── 8. Health ───────────────────────────────────────────────────────────────
 $head('8. Health');
