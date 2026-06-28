@@ -605,6 +605,14 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   recruiter's **Decision Center** so the hiring decision is made on one screen.
 - Verified: **163 tests / 579 assertions** · auditor **69/69** · `DecisionCenterTest` (2).
 
+### Sprint 3 (Slice 3a) — Pipeline drag-&-drop + bulk move
+- The pipeline board now supports **HTML5 drag-&-drop** (drag a candidate card to a
+  stage column → posts the status change) and **bulk move** (select multiple cards
+  via checkboxes, choose a target stage, move them together via the new
+  `/pipeline/bulk-status` endpoint). The per-card stage `<select>` remains as a
+  no-JS fallback. All recorded in stage history + audited.
+- Verified: **163 tests / 579 assertions** · auditor **70/70**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

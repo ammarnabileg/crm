@@ -167,7 +167,7 @@ foreach ([
     'GET /portal/interview/{interviewId}', 'POST /portal/interview/{interviewId}/answer',
     'GET /offers', 'GET /reports/print', 'GET /jobs/{id}/edit',
     'POST /admin/workspaces/{id}/suspend', 'POST /admin/workspaces/{id}/archive',
-    'POST /workspaces/transfer-ownership', 'POST /workspaces/archive',
+    'POST /workspaces/transfer-ownership', 'POST /workspaces/archive', 'POST /pipeline/bulk-status',
     'GET /candidates/compare', 'GET /api/v1/ping', 'GET /api/v1/jobs',
 ] as $route) {
     $check("route registered: {$route}", isset($paths[$route]));

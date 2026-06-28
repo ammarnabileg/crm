@@ -113,6 +113,46 @@ final class PipelineController
         return Response::redirect(str_starts_with($to, '/') && ! str_contains($to, '://') ? $to : '/pipeline');
     }
 
+    /** Move several applications to one status at once (bulk action). */
+    public function bulkStatus(Request $request): Response
+    {
+        if (! $this->auth->check()) {
+            return Response::redirect('/login');
+        }
+        if (! $this->context->resolve()) {
+            return Response::redirect('/dashboard');
+        }
+        if (! $this->context->can('pipeline.manage') || ! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return Response::html('<h1>403</h1><p>You do not have permission.</p>', 403);
+        }
+
+        $ids = $request->input('application_ids', []);
+        $ids = is_array($ids) ? array_values(array_filter(array_map('strval', $ids))) : [];
+        $status = (string) $request->input('status', '');
+        $ws = (string) $this->context->workspaceId();
+        $moved = 0;
+        foreach ($ids as $id) {
+            try {
+                $this->applications->setStatus($ws, $id, $status, $this->context->userId());
+                $moved++;
+            } catch (Throwable) {
+                // skip invalid ids; continue the batch
+            }
+        }
+        if ($moved > 0) {
+            $this->audit->record('recruitment.application.bulk_status_changed', [
+                'workspace_id' => $ws,
+                'actor_user_id' => $this->context->userId(),
+                'entity_type' => 'application',
+                'entity_id' => null,
+                'changes' => ['status' => $status, 'count' => $moved],
+            ]);
+        }
+        $this->session->flash('status', $moved > 0 ? "Moved {$moved} candidate(s)." : 'Nothing moved.');
+
+        return Response::redirect('/pipeline');
+    }
+
     public function move(Request $request, string $id): Response
     {
         if (! $this->auth->check()) {
