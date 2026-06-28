@@ -68,6 +68,7 @@ final class PlatformModule implements Module
         $router->get('/admin/settings', [PlatformSettingsController::class, 'index']);
         $router->post('/admin/settings', [PlatformSettingsController::class, 'update']);
         $router->get('/admin/ai', [AdminController::class, 'ai']);
+        $router->get('/admin/payments', [AdminController::class, 'payments']);
         $router->get('/admin/audit', [AdminController::class, 'audit']);
         // Self-service account plan (workspace capacity) — user-facing, not /admin.
         $router->get('/account/plan', [AccountPlanController::class, 'index']);

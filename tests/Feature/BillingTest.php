@@ -10,6 +10,7 @@ use HaHireAI\Core\Database\Schema\SchemaBuilder;
 use HaHireAI\Modules\Billing\Application\BillingService;
 use HaHireAI\Modules\Billing\Application\Entitlements;
 use HaHireAI\Modules\Billing\Application\InvoiceService;
+use HaHireAI\Modules\Billing\Application\PaymentAttemptService;
 use HaHireAI\Modules\Billing\Application\PlanService;
 use HaHireAI\Modules\Billing\Application\SubscriptionService;
 use HaHireAI\Modules\Billing\Contracts\PaymentGateway;
@@ -204,6 +205,56 @@ final class BillingTest extends TestCase
         };
         $billingOn = new BillingService($this->subscriptions, $this->plans, $this->invoices, $this->connectedGateway(), 30, $paymentsOn);
         $this->assertFalse($billingOn->freeMode());
+    }
+
+    public function test_charge_attempts_are_recorded_for_the_report(): void
+    {
+        $attempts = new PaymentAttemptService($this->connection);
+        $paidPlanId = $this->plans->create([
+            'code' => 'paid-test', 'name' => 'Paid', 'price_cents' => 4900, 'currency' => 'USD',
+            'interval' => 'month', 'trial_days' => 0, 'features' => [], 'is_public' => true, 'sort' => 0, 'max_workspaces' => 1,
+        ]);
+        $plan = $this->plans->find($paidPlanId);
+
+        // Failing connected gateway → a 'failed' attempt with the gateway code.
+        $declining = new class implements PaymentGateway {
+            public function key(): string
+            {
+                return 'stripe';
+            }
+
+            public function charge(int $amountCents, string $currency, string $description, array $metadata = []): PaymentResult
+            {
+                return PaymentResult::failed('Your card was declined.', 'card_declined');
+            }
+        };
+        $wsA = $this->workspace();
+        $subA = $this->subscriptions->place($wsA, $paidPlanId, 'active');
+        $billingFail = new BillingService($this->subscriptions, $this->plans, $this->invoices, $declining, 30, null, $attempts);
+        $this->assertFalse($billingFail->activatePaidPeriod($wsA, $subA, $plan));
+
+        $failed = $attempts->recent(10, 'failed');
+        $this->assertNotSame([], $failed);
+        $this->assertSame('failed', $failed[0]['status']);
+        $this->assertSame('card_declined', $failed[0]['error_code']);
+        $this->assertSame('stripe', $failed[0]['provider']);
+
+        // Successful connected gateway → a 'success' attempt with a reference.
+        $wsB = $this->workspace();
+        $subB = $this->subscriptions->place($wsB, $paidPlanId, 'active');
+        $billingOk = new BillingService($this->subscriptions, $this->plans, $this->invoices, $this->connectedGateway(), 30, null, $attempts);
+        $this->assertTrue($billingOk->activatePaidPeriod($wsB, $subB, $plan));
+
+        $success = $attempts->recent(10, 'success');
+        $this->assertNotSame([], $success);
+        $this->assertSame('success', $success[0]['status']);
+        $this->assertNotEmpty($success[0]['reference']);
+
+        $stats = $attempts->stats();
+        $this->assertSame(2, $stats['total']);
+        $this->assertSame(1, $stats['success']);
+        $this->assertSame(1, $stats['failed']);
+        $this->assertSame(4900, $stats['charged_cents']);
     }
 
     private function at(string $date): int

@@ -11,6 +11,8 @@ final class PaymentResult
         public readonly bool $success,
         public readonly string $reference = '',
         public readonly ?string $error = null,
+        /** Machine-readable failure code (e.g. card_declined) for diagnosis. */
+        public readonly ?string $code = null,
     ) {
     }
 
@@ -19,8 +21,8 @@ final class PaymentResult
         return new self(true, $reference);
     }
 
-    public static function failed(string $error): self
+    public static function failed(string $error, ?string $code = null): self
     {
-        return new self(false, '', $error);
+        return new self(false, '', $error, $code);
     }
 }

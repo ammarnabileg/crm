@@ -962,6 +962,23 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   still enters free mode and never charges; 9 total); smoke (toggle round-trips,
   both pages render in free/paid modes); certify route + contract guards.
 
+### Payment charge reports (System Owner)
+- New `payment_attempts` table records **every** charge against a member account
+  — successes and failures — with provider, amount, reference, and (on failure)
+  the gateway error code + message. `BillingService` logs an attempt on each
+  charge via the new `PaymentAttemptService`.
+- New **Payments** report (`/admin/payments`): success/failure stats, a
+  status filter, and a row per charge. **Each failed charge shows the exact
+  cause and how to fix it** — `PaymentDiagnostics` maps the gateway error code to
+  a plain-language cause and a concrete remedy (declines, insufficient funds,
+  expired card, 3-D Secure, bad API key, gateway unreachable, …).
+- `PaymentResult` now carries an optional machine `code` so adapters can report
+  structured failures.
+- Verified: `BillingTest` (+1: a failing gateway records a `failed` attempt with
+  the code, a working one records `success` with a reference, stats add up; 10
+  total); smoke (report renders cause/remedy); certify route guard; auditor
+  **122/122**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

@@ -9,7 +9,9 @@ use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
+use HaHireAI\Modules\Billing\Application\PaymentAttemptService;
 use HaHireAI\Modules\Billing\Application\PlanService;
+use HaHireAI\Modules\Billing\Domain\PaymentDiagnostics;
 use HaHireAI\Modules\Platform\Application\AccountPlanService;
 use HaHireAI\Modules\Platform\Application\PlatformAdminService;
 use HaHireAI\Modules\Workspaces\Application\PlatformContext;
@@ -31,6 +33,7 @@ final class AdminController
         private readonly WorkspaceLifecycleService $lifecycle,
         private readonly AccountPlanService $accounts,
         private readonly PlanService $plans,
+        private readonly PaymentAttemptService $payments,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
@@ -200,6 +203,29 @@ final class AdminController
 
         return $this->shell->render($this->context, 'admin.ai', [
             'overview' => $this->admin->aiOverview(),
+        ]);
+    }
+
+    /** Charge report for member accounts: successes, failures + cause/remedy. */
+    public function payments(Request $request): Response
+    {
+        if (($r = $this->gate('system.subscriptions.manage')) !== null) {
+            return $r;
+        }
+
+        $filter = trim((string) $request->input('status', ''));
+        $attempts = array_map(static function (array $a): array {
+            if ((string) $a['status'] === 'failed') {
+                $a['diagnosis'] = PaymentDiagnostics::explain($a['error_code'] ?? null);
+            }
+
+            return $a;
+        }, $this->payments->recent(200, $filter));
+
+        return $this->shell->render($this->context, 'admin.payments', [
+            'attempts' => $attempts,
+            'stats' => $this->payments->stats(),
+            'filter' => $filter,
         ]);
     }
 

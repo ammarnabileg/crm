@@ -28,6 +28,8 @@ final class BillingService
         private readonly int $freePeriodDays = 30,
         /** Platform payment switch; null (tests) = payments on. */
         private readonly ?PaymentSettings $paymentSettings = null,
+        /** Records charge attempts for the billing report; null = don't record. */
+        private readonly ?PaymentAttemptService $attempts = null,
     ) {
     }
 
@@ -144,6 +146,20 @@ final class BillingService
             'workspace_id' => $workspaceId,
             'plan' => (string) $plan['code'],
         ]);
+
+        // Log every charge attempt so the System Owner's report shows successes,
+        // failures, and (on failure) the precise cause + remedy.
+        $this->attempts?->record(
+            $workspaceId,
+            (string) $plan['id'],
+            $price,
+            $currency,
+            $result->success ? 'success' : 'failed',
+            $this->gateway->key(),
+            $result->success ? $result->reference : null,
+            $result->success ? null : ($result->code ?? 'unknown'),
+            $result->success ? null : $result->error,
+        );
 
         if (! $result->success) {
             $this->subscriptions->update($subscriptionId, [
