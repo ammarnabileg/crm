@@ -71,6 +71,18 @@ final class InstallerSetupTest extends TestCase
         $this->assertStringContainsString('DB_DATABASE=' . $this->db['database'], $written);
         $this->assertStringContainsString('APP_ENV=production', $written); // preserved
         $this->assertSame(1, substr_count($written, 'DB_HOST='), 'no duplicate keys');
+        $this->assertMatchesRegularExpression('/^APP_KEY=base64:.+/m', $written, 'generates an app key');
+    }
+
+    public function test_does_not_overwrite_an_existing_app_key(): void
+    {
+        $env = $this->tmp . '/.env';
+        file_put_contents($env, "APP_KEY=base64:KEEPTHISKEY\n");
+        $this->installer($env)->writeDatabaseConfig($this->db);
+
+        $written = (string) file_get_contents($env);
+        $this->assertStringContainsString('APP_KEY=base64:KEEPTHISKEY', $written);
+        $this->assertSame(1, substr_count($written, 'APP_KEY='), 'app key not duplicated');
     }
 
     public function test_console_is_allow_listed_only(): void

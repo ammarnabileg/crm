@@ -65,6 +65,18 @@ final class Installer
         ];
 
         $existing = is_file($this->envPath) ? (string) file_get_contents($this->envPath) : '';
+
+        // Generate a unique app key on first install (used for encryption); add
+        // safe production defaults — but never overwrite a value already set.
+        if (preg_match('/^APP_KEY=.+/m', $existing) !== 1) {
+            $values['APP_KEY'] = 'base64:' . base64_encode(random_bytes(32));
+        }
+        foreach (['APP_ENV' => 'production', 'APP_DEBUG' => 'false'] as $key => $default) {
+            if (preg_match('/^' . $key . '=/m', $existing) !== 1) {
+                $values[$key] = $default;
+            }
+        }
+
         $lines = $existing === '' ? [] : (preg_split('/\r?\n/', $existing) ?: []);
         $seen = [];
         foreach ($lines as &$line) {
