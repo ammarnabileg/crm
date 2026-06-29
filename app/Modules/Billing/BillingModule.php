@@ -50,6 +50,13 @@ final class BillingModule implements Module
 
         // Override Core's permissive null resolver with the real, plan-aware one.
         $container->singleton(EntitlementResolver::class, EntitlementResolverAdapter::class);
+
+        // Override Core's permissive seat guard with the real, seat-aware one so
+        // Memberships can enforce paid-seat limits (docs/WALLET_AND_BILLING.md §5).
+        $container->singleton(
+            \HaHireAI\Core\Contracts\WorkspaceSeatGuard::class,
+            \HaHireAI\Modules\Billing\Application\WorkspaceSeatGuardAdapter::class,
+        );
     }
 
     public function boot(Container $container): void
