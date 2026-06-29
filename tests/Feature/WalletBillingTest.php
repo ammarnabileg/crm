@@ -25,7 +25,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Workspace wallet billing (docs/WALLET_AND_BILLING.md) on live MySQL 8:
  * wallet ledger, seats, plan composition, add-ons, renewal/lock, top-up webhook
- * idempotency and per-workspace isolation.
+ * idempotency and per-workspace isolation. Seat price = $9 (900 cents).
  */
 final class WalletBillingTest extends TestCase
 {
@@ -116,7 +116,7 @@ final class WalletBillingTest extends TestCase
         [$ws] = $this->workspaceWithOwner();
         $this->member($ws, $this->user());           // 1 billable seat
 
-        // Insufficient balance → rejected.
+        // Insufficient balance -> rejected.
         try {
             $this->composer->compose($ws, 1, ['automation'], null, $this->at('2026-03-01'));
             $this->fail('Expected BillingException for insufficient funds.');
@@ -129,8 +129,8 @@ final class WalletBillingTest extends TestCase
         $plan = $this->plans->find($ws);
         $this->assertNotNull($plan);
         $this->assertSame('active', (string) $plan['status']);
-        // seat (500) + automation (2000) = 2500 debited.
-        $this->assertSame(7500, $this->wallet->balance($ws));
+        // seat (900) + automation (2000) = 2900 debited.
+        $this->assertSame(7100, $this->wallet->balance($ws));
         $this->assertSame(['automation'], $this->plans->activeFeatureKeys($ws));
         $this->assertContains('plan.activated', $this->events->names());
     }
@@ -152,19 +152,19 @@ final class WalletBillingTest extends TestCase
     public function test_renewal_charges_the_wallet_or_locks_when_short(): void
     {
         [$ws] = $this->workspaceWithOwner();
-        $this->member($ws, $this->user()); // 1 seat → 500/month
-        $this->wallet->credit($ws, 1200, 'fawaterak');
-        $this->composer->compose($ws, 1, [], null, $this->at('2026-03-01')); // -500 → 700 left
+        $this->member($ws, $this->user()); // 1 seat -> 900/month
+        $this->wallet->credit($ws, 2000, 'fawaterak');
+        $this->composer->compose($ws, 1, [], null, $this->at('2026-03-01')); // -900 -> 1100 left
 
         $lifecycle = new WorkspacePlanLifecycle($this->connection, $this->composer);
 
-        // First renewal funded (700 >= 500) → still active, 200 left.
+        // First renewal funded (1100 >= 900) -> still active, 200 left.
         $r1 = $lifecycle->tick($this->at('2026-04-02'));
         $this->assertSame(1, $r1['renewed']);
         $this->assertSame(200, $this->wallet->balance($ws));
         $this->assertFalse($this->plans->isLocked($ws));
 
-        // Second renewal short (200 < 500) → locked.
+        // Second renewal short (200 < 900) -> locked.
         $r2 = $lifecycle->tick($this->at('2026-05-03'));
         $this->assertSame(1, $r2['locked']);
         $this->assertTrue($this->plans->isLocked($ws));
@@ -190,11 +190,11 @@ final class WalletBillingTest extends TestCase
         $this->assertTrue($topup->handleWebhook($payload, $sig));
         $this->assertSame(4000, $this->wallet->balance($ws));
 
-        // Replay → no double credit.
+        // Replay -> no double credit.
         $this->assertFalse($topup->handleWebhook($payload, $sig));
         $this->assertSame(4000, $this->wallet->balance($ws));
 
-        // Wrong signature → rejected.
+        // Wrong signature -> rejected.
         $this->assertFalse($topup->handleWebhook($payload, 'bad'));
     }
 
@@ -204,16 +204,16 @@ final class WalletBillingTest extends TestCase
         [$ws] = $this->workspaceWithOwner();
         $this->member($ws, $this->user()); // 1 billable staff member
 
-        // No composed plan yet → permissive (pre-billing / legacy).
+        // No composed plan yet -> permissive (pre-billing / legacy).
         $this->assertTrue($guard->canAddBillableMember($ws));
 
-        // Fund and compose exactly 1 seat → no room for a 2nd billable member.
+        // Fund and compose exactly 1 seat -> no room for a 2nd billable member.
         $this->wallet->credit($ws, 10000, 'fawaterak');
         $this->composer->compose($ws, 1, [], null, $this->at('2026-03-01'));
         $this->assertFalse($guard->canAddBillableMember($ws));
         $this->assertNotSame('', $guard->denyReason($ws));
 
-        // Re-compose with 2 seats → room for one more.
+        // Re-compose with 2 seats -> room for one more.
         $this->composer->compose($ws, 2, [], null, $this->at('2026-03-01'));
         $this->assertTrue($guard->canAddBillableMember($ws));
     }
