@@ -1076,6 +1076,29 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   slug, inactive/deleted not public); certify **134/134** (+2 routes, +1
   contract); full suite green.
 
+### Unified URLs — the candidate experience drops the `/portal` prefix
+- The applicant surface moves off `/portal/*` to clean, unprefixed URLs so a
+  candidate is just another **context** on the one unified product (no separate
+  "portal"): `/open-jobs` (+`/{id}/apply`), `/my-applications`
+  (+`/{id}`, `/{id}/withdraw`, `/{id}/counter-offer`),
+  `/my-offers/{id}/accept|decline`, `/my-profile` (+`/cv`),
+  `/interview/{id}` (the logged-in interview room, +`/answer`,`/transcribe`),
+  and `/candidacy/{workspaceId}/switch`.
+- The public, emailed interview link is renamed `/interview/{token}` →
+  `/interview-link/{token}` (+`/start`,`/feedback`) so the logged-in room can own
+  the clean `/interview/{id}`.
+- **Context-aware `/dashboard`**: a new session `context_type`
+  (staff | candidate | platform) is set when you switch workspaces or apply.
+  `/dashboard` now lands you correctly — staff see the staff dashboard;
+  candidates are taken to their candidate home, which merges with the list at
+  `/my-applications`. `AuthContext` gains `contextType()/setContextType()`;
+  staff/candidate switches and the public apply flow set it.
+- All redirects, the candidate sidebar, the workspace chooser, the job
+  interview-link builder, and views updated; the standalone candidate home view
+  was folded into `/my-applications`. Verified: certify **137/137**; candidate &
+  staff HTTP smoke (new URLs 200, `/portal/*` 404, `/dashboard`→`/my-applications`
+  for candidates, staff dashboard intact); full suite green.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

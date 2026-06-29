@@ -48,10 +48,9 @@ final class SidebarBuilder
      * applicant sees (docs/SIDEBAR_MODEL.md: context decides the menu).
      */
     private const CANDIDATE_ITEMS = [
-        ['label' => 'Candidate Portal', 'route' => '/portal', 'permission' => '*'],
-        ['label' => 'Available Jobs', 'route' => '/portal/jobs', 'permission' => '*'],
-        ['label' => 'My Applications', 'route' => '/portal/applications', 'permission' => '*'],
-        ['label' => 'My Profile', 'route' => '/portal/profile', 'permission' => '*'],
+        ['label' => 'My Applications', 'route' => '/my-applications', 'permission' => '*'],
+        ['label' => 'Available Jobs', 'route' => '/open-jobs', 'permission' => '*'],
+        ['label' => 'My Profile', 'route' => '/my-profile', 'permission' => '*'],
     ];
 
     /** Platform-context items (System Owners): [label, route, permission]. */

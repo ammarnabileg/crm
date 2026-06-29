@@ -34,7 +34,7 @@
     <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Where you’ve applied</h2>
     <div class="mb-6 space-y-2">
         <?php foreach ($candidate as $w): ?>
-            <form method="post" action="/portal/switch/<?= e($w['id']) ?>">
+            <form method="post" action="/candidacy/<?= e($w['id']) ?>/switch">
                 <?= csrf_field() ?>
                 <button class="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left hover:border-emerald-300 hover:bg-emerald-50/40">
                     <span>

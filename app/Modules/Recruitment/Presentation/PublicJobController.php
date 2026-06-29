@@ -100,16 +100,21 @@ final class PublicJobController
             'candidate_email' => (string) ($applicant['email'] ?? ''),
         ]);
 
+        // The applicant is now a candidate in this workspace — make that their
+        // active context so the unified shell shows the candidate experience.
+        $this->auth->setContextType('candidate');
+        $this->auth->setCurrentWorkspace((string) $job['workspace_id']);
+
         // Both entry paths converge on the same conversational room: schedule the
         // AI screening interview and take the (now authenticated) candidate to it.
         try {
             $interviewId = $this->interviews->schedule((string) $job['workspace_id'], $applicationId, 'ai', ['mode' => 'text', 'created_by' => (string) $this->auth->id()]);
 
-            return Response::redirect('/portal/interview/' . $interviewId);
+            return Response::redirect('/interview/' . $interviewId);
         } catch (Throwable) {
             $this->session->flash('status', 'Your application has been submitted. Good luck!');
 
-            return Response::redirect('/portal/applications/' . $applicationId);
+            return Response::redirect('/my-applications/' . $applicationId);
         }
     }
 }

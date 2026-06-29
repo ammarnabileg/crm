@@ -16,7 +16,7 @@ $currentIndex = array_search($currentStatus, $happyPath, true);
 $pendingOffers = array_values(array_filter($offers, static fn (array $o): bool => (string) $o['status'] === 'sent'));
 ?>
 <div class="mb-6">
-    <a href="/portal/applications" class="text-xs text-slate-400 hover:text-slate-600">← My applications</a>
+    <a href="/my-applications" class="text-xs text-slate-400 hover:text-slate-600">← My applications</a>
     <h1 class="mt-1 text-2xl font-semibold text-slate-900"><?= e($application['job_title']) ?></h1>
     <p class="mt-1 text-sm text-slate-500">
         <?php if (! empty($application['location'])): ?><?= e($application['location']) ?> · <?php endif; ?>
@@ -89,7 +89,7 @@ $pendingOffers = array_values(array_filter($offers, static fn (array $o): bool =
                                 <?php if (! empty($iv['scheduled_at'])): ?><span class="text-xs text-slate-400"> · <?= e($iv['scheduled_at']) ?> UTC</span><?php endif; ?>
                             </div>
                             <?php if ((string) $iv['type'] === 'ai' && $iv['status'] !== 'completed'): ?>
-                                <a href="/portal/interview/<?= e($iv['id']) ?>" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"><?= $iv['status'] === 'in_progress' ? 'Continue interview →' : 'Start interview →' ?></a>
+                                <a href="/interview/<?= e($iv['id']) ?>" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"><?= $iv['status'] === 'in_progress' ? 'Continue interview →' : 'Start interview →' ?></a>
                             <?php elseif (! empty($iv['meeting_link']) && $iv['status'] !== 'completed'): ?>
                                 <a href="<?= e($iv['meeting_link']) ?>" target="_blank" rel="noopener" class="text-xs font-medium text-indigo-600 hover:underline">Join →</a>
                             <?php endif; ?>
@@ -118,8 +118,8 @@ $pendingOffers = array_values(array_filter($offers, static fn (array $o): bool =
                             <?php if (! empty($o['note'])): ?><p class="mt-1 text-xs text-slate-500"><?= e($o['note']) ?></p><?php endif; ?>
                             <?php if ((string) $o['status'] === 'sent'): ?>
                                 <div class="mt-2 flex gap-2">
-                                    <form method="post" action="/portal/offers/<?= e($o['id']) ?>/accept"><?= csrf_field() ?><button class="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Accept</button></form>
-                                    <form method="post" action="/portal/offers/<?= e($o['id']) ?>/decline"><?= csrf_field() ?><button class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">Decline</button></form>
+                                    <form method="post" action="/my-offers/<?= e($o['id']) ?>/accept"><?= csrf_field() ?><button class="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Accept</button></form>
+                                    <form method="post" action="/my-offers/<?= e($o['id']) ?>/decline"><?= csrf_field() ?><button class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">Decline</button></form>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -132,7 +132,7 @@ $pendingOffers = array_values(array_filter($offers, static fn (array $o): bool =
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 class="mb-1 text-sm font-semibold text-slate-900">Propose your terms</h2>
             <p class="mb-3 text-xs text-slate-400">Suggest an offer to the company with a short note explaining why.</p>
-            <form method="post" action="/portal/applications/<?= e($application['id']) ?>/counter-offer" class="space-y-2">
+            <form method="post" action="/my-applications/<?= e($application['id']) ?>/counter-offer" class="space-y-2">
                 <?= csrf_field() ?>
                 <input name="title" placeholder="Role / title" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
                 <div class="grid grid-cols-2 gap-2">
@@ -149,7 +149,7 @@ $pendingOffers = array_values(array_filter($offers, static fn (array $o): bool =
             <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 class="mb-1 text-sm font-semibold text-slate-900">Withdraw</h2>
                 <p class="mb-3 text-xs text-slate-400">No longer interested? You can withdraw your application at any time. This can't be undone.</p>
-                <form method="post" action="/portal/applications/<?= e($application['id']) ?>/withdraw" onsubmit="return confirm('Withdraw your application for “<?= e($application['job_title']) ?>”? This cannot be undone.');">
+                <form method="post" action="/my-applications/<?= e($application['id']) ?>/withdraw" onsubmit="return confirm('Withdraw your application for “<?= e($application['job_title']) ?>”? This cannot be undone.');">
                     <?= csrf_field() ?>
                     <button class="rounded-lg border border-rose-300 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50">Withdraw application</button>
                 </form>

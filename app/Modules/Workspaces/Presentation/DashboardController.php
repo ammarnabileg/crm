@@ -42,12 +42,20 @@ final class DashboardController
         }
 
         $user = $this->auth->user();
+        $isCandidateSomewhere = $this->candidates->workspacesForCandidate((string) $user['id']) !== [];
+
+        // /dashboard is the one context-aware landing. If the user explicitly
+        // switched into their candidate context, land them on the candidate
+        // experience even when they are also staff somewhere.
+        if ($this->auth->contextType() === 'candidate' && $isCandidateSomewhere) {
+            return Response::redirect('/my-applications');
+        }
 
         if (! $this->context->resolve()) {
-            // No staff role anywhere: route candidates to their portal, everyone
-            // else to the chooser (which offers "create your workspace").
-            if ($this->candidates->workspacesForCandidate((string) $user['id']) !== []) {
-                return Response::redirect('/portal');
+            // No staff role in the active workspace: route candidates to their
+            // applications, everyone else to the chooser ("create a workspace").
+            if ($isCandidateSomewhere) {
+                return Response::redirect('/my-applications');
             }
 
             return Response::redirect('/workspaces/select');

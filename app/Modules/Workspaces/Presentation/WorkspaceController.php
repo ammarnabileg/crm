@@ -295,6 +295,7 @@ final class WorkspaceController
         // Tenant guard: only switch to a workspace the user is a member of.
         if ($this->memberships->find($id, (string) $this->auth->id()) !== null) {
             $this->auth->setCurrentWorkspace($id);
+            $this->auth->setContextType('staff');
         }
 
         return Response::redirect('/dashboard');

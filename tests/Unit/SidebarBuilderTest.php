@@ -57,10 +57,10 @@ final class SidebarBuilderTest extends TestCase
 
     public function test_candidate_context_is_not_permission_gated(): void
     {
-        // A candidate holds no role/permissions — the portal menu is context-driven.
+        // A candidate holds no role/permissions — the menu is context-driven.
         $labels = (new SidebarBuilder())->labels('candidate', []);
 
-        $this->assertSame(['Candidate Portal', 'Available Jobs', 'My Applications', 'My Profile'], $labels);
+        $this->assertSame(['My Applications', 'Available Jobs', 'My Profile'], $labels);
     }
 
     public function test_workspace_split_ai_and_human_interviews(): void

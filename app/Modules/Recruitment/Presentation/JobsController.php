@@ -291,7 +291,7 @@ final class JobsController
         ]);
 
         $host = (string) ($request->server('HTTP_HOST') ?? 'localhost');
-        $this->session->flash('new_link', 'https://' . $host . '/interview/' . $invite['token']);
+        $this->session->flash('new_link', 'https://' . $host . '/interview-link/' . $invite['token']);
 
         return Response::redirect('/jobs/' . $id);
     }

@@ -9,7 +9,7 @@
     <?php if ($state === 'valid'): ?>
         <h1 class="mt-4 text-2xl font-semibold text-slate-900">Your AI interview is ready</h1>
         <p class="mt-2 text-sm text-slate-500">This link is valid and single-use. When you're ready, start the interview below.</p>
-        <form method="post" action="/interview/<?= e($token) ?>/start" class="mt-6">
+        <form method="post" action="/interview-link/<?= e($token) ?>/start" class="mt-6">
             <?= csrf_field() ?>
             <button class="rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700">Start interview</button>
         </form>
@@ -19,7 +19,7 @@
         <?php if ($showFeedback ?? false): ?>
             <div class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
                 <p class="mb-2 text-sm font-semibold text-slate-700">How was your interview experience?</p>
-                <form method="post" action="/interview/<?= e($token) ?>/feedback" class="space-y-2">
+                <form method="post" action="/interview-link/<?= e($token) ?>/feedback" class="space-y-2">
                     <?= csrf_field() ?>
                     <div class="flex items-center gap-2">
                         <?php for ($i = 5; $i >= 1; $i--): ?>

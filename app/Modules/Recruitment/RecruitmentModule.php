@@ -62,10 +62,11 @@ final class RecruitmentModule implements Module
         $router->get('/jobs/public/{token}', [PublicJobController::class, 'show']);
         $router->post('/jobs/public/{token}/apply', [PublicJobController::class, 'apply']);
 
-        // Public interview-link page (tokenized, expiring, single-use).
-        $router->get('/interview/{token}', [PublicInterviewController::class, 'show']);
-        $router->post('/interview/{token}/start', [PublicInterviewController::class, 'start']);
-        $router->post('/interview/{token}/feedback', [PublicInterviewController::class, 'feedback']);
+        // Public interview-link page (tokenized, expiring, single-use). Named
+        // /interview-link/* so a logged-in candidate's room can own /interview/{id}.
+        $router->get('/interview-link/{token}', [PublicInterviewController::class, 'show']);
+        $router->post('/interview-link/{token}/start', [PublicInterviewController::class, 'start']);
+        $router->post('/interview-link/{token}/feedback', [PublicInterviewController::class, 'feedback']);
 
         // Workspace-scoped job management.
         $router->get('/jobs', [JobsController::class, 'index']);
@@ -137,23 +138,25 @@ final class RecruitmentModule implements Module
         // Workspace chooser — "Choose a workspace to enter" (member or candidate).
         $router->get('/workspaces/select', [WorkspaceChooserController::class, 'select']);
 
-        // Candidate Portal — the applicant's view of a workspace (no role required).
-        $router->get('/portal', [CandidatePortalController::class, 'index']);
-        $router->post('/portal/switch/{workspaceId}', [CandidatePortalController::class, 'switchWorkspace']);
-        $router->get('/portal/jobs', [CandidatePortalController::class, 'jobs']);
-        $router->post('/portal/jobs/{jobId}/apply', [CandidatePortalController::class, 'apply']);
-        $router->get('/portal/interview/{interviewId}', [CandidatePortalController::class, 'room']);
-        $router->post('/portal/interview/{interviewId}/answer', [CandidatePortalController::class, 'roomAnswer']);
-        $router->post('/portal/interview/{interviewId}/transcribe', [CandidatePortalController::class, 'transcribe']);
-        $router->get('/portal/applications', [CandidatePortalController::class, 'applications']);
-        $router->get('/portal/applications/{applicationId}', [CandidatePortalController::class, 'applicationDetail']);
-        $router->post('/portal/applications/{applicationId}/withdraw', [CandidatePortalController::class, 'withdrawApplication']);
-        $router->post('/portal/applications/{applicationId}/counter-offer', [CandidatePortalController::class, 'counterOffer']);
-        $router->post('/portal/offers/{offerId}/accept', [CandidatePortalController::class, 'acceptOffer']);
-        $router->post('/portal/offers/{offerId}/decline', [CandidatePortalController::class, 'declineOffer']);
-        $router->get('/portal/profile', [CandidatePortalController::class, 'profile']);
-        $router->post('/portal/profile', [CandidatePortalController::class, 'updateProfile']);
-        $router->post('/portal/cv', [CandidatePortalController::class, 'uploadCv']);
+        // Candidate experience — the applicant's view of a workspace (no role
+        // required). Clean, unprefixed URLs (no /portal): the candidate is just
+        // another context on the one unified surface. The candidate landing is
+        // /dashboard (context-aware) → /my-applications.
+        $router->post('/candidacy/{workspaceId}/switch', [CandidatePortalController::class, 'switchWorkspace']);
+        $router->get('/open-jobs', [CandidatePortalController::class, 'jobs']);
+        $router->post('/open-jobs/{jobId}/apply', [CandidatePortalController::class, 'apply']);
+        $router->get('/interview/{interviewId}', [CandidatePortalController::class, 'room']);
+        $router->post('/interview/{interviewId}/answer', [CandidatePortalController::class, 'roomAnswer']);
+        $router->post('/interview/{interviewId}/transcribe', [CandidatePortalController::class, 'transcribe']);
+        $router->get('/my-applications', [CandidatePortalController::class, 'applications']);
+        $router->get('/my-applications/{applicationId}', [CandidatePortalController::class, 'applicationDetail']);
+        $router->post('/my-applications/{applicationId}/withdraw', [CandidatePortalController::class, 'withdrawApplication']);
+        $router->post('/my-applications/{applicationId}/counter-offer', [CandidatePortalController::class, 'counterOffer']);
+        $router->post('/my-offers/{offerId}/accept', [CandidatePortalController::class, 'acceptOffer']);
+        $router->post('/my-offers/{offerId}/decline', [CandidatePortalController::class, 'declineOffer']);
+        $router->get('/my-profile', [CandidatePortalController::class, 'profile']);
+        $router->post('/my-profile', [CandidatePortalController::class, 'updateProfile']);
+        $router->post('/my-profile/cv', [CandidatePortalController::class, 'uploadCv']);
 
         // Talent pool.
         $router->get('/talent-pool', [TalentPoolController::class, 'index']);

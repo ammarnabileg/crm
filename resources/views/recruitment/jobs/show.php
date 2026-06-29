@@ -164,7 +164,7 @@
                 <?php foreach ($invitations as $inv): ?>
                     <li class="flex items-center justify-between px-5 py-2.5 text-sm">
                         <div>
-                            <span class="font-mono text-xs text-slate-500">/interview/<?= e(substr((string) $inv['token'], 0, 10)) ?>…</span>
+                            <span class="font-mono text-xs text-slate-500">/interview-link/<?= e(substr((string) $inv['token'], 0, 10)) ?>…</span>
                             <?php if (! empty($inv['candidate_email'])): ?><span class="text-slate-400">· <?= e($inv['candidate_email']) ?></span><?php endif; ?>
                         </div>
                         <div class="text-right">

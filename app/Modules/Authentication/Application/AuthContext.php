@@ -26,6 +26,7 @@ final class AuthContext
     {
         $this->session->forget('auth_user_id');
         $this->session->forget('workspace_id');
+        $this->session->forget('context_type');
         $this->session->regenerate();
     }
 
@@ -59,5 +60,24 @@ final class AuthContext
     public function setCurrentWorkspace(string $workspaceId): void
     {
         $this->session->put('workspace_id', $workspaceId);
+    }
+
+    /**
+     * Which context the user is acting in for the shared, context-aware surface
+     * (/dashboard and the workspace-scoped pages): 'staff' (a workspace member),
+     * 'candidate' (an applicant in a workspace), or 'platform' (the HaHireAI
+     * owner panel). Defaults to 'staff'. The active *workspace* is separate
+     * (currentWorkspaceId); together they decide what each page renders.
+     */
+    public function contextType(): string
+    {
+        $t = $this->session->get('context_type');
+
+        return is_string($t) && in_array($t, ['staff', 'candidate', 'platform'], true) ? $t : 'staff';
+    }
+
+    public function setContextType(string $type): void
+    {
+        $this->session->put('context_type', $type);
     }
 }

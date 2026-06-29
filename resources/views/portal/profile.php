@@ -14,7 +14,7 @@ $d = static fn (string $k): string => (string) ($details[$k] ?? '');
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
 
 <div class="max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <form method="post" action="/portal/profile" class="space-y-4">
+    <form method="post" action="/my-profile" class="space-y-4">
         <?= csrf_field() ?>
         <div>
             <label class="mb-1 block text-sm font-medium text-slate-700">Full name</label>
@@ -88,7 +88,7 @@ $d = static fn (string $k): string => (string) ($details[$k] ?? '');
             <?php endforeach; ?>
         </ul>
     <?php endif; ?>
-    <form method="post" action="/portal/cv" enctype="multipart/form-data" class="flex items-center gap-2">
+    <form method="post" action="/my-profile/cv" enctype="multipart/form-data" class="flex items-center gap-2">
         <?= csrf_field() ?>
         <input name="cv" type="file" accept=".pdf,.doc,.docx" required class="block w-full text-xs text-slate-500 file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs">
         <button class="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700">Upload</button>

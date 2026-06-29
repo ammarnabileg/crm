@@ -34,8 +34,8 @@ if ($pendingOffers !== []): ?>
                         <?php if ($o['salary'] !== null): ?><div class="text-xs text-slate-500"><?= e(number_format((float) $o['salary'])) ?> <?= e($o['currency']) ?></div><?php endif; ?>
                     </div>
                     <div class="flex items-center gap-2">
-                        <form method="post" action="/portal/offers/<?= e($o['id']) ?>/accept"><?= csrf_field() ?><button class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700">Accept</button></form>
-                        <form method="post" action="/portal/offers/<?= e($o['id']) ?>/decline"><?= csrf_field() ?><button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50">Decline</button></form>
+                        <form method="post" action="/my-offers/<?= e($o['id']) ?>/accept"><?= csrf_field() ?><button class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700">Accept</button></form>
+                        <form method="post" action="/my-offers/<?= e($o['id']) ?>/decline"><?= csrf_field() ?><button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50">Decline</button></form>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -45,18 +45,18 @@ if ($pendingOffers !== []): ?>
 
 <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
     <?php if ($applications === []): ?>
-        <p class="px-5 py-8 text-center text-sm text-slate-400">No applications yet. <a href="/portal/jobs" class="text-indigo-600 hover:underline">Browse open jobs →</a></p>
+        <p class="px-5 py-8 text-center text-sm text-slate-400">No applications yet. <a href="/open-jobs" class="text-indigo-600 hover:underline">Browse open jobs →</a></p>
     <?php else: ?>
         <ul class="divide-y divide-slate-100">
             <?php foreach ($applications as $a): ?>
                 <li class="flex items-center justify-between px-5 py-4 text-sm">
                     <div>
-                        <a href="/portal/applications/<?= e($a['id']) ?>" class="font-medium text-indigo-600 hover:underline"><?= e($a['job_title']) ?></a>
+                        <a href="/my-applications/<?= e($a['id']) ?>" class="font-medium text-indigo-600 hover:underline"><?= e($a['job_title']) ?></a>
                         <div class="text-xs text-slate-400">Applied <?= e($a['applied_at']) ?><?php if (! empty($a['stage'])): ?> · <?= e($a['stage']) ?><?php endif; ?></div>
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="rounded-full px-2.5 py-0.5 text-xs font-medium <?= $badge((string) $a['status']) ?>"><?= e(ApplicationStatus::label((string) $a['status'])) ?></span>
-                        <a href="/portal/applications/<?= e($a['id']) ?>" class="text-xs font-medium text-slate-400 hover:text-slate-600">Details →</a>
+                        <a href="/my-applications/<?= e($a['id']) ?>" class="text-xs font-medium text-slate-400 hover:text-slate-600">Details →</a>
                     </div>
                 </li>
             <?php endforeach; ?>

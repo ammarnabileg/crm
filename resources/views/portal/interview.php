@@ -17,8 +17,8 @@ $remaining = (int) $state['seconds_remaining'];
             <h1 class="text-2xl font-semibold text-slate-900">Interview completed successfully</h1>
             <p class="mx-auto mt-2 max-w-md text-sm text-slate-500">Thank you for your time and thoughtful answers. The hiring team at <?= e($workspaceName) ?> will review your interview and follow up on your application.</p>
             <div class="mt-6 flex justify-center gap-3">
-                <a href="/portal/applications/<?= e($applicationId) ?>" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">View my application</a>
-                <a href="/portal" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Back to portal</a>
+                <a href="/my-applications/<?= e($applicationId) ?>" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">View my application</a>
+                <a href="/my-applications" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Back to portal</a>
             </div>
         </div>
     <?php else: ?>
@@ -47,7 +47,7 @@ $remaining = (int) $state['seconds_remaining'];
                 <?php endforeach; ?>
             </div>
 
-            <form method="post" action="/portal/interview/<?= e($interview['id']) ?>/answer" class="mt-4 border-t border-slate-100 pt-4" data-answer-form data-transcribe-url="/portal/interview/<?= e($interview['id']) ?>/transcribe">
+            <form method="post" action="/interview/<?= e($interview['id']) ?>/answer" class="mt-4 border-t border-slate-100 pt-4" data-answer-form data-transcribe-url="/interview/<?= e($interview['id']) ?>/transcribe">
                 <?= csrf_field() ?>
                 <textarea name="answer" rows="3" required autofocus placeholder="Type your answer…" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" data-answer></textarea>
                 <div class="mt-2 flex items-center justify-between gap-2">

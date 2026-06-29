@@ -55,25 +55,6 @@ final class CandidatePortalController
     }
 
     /** Page 1 — Candidate Portal overview (status, interviews, offers, latest jobs). */
-    public function index(): Response
-    {
-        if (($r = $this->gate()) !== null) {
-            return $r;
-        }
-
-        $ws = (string) $this->context->workspaceId();
-        $uid = (string) $this->context->userId();
-
-        return $this->shell->render($this->context, 'portal.index', [
-            'overview' => $this->candidacy->overview($ws, $uid),
-            'workspaces' => $this->context->workspaces(),
-            'currentWorkspaceId' => $ws,
-            'workspaceName' => $this->context->workspace()['name'] ?? '',
-            'user' => $this->auth->user(),
-            'status' => $this->session->pullFlash('status'),
-        ]);
-    }
-
     /** Page 2 — Available Jobs in this workspace. */
     public function jobs(Request $request): Response
     {
@@ -113,7 +94,7 @@ final class CandidatePortalController
         if ($job === null || (string) $job['status'] !== 'published') {
             $this->session->flash('status', 'That job is no longer open.');
 
-            return Response::redirect('/portal/jobs');
+            return Response::redirect('/open-jobs');
         }
 
         try {
@@ -121,7 +102,7 @@ final class CandidatePortalController
         } catch (ApplicationException $e) {
             $this->session->flash('status', $e->getMessage());
 
-            return Response::redirect('/portal/jobs');
+            return Response::redirect('/open-jobs');
         }
 
         // Attach a freshly uploaded CV to the application (spec: choose or upload).
@@ -156,11 +137,11 @@ final class CandidatePortalController
         if ($interviewId !== null) {
             $this->session->flash('status', 'Application submitted. Your AI interview is ready — start now or later.');
 
-            return Response::redirect('/portal/interview/' . $interviewId);
+            return Response::redirect('/interview/' . $interviewId);
         }
         $this->session->flash('status', 'Application submitted. Track it here.');
 
-        return Response::redirect('/portal/applications/' . $appId);
+        return Response::redirect('/my-applications/' . $appId);
     }
 
     /** The AI interview room (start or resume). */
@@ -172,7 +153,7 @@ final class CandidatePortalController
 
         $iv = $this->ownedInterview($interviewId);
         if ($iv === null) {
-            return Response::redirect('/portal/applications');
+            return Response::redirect('/my-applications');
         }
 
         $state = (string) $iv['status'] === 'completed'
@@ -195,7 +176,7 @@ final class CandidatePortalController
 
         $iv = $this->ownedInterview($interviewId);
         if ($iv === null) {
-            return Response::redirect('/portal/applications');
+            return Response::redirect('/my-applications');
         }
 
         $this->room->answer(
@@ -206,7 +187,7 @@ final class CandidatePortalController
         );
 
         // Post/Redirect/Get — the room page renders the updated conversation.
-        return Response::redirect('/portal/interview/' . $interviewId);
+        return Response::redirect('/interview/' . $interviewId);
     }
 
     /**
@@ -296,7 +277,7 @@ final class CandidatePortalController
             $this->session->flash('status', 'This application can no longer be withdrawn.');
         }
 
-        return Response::redirect('/portal/applications/' . $applicationId);
+        return Response::redirect('/my-applications/' . $applicationId);
     }
 
     /** Page 3b — one application: stage map, what the AI noted, next step, offers. */
@@ -310,7 +291,7 @@ final class CandidatePortalController
         $uid = (string) $this->context->userId();
         $application = $this->applications->findForCandidate($ws, $applicationId, $uid);
         if ($application === null) {
-            return Response::redirect('/portal/applications');
+            return Response::redirect('/my-applications');
         }
 
         $assessment = $this->assessments->latestForCandidate($ws, $uid);
@@ -363,7 +344,7 @@ final class CandidatePortalController
             $this->session->flash('status', 'Choose a PDF or Word file to upload.');
         }
 
-        return Response::redirect('/portal/profile');
+        return Response::redirect('/my-profile');
     }
 
     public function updateProfile(Request $request): Response
@@ -376,7 +357,7 @@ final class CandidatePortalController
         if ($name === '') {
             $this->session->flash('status', 'Your name is required.');
 
-            return Response::redirect('/portal/profile');
+            return Response::redirect('/my-profile');
         }
 
         $this->users->updatePersonal(
@@ -400,7 +381,7 @@ final class CandidatePortalController
         ]);
         $this->session->flash('status', 'Profile updated.');
 
-        return Response::redirect('/portal/profile');
+        return Response::redirect('/my-profile');
     }
 
     /** Accept a company offer. */
@@ -417,7 +398,7 @@ final class CandidatePortalController
             $this->session->flash('status', $e->getMessage());
         }
 
-        return Response::redirect('/portal/applications');
+        return Response::redirect('/my-applications');
     }
 
     /** Decline a company offer. */
@@ -434,7 +415,7 @@ final class CandidatePortalController
             $this->session->flash('status', $e->getMessage());
         }
 
-        return Response::redirect('/portal/applications');
+        return Response::redirect('/my-applications');
     }
 
     /** Propose a counter-offer back to the company, with an explanatory note. */
@@ -460,7 +441,7 @@ final class CandidatePortalController
             $this->session->flash('status', $e->getMessage());
         }
 
-        return Response::redirect('/portal/applications/' . $applicationId);
+        return Response::redirect('/my-applications/' . $applicationId);
     }
 
     /** Switch which candidate workspace the portal is showing. */
@@ -470,11 +451,12 @@ final class CandidatePortalController
             return Response::redirect('/login');
         }
         if (! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
-            return Response::redirect('/portal');
+            return Response::redirect('/my-applications');
         }
+        $this->auth->setContextType('candidate');
         $this->context->useWorkspace($workspaceId);
 
-        return Response::redirect('/portal');
+        return Response::redirect('/my-applications');
     }
 
     private function nextStep(string $status): string
