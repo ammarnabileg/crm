@@ -27,6 +27,7 @@ use HaHireAI\Modules\Workflow\Application\ActionExecutor;
 use HaHireAI\Modules\Workflow\Application\WorkflowCollectionService;
 use HaHireAI\Modules\Workflow\Application\WorkflowEngine;
 use HaHireAI\Modules\Workflow\Application\WorkflowService;
+use HaHireAI\Modules\Workflow\Domain\WorkflowGraph;
 use HaHireAI\Modules\Workflow\WorkflowModule;
 use HaHireAI\Shared\Encrypter;
 use HaHireAI\Shared\Ulid;
@@ -185,6 +186,43 @@ final class WorkflowEngineTest extends TestCase
         $task = $this->connection->selectOne('SELECT * FROM tasks WHERE workspace_id = ?', [$ws]);
         $this->assertNotNull($task);
         $this->assertSame('Review Sara', $task['title']); // {{candidate_name}} token resolved from the payload
+    }
+
+    public function test_builder_graph_saves_compiles_and_runs_by_id(): void
+    {
+        $ws = $this->workspace();
+        $graph = [
+            'nodes' => [
+                ['id' => 't', 'type' => 'trigger.candidate_applied', 'x' => 40, 'y' => 40, 'config' => []],
+                ['id' => 'a', 'type' => 'util.audit', 'x' => 300, 'y' => 40, 'config' => ['message' => 'Applied: {{candidate_name}}']],
+                ['id' => 'b', 'type' => 'workspace.create_task', 'x' => 560, 'y' => 40, 'config' => ['title' => 'Screen {{candidate_name}}']],
+            ],
+            'edges' => [
+                ['from' => 't', 'to' => 'a'],
+                ['from' => 'a', 'to' => 'b'],
+            ],
+        ];
+
+        $steps = WorkflowGraph::compile($graph);
+        $id = $this->workflows->save($ws, null, 'Screen applicants', 'application.submitted', [
+            'nodes' => $graph['nodes'], 'edges' => $graph['edges'], 'steps' => $steps,
+        ], true, null);
+
+        // Round-trips the editable graph and the compiled steps.
+        $loaded = $this->workflows->find($ws, $id);
+        $this->assertNotNull($loaded);
+        $this->assertCount(3, $loaded['nodes']);
+        $this->assertCount(2, $loaded['steps']);
+        $this->assertSame('util.audit', $loaded['steps'][0]['action']);
+
+        // Manual run executes the compiled steps and creates the task.
+        $ran = $this->engine->runById($ws, $id, ['candidate_name' => 'Sara']);
+        $this->assertTrue($ran);
+
+        $execution = $this->connection->selectOne('SELECT * FROM workflow_executions WHERE workflow_id = ?', [$id]);
+        $this->assertSame('completed', $execution['status']);
+        $task = $this->connection->selectOne('SELECT * FROM tasks WHERE workspace_id = ?', [$ws]);
+        $this->assertSame('Screen Sara', $task['title']);
     }
 
     public function test_notify_action_sends_an_in_app_notification_via_the_contract(): void

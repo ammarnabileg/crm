@@ -30,6 +30,65 @@ final class WorkflowService
         return $id;
     }
 
+    /**
+     * Create or update a workflow from the visual builder. The definition stores
+     * the editable graph ({nodes, edges}) plus the compiled {steps} the engine
+     * runs — so the engine path is unchanged and backward compatible.
+     *
+     * @param  array{nodes: list<array<string,mixed>>, edges: list<array<string,mixed>>, steps: list<array<string,mixed>>}  $definition
+     */
+    public function save(string $workspaceId, ?string $id, string $name, string $triggerEvent, array $definition, bool $enabled, ?string $userId = null): string
+    {
+        $now = gmdate('Y-m-d H:i:s');
+        $json = json_encode($definition);
+
+        if ($id !== null && $id !== '' && $this->find($workspaceId, $id) !== null) {
+            $this->connection->statement(
+                'UPDATE workflows SET name = ?, trigger_event = ?, definition = ?, enabled = ?, updated_at = ? WHERE workspace_id = ? AND id = ?',
+                [$name, $triggerEvent, $json, $enabled ? 1 : 0, $now, $workspaceId, $id],
+            );
+
+            return $id;
+        }
+
+        $newId = Ulid::generate();
+        $this->connection->statement(
+            'INSERT INTO workflows (id, workspace_id, name, trigger_event, definition, status, enabled, created_by, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$newId, $workspaceId, $name, $triggerEvent, $json, 'published', $enabled ? 1 : 0, $userId, $now, $now],
+        );
+
+        return $newId;
+    }
+
+    /** @return array<string,mixed>|null one workflow with decoded nodes/edges/steps */
+    public function find(string $workspaceId, string $id): ?array
+    {
+        $row = $this->connection->selectOne(
+            'SELECT * FROM workflows WHERE workspace_id = ? AND id = ? AND deleted_at IS NULL',
+            [$workspaceId, $id],
+        );
+        if ($row === null) {
+            return null;
+        }
+
+        $def = json_decode((string) $row['definition'], true);
+        $def = is_array($def) ? $def : [];
+        $row['nodes'] = is_array($def['nodes'] ?? null) ? $def['nodes'] : [];
+        $row['edges'] = is_array($def['edges'] ?? null) ? $def['edges'] : [];
+        $row['steps'] = is_array($def['steps'] ?? null) ? $def['steps'] : [];
+
+        return $row;
+    }
+
+    public function setEnabled(string $workspaceId, string $id, bool $enabled): void
+    {
+        $this->connection->statement(
+            'UPDATE workflows SET enabled = ?, updated_at = ? WHERE workspace_id = ? AND id = ?',
+            [$enabled ? 1 : 0, gmdate('Y-m-d H:i:s'), $workspaceId, $id],
+        );
+    }
+
     /** @return list<array<string,mixed>> enabled workflows for a trigger, with decoded steps */
     public function findEnabledForTrigger(string $workspaceId, string $triggerEvent): array
     {

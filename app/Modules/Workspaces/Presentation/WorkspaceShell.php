@@ -103,6 +103,7 @@ final class WorkspaceShell
             'notifications' => $wsId !== '' && $uId !== '' ? $this->notifications->recentForUser($wsId, $uId) : [],
             'unreadCount' => $wsId !== '' && $uId !== '' ? $this->notifications->unreadCount($wsId, $uId) : 0,
             'switcher' => $this->switcher->model('staff'),
+            'fullBleed' => ($options['fullBleed'] ?? false) === true,
         ]);
 
         return Response::html($html);

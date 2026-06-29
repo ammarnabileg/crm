@@ -53,6 +53,10 @@ final class WorkflowModule implements Module
     public function routes(Router $router): void
     {
         $router->get('/workflows', [WorkflowController::class, 'index']);
-        $router->post('/workflows', [WorkflowController::class, 'create']);
+        $router->get('/workflows/new', [WorkflowController::class, 'builder']);
+        $router->get('/workflows/{id}/edit', [WorkflowController::class, 'builder']);
+        $router->post('/workflows/save', [WorkflowController::class, 'save']);
+        $router->post('/workflows/{id}/run', [WorkflowController::class, 'run']);
+        $router->post('/workflows/{id}/toggle', [WorkflowController::class, 'toggle']);
     }
 }

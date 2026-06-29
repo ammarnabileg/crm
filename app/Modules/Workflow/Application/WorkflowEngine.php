@@ -40,6 +40,24 @@ final class WorkflowEngine
     }
 
     /**
+     * Run one workflow on demand (the builder's "Run now" / Manual Trigger), with
+     * an optional sample payload. Returns false if the workflow does not exist.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public function runById(string $workspaceId, string $workflowId, array $payload = [], ?string $actorUserId = null): bool
+    {
+        $workflow = $this->workflows->find($workspaceId, $workflowId);
+        if ($workflow === null) {
+            return false;
+        }
+
+        $this->runWorkflow($workflow, $payload + ['workspace_id' => $workspaceId], $actorUserId);
+
+        return true;
+    }
+
+    /**
      * @param  array<string, mixed>  $workflow
      * @param  array<string, mixed>  $payload
      */

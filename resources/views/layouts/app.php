@@ -85,6 +85,7 @@ $notifications ??= [];
 $unreadCount ??= 0;
 $platformTheme ??= false;
 $switcher ??= null;
+$fullBleed ??= false; // full-height, zero-padding content area (e.g. the workflow canvas)
 $currentWsName = (string) ($switcher['currentLabel'] ?? $workspaceName ?? 'Workspace');
 
 // In-place navigation: when the pjax layer requests a partial (X-Partial header),
@@ -280,7 +281,7 @@ $partial = ($_SERVER['HTTP_X_PARTIAL'] ?? '') === '1';
                 </details>
             </div>
         </header>
-        <main class="flex-1 p-6 lg:p-8"><?= $content ?></main>
+        <main class="flex-1 <?= $fullBleed ? 'overflow-hidden' : 'p-6 lg:p-8' ?>"><?= $content ?></main>
     </div>
 </div>
 <?php if (! $partial): ?>
