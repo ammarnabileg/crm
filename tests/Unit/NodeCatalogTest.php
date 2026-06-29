@@ -56,7 +56,9 @@ final class NodeCatalogTest extends TestCase
 
     public function test_config_fields_are_ui_renderable_no_code_or_json(): void
     {
-        $allowed = ['text', 'select', 'variable'];
+        // All are plain UI controls — no JSON, no raw code. 'formula' is a safe
+        // sandboxed-expression field (textarea), not a code runtime.
+        $allowed = ['text', 'select', 'variable', 'formula', 'textarea'];
         foreach (NodeCatalog::nodes() as $node) {
             foreach ($node['config'] ?? [] as $field) {
                 $this->assertArrayHasKey('key', $field);

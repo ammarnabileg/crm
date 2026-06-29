@@ -79,6 +79,10 @@ final class ReleaseCertificationTest extends TestCase
         $this->container->instance(EventDispatcher::class, new Dispatcher());
         $this->container->instance(\HaHireAI\Core\Contracts\AuditRecorder::class, new \HaHireAI\Modules\Audit\Application\AuditLogger($this->connection));
         $this->container->instance(HttpClient::class, $this->fakeHttp());
+        // Workflow action write-surfaces — Null defaults, as CoreServiceProvider binds at boot.
+        $this->container->instance(\HaHireAI\Core\Contracts\TaskWriter::class, new \HaHireAI\Core\Workflow\NullTaskWriter());
+        $this->container->instance(\HaHireAI\Core\Contracts\NotificationWriter::class, new \HaHireAI\Core\Workflow\NullNotificationWriter());
+        $this->container->instance(\HaHireAI\Core\Contracts\RecruitmentActions::class, new \HaHireAI\Core\Workflow\NullRecruitmentActions());
 
         $registry = new ProviderRegistry();
         $registry->register(new EchoProvider());
