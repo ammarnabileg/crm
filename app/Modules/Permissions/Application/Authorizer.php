@@ -60,11 +60,24 @@ final class Authorizer implements AccessControl
     {
         $row = $this->connection->selectOne('SELECT is_system_owner FROM users WHERE id = ?', [$userId]);
 
-        if ((int) ($row['is_system_owner'] ?? 0) !== 1) {
-            return [];
+        // System Owner = full platform access (every system.* key).
+        if ((int) ($row['is_system_owner'] ?? 0) === 1) {
+            $rows = $this->connection->select('SELECT `key` FROM permissions WHERE is_system = 1');
+
+            return array_map(static fn (array $r): string => (string) $r['key'], $rows);
         }
 
-        $rows = $this->connection->select('SELECT `key` FROM permissions WHERE is_system = 1');
+        // Otherwise, a "site manager" gets the union of their platform-role
+        // permissions — granular platform access without being a full owner.
+        $rows = $this->connection->select(
+            'SELECT DISTINCT p.`key`
+               FROM platform_role_user pru
+               JOIN platform_roles pr ON pr.id = pru.role_id AND pr.deleted_at IS NULL
+               JOIN platform_role_permissions prp ON prp.role_id = pru.role_id
+               JOIN permissions p ON p.id = prp.permission_id
+              WHERE pru.user_id = ? AND p.is_system = 1',
+            [$userId],
+        );
 
         return array_map(static fn (array $r): string => (string) $r['key'], $rows);
     }

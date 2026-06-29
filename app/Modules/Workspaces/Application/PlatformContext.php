@@ -36,11 +36,13 @@ final class PlatformContext
         }
 
         $userId = (string) $this->auth->id();
-        if (! $this->authorizer->userIsSystemOwner($userId)) {
+
+        // Platform access for the System Owner (all keys) OR any "site manager"
+        // who holds at least one platform permission via a platform role.
+        $this->permissions = $this->authorizer->systemPermissionsForUser($userId);
+        if ($this->permissions === []) {
             return false;
         }
-
-        $this->permissions = $this->authorizer->systemPermissionsForUser($userId);
 
         return true;
     }

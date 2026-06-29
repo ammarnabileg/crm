@@ -172,6 +172,8 @@ foreach ([
     'POST /admin/users/{id}/activate', 'POST /admin/users/{id}/deactivate',
     'POST /admin/users/{id}/workspace-creation', 'POST /admin/users/{id}/plan', 'POST /admin/users/{id}/grant-months',
     'GET /admin/settings', 'POST /admin/settings', 'GET /admin/ai', 'GET /admin/payments',
+    'GET /admin/roles', 'POST /admin/roles', 'POST /admin/roles/{id}/edit', 'POST /admin/roles/{id}/delete',
+    'POST /admin/roles/{id}/assign', 'POST /admin/roles/{id}/unassign',
     'GET /account/plan', 'POST /account/plan',
     'GET /account/profile', 'POST /account/profile',
     'GET /admin/plans', 'POST /admin/plans', 'POST /admin/plans/{id}/edit', 'POST /admin/plans/{id}/delete',

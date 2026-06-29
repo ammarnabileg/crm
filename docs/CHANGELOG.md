@@ -1013,6 +1013,23 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   Notifications) 8/8; visual screenshots of the bell, user menu, owner panel and
   profile; certify **125/125**.
 
+### Platform Roles & Permissions (granular site managers)
+- New **Roles & Permissions** tab in the owner panel (`/admin/roles`): the System
+  Owner builds platform roles from the `system.*` permission catalog and assigns
+  them to users, creating **granular "site managers"** instead of the
+  all-or-nothing `is_system_owner` flag. Create / edit / delete roles, tick the
+  exact permissions, and assign/unassign users — each with its holders shown.
+- New `system.roles.manage` permission, `platform_roles` / `platform_role_permissions`
+  / `platform_role_user` tables, and `PlatformRoleService` (Permissions module).
+- `Authorizer::systemPermissionsForUser` now returns every `system.*` for a
+  System Owner **or** the union of a user's platform-role permissions; and
+  `PlatformContext` grants scoped platform access to anyone holding at least one
+  platform permission (not just owners) — so a site manager sees only the tabs
+  they're entitled to.
+- Verified: `PlatformRoleTest` (2 — scoped grant/revoke, owner-full, update/delete
+  resync); smoke (assign → Authorizer union → scoped `PlatformContext` access)
+  15/15; certify **131/131**.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

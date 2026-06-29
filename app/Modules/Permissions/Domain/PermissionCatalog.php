@@ -135,6 +135,7 @@ final class PermissionCatalog
         $system = [
             'system.dashboard.view' => 'Access the Platform Context',
             'system.users.manage' => 'Manage all users',
+            'system.roles.manage' => 'Manage platform roles & permissions',
             'system.workspaces.manage' => 'Manage all workspaces',
             'system.subscriptions.manage' => 'Manage subscriptions',
             'system.settings.manage' => 'Manage platform settings',

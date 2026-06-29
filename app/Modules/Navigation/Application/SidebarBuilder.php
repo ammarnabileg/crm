@@ -59,6 +59,7 @@ final class SidebarBuilder
         ['label' => 'Overview', 'route' => '/admin', 'permission' => 'system.dashboard.view'],
         ['label' => 'Workspaces', 'route' => '/admin/workspaces', 'permission' => 'system.workspaces.manage'],
         ['label' => 'Users', 'route' => '/admin/users', 'permission' => 'system.users.manage'],
+        ['label' => 'Roles & Permissions', 'route' => '/admin/roles', 'permission' => 'system.roles.manage'],
         ['label' => 'Subscriptions', 'route' => '/admin/subscriptions', 'permission' => 'system.subscriptions.manage'],
         ['label' => 'Plans', 'route' => '/admin/plans', 'permission' => 'system.subscriptions.manage'],
         ['label' => 'Payments', 'route' => '/admin/payments', 'permission' => 'system.subscriptions.manage'],

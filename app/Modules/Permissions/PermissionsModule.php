@@ -9,6 +9,7 @@ use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Permissions\Application\Authorizer;
+use HaHireAI\Modules\Permissions\Presentation\PlatformRolesController;
 use HaHireAI\Modules\Permissions\Presentation\RolesController;
 
 final class PermissionsModule implements Module
@@ -41,5 +42,13 @@ final class PermissionsModule implements Module
         $router->post('/roles/{roleId}/edit', [RolesController::class, 'update']);
         $router->post('/roles/{roleId}/clone', [RolesController::class, 'clone']);
         $router->post('/roles/{roleId}/delete', [RolesController::class, 'delete']);
+
+        // Platform-level roles & permissions (System Owner panel).
+        $router->get('/admin/roles', [PlatformRolesController::class, 'index']);
+        $router->post('/admin/roles', [PlatformRolesController::class, 'create']);
+        $router->post('/admin/roles/{id}/edit', [PlatformRolesController::class, 'update']);
+        $router->post('/admin/roles/{id}/delete', [PlatformRolesController::class, 'delete']);
+        $router->post('/admin/roles/{id}/assign', [PlatformRolesController::class, 'assign']);
+        $router->post('/admin/roles/{id}/unassign', [PlatformRolesController::class, 'unassign']);
     }
 }
