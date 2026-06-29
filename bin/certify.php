@@ -158,7 +158,8 @@ foreach ($router->routes() as $r) {
 }
 foreach ([
     'GET /', 'GET /install', 'GET /login', 'GET /dashboard', 'GET /jobs', 'GET /workflows',
-    'GET /workflows/new', 'GET /workflows/{id}/edit', 'POST /workflows/save',
+    'GET /workflows/new', 'GET /workflows/templates', 'POST /workflows/templates/{key}/use',
+    'GET /workflows/{id}/edit', 'POST /workflows/save',
     'POST /workflows/{id}/run', 'POST /workflows/{id}/toggle',
     'GET /collections', 'POST /collections', 'GET /collections/{id}', 'GET /collections/{id}/export',
     'POST /collections/{id}/records', 'POST /collections/{id}/records/{recordId}/delete',

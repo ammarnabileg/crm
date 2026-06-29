@@ -13,6 +13,7 @@ use HaHireAI\Modules\Workflow\Application\WorkflowEngine;
 use HaHireAI\Modules\Workflow\Application\WorkflowService;
 use HaHireAI\Modules\Workflow\Domain\NodeCatalog;
 use HaHireAI\Modules\Workflow\Domain\WorkflowGraph;
+use HaHireAI\Modules\Workflow\Domain\WorkflowTemplates;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
 
@@ -105,6 +106,54 @@ final class WorkflowController
         $this->session->flash('status', "Workflow “{$name}” saved with " . count($steps) . ' step(s).');
 
         return Response::redirect('/workflows');
+    }
+
+    /** Gallery of ready-made templates the user can clone with one click. */
+    public function templates(): Response
+    {
+        if (($r = $this->gate('workflow.create')) !== null) {
+            return $r;
+        }
+
+        return $this->shell->render($this->context, 'workflow.templates', [
+            'templates' => WorkflowTemplates::all(),
+            'status' => $this->session->pullFlash('status'),
+        ]);
+    }
+
+    /** Clone a template into a new (disabled) workflow and open it in the builder. */
+    public function useTemplate(Request $request, string $key): Response
+    {
+        if (($r = $this->gate('workflow.create', $request)) !== null) {
+            return $r;
+        }
+
+        $tpl = WorkflowTemplates::find($key);
+        if ($tpl === null) {
+            return Response::redirect('/workflows/templates');
+        }
+
+        $graph = ['nodes' => $tpl['nodes'], 'edges' => $tpl['edges']];
+        $id = $this->workflows->save(
+            (string) $this->context->workspaceId(),
+            null,
+            $tpl['name'],
+            $this->triggerEventFor($graph),
+            ['nodes' => $tpl['nodes'], 'edges' => $tpl['edges'], 'steps' => WorkflowGraph::compile($graph)],
+            false, // start disabled — the user reviews, then enables
+            $this->context->userId(),
+        );
+
+        $this->audit->record('workflows.workflow.created', [
+            'workspace_id' => $this->context->workspaceId(),
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'workflow',
+            'entity_id' => $id,
+            'changes' => ['template' => $key, 'name' => $tpl['name']],
+        ]);
+        $this->session->flash('status', "Created “{$tpl['name']}” from a template — review the steps, then enable it.");
+
+        return Response::redirect('/workflows/' . $id . '/edit');
     }
 
     public function run(Request $request, string $id): Response

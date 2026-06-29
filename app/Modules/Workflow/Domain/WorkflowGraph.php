@@ -138,15 +138,21 @@ final class WorkflowGraph
                 $actionCount++;
             }
 
-            // Required config fields declared by the catalog must be filled.
+            // A configurable node must have at least something filled in — a fully
+            // blank node (no field set) is flagged; optional fields stay optional.
             $schema = $catalog[$type]['config'] ?? [];
             /** @var array<string,mixed> $config */
             $config = is_array($node['config'] ?? null) ? $node['config'] : [];
-            foreach (is_array($schema) ? $schema : [] as $field) {
-                $key = (string) ($field['key'] ?? '');
-                if ($key !== '' && (string) ($config[$key] ?? '') === '') {
-                    $nodeIssues[(string) $id] = 'Fill in “' . (string) ($field['label'] ?? $key) . '”.';
-                    break;
+            if (is_array($schema) && $schema !== []) {
+                $filled = 0;
+                foreach ($schema as $field) {
+                    $key = (string) ($field['key'] ?? '');
+                    if ($key !== '' && (string) ($config[$key] ?? '') !== '') {
+                        $filled++;
+                    }
+                }
+                if ($filled === 0) {
+                    $nodeIssues[(string) $id] = 'Configure this step.';
                 }
             }
 

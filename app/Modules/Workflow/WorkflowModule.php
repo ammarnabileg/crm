@@ -55,6 +55,8 @@ final class WorkflowModule implements Module
     {
         $router->get('/workflows', [WorkflowController::class, 'index']);
         $router->get('/workflows/new', [WorkflowController::class, 'builder']);
+        $router->get('/workflows/templates', [WorkflowController::class, 'templates']);
+        $router->post('/workflows/templates/{key}/use', [WorkflowController::class, 'useTemplate']);
         $router->get('/workflows/{id}/edit', [WorkflowController::class, 'builder']);
         $router->post('/workflows/save', [WorkflowController::class, 'save']);
         $router->post('/workflows/{id}/run', [WorkflowController::class, 'run']);
