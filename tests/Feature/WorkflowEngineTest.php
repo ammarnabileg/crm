@@ -27,6 +27,7 @@ use HaHireAI\Modules\Workflow\Application\ActionExecutor;
 use HaHireAI\Modules\Workflow\Application\WorkflowCollectionService;
 use HaHireAI\Modules\Workflow\Application\WorkflowEngine;
 use HaHireAI\Modules\Workflow\Application\WorkflowService;
+use HaHireAI\Modules\Workflow\Domain\FormulaEvaluator;
 use HaHireAI\Modules\Workflow\Domain\WorkflowGraph;
 use HaHireAI\Modules\Workflow\WorkflowModule;
 use HaHireAI\Shared\Encrypter;
@@ -77,7 +78,7 @@ final class WorkflowEngineTest extends TestCase
             new NullRecruitmentActions(),
             new WorkflowCollectionService($this->connection),
         );
-        $this->engine = new WorkflowEngine($this->connection, $this->workflows, $actions);
+        $this->engine = new WorkflowEngine($this->connection, $this->workflows, $actions, new FormulaEvaluator());
     }
 
     protected function tearDown(): void
@@ -223,6 +224,20 @@ final class WorkflowEngineTest extends TestCase
         $this->assertSame('completed', $execution['status']);
         $task = $this->connection->selectOne('SELECT * FROM tasks WHERE workspace_id = ?', [$ws]);
         $this->assertSame('Screen Sara', $task['title']);
+    }
+
+    public function test_formula_node_computes_a_variable_used_by_a_later_step(): void
+    {
+        $ws = $this->workspace();
+        $this->workflows->create($ws, 'Score label', 'application.submitted', [
+            ['action' => 'logic.formula', 'params' => ['name' => 'score_label', 'expression' => "number(ai_score) >= 80 ? 'strong' : 'weak'"]],
+            ['action' => 'workspace.create_task', 'params' => ['title' => 'Candidate is {{score_label}}']],
+        ]);
+
+        $this->engine->runForTrigger($ws, 'application.submitted', ['workspace_id' => $ws, 'ai_score' => 85]);
+
+        $task = $this->connection->selectOne('SELECT * FROM tasks WHERE workspace_id = ?', [$ws]);
+        $this->assertSame('Candidate is strong', $task['title']); // formula result flowed into the next step
     }
 
     public function test_notify_action_sends_an_in_app_notification_via_the_contract(): void

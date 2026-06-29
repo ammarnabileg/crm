@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Workflow\Application;
 
 use HaHireAI\Core\Database\Connection;
+use HaHireAI\Modules\Workflow\Domain\FormulaEvaluator;
 use HaHireAI\Shared\Ulid;
 use Throwable;
 
@@ -19,6 +20,7 @@ final class WorkflowEngine
         private readonly Connection $connection,
         private readonly WorkflowService $workflows,
         private readonly ActionExecutor $actions,
+        private readonly FormulaEvaluator $formula,
     ) {
     }
 
@@ -74,6 +76,8 @@ final class WorkflowEngine
             [$executionId, $workspaceId, (string) $workflow['id'], (string) $workflow['trigger_event'], 'running', json_encode($payload), count($steps), 0, $now, $now],
         );
 
+        // The payload is an evolving variable map: Set-Variable and Formula nodes
+        // write into it, so later steps and {{tokens}} can read computed values.
         $context = ['workspace_id' => $workspaceId, 'payload' => $payload, 'actor' => $actorUserId];
         $done = 0;
 
@@ -81,8 +85,18 @@ final class WorkflowEngine
             foreach ($steps as $index => $step) {
                 $action = (string) ($step['action'] ?? 'noop');
 
-                if (isset($step['condition']) && ! $this->matches($step['condition'], $payload)) {
+                if (isset($step['condition']) && ! $this->matches($step['condition'], $context['payload'])) {
                     $this->recordStep($workspaceId, $executionId, $index, $action, 'skipped', 'condition not met');
+
+                    continue;
+                }
+
+                // Variable-producing nodes are an engine/context concern (they mutate
+                // the variable map) — handled here, not in the side-effect executor.
+                if ($action === 'variables.set' || $action === 'logic.formula') {
+                    $output = $this->setVariable($action, $step['params'] ?? [], $context['payload']);
+                    $this->recordStep($workspaceId, $executionId, $index, $action, 'completed', $output);
+                    $done++;
 
                     continue;
                 }
@@ -116,6 +130,48 @@ final class WorkflowEngine
             'exists' => $actual !== null,
             default => false,
         };
+    }
+
+    /**
+     * Handle a variable-producing node (Set Variable / Formula). Mutates the
+     * evolving variable map and returns a log line. A Formula runs in the
+     * sandboxed {@see FormulaEvaluator} — no raw code executes on the server.
+     *
+     * @param  array<string,mixed>  $params
+     * @param  array<string,mixed>  $payload  the evolving variable map (by reference)
+     */
+    private function setVariable(string $action, array $params, array &$payload): string
+    {
+        $name = trim((string) ($params['name'] ?? '')) ?: 'result';
+
+        if ($action === 'logic.formula') {
+            $expr = (string) ($params['expression'] ?? '');
+            $value = $expr === '' ? '' : $this->formula->evaluate($expr, $payload);
+        } else {
+            $value = $this->resolveTokens((string) ($params['value'] ?? ''), $payload);
+        }
+
+        if (is_scalar($value) || $value === null) {
+            $payload[$name] = $value;
+        }
+
+        $shown = is_bool($value) ? ($value ? 'true' : 'false') : (is_scalar($value) || $value === null ? (string) $value : (string) json_encode($value));
+
+        return $name . ' = ' . $shown;
+    }
+
+    /** Substitute {{field}} tokens from the variable map (picker-inserted, not code). */
+    private function resolveTokens(string $value, array $payload): string
+    {
+        if (! str_contains($value, '{{')) {
+            return $value;
+        }
+
+        return (string) preg_replace_callback('/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/', static function (array $m) use ($payload): string {
+            $v = $payload[$m[1]] ?? '';
+
+            return is_scalar($v) ? (string) $v : (string) json_encode($v);
+        }, $value);
     }
 
     private function recordStep(string $workspaceId, string $executionId, int $index, string $action, string $status, string $output): void

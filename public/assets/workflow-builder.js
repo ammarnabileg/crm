@@ -288,6 +288,11 @@
           var listId = 'dl_' + f.key;
           html += '<input data-k="' + esc(f.key) + '" value="' + esc(val) + '" list="' + listId + '" class="wf-cfg mb-3 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm font-mono" placeholder="{{field}} or a value">'
             + '<datalist id="' + listId + '">' + vars.map(function (v) { return '<option value="' + esc(v) + '">'; }).join('') + '</datalist>';
+        } else if (f.type === 'formula') {
+          html += '<textarea data-k="' + esc(f.key) + '" rows="3" class="wf-cfg mb-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 font-mono text-xs">' + esc(val) + '</textarea>'
+            + '<div class="mb-3 rounded-md bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-500">'
+            + 'A <b>safe</b> expression (no server code runs). Use ' + (vars.length ? vars.map(function (v) { return '<code>' + esc(v) + '</code>'; }).join(', ') : 'trigger variables')
+            + ', math, comparisons, <code>? :</code>, and functions like <code>upper</code>, <code>contains</code>, <code>round</code>, <code>coalesce</code>.<br>e.g. <code>score &gt;= 80 ? "strong" : "weak"</code></div>';
         } else {
           html += '<input data-k="' + esc(f.key) + '" value="' + esc(val) + '" class="wf-cfg mb-3 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm" placeholder="' + esc(f.label) + '">';
         }

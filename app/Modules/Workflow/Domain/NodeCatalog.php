@@ -155,6 +155,14 @@ final class NodeCatalog
                     ['key' => 'value', 'label' => 'Value', 'type' => 'text'],
                 ], 'outputs' => [],
             ],
+            [
+                'type' => 'logic.formula', 'category' => 'Logic', 'kind' => 'action',
+                'label' => 'Formula / Code', 'description' => 'Compute a value with a safe expression (no raw code runs on the server)', 'icon' => 'variable',
+                'config' => [
+                    ['key' => 'name', 'label' => 'Save result as', 'type' => 'text'],
+                    ['key' => 'expression', 'label' => 'Expression', 'type' => 'formula'],
+                ], 'outputs' => [],
+            ],
         ];
     }
 
