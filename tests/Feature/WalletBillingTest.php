@@ -17,6 +17,7 @@ use HaHireAI\Modules\Billing\Application\TopUpService;
 use HaHireAI\Modules\Billing\Application\WalletService;
 use HaHireAI\Modules\Billing\Application\WorkspacePlanLifecycle;
 use HaHireAI\Modules\Billing\Application\WorkspacePlanService;
+use HaHireAI\Modules\Billing\Application\WorkspaceSeatGuardAdapter;
 use HaHireAI\Modules\Billing\Infrastructure\FawaterakGateway;
 use HaHireAI\Shared\Ulid;
 use PHPUnit\Framework\TestCase;
@@ -195,6 +196,26 @@ final class WalletBillingTest extends TestCase
 
         // Wrong signature → rejected.
         $this->assertFalse($topup->handleWebhook($payload, 'bad'));
+    }
+
+    public function test_seat_guard_enforces_paid_seats(): void
+    {
+        $guard = new WorkspaceSeatGuardAdapter($this->seats, $this->plans);
+        [$ws] = $this->workspaceWithOwner();
+        $this->member($ws, $this->user()); // 1 billable staff member
+
+        // No composed plan yet → permissive (pre-billing / legacy).
+        $this->assertTrue($guard->canAddBillableMember($ws));
+
+        // Fund and compose exactly 1 seat → no room for a 2nd billable member.
+        $this->wallet->credit($ws, 10000, 'fawaterak');
+        $this->composer->compose($ws, 1, [], null, $this->at('2026-03-01'));
+        $this->assertFalse($guard->canAddBillableMember($ws));
+        $this->assertNotSame('', $guard->denyReason($ws));
+
+        // Re-compose with 2 seats → room for one more.
+        $this->composer->compose($ws, 2, [], null, $this->at('2026-03-01'));
+        $this->assertTrue($guard->canAddBillableMember($ws));
     }
 
     public function test_wallets_are_isolated_per_workspace(): void
