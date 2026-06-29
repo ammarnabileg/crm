@@ -28,13 +28,17 @@ final class InstallerModule implements Module
 
     public function register(Container $container): void
     {
-        $container->singleton(Installer::class, static fn (Container $c): Installer => new Installer(
+        // Transient: during install we rebind the Connection to the buyer's DB
+        // credentials, then resolve a fresh Installer so its migration runner /
+        // seeder / registrar all use that connection.
+        $container->bind(Installer::class, static fn (Container $c): Installer => new Installer(
             $c->make(MigrationRunner::class),
             $c->make(PermissionSeeder::class),
             $c->make(UserRegistrar::class),
             $c->make(EventDispatcher::class),
             storage_path('installed.lock'),
             base_path('database/migrations'),
+            base_path('.env'),
         ));
     }
 
@@ -46,5 +50,6 @@ final class InstallerModule implements Module
     {
         $router->get('/install', [InstallerController::class, 'show']);
         $router->post('/install', [InstallerController::class, 'run']);
+        $router->post('/install/console', [InstallerController::class, 'console']);
     }
 }
