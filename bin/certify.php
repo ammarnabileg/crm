@@ -190,6 +190,7 @@ foreach ([
     'POST /candidates/{userId}/parse-cv',
     'GET /tasks', 'POST /tasks', 'POST /tasks/{id}/complete', 'POST /tasks/{id}/delete',
     'GET /candidates/compare', 'GET /api/v1/ping', 'GET /api/v1/jobs',
+    'GET /view/{slug}', 'GET /view/{slug}/logo',
 ] as $route) {
     $check("route registered: {$route}", isset($paths[$route]));
 }
@@ -249,6 +250,8 @@ $payments = $c->make(\HaHireAI\Core\Contracts\PaymentSettings::class);
 $check('Payment settings contract resolves (platform payment switch)', $payments instanceof \HaHireAI\Modules\Platform\Application\PlatformSettings);
 $notifFeed = $c->make(\HaHireAI\Core\Contracts\NotificationFeed::class);
 $check('Notification feed contract resolves (header bell)', $notifFeed instanceof \HaHireAI\Modules\Notifications\Application\NotificationService);
+$companyDir = $c->make(\HaHireAI\Core\Contracts\CompanyDirectory::class);
+$check('Company directory contract resolves (public careers page)', $companyDir instanceof \HaHireAI\Modules\Workspaces\Application\CompanyDirectoryService);
 
 // ── 8. Health ───────────────────────────────────────────────────────────────
 $head('8. Health');

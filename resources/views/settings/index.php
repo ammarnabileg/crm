@@ -43,7 +43,13 @@ $inp = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border
                 <div><label class="mb-1 block text-sm font-medium text-slate-700">Locale</label><input name="locale" value="<?= e($workspace['locale']) ?>" <?= $dis ?> class="<?= $inp ?>"></div>
                 <div><label class="mb-1 block text-sm font-medium text-slate-700">Currency</label><input name="currency" value="<?= e($workspace['currency']) ?>" <?= $dis ?> class="<?= $inp ?>"></div>
             </div>
-            <div class="text-xs text-slate-400">Slug: <span class="font-mono"><?= e($workspace['slug']) ?></span></div>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+                <span>Slug: <span class="font-mono"><?= e($workspace['slug']) ?></span></span>
+                <a href="/view/<?= e($workspace['slug']) ?>" target="_blank" rel="noopener" class="inline-flex items-center gap-1 font-medium text-indigo-600 hover:underline">
+                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                    View public careers page
+                </a>
+            </div>
         </div>
     </div>
 

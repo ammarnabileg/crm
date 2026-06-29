@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Workspaces;
 
+use HaHireAI\Core\Contracts\CompanyDirectory;
 use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
+use HaHireAI\Modules\Workspaces\Application\CompanyDirectoryService;
 use HaHireAI\Modules\Workspaces\Presentation\DashboardController;
 use HaHireAI\Modules\Workspaces\Presentation\MaintenanceController;
 use HaHireAI\Modules\Workspaces\Presentation\SettingsController;
@@ -26,6 +28,9 @@ final class WorkspaceModule implements Module
 
     public function register(Container $container): void
     {
+        // Public company profile (careers page) exposed via the Core contract so
+        // Recruitment renders a tenant's brand without touching our tables (§4).
+        $container->singleton(CompanyDirectory::class, CompanyDirectoryService::class);
     }
 
     public function boot(Container $container): void

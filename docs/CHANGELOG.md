@@ -1044,6 +1044,38 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Routes, sidebar, redirects, form actions and the auditor route guard all
   updated. Verified: certify 131/131; full suite green.
 
+### Platform shell wears a red accent
+- The whole app's accent (`indigo-*` utilities) now resolves through CSS
+  variables (`--brand-*`) instead of hardcoded hex. `:root` defines them as the
+  azure-blue tenant identity; the System-Owner shell adds `.theme-platform` to
+  `<body>`, which overrides the same variables to **red** — so the HaHireAI
+  platform pages are unmistakable from the blue workspaces. Every accent utility
+  (bg/text/border/ring/hover/focus, all shades and opacity modifiers) switches
+  with zero per-view churn.
+- `tailwind.config.js` (indigo → `rgb(var(--brand-N) / <alpha-value>)`),
+  `resources/css/app.css` (blue on `:root`, red on `.theme-platform`),
+  `PlatformShell` passes `platformTheme = true`, `layouts/app.php` toggles the
+  body class. Verified: certify 131/131; full suite green; screenshots confirm
+  red platform vs blue workspace.
+
+### Public company careers page — `/view/{slug}`
+- Every workspace now has a public, no-login **careers page** at
+  `domain.com/view/{slug}`: the company's brand (logo, tagline, accent colour),
+  "about", industry/website/contact, and a searchable, filterable list of its
+  **published** jobs. Each opening links to the existing public job page where a
+  visitor applies and opens a linked account — one converging apply flow.
+- New Core contract `CompanyDirectory` (resolves an **active** workspace's public
+  profile by slug; archived/suspended/deleted workspaces are not public),
+  implemented by the Workspaces module's `CompanyDirectoryService` (reuses
+  `WorkspacePreferences`); `PublicCareersController` (Recruitment) reuses
+  `JobService::listPublished`/`publishedFacets` and streams the logo publicly via
+  the `FileStorage` contract. New `layouts/public.php` (full-width, "Powered by
+  HaHireAI" footer) and `recruitment/careers.php` views.
+- Workspace **Settings → General** now shows a "View public careers page" link.
+- Verified: `CompanyDirectoryTest` (4 — active profile, empty defaults, unknown
+  slug, inactive/deleted not public); certify **134/134** (+2 routes, +1
+  contract); full suite green.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

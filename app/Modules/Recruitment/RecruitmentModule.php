@@ -20,6 +20,7 @@ use HaHireAI\Modules\Recruitment\Presentation\WorkspaceChooserController;
 use HaHireAI\Modules\Recruitment\Presentation\JobsController;
 use HaHireAI\Modules\Recruitment\Presentation\OffersController;
 use HaHireAI\Modules\Recruitment\Presentation\PipelineController;
+use HaHireAI\Modules\Recruitment\Presentation\PublicCareersController;
 use HaHireAI\Modules\Recruitment\Presentation\PublicInterviewController;
 use HaHireAI\Modules\Recruitment\Presentation\PublicJobController;
 use HaHireAI\Modules\Recruitment\Presentation\ReportsController;
@@ -53,6 +54,10 @@ final class RecruitmentModule implements Module
 
     public function routes(Router $router): void
     {
+        // Public company careers page (no login to browse) at /view/{slug}.
+        $router->get('/view/{slug}', [PublicCareersController::class, 'show']);
+        $router->get('/view/{slug}/logo', [PublicCareersController::class, 'logo']);
+
         // Public (no login to view) — register before the generic /jobs/{id}.
         $router->get('/jobs/public/{token}', [PublicJobController::class, 'show']);
         $router->post('/jobs/public/{token}/apply', [PublicJobController::class, 'apply']);
