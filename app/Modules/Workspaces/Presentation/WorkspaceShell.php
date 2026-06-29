@@ -11,6 +11,7 @@ use HaHireAI\Core\Contracts\WorkspaceAllowance;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
+use HaHireAI\Modules\Navigation\Application\ContextSwitcher;
 use HaHireAI\Modules\Navigation\Application\SidebarBuilder;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspacePreferences;
@@ -31,6 +32,7 @@ final class WorkspaceShell
         private readonly WorkspaceAllowance $allowance,
         private readonly SupportInfo $support,
         private readonly NotificationFeed $notifications,
+        private readonly ContextSwitcher $switcher,
     ) {
     }
 
@@ -100,6 +102,7 @@ final class WorkspaceShell
             'currentWorkspaceId' => $context->workspaceId(),
             'notifications' => $wsId !== '' && $uId !== '' ? $this->notifications->recentForUser($wsId, $uId) : [],
             'unreadCount' => $wsId !== '' && $uId !== '' ? $this->notifications->unreadCount($wsId, $uId) : 0,
+            'switcher' => $this->switcher->model('staff'),
         ]);
 
         return Response::html($html);

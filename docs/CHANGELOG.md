@@ -1099,6 +1099,28 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   staff HTTP smoke (new URLs 200, `/portal/*` 404, `/dashboard`→`/my-applications`
   for candidates, staff dashboard intact); full suite green.
 
+### Unified context switcher + in-place navigation
+- One switcher in the top bar moves a user between **everything they can be** on
+  the single surface: 👑 **HaHireAI** (the platform panel, shown first for anyone
+  with platform access) → the **Workspaces** they staff → the workspaces they're
+  **Applying to** (candidate) → **New workspace**. One identity, many contexts.
+- New `ContextSwitcher` (Navigation) builds the model from the Core contracts
+  (`MemberDirectory`, `CandidateDirectory`, `AccessControl`) — decoupled from the
+  owning modules. All three shells (`WorkspaceShell`, `CandidateShell`,
+  `PlatformShell`) feed it to the layout; the candidate shell also gains the
+  header notifications bell.
+- **In-place navigation (pjax)**: clicking a context (or a sidebar item) swaps
+  only `#app-shell` — sidebar, header and content change with no full reload, and
+  the red/blue accent follows via a `data-theme` flag. The layout emits a partial
+  when the `X-Partial` header is set; the client swaps it, re-runs any inline
+  scripts, and updates history. Pure progressive enhancement — every link/form
+  still works without JS.
+- Verified: `ContextSwitcherTest` (4); certify 137/137; live browser test —
+  switching to a candidate context changed `/dashboard`→`/my-applications`,
+  swapped the sidebar to the candidate menu, **without a page reload** (a JS
+  marker survived the swap); switcher screenshot shows crown + Workspaces +
+  Applying-to.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

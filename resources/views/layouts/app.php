@@ -78,18 +78,20 @@ $initial = strtoupper(substr((string) ($user['name'] ?? '?'), 0, 1));
 /** @var list<array<string,mixed>> $notifications */
 /** @var int $unreadCount */
 /** @var bool $platformTheme */
+/** @var array<string,mixed>|null $switcher the unified context switcher model */
 $workspaces ??= [];
 $currentWorkspaceId ??= null;
 $notifications ??= [];
 $unreadCount ??= 0;
 $platformTheme ??= false;
-$currentWsName = $workspaceName ?? 'Workspace';
-foreach ($workspaces as $w) {
-    if ((string) $w['id'] === (string) $currentWorkspaceId) {
-        $currentWsName = (string) $w['name'];
-    }
-}
+$switcher ??= null;
+$currentWsName = (string) ($switcher['currentLabel'] ?? $workspaceName ?? 'Workspace');
+
+// In-place navigation: when the pjax layer requests a partial (X-Partial header),
+// emit only the #app-shell so the client swaps it without a full document reload.
+$partial = ($_SERVER['HTTP_X_PARTIAL'] ?? '') === '1';
 ?>
+<?php if (! $partial): ?>
 <!DOCTYPE html>
 <html lang="<?= e(config('app.locale', 'en')) ?>" dir="<?= config('app.locale') === 'ar' ? 'rtl' : 'ltr' ?>">
 <head>
@@ -107,7 +109,8 @@ foreach ($workspaces as $w) {
     <?php endif; ?>
 </head>
 <body class="min-h-screen bg-slate-100 font-sans text-slate-800 antialiased<?= $platformTheme ? ' theme-platform' : '' ?>">
-<div class="flex min-h-screen">
+<?php endif; ?>
+<div id="app-shell" class="flex min-h-screen" data-theme="<?= $platformTheme ? 'platform' : 'default' ?>">
     <!-- Single dynamic sidebar — generated from permissions, not roles -->
     <aside class="hidden w-64 shrink-0 flex-col border-e border-slate-200 bg-white md:flex">
         <div class="flex h-16 items-center gap-2.5 px-5">
@@ -120,7 +123,7 @@ foreach ($workspaces as $w) {
         <nav class="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
             <?php foreach ($sidebar as $item): ?>
                 <?php $active = (string) $item['route'] === $activeRoute; ?>
-                <a href="<?= e($item['route']) ?>" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium <?= $active ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' ?>">
+                <a href="<?= e($item['route']) ?>" data-pjax class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium <?= $active ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' ?>">
                     <span class="<?= $active ? 'text-indigo-600' : 'text-slate-400' ?>"><?= $navIcon((string) $item['label']) ?></span>
                     <?= e($item['label']) ?>
                 </a>
@@ -133,32 +136,69 @@ foreach ($workspaces as $w) {
 
     <div class="flex min-w-0 flex-1 flex-col">
         <header class="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
-            <?php if ($workspaces !== []): ?>
-                <details class="group relative">
+            <?php if ($switcher !== null && ($switcher['hasPlatform'] || $switcher['staff'] !== [] || $switcher['candidate'] !== [])): ?>
+                <?php $curIni = $switcher['currentType'] === 'platform' ? '👑' : strtoupper(substr($currentWsName, 0, 1)); ?>
+                <details class="group relative" data-switcher>
                     <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-100">
-                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700"><?= e(strtoupper(substr($currentWsName, 0, 1))) ?></span>
+                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700"><?= e($curIni) ?></span>
                         <span class="max-w-[12rem] truncate text-sm font-semibold text-slate-900"><?= e($currentWsName) ?></span>
                         <svg class="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
                     </summary>
-                    <div class="absolute start-0 z-30 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
-                        <div class="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Workspaces</div>
-                        <?php foreach ($workspaces as $w): ?>
-                            <?php $isCurrent = (string) $w['id'] === (string) $currentWorkspaceId; $wIni = strtoupper(substr((string) $w['name'], 0, 1)); ?>
-                            <?php if ($isCurrent): ?>
-                                <div class="flex items-center gap-2 rounded-lg bg-indigo-50 px-2 py-2">
-                                    <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700"><?= e($wIni) ?></span>
-                                    <span class="truncate text-sm font-semibold text-indigo-700"><?= e($w['name']) ?></span>
-                                </div>
-                            <?php else: ?>
-                                <form method="post" action="/workspaces/<?= e($w['id']) ?>/switch">
-                                    <?= csrf_field() ?>
-                                    <button type="submit" class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50">
-                                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500"><?= e($wIni) ?></span>
-                                        <span class="truncate text-sm font-medium text-slate-700"><?= e($w['name']) ?></span>
-                                    </button>
-                                </form>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
+                    <div class="absolute start-0 z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                        <?php if ($switcher['hasPlatform']): ?>
+                            <?php $pc = $switcher['currentType'] === 'platform'; ?>
+                            <a href="/overview" data-pjax class="flex items-center gap-2 rounded-lg px-2 py-2 <?= $pc ? 'bg-rose-50' : 'hover:bg-slate-50' ?>">
+                                <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-100 text-sm">👑</span>
+                                <span class="truncate text-sm font-semibold <?= $pc ? 'text-rose-700' : 'text-slate-800' ?>">HaHireAI</span>
+                                <span class="ms-auto rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-700">Platform</span>
+                            </a>
+                            <?php if ($switcher['staff'] !== [] || $switcher['candidate'] !== []): ?><div class="my-1 border-t border-slate-100"></div><?php endif; ?>
+                        <?php endif; ?>
+
+                        <?php if ($switcher['staff'] !== []): ?>
+                            <div class="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Workspaces</div>
+                            <?php foreach ($switcher['staff'] as $w): ?>
+                                <?php $isCur = $switcher['currentType'] === 'staff' && $w['id'] === (string) $switcher['currentWorkspaceId']; $ini = strtoupper(substr($w['name'], 0, 1)); ?>
+                                <?php if ($isCur): ?>
+                                    <div class="flex items-center gap-2 rounded-lg bg-indigo-50 px-2 py-2">
+                                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700"><?= e($ini) ?></span>
+                                        <span class="truncate text-sm font-semibold text-indigo-700"><?= e($w['name']) ?></span>
+                                    </div>
+                                <?php else: ?>
+                                    <form method="post" action="/workspaces/<?= e($w['id']) ?>/switch" data-pjax>
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50">
+                                            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500"><?= e($ini) ?></span>
+                                            <span class="truncate text-sm font-medium text-slate-700"><?= e($w['name']) ?></span>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+
+                        <?php if ($switcher['candidate'] !== []): ?>
+                            <div class="px-2 py-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Applying to</div>
+                            <?php foreach ($switcher['candidate'] as $w): ?>
+                                <?php $isCur = $switcher['currentType'] === 'candidate' && $w['id'] === (string) $switcher['currentWorkspaceId']; $ini = strtoupper(substr($w['name'], 0, 1)); ?>
+                                <?php if ($isCur): ?>
+                                    <div class="flex items-center gap-2 rounded-lg bg-indigo-50 px-2 py-2">
+                                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-700"><?= e($ini) ?></span>
+                                        <span class="truncate text-sm font-semibold text-indigo-700"><?= e($w['name']) ?></span>
+                                        <span class="ms-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">Candidate</span>
+                                    </div>
+                                <?php else: ?>
+                                    <form method="post" action="/candidacy/<?= e($w['id']) ?>/switch" data-pjax>
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50">
+                                            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500"><?= e($ini) ?></span>
+                                            <span class="truncate text-sm font-medium text-slate-700"><?= e($w['name']) ?></span>
+                                            <span class="ms-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">Candidate</span>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+
                         <div class="my-1 border-t border-slate-100"></div>
                         <a href="/workspaces/create" class="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-indigo-600 hover:bg-slate-50">
                             <span class="flex h-7 w-7 items-center justify-center rounded-lg border border-dashed border-slate-300 text-slate-400">+</span>
@@ -235,5 +275,57 @@ foreach ($workspaces as $w) {
         <main class="flex-1 p-6 lg:p-8"><?= $content ?></main>
     </div>
 </div>
+<?php if (! $partial): ?>
+<script>
+// In-place navigation (pjax): swap only #app-shell so switching context or
+// clicking the sidebar never triggers a full page reload. Progressive
+// enhancement — without JS, every link/form still works as a normal request.
+(function () {
+    if (!window.history || !window.fetch || !window.DOMParser) return;
+    var ID = 'app-shell';
+    var shell = function () { return document.getElementById(ID); };
+    function applyTheme(el) {
+        document.body.classList.toggle('theme-platform', el && el.getAttribute('data-theme') === 'platform');
+    }
+    function runScripts(root) {
+        root.querySelectorAll('script').forEach(function (old) {
+            var s = document.createElement('script');
+            if (old.src) { s.src = old.src; } else { s.textContent = old.textContent; }
+            old.replaceWith(s);
+        });
+    }
+    function swap(html, url, push) {
+        var next = new DOMParser().parseFromString(html, 'text/html').getElementById(ID);
+        if (!next) { window.location.href = url; return; }
+        shell().replaceWith(next);
+        applyTheme(next);
+        runScripts(next);
+        if (push) history.pushState({ pjax: true }, '', url);
+        window.scrollTo(0, 0);
+    }
+    function load(url, opts) {
+        opts = opts || {};
+        fetch(url, Object.assign({ headers: { 'X-Partial': '1' }, credentials: 'same-origin' }, opts.fetch || {}))
+            .then(function (r) { if (!r.ok) throw 0; return r.text().then(function (h) { return { h: h, u: r.url || url }; }); })
+            .then(function (d) { swap(d.h, d.u, opts.push !== false); })
+            .catch(function () { if (opts.fallback) { opts.fallback(); } else { window.location.href = url; } });
+    }
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest && e.target.closest('a[data-pjax]');
+        if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        if (a.target && a.target !== '_self') return;
+        e.preventDefault();
+        load(a.getAttribute('href'), { push: true });
+    });
+    document.addEventListener('submit', function (e) {
+        var f = e.target.closest && e.target.closest('form[data-pjax]');
+        if (!f) return;
+        e.preventDefault();
+        load(f.action, { push: true, fetch: { method: 'POST', body: new FormData(f), redirect: 'follow' }, fallback: function () { f.submit(); } });
+    });
+    window.addEventListener('popstate', function () { load(location.href, { push: false }); });
+})();
+</script>
 </body>
 </html>
+<?php endif; ?>

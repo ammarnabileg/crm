@@ -7,6 +7,7 @@ namespace HaHireAI\Modules\Workspaces\Presentation;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
+use HaHireAI\Modules\Navigation\Application\ContextSwitcher;
 use HaHireAI\Modules\Navigation\Application\SidebarBuilder;
 use HaHireAI\Modules\Workspaces\Application\PlatformContext;
 
@@ -22,6 +23,7 @@ final class PlatformShell
         private readonly View $view,
         private readonly SidebarBuilder $sidebar,
         private readonly AuthContext $auth,
+        private readonly ContextSwitcher $switcher,
     ) {
     }
 
@@ -35,6 +37,7 @@ final class PlatformShell
             // Red accent across the whole platform shell — distinct from the blue
             // tenant workspaces. Consumed by layouts.app → <body class="theme-platform">.
             'platformTheme' => true,
+            'switcher' => $this->switcher->model('platform'),
         ]);
 
         return Response::html($html);
