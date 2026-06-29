@@ -103,7 +103,13 @@
       var def = byType[type]; if (!def) return;
       var node = { id: uid(), type: type, x: Math.round(x), y: Math.round(y), config: {} };
       (def.config || []).forEach(function (f) { node.config[f.key] = ''; });
+      var prev = state.sel;
       state.nodes.push(node);
+      // Auto-connect from the selected node so a chain builds with a single drop.
+      if (prev && prev !== node.id && kind(type) !== 'trigger' && nodeById(prev)
+        && !state.edges.some(function (e) { return e.from === prev && e.to === node.id; })) {
+        state.edges.push({ id: uid(), from: prev, to: node.id, branch: '' });
+      }
       state.sel = node.id;
       render();
     }
@@ -119,6 +125,14 @@
       state.edges.push({ id: uid(), from: from, to: to, branch: branch || '' });
       render();
     }
+    function removeEdge(id) {
+      state.edges = state.edges.filter(function (e) { return e.id !== id; });
+      render();
+    }
+    edgesEl.addEventListener('click', function (e) {
+      var hit = e.target.closest && e.target.closest('[data-edge]');
+      if (hit) removeEdge(hit.getAttribute('data-edge'));
+    });
     function nodeById(id) { return state.nodes.find(function (n) { return n.id === id; }); }
 
     // ---- Rendering ------------------------------------------------------------
@@ -167,11 +181,11 @@
 
         // Ports: input (left) unless trigger; output (right) unless pure end.
         if (k !== 'trigger') {
-          var pin = el('div', 'wf-port wf-in absolute -left-2 h-3.5 w-3.5 rounded-full border-2 border-white bg-slate-400');
-          pin.style.top = (PORT_Y - 7) + 'px'; pin.dataset.in = n.id; card.appendChild(pin);
+          var pin = el('div', 'wf-port wf-in absolute -left-2.5 h-4 w-4 rounded-full border-2 border-white bg-slate-400 transition hover:scale-125 hover:bg-indigo-500');
+          pin.style.top = (PORT_Y - 8) + 'px'; pin.dataset.in = n.id; pin.title = 'Input — drop a connection here'; card.appendChild(pin);
         }
-        var pout = el('div', 'wf-port wf-out absolute -right-2 h-3.5 w-3.5 cursor-crosshair rounded-full border-2 border-white');
-        pout.style.top = (PORT_Y - 7) + 'px'; pout.style.background = color; pout.dataset.out = n.id;
+        var pout = el('div', 'wf-port wf-out absolute -right-2.5 h-4 w-4 cursor-crosshair rounded-full border-2 border-white transition hover:scale-125 hover:ring-2 hover:ring-indigo-300');
+        pout.style.top = (PORT_Y - 8) + 'px'; pout.style.background = color; pout.dataset.out = n.id; pout.title = 'Drag from here to connect';
         card.appendChild(pout);
 
         nodesEl.appendChild(card);
@@ -193,13 +207,14 @@
       return 'M ' + a.x + ' ' + a.y + ' C ' + (a.x + dx) + ' ' + a.y + ', ' + (b.x - dx) + ' ' + b.y + ', ' + b.x + ' ' + b.y;
     }
     function renderEdges(temp) {
-      var parts = '';
+      var parts = '<defs><marker id="wf-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>';
       state.edges.forEach(function (e) {
-        var a = portPos(e.from, 'out'), b = portPos(e.to, 'in');
-        parts += '<path d="' + path(a, b) + '" fill="none" stroke="#94a3b8" stroke-width="2"/>'
-          + (e.branch ? '<text x="' + ((a.x + b.x) / 2) + '" y="' + ((a.y + b.y) / 2 - 4) + '" fill="#64748b" font-size="10" text-anchor="middle">' + esc(e.branch) + '</text>' : '');
+        var a = portPos(e.from, 'out'), b = portPos(e.to, 'in'); var d = path(a, b);
+        parts += '<path d="' + d + '" fill="none" stroke="#94a3b8" stroke-width="2" marker-end="url(#wf-arrow)"/>'
+          + '<path d="' + d + '" fill="none" stroke="transparent" stroke-width="16" style="pointer-events:stroke;cursor:pointer" data-edge="' + e.id + '"><title>Click to remove this connection</title></path>'
+          + (e.branch ? '<text x="' + ((a.x + b.x) / 2) + '" y="' + ((a.y + b.y) / 2 - 6) + '" fill="#64748b" font-size="11" text-anchor="middle" style="pointer-events:none">' + esc(e.branch) + '</text>' : '');
       });
-      if (temp) parts += '<path d="' + path(temp.a, temp.b) + '" fill="none" stroke="#6366f1" stroke-width="2" stroke-dasharray="5 4"/>';
+      if (temp) parts += '<path d="' + path(temp.a, temp.b) + '" fill="none" stroke="#6366f1" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#wf-arrow)"/>';
       edgesEl.innerHTML = parts;
     }
 
@@ -244,7 +259,16 @@
       var box = root.querySelector('#wf-inspector');
       var n = state.sel ? nodeById(state.sel) : null;
       if (!n) {
-        box.innerHTML = '<div class="text-sm text-slate-400">Select a node to edit its settings, or drag a new one from the left.</div>';
+        box.innerHTML = '<div class="space-y-3 text-sm text-slate-500">'
+          + '<p class="font-medium text-slate-700">Build your automation</p>'
+          + '<ol class="list-decimal space-y-1.5 ps-4 text-slate-500">'
+          + '<li>Drag a <span class="font-medium text-amber-600">trigger</span> from the left onto the canvas.</li>'
+          + '<li>Drop an action — it <span class="font-medium">auto-connects</span> to the selected node.</li>'
+          + '<li>Or drag from a node’s right dot to a node’s left dot to connect manually.</li>'
+          + '<li>Click an arrow to remove it; select a node and press Delete to remove it.</li>'
+          + '</ol>'
+          + '<p class="text-xs text-slate-400">Select any node to edit its settings here.</p>'
+          + '</div>';
         return;
       }
       var def = byType[n.type] || { label: n.type, description: '', config: [] };
@@ -322,7 +346,7 @@
     });
 
     canvas.addEventListener('mousedown', function (e) {
-      if (e.target.closest('.wf-node')) return;
+      if (e.target.closest('.wf-node') || (e.target.closest && e.target.closest('[data-edge]'))) return;
       if (e.button !== 0) return;
       state.sel = null;
       drag = { mode: 'pan', sx: e.clientX, sy: e.clientY, ox: state.pan.x, oy: state.pan.y };
