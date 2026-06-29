@@ -86,6 +86,10 @@ $unreadCount ??= 0;
 $platformTheme ??= false;
 $switcher ??= null;
 $fullBleed ??= false; // full-height, zero-padding content area (e.g. the workflow canvas)
+/** @var array{name:string,initial:string,logoUrl:?string,style:string}|null $brand */
+$brand ??= null; // per-workspace white-label branding (null on the platform context)
+$whiteLabel = ! $platformTheme && $brand !== null; // brand the app for the company
+$poweredBy = (string) (function_exists('config') ? config('app.name', 'HaHireAI') : 'HaHireAI');
 $currentWsName = (string) ($switcher['currentLabel'] ?? $workspaceName ?? 'Workspace');
 
 // In-place navigation: when the pjax layer requests a partial (X-Partial header),
@@ -99,7 +103,7 @@ $partial = ($_SERVER['HTTP_X_PARTIAL'] ?? '') === '1';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light">
-    <title><?= e($pageTitle) ?> · HaHireAI</title>
+    <title><?= e($pageTitle) ?> · <?= e($whiteLabel ? $brand['name'] : 'HaHireAI') ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
@@ -111,14 +115,23 @@ $partial = ($_SERVER['HTTP_X_PARTIAL'] ?? '') === '1';
 </head>
 <body class="min-h-screen bg-slate-100 font-sans text-slate-800 antialiased<?= $platformTheme ? ' theme-platform' : '' ?>">
 <?php endif; ?>
-<div id="app-shell" class="flex min-h-screen" data-theme="<?= $platformTheme ? 'platform' : 'default' ?>">
+<div id="app-shell" class="flex min-h-screen" data-theme="<?= $platformTheme ? 'platform' : 'default' ?>"<?= $whiteLabel && $brand['style'] !== '' ? ' style="' . e($brand['style']) . '"' : '' ?>>
     <!-- Single dynamic sidebar — generated from permissions, not roles -->
     <aside class="hidden w-64 shrink-0 flex-col border-e border-slate-200 bg-white md:flex">
         <div class="flex h-16 items-center gap-2.5 px-5">
-            <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-sm font-bold text-white shadow-sm">Ha</span>
-            <span class="text-lg font-bold tracking-tight text-slate-900">HaHire<span class="text-indigo-600">AI</span></span>
+            <?php if ($whiteLabel): ?>
+                <?php if (! empty($brand['logoUrl'])): ?>
+                    <img src="<?= e($brand['logoUrl']) ?>" alt="<?= e($brand['name']) ?>" class="h-9 w-9 rounded-xl object-cover shadow-sm">
+                <?php else: ?>
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-sm font-bold text-white shadow-sm"><?= e($brand['initial']) ?></span>
+                <?php endif; ?>
+                <span class="truncate text-lg font-bold tracking-tight text-slate-900" title="<?= e($brand['name']) ?>"><?= e($brand['name']) ?></span>
+            <?php else: ?>
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-sm font-bold text-white shadow-sm">Ha</span>
+                <span class="text-lg font-bold tracking-tight text-slate-900">HaHire<span class="text-indigo-600">AI</span></span>
+            <?php endif; ?>
         </div>
-        <?php if ($workspaceName !== null): ?>
+        <?php if (! $whiteLabel && $workspaceName !== null): ?>
             <div class="mx-3 mb-1 truncate rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400" title="<?= e($workspaceName) ?>"><?= e($workspaceName) ?></div>
         <?php endif; ?>
         <nav class="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
@@ -133,6 +146,11 @@ $partial = ($_SERVER['HTTP_X_PARTIAL'] ?? '') === '1';
                 <p class="px-3 py-2 text-sm text-slate-400">No modules available yet.</p>
             <?php endif; ?>
         </nav>
+        <?php if ($whiteLabel): ?>
+            <div class="border-t border-slate-100 px-5 py-3 text-[11px] text-slate-400">
+                Powered by <span class="font-semibold text-slate-500"><?= e($poweredBy) ?></span>
+            </div>
+        <?php endif; ?>
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col">

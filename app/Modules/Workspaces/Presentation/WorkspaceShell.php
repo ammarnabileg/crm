@@ -104,9 +104,30 @@ final class WorkspaceShell
             'unreadCount' => $wsId !== '' && $uId !== '' ? $this->notifications->unreadCount($wsId, $uId) : 0,
             'switcher' => $this->switcher->model('staff'),
             'fullBleed' => ($options['fullBleed'] ?? false) === true,
+            'brand' => $this->brand($wsId !== '' ? $wsId : null, $context->workspace()),
         ]);
 
         return Response::html($html);
+    }
+
+    /**
+     * Per-workspace branding for the white-labelled shell (logo, name, accent).
+     *
+     * @param  array<string,mixed>|null  $workspace
+     * @return array{name:string,initial:string,logoUrl:?string,style:string}
+     */
+    private function brand(?string $workspaceId, ?array $workspace): array
+    {
+        $name = trim((string) ($workspace['name'] ?? 'Workspace')) ?: 'Workspace';
+        $hex = $workspaceId !== null ? (string) $this->preferences->get($workspaceId, 'brand.color', '') : '';
+        $hasLogo = $workspaceId !== null && (string) $this->preferences->get($workspaceId, 'brand.logo_file_id', '') !== '';
+
+        return [
+            'name' => $name,
+            'initial' => mb_strtoupper(mb_substr($name, 0, 1)),
+            'logoUrl' => $hasLogo ? '/settings/logo' : null,
+            'style' => \HaHireAI\Modules\Workspaces\Application\BrandPalette::styleVars($hex),
+        ];
     }
 
     /** True if the caller's IP is on the maintenance allow-list. */

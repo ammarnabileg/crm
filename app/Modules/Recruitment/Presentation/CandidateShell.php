@@ -11,6 +11,8 @@ use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Navigation\Application\ContextSwitcher;
 use HaHireAI\Modules\Navigation\Application\SidebarBuilder;
 use HaHireAI\Modules\Recruitment\Application\CandidateContext;
+use HaHireAI\Modules\Workspaces\Application\BrandPalette;
+use HaHireAI\Modules\Workspaces\Application\WorkspacePreferences;
 
 /**
  * Renders a page inside the candidate shell — the same top bar + dynamic sidebar
@@ -25,6 +27,7 @@ final class CandidateShell
         private readonly AuthContext $auth,
         private readonly ContextSwitcher $switcher,
         private readonly NotificationFeed $notifications,
+        private readonly WorkspacePreferences $preferences,
     ) {
     }
 
@@ -40,8 +43,30 @@ final class CandidateShell
             'switcher' => $this->switcher->model('candidate'),
             'notifications' => $wsId !== '' && $uId !== '' ? $this->notifications->recentForUser($wsId, $uId) : [],
             'unreadCount' => $wsId !== '' && $uId !== '' ? $this->notifications->unreadCount($wsId, $uId) : 0,
+            'brand' => $this->brand($wsId !== '' ? $wsId : null, $context->workspace()),
         ]);
 
         return Response::html($html);
+    }
+
+    /**
+     * The company branding a candidate sees (logo via the public slug, name, accent).
+     *
+     * @param  array<string,mixed>|null  $workspace
+     * @return array{name:string,initial:string,logoUrl:?string,style:string}
+     */
+    private function brand(?string $workspaceId, ?array $workspace): array
+    {
+        $name = trim((string) ($workspace['name'] ?? 'Workspace')) ?: 'Workspace';
+        $slug = (string) ($workspace['slug'] ?? '');
+        $hex = $workspaceId !== null ? (string) $this->preferences->get($workspaceId, 'brand.color', '') : '';
+        $hasLogo = $workspaceId !== null && (string) $this->preferences->get($workspaceId, 'brand.logo_file_id', '') !== '';
+
+        return [
+            'name' => $name,
+            'initial' => mb_strtoupper(mb_substr($name, 0, 1)),
+            'logoUrl' => $hasLogo && $slug !== '' ? '/view/' . rawurlencode($slug) . '/logo' : null,
+            'style' => BrandPalette::styleVars($hex),
+        ];
     }
 }
