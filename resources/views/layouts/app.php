@@ -136,7 +136,7 @@ $partial = ($_SERVER['HTTP_X_PARTIAL'] ?? '') === '1';
 
     <div class="flex min-w-0 flex-1 flex-col">
         <header class="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
-            <?php if ($switcher !== null && ($switcher['hasPlatform'] || $switcher['staff'] !== [] || $switcher['candidate'] !== [])): ?>
+            <?php if ($switcher !== null && ($switcher['hasPlatform'] || $switcher['staff'] !== [] || $switcher['candidate'] !== [] || ($switcher['pendingInvites'] ?? 0) > 0)): ?>
                 <?php $curIni = $switcher['currentType'] === 'platform' ? '👑' : strtoupper(substr($currentWsName, 0, 1)); ?>
                 <details class="group relative" data-switcher>
                     <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-100">
@@ -199,6 +199,14 @@ $partial = ($_SERVER['HTTP_X_PARTIAL'] ?? '') === '1';
                             <?php endforeach; ?>
                         <?php endif; ?>
 
+                        <?php if (($switcher['pendingInvites'] ?? 0) > 0): ?>
+                            <div class="my-1 border-t border-slate-100"></div>
+                            <a href="/invites" data-pjax class="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-amber-50">
+                                <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700">✉</span>
+                                <span class="truncate text-sm font-medium text-amber-700">Invitations</span>
+                                <span class="ms-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white"><?= e($switcher['pendingInvites']) ?></span>
+                            </a>
+                        <?php endif; ?>
                         <div class="my-1 border-t border-slate-100"></div>
                         <a href="/workspaces/create" class="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-indigo-600 hover:bg-slate-50">
                             <span class="flex h-7 w-7 items-center justify-center rounded-lg border border-dashed border-slate-300 text-slate-400">+</span>

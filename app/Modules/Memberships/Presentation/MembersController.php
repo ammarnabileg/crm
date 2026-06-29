@@ -47,6 +47,7 @@ final class MembersController
         return $this->shell->render($this->context, 'members.index', [
             'members' => $this->members->membersForWorkspace((string) $this->context->workspaceId()),
             'roles' => $this->roles->rolesForWorkspace((string) $this->context->workspaceId()),
+            'invitations' => $this->invitations->forWorkspace((string) $this->context->workspaceId()),
             'canInvite' => $this->context->can('member.invite'),
             'canSuspend' => $this->context->can('member.suspend'),
             'canReactivate' => $this->context->can('member.reactivate'),
@@ -194,6 +195,62 @@ final class MembersController
 
         $this->session->flash('code', $invite['code']);
         $this->session->flash('status', "Invitation created for {$email}.");
+
+        return Response::redirect('/members');
+    }
+
+    /** Edit the roles a pending invitation will grant on acceptance. */
+    public function updateInvitationRoles(Request $request, string $invitationId): Response
+    {
+        if (! $this->auth->check()) {
+            return Response::redirect('/login');
+        }
+        if (! $this->context->resolve()) {
+            return Response::redirect('/dashboard');
+        }
+        if (! $this->context->can('member.invite') || ! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return $this->forbidden();
+        }
+
+        $roleIds = array_values(array_filter(array_map('strval', (array) $request->input('role_ids', []))));
+        $this->invitations->updateRoles((string) $this->context->workspaceId(), $invitationId, $roleIds);
+
+        $this->audit->record('memberships.invitation.updated', [
+            'workspace_id' => $this->context->workspaceId(),
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'invitation',
+            'entity_id' => $invitationId,
+            'ip' => $request->server('REMOTE_ADDR'),
+            'changes' => ['role_ids' => $roleIds],
+        ]);
+        $this->session->flash('status', 'Invitation roles updated.');
+
+        return Response::redirect('/members');
+    }
+
+    /** Revoke a pending invitation. */
+    public function revokeInvitation(Request $request, string $invitationId): Response
+    {
+        if (! $this->auth->check()) {
+            return Response::redirect('/login');
+        }
+        if (! $this->context->resolve()) {
+            return Response::redirect('/dashboard');
+        }
+        if (! $this->context->can('member.invite') || ! $this->session->verifyCsrf((string) $request->input('_csrf'))) {
+            return $this->forbidden();
+        }
+
+        $this->invitations->revoke((string) $this->context->workspaceId(), $invitationId);
+
+        $this->audit->record('memberships.invitation.revoked', [
+            'workspace_id' => $this->context->workspaceId(),
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'invitation',
+            'entity_id' => $invitationId,
+            'ip' => $request->server('REMOTE_ADDR'),
+        ]);
+        $this->session->flash('status', 'Invitation revoked.');
 
         return Response::redirect('/members');
     }

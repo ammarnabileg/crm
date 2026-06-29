@@ -1,6 +1,7 @@
 <?php
 /** @var list<array<string,mixed>> $members */
 /** @var list<array<string,mixed>> $roles */
+/** @var list<array<string,mixed>> $invitations */
 /** @var bool $canInvite */
 /** @var bool $canSuspend */
 /** @var bool $canReactivate */
@@ -109,5 +110,46 @@ $canManage = $canSuspend || $canReactivate || $canRemove;
             </div>
             <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Send invite</button>
         </form>
+    </div>
+
+    <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-1 text-sm font-semibold text-slate-900">Pending invitations</h2>
+        <p class="mb-4 text-xs text-slate-400">People invited by email who haven't accepted yet. You can change the roles they'll get, or revoke the invite.</p>
+        <div class="space-y-3">
+            <?php foreach ($invitations as $inv): ?>
+                <?php $invRoles = json_decode((string) ($inv['role_ids'] ?? '[]'), true) ?: []; ?>
+                <div class="rounded-xl border border-slate-200 p-4">
+                    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <span class="font-medium text-slate-800"><?= e($inv['email']) ?></span>
+                            <span class="text-xs text-slate-400">
+                                <?php if (! empty($inv['inviter_name'])): ?>· invited by <?= e($inv['inviter_name']) ?><?php endif; ?>
+                                <?php if (! empty($inv['expires_at'])): ?> · expires <?= e(substr((string) $inv['expires_at'], 0, 10)) ?><?php endif; ?>
+                            </span>
+                        </div>
+                        <form method="post" action="/members/invitations/<?= e($inv['id']) ?>/revoke" onsubmit="return confirm('Revoke the invitation for <?= e($inv['email']) ?>?')">
+                            <?= csrf_field() ?><button class="text-xs font-medium text-rose-600 hover:text-rose-700">Revoke</button>
+                        </form>
+                    </div>
+                    <form method="post" action="/members/invitations/<?= e($inv['id']) ?>/roles" class="flex flex-wrap items-end gap-3">
+                        <?= csrf_field() ?>
+                        <div class="grow">
+                            <label class="mb-1 block text-xs font-medium text-slate-600">Roles on acceptance</label>
+                            <div class="flex flex-wrap gap-2">
+                                <?php foreach ($roles as $r): ?>
+                                    <label class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-700">
+                                        <input type="checkbox" name="role_ids[]" value="<?= e($r['id']) ?>" <?= in_array((string) $r['id'], array_map('strval', $invRoles), true) ? 'checked' : '' ?> class="rounded border-slate-300">
+                                        <?= e($r['name']) ?>
+                                    </label>
+                                <?php endforeach; ?>
+                                <?php if ($roles === []): ?><span class="text-xs text-slate-400">No roles defined yet.</span><?php endif; ?>
+                            </div>
+                        </div>
+                        <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Save roles</button>
+                    </form>
+                </div>
+            <?php endforeach; ?>
+            <?php if ($invitations === []): ?><p class="text-sm text-slate-400">No pending invitations.</p><?php endif; ?>
+        </div>
     </div>
 <?php endif; ?>

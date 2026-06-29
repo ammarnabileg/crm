@@ -6,6 +6,7 @@ namespace HaHireAI\Modules\Navigation\Application;
 
 use HaHireAI\Core\Contracts\AccessControl;
 use HaHireAI\Core\Contracts\CandidateDirectory;
+use HaHireAI\Core\Contracts\InvitationInbox;
 use HaHireAI\Core\Contracts\MemberDirectory;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 
@@ -24,6 +25,7 @@ final class ContextSwitcher
         private readonly MemberDirectory $members,
         private readonly CandidateDirectory $candidates,
         private readonly AccessControl $access,
+        private readonly InvitationInbox $invitations,
     ) {
     }
 
@@ -34,6 +36,7 @@ final class ContextSwitcher
      *   staff: list<array{id: string, name: string}>,
      *   candidate: list<array{id: string, name: string}>,
      *   hasPlatform: bool,
+     *   pendingInvites: int,
      *   currentType: string,
      *   currentWorkspaceId: ?string,
      *   currentLabel: string
@@ -45,7 +48,7 @@ final class ContextSwitcher
         $currentWs = $this->auth->currentWorkspaceId();
         if ($uid === '') {
             return [
-                'staff' => [], 'candidate' => [], 'hasPlatform' => false,
+                'staff' => [], 'candidate' => [], 'hasPlatform' => false, 'pendingInvites' => 0,
                 'currentType' => $currentType, 'currentWorkspaceId' => $currentWs,
                 'currentLabel' => 'HaHireAI',
             ];
@@ -55,6 +58,8 @@ final class ContextSwitcher
         $staff = array_map($shape, $this->members->workspacesForUser($uid));
         $candidate = array_map($shape, $this->candidates->workspacesForCandidate($uid));
         $hasPlatform = $this->access->systemPermissionsForUser($uid) !== [];
+        $email = (string) ($this->auth->user()['email'] ?? '');
+        $pendingInvites = $email !== '' ? count($this->invitations->pendingForEmail($email)) : 0;
 
         $label = 'HaHireAI';
         if ($currentType !== 'platform') {
@@ -70,6 +75,7 @@ final class ContextSwitcher
             'staff' => $staff,
             'candidate' => $candidate,
             'hasPlatform' => $hasPlatform,
+            'pendingInvites' => $pendingInvites,
             'currentType' => $currentType,
             'currentWorkspaceId' => $currentWs,
             'currentLabel' => $label,

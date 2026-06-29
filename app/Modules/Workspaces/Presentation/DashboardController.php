@@ -6,6 +6,7 @@ namespace HaHireAI\Modules\Workspaces\Presentation;
 
 use HaHireAI\Core\Contracts\CandidateDirectory;
 use HaHireAI\Core\Contracts\EntitlementResolver;
+use HaHireAI\Core\Contracts\InvitationInbox;
 use HaHireAI\Core\Contracts\RecruitmentSnapshot;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\View\View;
@@ -32,6 +33,7 @@ final class DashboardController
         private readonly RecruitmentSnapshot $snapshot,
         private readonly EntitlementResolver $entitlements,
         private readonly TaskBoard $tasks,
+        private readonly InvitationInbox $invitations,
     ) {
     }
 
@@ -53,9 +55,13 @@ final class DashboardController
 
         if (! $this->context->resolve()) {
             // No staff role in the active workspace: route candidates to their
-            // applications, everyone else to the chooser ("create a workspace").
+            // applications; a freshly-invited user (no workspaces yet) to their
+            // invitations to accept; everyone else to the chooser.
             if ($isCandidateSomewhere) {
                 return Response::redirect('/my-applications');
+            }
+            if ($this->invitations->pendingForEmail((string) ($user['email'] ?? '')) !== []) {
+                return Response::redirect('/invites');
             }
 
             return Response::redirect('/workspaces/select');

@@ -1121,6 +1121,28 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   marker survived the swap); switcher screenshot shows crown + Workspaces +
   Applying-to.
 
+### Accept-first invitations + invite management
+- Invitations are now **accept-first**: when you're invited by email, you don't
+  silently join. A signed-in user reviews the workspaces that invited them at
+  **/invites** and accepts or declines; the workspace appears (in the switcher)
+  only after they accept. Pending invites surface in the context switcher (an
+  amber "Invitations N" entry) and a freshly-invited user with no workspaces is
+  funnelled straight to /invites after sign-in.
+- New Core contract `InvitationInbox` (`pendingForEmail`), implemented by
+  `InvitationService` and consumed by `ContextSwitcher` + `DashboardController`
+  so decoupled layers can surface invites (§4). `InvitationService` gains
+  `acceptOwn`/`declineOwn` (email-verified — you can't accept someone else's
+  invite), `forWorkspace`, `updateRoles`, `revoke`, and `pendingForEmail`.
+- New `InvitesController` (+ `invites.index` view). **Invite management** on the
+  Members page: list pending invitations, change the roles they'll grant on
+  acceptance, or revoke them (`/members/invitations/{id}/roles|revoke`).
+- A candidate can already create a workspace and invite people by email; that
+  flow now uses the same accept-first invitations + management.
+- Verified: `InvitationFlowTest` (4 — surface/accept/membership, can't accept
+  another's invite, decline, roles+revoke), `ContextSwitcherTest` (pending
+  count); certify **143/143**; live HTTP smoke of the full funnel (invite →
+  register → funnelled to /invites → accept → member); full suite green.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

@@ -193,6 +193,8 @@ foreach ([
     'GET /tasks', 'POST /tasks', 'POST /tasks/{id}/complete', 'POST /tasks/{id}/delete',
     'GET /candidates/compare', 'GET /api/v1/ping', 'GET /api/v1/jobs',
     'GET /view/{slug}', 'GET /view/{slug}/logo',
+    'GET /invites', 'POST /invites/{invitationId}/accept', 'POST /invites/{invitationId}/decline',
+    'POST /members/invitations/{invitationId}/roles', 'POST /members/invitations/{invitationId}/revoke',
 ] as $route) {
     $check("route registered: {$route}", isset($paths[$route]));
 }
@@ -254,6 +256,8 @@ $notifFeed = $c->make(\HaHireAI\Core\Contracts\NotificationFeed::class);
 $check('Notification feed contract resolves (header bell)', $notifFeed instanceof \HaHireAI\Modules\Notifications\Application\NotificationService);
 $companyDir = $c->make(\HaHireAI\Core\Contracts\CompanyDirectory::class);
 $check('Company directory contract resolves (public careers page)', $companyDir instanceof \HaHireAI\Modules\Workspaces\Application\CompanyDirectoryService);
+$inviteInbox = $c->make(\HaHireAI\Core\Contracts\InvitationInbox::class);
+$check('Invitation inbox contract resolves (accept-first invitations)', $inviteInbox instanceof \HaHireAI\Modules\Memberships\Application\InvitationService);
 
 // ── 8. Health ───────────────────────────────────────────────────────────────
 $head('8. Health');

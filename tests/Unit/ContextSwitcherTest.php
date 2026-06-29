@@ -6,6 +6,7 @@ namespace HaHireAI\Tests\Unit;
 
 use HaHireAI\Core\Contracts\AccessControl;
 use HaHireAI\Core\Contracts\CandidateDirectory;
+use HaHireAI\Core\Contracts\InvitationInbox;
 use HaHireAI\Core\Contracts\MemberDirectory;
 use HaHireAI\Core\Contracts\UserDirectory;
 use HaHireAI\Core\Http\Session;
@@ -28,6 +29,7 @@ final class ContextSwitcherTest extends TestCase
             staff: [['id' => 'wsA', 'name' => 'Acme'], ['id' => 'wsC', 'name' => 'Globex']],
             candidate: [['id' => 'wsB', 'name' => 'Initech']],
             platform: ['system.dashboard.view'],
+            pending: 2,
         );
 
         $model = $switcher->model('staff');
@@ -35,6 +37,7 @@ final class ContextSwitcherTest extends TestCase
         $this->assertTrue($model['hasPlatform']);
         $this->assertSame(['Acme', 'Globex'], array_column($model['staff'], 'name'));
         $this->assertSame(['Initech'], array_column($model['candidate'], 'name'));
+        $this->assertSame(2, $model['pendingInvites']);
         $this->assertSame('staff', $model['currentType']);
         $this->assertSame('wsA', $model['currentWorkspaceId']);
         $this->assertSame('Acme', $model['currentLabel']); // resolves the active workspace name
@@ -77,7 +80,7 @@ final class ContextSwitcherTest extends TestCase
      * @param  list<array{id:string,name:string}>  $candidate
      * @param  list<string>  $platform
      */
-    private function make(array $staff, array $candidate, array $platform): ContextSwitcher
+    private function make(array $staff, array $candidate, array $platform, int $pending = 0): ContextSwitcher
     {
         $members = new class($staff) implements MemberDirectory {
             /** @param list<array<string,mixed>> $staff */
@@ -182,7 +185,7 @@ final class ContextSwitcherTest extends TestCase
         $users = new class implements UserDirectory {
             public function find(string $id): ?array
             {
-                return null;
+                return ['id' => $id, 'name' => 'U', 'email' => 'u1@example.com'];
             }
 
             public function findByEmail(string $email): ?array
@@ -214,6 +217,20 @@ final class ContextSwitcherTest extends TestCase
             }
         };
 
-        return new ContextSwitcher(new AuthContext(new Session(), $users), $members, $candidates, $access);
+        $invites = new class($pending) implements InvitationInbox {
+            public function __construct(private int $pending)
+            {
+            }
+
+            public function pendingForEmail(string $email): array
+            {
+                return array_fill(0, $this->pending, [
+                    'id' => 'inv', 'workspace_id' => 'w', 'workspace_name' => 'W', 'email' => $email,
+                    'role_ids' => [], 'inviter_name' => null, 'created_at' => '', 'expires_at' => null,
+                ]);
+            }
+        };
+
+        return new ContextSwitcher(new AuthContext(new Session(), $users), $members, $candidates, $access, $invites);
     }
 }
