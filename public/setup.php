@@ -108,6 +108,128 @@ function run_resolved(array $r, string $root): array
     return [trim($out) === '' ? '(no output)' : $out, $code];
 }
 
+/**
+ * Run an allow-listed command. Prefers an IN-PROCESS PHP implementation so the
+ * essential operations work even on shared hosts where proc_open/exec are disabled
+ * (the common reason "the terminal does nothing"). Falls back to a real shell only
+ * for things that genuinely need one (npm). Now possible because the app boots with
+ * no Composer/vendor.
+ */
+function run_command(string $key, string $root): string
+{
+    switch ($key) {
+        case 'php -v':
+            return 'PHP ' . PHP_VERSION . ' on ' . PHP_OS . ' (' . PHP_SAPI . ')';
+        case 'php -m':
+            return implode("\n", get_loaded_extensions());
+        case 'check-writable':
+            return 'storage/ is ' . (is_writable($root . '/storage') ? 'WRITABLE ✓' : 'NOT writable ✗ — run “fix-permissions”.');
+        case 'disk-free':
+            $free = @disk_free_space($root);
+            return $free ? round($free / 1048576) . ' MB free on disk' : 'Free space unknown.';
+        case 'fix-permissions':
+            return fix_permissions($root . '/storage');
+        case 'composer install':
+        case 'composer dump-autoload -o':
+            return composer_status($root);
+        case 'php bin/console.php migrate':
+        case 'php bin/console.php migrate:status':
+        case 'php bin/console.php db:seed':
+        case 'php bin/console.php health':
+            return boot_and_run($root, $key);
+    }
+
+    // Shell fallback (npm) — only when the host actually allows process control.
+    $resolved = resolve_command($key, $root);
+    if ($resolved === null) {
+        return 'Could not resolve the command.';
+    }
+    [$out] = run_resolved($resolved, $root);
+
+    return $out;
+}
+
+/** Recursively chmod storage/ to 0775 using pure PHP (no shell). */
+function fix_permissions(string $dir): string
+{
+    if (! is_dir($dir)) {
+        return 'storage/ not found at ' . $dir;
+    }
+    $changed = @chmod($dir, 0775) ? 1 : 0;
+    $it = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST,
+    );
+    foreach ($it as $path) {
+        if (@chmod((string) $path, is_dir((string) $path) ? 0775 : 0664)) {
+            $changed++;
+        }
+    }
+
+    return "Set permissions on {$changed} path(s) under storage/. " .
+        (is_writable($dir) ? 'storage/ is now writable ✓' : 'storage/ is still not writable — set it to 775 from your host file manager.');
+}
+
+/** Composer is no longer required to run; report that clearly. */
+function composer_status(string $root): string
+{
+    $has = is_dir($root . '/vendor');
+
+    return "HaHireAI has zero runtime dependencies — Composer is NOT required to run.\n"
+        . 'The app boots straight from the uploaded files via its built-in autoloader.'
+        . ($has ? "\n(vendor/ is present, used only for the developer test suite.)"
+                : "\nYou can install the platform now from the Install tab — no “composer install” needed.");
+}
+
+/**
+ * Boot the framework in-process and run a maintenance command via the same
+ * services the CLI uses. Works without a shell. DB commands need the credentials
+ * from the Install tab to be present in .env.
+ */
+function boot_and_run(string $root, string $key): string
+{
+    try {
+        /** @var \HaHireAI\Core\Kernel $kernel */
+        $kernel = require $root . '/bootstrap/app.php';
+        $kernel->boot();
+        $c = $kernel->container();
+
+        if ($key === 'php bin/console.php migrate') {
+            $runner = $c->make(\HaHireAI\Core\Database\Migrations\MigrationRunner::class);
+            $applied = $runner->run($kernel->basePath('database/migrations'));
+            $synced = $c->make(\HaHireAI\Modules\Permissions\Application\PermissionSeeder::class)->seed();
+
+            return ($applied === [] ? 'Nothing to migrate — schema is up to date.' : 'Applied ' . count($applied) . " migration(s):\n  " . implode("\n  ", $applied))
+                . "\nSynced {$synced} permission(s) from the catalog.";
+        }
+
+        if ($key === 'php bin/console.php migrate:status') {
+            $ran = $c->make(\HaHireAI\Core\Database\Migrations\MigrationRunner::class)->ranMigrations();
+
+            return 'Ran migrations (' . count($ran) . "):\n  ✓ " . implode("\n  ✓ ", $ran);
+        }
+
+        if ($key === 'php bin/console.php db:seed') {
+            $permissions = $c->make(\HaHireAI\Modules\Permissions\Application\PermissionSeeder::class)->seed();
+            $c->make(\HaHireAI\Modules\Billing\Application\PlanService::class)->seedDefaults();
+
+            return "Seeded {$permissions} permission(s) and the billing plan catalog.";
+        }
+
+        // health
+        $report = $c->make(\HaHireAI\Core\Health\HealthChecker::class)->run();
+        $lines = ['Overall: ' . $report['status']->value];
+        foreach ($report['probes'] as $name => $p) {
+            $lines[] = sprintf('  [%s] %s — %s', $p['status'], $name, $p['message']);
+        }
+
+        return implode("\n", $lines);
+    } catch (Throwable $e) {
+        return 'Error: ' . $e->getMessage()
+            . "\n\nIf this is a database error, finish the Install tab first so the credentials exist in .env.";
+    }
+}
+
 /** Minimal .env writer (no framework). Never overwrites an existing key value. */
 function write_env(string $path, array $force, array $defaults): void
 {
@@ -154,9 +276,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ! $installed) {
         if (! array_key_exists($key, $COMMANDS)) {
             $terminalOut = 'Command not allowed.';
         } else {
-            $resolved = resolve_command($key, $ROOT);
             $terminalCmd = $key;
-            [$terminalOut] = $resolved === null ? ['Could not resolve the command.'] : run_resolved($resolved, $ROOT);
+            $terminalOut = run_command($key, $ROOT);
         }
     } elseif ($action === 'install') {
         $db = [
@@ -286,11 +407,11 @@ $h = static fn (string $s): string => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                     <label>Email</label><input name="email" type="email" required>
                     <label>Password</label><input name="password" type="password" minlength="8" required>
                     <button class="btn" type="submit">Run installation</button>
-                    <p class="note">If dependencies aren't installed yet, run <code>composer install</code> in the Terminal tab first.</p>
+                    <p class="note">No Composer or terminal needed — this runs the database setup and creates your owner account straight away.</p>
                 </form>
             <?php else: ?>
                 <h1>Terminal</h1>
-                <p class="sub">Run a setup command and see its output. Fixed, safe commands only — not an open shell.</p>
+                <p class="sub">Run a setup command and see its output. Fixed, safe commands only — not an open shell. The core commands run in-process, so they work even when your host blocks <code>proc_open</code>/<code>exec</code>.</p>
                 <div class="cmds">
                     <?php foreach ($COMMANDS as $key => $desc): ?>
                         <form method="post" action="?tab=terminal" style="margin:0;">
