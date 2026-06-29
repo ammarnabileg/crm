@@ -121,6 +121,12 @@ final class PermissionCatalog
                 'workflow.update' => 'Edit a workflow',
                 'workflow.delete' => 'Delete a workflow',
                 'workflow.execute' => 'Manually run a workflow',
+                'workflow.publish' => 'Publish or unpublish a workflow',
+                'workflow.pause' => 'Pause or resume a workflow',
+                'workflow.logs' => 'View workflow execution logs',
+                'workflow.templates' => 'Use & manage workflow templates',
+                'workflow.variables' => 'Manage workflow variables & dynamic collections',
+                'workflow.settings' => 'Manage workflow settings',
             ],
             'Integration' => [
                 'integration.view' => 'View the developer portal (API tokens, webhooks)',
