@@ -24,7 +24,7 @@ final class WorkspaceLifecycleService
     ) {
     }
 
-    /** Owner/admin pauses the workspace (recoverable). */
+    /** Owner/overview pauses the workspace (recoverable). */
     public function archive(string $workspaceId): void
     {
         $now = gmdate('Y-m-d H:i:s');

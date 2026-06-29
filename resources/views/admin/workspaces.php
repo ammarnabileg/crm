@@ -24,14 +24,14 @@
                     <td class="px-5 py-3">
                         <div class="flex items-center justify-end gap-1.5">
                             <?php if ($st === 'suspended'): ?>
-                                <form method="post" action="/admin/workspaces/<?= e($w['id']) ?>/resume"><?= csrf_field() ?><button class="rounded border border-emerald-300 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50">Resume</button></form>
+                                <form method="post" action="/all-workspaces/<?= e($w['id']) ?>/resume"><?= csrf_field() ?><button class="rounded border border-emerald-300 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50">Resume</button></form>
                             <?php else: ?>
-                                <form method="post" action="/admin/workspaces/<?= e($w['id']) ?>/suspend" onsubmit="return confirm('Suspend this workspace?');"><?= csrf_field() ?><button class="rounded border border-rose-300 px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50">Suspend</button></form>
+                                <form method="post" action="/all-workspaces/<?= e($w['id']) ?>/suspend" onsubmit="return confirm('Suspend this workspace?');"><?= csrf_field() ?><button class="rounded border border-rose-300 px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50">Suspend</button></form>
                             <?php endif; ?>
                             <?php if ($st === 'archived'): ?>
-                                <form method="post" action="/admin/workspaces/<?= e($w['id']) ?>/restore"><?= csrf_field() ?><button class="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Restore</button></form>
+                                <form method="post" action="/all-workspaces/<?= e($w['id']) ?>/restore"><?= csrf_field() ?><button class="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Restore</button></form>
                             <?php else: ?>
-                                <form method="post" action="/admin/workspaces/<?= e($w['id']) ?>/archive" onsubmit="return confirm('Archive this workspace?');"><?= csrf_field() ?><button class="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">Archive</button></form>
+                                <form method="post" action="/all-workspaces/<?= e($w['id']) ?>/archive" onsubmit="return confirm('Archive this workspace?');"><?= csrf_field() ?><button class="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">Archive</button></form>
                             <?php endif; ?>
                         </div>
                     </td>

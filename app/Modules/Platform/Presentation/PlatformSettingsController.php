@@ -66,7 +66,7 @@ final class PlatformSettingsController
         ]);
         $this->session->flash('status', 'Platform settings saved.');
 
-        return Response::redirect('/admin/settings');
+        return Response::redirect('/platform-settings');
     }
 
     private function gate(?Request $request = null): ?Response

@@ -109,7 +109,7 @@ $panelBadge = static fn (string $s): string => match ($s) {
 <div class="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
     <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3">
         <h2 class="text-sm font-semibold text-slate-900">Backups</h2>
-        <form method="post" action="/admin/diagnostics/backup">
+        <form method="post" action="/diagnostics/backup">
             <?= csrf_field() ?>
             <button class="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700">Run backup now</button>
         </form>

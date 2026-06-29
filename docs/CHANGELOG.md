@@ -1032,6 +1032,18 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   resync); smoke (assign → Authorizer union → scoped `PlatformContext` access)
   15/15; certify **131/131**.
 
+### Unified URLs — platform panel drops the `/admin` prefix
+- The System-Owner panel moves off `/admin/*` to clean, unprefixed URLs so the
+  product is one unified surface (no separate "admin area"): `/overview`,
+  `/all-workspaces`, `/users`, `/permissions`, `/subscriptions`, `/plans`,
+  `/payments`, `/ai-providers`, `/audit-log`, `/diagnostics`,
+  `/platform-settings` (+ their POST actions). Collisions with company pages are
+  avoided by distinct names (platform `/users` vs company `/members`/`/candidates`;
+  platform `/permissions` vs company `/roles`; `/ai-providers` vs `/ai`;
+  `/platform-settings` vs `/settings`).
+- Routes, sidebar, redirects, form actions and the auditor route guard all
+  updated. Verified: certify 131/131; full suite green.
+
 ### Notes
 - Repository reset to a clean slate before Phase 1 (previous placeholder README
   removed; recoverable from git history).

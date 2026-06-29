@@ -17,7 +17,7 @@ $field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm';
 <div class="space-y-4">
     <?php foreach ($plans as $p): ?>
         <?php $limits = is_array($p['limits'] ?? null) ? $p['limits'] : []; $feats = is_array($p['features'] ?? null) ? $p['features'] : []; ?>
-        <form method="post" action="/admin/plans/<?= e($p['id']) ?>/edit" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <form method="post" action="/plans/<?= e($p['id']) ?>/edit" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <?= csrf_field() ?>
             <div class="mb-3 flex items-center justify-between">
                 <h2 class="text-sm font-semibold text-slate-900"><?= e($p['name']) ?> <span class="font-mono text-xs text-slate-400"><?= e($p['code']) ?></span></h2>
@@ -44,7 +44,7 @@ $field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm';
                 </div>
             </div>
         </form>
-        <form method="post" action="/admin/plans/<?= e($p['id']) ?>/delete" onsubmit="return confirm('Delete plan “<?= e($p['name']) ?>”? (Only allowed if no account uses it.)')" class="-mt-2 pl-1">
+        <form method="post" action="/plans/<?= e($p['id']) ?>/delete" onsubmit="return confirm('Delete plan “<?= e($p['name']) ?>”? (Only allowed if no account uses it.)')" class="-mt-2 pl-1">
             <?= csrf_field() ?>
             <button class="text-xs font-medium text-rose-600 hover:text-rose-700">Delete plan</button>
         </form>
@@ -53,7 +53,7 @@ $field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm';
 
 <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
     <h2 class="mb-3 text-sm font-semibold text-slate-900">New plan</h2>
-    <form method="post" action="/admin/plans" class="grid gap-3 sm:grid-cols-3">
+    <form method="post" action="/plans" class="grid gap-3 sm:grid-cols-3">
         <?= csrf_field() ?>
         <div><label class="mb-1 block text-xs font-medium text-slate-600">Name</label><input name="name" required class="<?= $field ?>" placeholder="Growth"></div>
         <div><label class="mb-1 block text-xs font-medium text-slate-600">Code</label><input name="code" class="<?= $field ?>" placeholder="growth (optional)"></div>

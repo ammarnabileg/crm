@@ -12,7 +12,7 @@ $field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:bord
 
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
 
-<form method="post" action="/admin/settings" class="max-w-2xl space-y-6">
+<form method="post" action="/platform-settings" class="max-w-2xl space-y-6">
     <?= csrf_field() ?>
 
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

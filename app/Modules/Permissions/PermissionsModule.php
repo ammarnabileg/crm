@@ -44,11 +44,11 @@ final class PermissionsModule implements Module
         $router->post('/roles/{roleId}/delete', [RolesController::class, 'delete']);
 
         // Platform-level roles & permissions (System Owner panel).
-        $router->get('/admin/roles', [PlatformRolesController::class, 'index']);
-        $router->post('/admin/roles', [PlatformRolesController::class, 'create']);
-        $router->post('/admin/roles/{id}/edit', [PlatformRolesController::class, 'update']);
-        $router->post('/admin/roles/{id}/delete', [PlatformRolesController::class, 'delete']);
-        $router->post('/admin/roles/{id}/assign', [PlatformRolesController::class, 'assign']);
-        $router->post('/admin/roles/{id}/unassign', [PlatformRolesController::class, 'unassign']);
+        $router->get('/permissions', [PlatformRolesController::class, 'index']);
+        $router->post('/permissions', [PlatformRolesController::class, 'create']);
+        $router->post('/permissions/{id}/edit', [PlatformRolesController::class, 'update']);
+        $router->post('/permissions/{id}/delete', [PlatformRolesController::class, 'delete']);
+        $router->post('/permissions/{id}/assign', [PlatformRolesController::class, 'assign']);
+        $router->post('/permissions/{id}/unassign', [PlatformRolesController::class, 'unassign']);
     }
 }

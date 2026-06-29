@@ -56,17 +56,17 @@ final class SidebarBuilder
 
     /** Platform-context items (System Owners): [label, route, permission]. */
     private const PLATFORM_ITEMS = [
-        ['label' => 'Overview', 'route' => '/admin', 'permission' => 'system.dashboard.view'],
-        ['label' => 'Workspaces', 'route' => '/admin/workspaces', 'permission' => 'system.workspaces.manage'],
-        ['label' => 'Users', 'route' => '/admin/users', 'permission' => 'system.users.manage'],
-        ['label' => 'Roles & Permissions', 'route' => '/admin/roles', 'permission' => 'system.roles.manage'],
-        ['label' => 'Subscriptions', 'route' => '/admin/subscriptions', 'permission' => 'system.subscriptions.manage'],
-        ['label' => 'Plans', 'route' => '/admin/plans', 'permission' => 'system.subscriptions.manage'],
-        ['label' => 'Payments', 'route' => '/admin/payments', 'permission' => 'system.subscriptions.manage'],
-        ['label' => 'AI Providers', 'route' => '/admin/ai', 'permission' => 'system.ai.manage'],
-        ['label' => 'Audit Logs', 'route' => '/admin/audit', 'permission' => 'system.audit.view'],
-        ['label' => 'Diagnostics', 'route' => '/admin/diagnostics', 'permission' => 'system.diagnostics.run'],
-        ['label' => 'Platform Settings', 'route' => '/admin/settings', 'permission' => 'system.settings.manage'],
+        ['label' => 'Overview', 'route' => '/overview', 'permission' => 'system.dashboard.view'],
+        ['label' => 'Workspaces', 'route' => '/all-workspaces', 'permission' => 'system.workspaces.manage'],
+        ['label' => 'Users', 'route' => '/users', 'permission' => 'system.users.manage'],
+        ['label' => 'Roles & Permissions', 'route' => '/permissions', 'permission' => 'system.roles.manage'],
+        ['label' => 'Subscriptions', 'route' => '/subscriptions', 'permission' => 'system.subscriptions.manage'],
+        ['label' => 'Plans', 'route' => '/plans', 'permission' => 'system.subscriptions.manage'],
+        ['label' => 'Payments', 'route' => '/payments', 'permission' => 'system.subscriptions.manage'],
+        ['label' => 'AI Providers', 'route' => '/ai-providers', 'permission' => 'system.ai.manage'],
+        ['label' => 'Audit Logs', 'route' => '/audit-log', 'permission' => 'system.audit.view'],
+        ['label' => 'Diagnostics', 'route' => '/diagnostics', 'permission' => 'system.diagnostics.run'],
+        ['label' => 'Platform Settings', 'route' => '/platform-settings', 'permission' => 'system.settings.manage'],
     ];
 
     /**

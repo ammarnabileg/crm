@@ -55,7 +55,7 @@ final class PlatformRolesController
         if ($name === '') {
             $this->session->flash('error', 'Role name is required.');
 
-            return Response::redirect('/admin/roles');
+            return Response::redirect('/permissions');
         }
 
         $id = $this->roles->create($name, trim((string) $request->input('description', '')) ?: null, $this->permissionKeys($request));
@@ -65,7 +65,7 @@ final class PlatformRolesController
         ]);
         $this->session->flash('status', "Role “{$name}” created.");
 
-        return Response::redirect('/admin/roles');
+        return Response::redirect('/permissions');
     }
 
     public function update(Request $request, string $id): Response
@@ -76,7 +76,7 @@ final class PlatformRolesController
         if ($this->roles->find($id) === null) {
             $this->session->flash('error', 'Role not found.');
 
-            return Response::redirect('/admin/roles');
+            return Response::redirect('/permissions');
         }
 
         $this->roles->update($id, trim((string) $request->input('name', 'Role')) ?: 'Role', trim((string) $request->input('description', '')) ?: null, $this->permissionKeys($request));
@@ -85,7 +85,7 @@ final class PlatformRolesController
         ]);
         $this->session->flash('status', 'Role updated.');
 
-        return Response::redirect('/admin/roles');
+        return Response::redirect('/permissions');
     }
 
     public function delete(Request $request, string $id): Response
@@ -100,7 +100,7 @@ final class PlatformRolesController
         ]);
         $this->session->flash('status', 'Role deleted.');
 
-        return Response::redirect('/admin/roles');
+        return Response::redirect('/permissions');
     }
 
     public function assign(Request $request, string $id): Response
@@ -119,7 +119,7 @@ final class PlatformRolesController
             $this->session->flash('status', 'Role assigned.');
         }
 
-        return Response::redirect('/admin/roles');
+        return Response::redirect('/permissions');
     }
 
     public function unassign(Request $request, string $id): Response
@@ -138,7 +138,7 @@ final class PlatformRolesController
             $this->session->flash('status', 'Role unassigned.');
         }
 
-        return Response::redirect('/admin/roles');
+        return Response::redirect('/permissions');
     }
 
     /** @return list<string> selected permission keys from the form */

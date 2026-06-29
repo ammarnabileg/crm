@@ -110,7 +110,7 @@ final class ObservabilityController
         ]);
         $this->session->flash('status', 'Backup ' . $result['status'] . ' (' . $result['tables'] . ' tables).');
 
-        return Response::redirect('/admin/diagnostics');
+        return Response::redirect('/diagnostics');
     }
 
     private function gate(string $permission, ?Request $request = null): ?Response

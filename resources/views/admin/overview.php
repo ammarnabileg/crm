@@ -62,5 +62,5 @@ $card = static function (string $label, string $value, string $sub = ''): string
 </div>
 
 <div class="mt-6">
-    <a href="/admin/diagnostics" class="text-sm font-medium text-indigo-600 hover:text-indigo-700">Open diagnostics →</a>
+    <a href="/diagnostics" class="text-sm font-medium text-indigo-600 hover:text-indigo-700">Open diagnostics →</a>
 </div>

@@ -15,10 +15,10 @@ $statusStyles = [
         <h1 class="text-2xl font-semibold text-slate-900">Users</h1>
         <p class="mt-1 text-sm text-slate-500">Every user across all workspaces — one identity, many contexts.</p>
     </div>
-    <form method="get" action="/admin/users" class="flex items-center gap-2">
+    <form method="get" action="/users" class="flex items-center gap-2">
         <input name="q" value="<?= e($q) ?>" placeholder="Search name or email…" class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
         <button class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Search</button>
-        <?php if ($q !== ''): ?><a href="/admin/users" class="text-sm text-slate-500 hover:text-slate-700">Clear</a><?php endif; ?>
+        <?php if ($q !== ''): ?><a href="/users" class="text-sm text-slate-500 hover:text-slate-700">Clear</a><?php endif; ?>
     </form>
 </div>
 
@@ -57,9 +57,9 @@ $statusStyles = [
                 <?php if (! $isOwner && ! $isSelf): ?>
                     <div class="flex shrink-0 items-center gap-2">
                         <?php if ($st === 'active'): ?>
-                            <form method="post" action="/admin/users/<?= e($u['id']) ?>/deactivate" onsubmit="return confirm('Deactivate <?= e($u['name']) ?>?')"><?= csrf_field() ?><button class="text-xs font-medium text-rose-600 hover:text-rose-700">Deactivate</button></form>
+                            <form method="post" action="/users/<?= e($u['id']) ?>/deactivate" onsubmit="return confirm('Deactivate <?= e($u['name']) ?>?')"><?= csrf_field() ?><button class="text-xs font-medium text-rose-600 hover:text-rose-700">Deactivate</button></form>
                         <?php else: ?>
-                            <form method="post" action="/admin/users/<?= e($u['id']) ?>/activate"><?= csrf_field() ?><button class="text-xs font-medium text-emerald-600 hover:text-emerald-700">Activate</button></form>
+                            <form method="post" action="/users/<?= e($u['id']) ?>/activate"><?= csrf_field() ?><button class="text-xs font-medium text-emerald-600 hover:text-emerald-700">Activate</button></form>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>
@@ -67,12 +67,12 @@ $statusStyles = [
 
             <?php if (! $isOwner && ! $isSelf): ?>
                 <div class="mt-3 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3">
-                    <form method="post" action="/admin/users/<?= e($u['id']) ?>/workspace-creation">
+                    <form method="post" action="/users/<?= e($u['id']) ?>/workspace-creation">
                         <?= csrf_field() ?>
                         <input type="hidden" name="allow" value="<?= $canCreate ? '0' : '1' ?>">
                         <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"><?= $canCreate ? 'Block workspace creation' : 'Allow workspace creation' ?></button>
                     </form>
-                    <form method="post" action="/admin/users/<?= e($u['id']) ?>/plan" class="flex items-end gap-1">
+                    <form method="post" action="/users/<?= e($u['id']) ?>/plan" class="flex items-end gap-1">
                         <?= csrf_field() ?>
                         <select name="plan_id" class="rounded-lg border border-slate-300 px-2 py-1.5 text-xs">
                             <option value="">Free (1 workspace)</option>
@@ -83,7 +83,7 @@ $statusStyles = [
                         </select>
                         <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Assign plan</button>
                     </form>
-                    <form method="post" action="/admin/users/<?= e($u['id']) ?>/grant-months" class="flex items-end gap-1">
+                    <form method="post" action="/users/<?= e($u['id']) ?>/grant-months" class="flex items-end gap-1">
                         <?= csrf_field() ?>
                         <input name="months" type="number" min="1" max="120" value="1" class="w-16 rounded-lg border border-slate-300 px-2 py-1.5 text-xs">
                         <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Grant free months</button>

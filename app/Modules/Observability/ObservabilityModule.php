@@ -66,9 +66,9 @@ final class ObservabilityModule implements Module
 
     public function routes(Router $router): void
     {
-        $router->get('/admin', [ObservabilityController::class, 'overview']);
-        $router->get('/admin/diagnostics', [ObservabilityController::class, 'diagnostics']);
-        $router->get('/admin/diagnostics/json', [ObservabilityController::class, 'diagnosticsJson']);
-        $router->post('/admin/diagnostics/backup', [ObservabilityController::class, 'runBackup']);
+        $router->get('/overview', [ObservabilityController::class, 'overview']);
+        $router->get('/diagnostics', [ObservabilityController::class, 'diagnostics']);
+        $router->get('/diagnostics/json', [ObservabilityController::class, 'diagnosticsJson']);
+        $router->post('/diagnostics/backup', [ObservabilityController::class, 'runBackup']);
     }
 }

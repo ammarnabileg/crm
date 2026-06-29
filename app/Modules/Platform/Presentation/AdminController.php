@@ -88,7 +88,7 @@ final class AdminController
             $this->session->flash('status', 'That account cannot be changed (System Owners are protected).');
         }
 
-        return Response::redirect('/admin/users');
+        return Response::redirect('/users');
     }
 
     public function assignPlan(Request $request, string $id): Response
@@ -108,7 +108,7 @@ final class AdminController
         ]);
         $this->session->flash('status', $planId === null ? 'Account moved to the free tier.' : 'Plan assigned to the account.');
 
-        return Response::redirect('/admin/users');
+        return Response::redirect('/users');
     }
 
     public function grantMonths(Request $request, string $id): Response
@@ -130,7 +130,7 @@ final class AdminController
             $this->session->flash('status', "Granted {$months} free month(s).");
         }
 
-        return Response::redirect('/admin/users');
+        return Response::redirect('/users');
     }
 
     public function activateUser(Request $request, string $id): Response
@@ -154,7 +154,7 @@ final class AdminController
         if ($id === (string) $this->auth->id()) {
             $this->session->flash('status', 'You cannot change your own account status here.');
 
-            return Response::redirect('/admin/users');
+            return Response::redirect('/users');
         }
 
         if ($this->admin->setUserStatus($id, $status)) {
@@ -169,7 +169,7 @@ final class AdminController
             $this->session->flash('status', 'That account cannot be changed (System Owners are protected).');
         }
 
-        return Response::redirect('/admin/users');
+        return Response::redirect('/users');
     }
 
     public function subscriptions(): Response
@@ -267,7 +267,7 @@ final class AdminController
         ]);
         $this->session->flash('status', $ok);
 
-        return Response::redirect('/admin/workspaces');
+        return Response::redirect('/all-workspaces');
     }
 
     private function gate(string $permission): ?Response

@@ -4,7 +4,7 @@
 /** @var string $filter */
 $money = static fn (int $cents, string $cur = 'USD'): string => $cur . ' ' . number_format($cents / 100, 2);
 $tab = static fn (string $key, string $label, string $cur): string =>
-    '<a href="/admin/payments' . ($key === '' ? '' : '?status=' . $key) . '" class="rounded-lg px-3 py-1.5 text-sm font-medium '
+    '<a href="/payments' . ($key === '' ? '' : '?status=' . $key) . '" class="rounded-lg px-3 py-1.5 text-sm font-medium '
     . ($cur === $key ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100') . '">' . $label . '</a>';
 ?>
 <div class="mb-6">

@@ -50,28 +50,28 @@ final class PlatformModule implements Module
 
     public function routes(Router $router): void
     {
-        $router->get('/admin/workspaces', [AdminController::class, 'workspaces']);
-        $router->post('/admin/workspaces/{id}/suspend', [AdminController::class, 'suspendWorkspace']);
-        $router->post('/admin/workspaces/{id}/resume', [AdminController::class, 'resumeWorkspace']);
-        $router->post('/admin/workspaces/{id}/archive', [AdminController::class, 'archiveWorkspace']);
-        $router->post('/admin/workspaces/{id}/restore', [AdminController::class, 'restoreWorkspace']);
-        $router->get('/admin/users', [AdminController::class, 'users']);
-        $router->post('/admin/users/{id}/activate', [AdminController::class, 'activateUser']);
-        $router->post('/admin/users/{id}/deactivate', [AdminController::class, 'deactivateUser']);
-        $router->post('/admin/users/{id}/workspace-creation', [AdminController::class, 'toggleWorkspaceCreation']);
-        $router->post('/admin/users/{id}/plan', [AdminController::class, 'assignPlan']);
-        $router->post('/admin/users/{id}/grant-months', [AdminController::class, 'grantMonths']);
-        $router->get('/admin/subscriptions', [AdminController::class, 'subscriptions']);
-        $router->get('/admin/plans', [PlatformPlansController::class, 'index']);
-        $router->post('/admin/plans', [PlatformPlansController::class, 'create']);
-        $router->post('/admin/plans/{id}/edit', [PlatformPlansController::class, 'update']);
-        $router->post('/admin/plans/{id}/delete', [PlatformPlansController::class, 'delete']);
-        $router->get('/admin/settings', [PlatformSettingsController::class, 'index']);
-        $router->post('/admin/settings', [PlatformSettingsController::class, 'update']);
-        $router->get('/admin/ai', [AdminController::class, 'ai']);
-        $router->get('/admin/payments', [AdminController::class, 'payments']);
-        $router->get('/admin/audit', [AdminController::class, 'audit']);
-        // Self-service account pages — user-facing, not /admin.
+        $router->get('/all-workspaces', [AdminController::class, 'workspaces']);
+        $router->post('/all-workspaces/{id}/suspend', [AdminController::class, 'suspendWorkspace']);
+        $router->post('/all-workspaces/{id}/resume', [AdminController::class, 'resumeWorkspace']);
+        $router->post('/all-workspaces/{id}/archive', [AdminController::class, 'archiveWorkspace']);
+        $router->post('/all-workspaces/{id}/restore', [AdminController::class, 'restoreWorkspace']);
+        $router->get('/users', [AdminController::class, 'users']);
+        $router->post('/users/{id}/activate', [AdminController::class, 'activateUser']);
+        $router->post('/users/{id}/deactivate', [AdminController::class, 'deactivateUser']);
+        $router->post('/users/{id}/workspace-creation', [AdminController::class, 'toggleWorkspaceCreation']);
+        $router->post('/users/{id}/plan', [AdminController::class, 'assignPlan']);
+        $router->post('/users/{id}/grant-months', [AdminController::class, 'grantMonths']);
+        $router->get('/subscriptions', [AdminController::class, 'subscriptions']);
+        $router->get('/plans', [PlatformPlansController::class, 'index']);
+        $router->post('/plans', [PlatformPlansController::class, 'create']);
+        $router->post('/plans/{id}/edit', [PlatformPlansController::class, 'update']);
+        $router->post('/plans/{id}/delete', [PlatformPlansController::class, 'delete']);
+        $router->get('/platform-settings', [PlatformSettingsController::class, 'index']);
+        $router->post('/platform-settings', [PlatformSettingsController::class, 'update']);
+        $router->get('/ai-providers', [AdminController::class, 'ai']);
+        $router->get('/payments', [AdminController::class, 'payments']);
+        $router->get('/audit-log', [AdminController::class, 'audit']);
+        // Self-service account pages — user-facing, not /overview.
         $router->get('/account/plan', [AccountPlanController::class, 'index']);
         $router->post('/account/plan', [AccountPlanController::class, 'choose']);
         $router->get('/account/profile', [ProfileController::class, 'index']);

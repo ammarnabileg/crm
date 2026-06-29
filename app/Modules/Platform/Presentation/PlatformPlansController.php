@@ -49,7 +49,7 @@ final class PlatformPlansController
         if ($name === '') {
             $this->session->flash('error', 'Plan name is required.');
 
-            return Response::redirect('/admin/plans');
+            return Response::redirect('/plans');
         }
 
         $id = $this->plans->create($this->input($request, $name));
@@ -61,7 +61,7 @@ final class PlatformPlansController
         ]);
         $this->session->flash('status', "Plan “{$name}” created.");
 
-        return Response::redirect('/admin/plans');
+        return Response::redirect('/plans');
     }
 
     public function update(Request $request, string $id): Response
@@ -72,7 +72,7 @@ final class PlatformPlansController
         if ($this->plans->find($id) === null) {
             $this->session->flash('error', 'Plan not found.');
 
-            return Response::redirect('/admin/plans');
+            return Response::redirect('/plans');
         }
 
         $this->plans->update($id, $this->input($request, trim((string) $request->input('name', 'Plan'))));
@@ -83,7 +83,7 @@ final class PlatformPlansController
         ]);
         $this->session->flash('status', 'Plan updated.');
 
-        return Response::redirect('/admin/plans');
+        return Response::redirect('/plans');
     }
 
     public function delete(Request $request, string $id): Response
@@ -95,7 +95,7 @@ final class PlatformPlansController
         if (! $this->plans->delete($id)) {
             $this->session->flash('error', 'That plan is in use by an account or workspace and cannot be deleted.');
 
-            return Response::redirect('/admin/plans');
+            return Response::redirect('/plans');
         }
         $this->audit->record('platform.plan.deleted', [
             'actor_user_id' => $this->auth->id(),
@@ -104,7 +104,7 @@ final class PlatformPlansController
         ]);
         $this->session->flash('status', 'Plan deleted.');
 
-        return Response::redirect('/admin/plans');
+        return Response::redirect('/plans');
     }
 
     /** @return array<string,mixed> */

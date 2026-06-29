@@ -30,7 +30,7 @@ $permsBox = static function (array $catalog, array $checked): string {
     <?php foreach ($roles as $role): ?>
         <?php $rid = (string) $role['id']; $holders = $role['holders']; $heldKeys = $role['permissions']; ?>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <form method="post" action="/admin/roles/<?= e($rid) ?>/edit" class="space-y-4">
+            <form method="post" action="/permissions/<?= e($rid) ?>/edit" class="space-y-4">
                 <?= csrf_field() ?>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div><label class="mb-1 block text-xs font-medium text-slate-600">Role name</label><input name="name" value="<?= e($role['name']) ?>" class="<?= $field ?>"></div>
@@ -52,7 +52,7 @@ $permsBox = static function (array $catalog, array $checked): string {
                     <?php foreach ($holders as $h): ?>
                         <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
                             <?= e($h['name']) ?>
-                            <form method="post" action="/admin/roles/<?= e($rid) ?>/unassign" class="inline">
+                            <form method="post" action="/permissions/<?= e($rid) ?>/unassign" class="inline">
                                 <?= csrf_field() ?><input type="hidden" name="user_id" value="<?= e($h['id']) ?>">
                                 <button class="ms-0.5 text-slate-400 hover:text-rose-600" title="Remove">&times;</button>
                             </form>
@@ -61,7 +61,7 @@ $permsBox = static function (array $catalog, array $checked): string {
                     <?php if ($holders === []): ?><span class="text-xs text-slate-400">No one assigned yet.</span><?php endif; ?>
                 </div>
                 <div class="mt-3 flex items-end gap-2">
-                    <form method="post" action="/admin/roles/<?= e($rid) ?>/assign" class="flex items-end gap-2">
+                    <form method="post" action="/permissions/<?= e($rid) ?>/assign" class="flex items-end gap-2">
                         <?= csrf_field() ?>
                         <select name="user_id" class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
                             <option value="">Assign a user…</option>
@@ -69,7 +69,7 @@ $permsBox = static function (array $catalog, array $checked): string {
                         </select>
                         <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Assign</button>
                     </form>
-                    <form method="post" action="/admin/roles/<?= e($rid) ?>/delete" onsubmit="return confirm('Delete role “<?= e($role['name']) ?>”? Holders lose these permissions.')" class="ms-auto">
+                    <form method="post" action="/permissions/<?= e($rid) ?>/delete" onsubmit="return confirm('Delete role “<?= e($role['name']) ?>”? Holders lose these permissions.')" class="ms-auto">
                         <?= csrf_field() ?><button class="rounded-lg px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-50">Delete role</button>
                     </form>
                 </div>
@@ -83,7 +83,7 @@ $permsBox = static function (array $catalog, array $checked): string {
 
 <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
     <h2 class="mb-3 text-sm font-semibold text-slate-900">New role</h2>
-    <form method="post" action="/admin/roles" class="space-y-4">
+    <form method="post" action="/permissions" class="space-y-4">
         <?= csrf_field() ?>
         <div class="grid gap-3 sm:grid-cols-2">
             <div><label class="mb-1 block text-xs font-medium text-slate-600">Role name</label><input name="name" required class="<?= $field ?>" placeholder="e.g. Support Admin"></div>
