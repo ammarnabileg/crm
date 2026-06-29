@@ -70,6 +70,7 @@ final class RecruitmentModule implements Module
         // /interview-link/* so a logged-in candidate's room can own /interview/{id}.
         $router->get('/interview-link/{token}', [PublicInterviewController::class, 'show']);
         $router->post('/interview-link/{token}/start', [PublicInterviewController::class, 'start']);
+        $router->post('/interview-link/{token}/answer', [PublicInterviewController::class, 'answer']);
         $router->post('/interview-link/{token}/feedback', [PublicInterviewController::class, 'feedback']);
 
         // Workspace-scoped job management.

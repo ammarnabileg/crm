@@ -172,7 +172,7 @@ foreach ([
     'POST /candidacy/{workspaceId}/switch',
     'GET /interview/{interviewId}', 'POST /interview/{interviewId}/answer',
     'POST /interview/{interviewId}/transcribe',
-    'GET /interview-link/{token}', 'POST /interview-link/{token}/start', 'POST /interview-link/{token}/feedback',
+    'GET /interview-link/{token}', 'POST /interview-link/{token}/start', 'POST /interview-link/{token}/answer', 'POST /interview-link/{token}/feedback',
     'GET /offers', 'GET /reports/print', 'GET /jobs/{id}/edit',
     'GET /interviews/export', 'GET /interviews/{interviewId}',
     'POST /all-workspaces/{id}/suspend', 'POST /all-workspaces/{id}/archive',

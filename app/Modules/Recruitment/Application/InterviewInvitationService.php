@@ -67,6 +67,19 @@ final class InterviewInvitationService
         return ['state' => 'valid', 'invitation' => $row];
     }
 
+    /**
+     * Associate an in-progress interview with the link WITHOUT consuming it, so the
+     * candidate can answer over several requests and resume. The link stays pending
+     * until {@see complete()} is called when the interview finalizes.
+     */
+    public function attach(string $token, string $interviewId): void
+    {
+        $this->connection->statement(
+            "UPDATE interview_invitations SET interview_id = ? WHERE token = ? AND status = 'pending'",
+            [$interviewId, $token],
+        );
+    }
+
     /** Mark an invitation completed (single-use), recording the interview. */
     public function complete(string $token, ?string $interviewId = null): void
     {
