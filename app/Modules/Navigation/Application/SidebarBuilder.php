@@ -33,6 +33,7 @@ final class SidebarBuilder
         ['label' => 'Activity', 'route' => '/activity', 'permission' => 'audit.view'],
         ['label' => 'AI', 'route' => '/ai', 'permission' => 'ai.view', 'feature' => 'ai'],
         ['label' => 'Workflows', 'route' => '/workflows', 'permission' => 'workflow.view', 'feature' => 'automation'],
+        ['label' => 'Collections', 'route' => '/collections', 'permission' => 'workflow.view', 'feature' => 'automation'],
         ['label' => 'Developer', 'route' => '/integrations', 'permission' => 'integration.view', 'feature' => 'integrations'],
         ['label' => 'Search', 'route' => '/search', 'permission' => 'search.use'],
         ['label' => 'Files', 'route' => '/files', 'permission' => 'files.view'],

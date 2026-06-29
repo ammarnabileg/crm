@@ -160,6 +160,8 @@ foreach ([
     'GET /', 'GET /install', 'GET /login', 'GET /dashboard', 'GET /jobs', 'GET /workflows',
     'GET /workflows/new', 'GET /workflows/{id}/edit', 'POST /workflows/save',
     'POST /workflows/{id}/run', 'POST /workflows/{id}/toggle',
+    'GET /collections', 'POST /collections', 'GET /collections/{id}', 'GET /collections/{id}/export',
+    'POST /collections/{id}/records', 'POST /collections/{id}/records/{recordId}/delete',
     'GET /integrations', 'GET /billing', 'GET /overview', 'GET /diagnostics',
     'GET /all-workspaces', 'GET /users', 'GET /subscriptions',
     'GET /interviews', 'GET /human-interviews', 'GET /files', 'GET /notifications',

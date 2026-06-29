@@ -50,6 +50,20 @@ final class WorkflowCollectionService
         return $rows;
     }
 
+    /** @return array<string,mixed>|null one collection by id, fields decoded */
+    public function findById(string $workspaceId, string $id): ?array
+    {
+        $row = $this->connection->selectOne(
+            'SELECT * FROM workflow_collections WHERE workspace_id = ? AND id = ?',
+            [$workspaceId, $id],
+        );
+        if ($row !== null) {
+            $row['fields'] = json_decode((string) $row['fields'], true) ?: [];
+        }
+
+        return $row;
+    }
+
     /** @return array<string,mixed>|null */
     public function findByKey(string $workspaceId, string $key): ?array
     {
