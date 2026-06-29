@@ -166,8 +166,10 @@ final class Blueprint
                 "ON DELETE {$f['onDelete']} ON UPDATE {$f['onUpdate']}";
         }
 
+        // utf8mb4_unicode_ci is portable across MySQL 5.7/8.0 and MariaDB; the
+        // MySQL-8-only utf8mb4_0900_ai_ci breaks installs on older/MariaDB hosts.
         return "CREATE TABLE `{$this->table}` (\n" . implode(",\n", $lines) .
-            "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci";
+            "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
     }
 
     private function addColumn(string $name, string $type): ColumnDefinition
