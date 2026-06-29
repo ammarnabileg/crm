@@ -70,11 +70,11 @@ jobs:
           php bin/console.php db:seed
           php bin/console.php billing:tick
 
+      - name: Certify (fresh DB, before any phpunit)
+        run: php bin/certify.php
+
       - name: Wallet + seat-guard tests (targeted, fast)
         run: vendor/bin/phpunit --no-coverage --filter 'WalletBillingTest'
-
-      - name: Certify
-        run: php bin/certify.php
 
       - name: Full test suite
         run: vendor/bin/phpunit --no-coverage
