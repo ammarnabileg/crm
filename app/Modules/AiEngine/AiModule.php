@@ -13,6 +13,7 @@ use HaHireAI\Modules\AiEngine\Contracts\AiCapabilities;
 use HaHireAI\Modules\AiEngine\Contracts\SpeechToText;
 use HaHireAI\Modules\AiEngine\Infrastructure\OpenAiSpeechToText;
 use HaHireAI\Modules\AiEngine\Presentation\AiController;
+use HaHireAI\Modules\AiEngine\Presentation\ProviderProfilesController;
 
 final class AiModule implements Module
 {
@@ -50,5 +51,9 @@ final class AiModule implements Module
         $router->post('/ai/provider', [AiController::class, 'setProvider']);
         $router->post('/ai/keys', [AiController::class, 'addKey']);
         $router->post('/ai/interview-mode', [AiController::class, 'setInterviewMode']);
+        $router->get('/ai/profiles', [ProviderProfilesController::class, 'index']);
+        $router->post('/ai/profiles', [ProviderProfilesController::class, 'create']);
+        $router->post('/ai/profiles/{id}/default', [ProviderProfilesController::class, 'setDefault']);
+        $router->post('/ai/profiles/{id}/delete', [ProviderProfilesController::class, 'delete']);
     }
 }
