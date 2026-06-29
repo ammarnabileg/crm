@@ -46,7 +46,9 @@ MySQL 8, server-rendered, no framework._
 | AI analytics | ✅ | usage & tokens per workspace |
 | Members / Roles | ✅ | roles as data; member **suspend/reactivate/remove** + last login/activity; role **clone/delete** + usage count |
 | Settings | ✅ | general + company / branding (**logo upload**) / **SMTP email** / **legal** / security / maintenance |
+| **White Label / Branding Center** | ✅ | one source of truth (`BrandingService`): colours, **typography**, logo; gated by `white_label` feature + `workspace.branding` |
 | AI settings | ✅ | provider, encrypted keys, interview mode (text/video) |
+| **AI Provider Profiles** | ✅ | named encrypted {provider, model, key} profiles with a single default |
 | Notifications / Activity / Search / Files | ✅ | notifications: **categories, search, archive** |
 | Diagnostics (platform) | ✅ | 8 read-only infra panels (DB/storage/cache/queue/mail/SSL/workers/runtime) |
 | Billing | ✅ | **free period when no gateway connected** |
@@ -76,23 +78,40 @@ MySQL 8, server-rendered, no framework._
 | Never decides — human decides | ✅ |
 
 ### Platform (System Owner)
-Overview · Workspaces · Users · Subscriptions · Audit logs · Diagnostics — ✅
+Overview · Workspaces · Users · Subscriptions · Pricing · Audit logs · Diagnostics — ✅
 
 ## Architecture (ARCHITECTURE.md §4)
 
 - Modules communicate only through **Core contracts** + events — never another
   module's internal classes. Shared services exposed as contracts:
   `UserDirectory`, `AuditRecorder`, `CandidateDirectory`, `RecruitmentSnapshot`,
-  `EntitlementResolver`, `FileStorage`, `AccessControl`, `MemberDirectory`.
+  `EntitlementResolver`, `WorkspaceSeatGuard`, `FileStorage`, `AccessControl`,
+  `MemberDirectory`.
 
 ## Quality
 
-- **184 tests / 707 assertions** green on live MySQL 8.
-- **Production auditor: 87/87** checks (`bin/certify.php`), including contract-
-  resolution and permission-catalog↔DB parity.
+- Production auditor (`bin/certify.php`) covers contract-resolution and
+  permission-catalog↔DB parity, run on a fresh MySQL 8 schema before any test
+  teardown.
 - Verified end-to-end over real HTTP: login → portal → apply → AI interview room
   → completion → scored; offer accept → hired; staff vs candidate routing.
 - **43 full-page screenshots** of every page in `docs/screenshots/`.
+
+## Verification status (workspace-billing + White Label branch)
+
+Honest record of what has and has not been re-confirmed on this branch:
+
+- ✅ **Workspace wallet billing** (wallet ledger, plan composer, seats, add-ons,
+  Fawaterak top-up + signed webhook, auto-renew, locked state, platform pricing
+  catalog, seat guard) ran **green on live MySQL 8 in CI** — migrate + seed +
+  tick + certify + the targeted wallet/seat-guard suite, then the full suite.
+- ⏳ The later increments on this branch — the commercial **“Build Your
+  Workspace”** page, **AI Provider Profiles**, the **platform UX layer**, and the
+  **White Label centralisation (`BrandingService`)** — are pushed and reviewed by
+  construction (additive, backward-compatible, no schema/route/contract breaks)
+  but their CI run has **not yet been read back to confirmation** in the current
+  working environment. They are **not** claimed as test-verified until that
+  re-run is confirmed green.
 
 ## Honest gaps / next
 
@@ -101,3 +120,6 @@ Overview · Workspaces · Users · Subscriptions · Audit logs · Diagnostics �
 - The standalone **tokenized interview link** (`/interview/{token}`) still uses
   the older one-shot flow; the **job-link path** already converges on the new
   conversational room.
+- White Label captures a `radius` (corner-radius) preference but the app's
+  Tailwind radius utilities are not yet remapped onto it; colour and typography
+  are applied app-wide today.
