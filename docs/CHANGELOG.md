@@ -1026,6 +1026,8 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   `PlatformContext` grants scoped platform access to anyone holding at least one
   platform permission (not just owners) — so a site manager sees only the tabs
   they're entitled to.
+- Supporting page: the owner **Users** directory now shows each user's platform
+  roles as badges, so you can see who the site managers are at a glance.
 - Verified: `PlatformRoleTest` (2 — scoped grant/revoke, owner-full, update/delete
   resync); smoke (assign → Authorizer union → scoped `PlatformContext` access)
   15/15; certify **131/131**.

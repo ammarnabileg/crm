@@ -44,6 +44,7 @@ $statusStyles = [
                         <?php if ($isOwner): ?><span class="ml-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">System Owner</span><?php endif; ?>
                         <?php if ($isSelf): ?><span class="ml-1 text-xs text-slate-400">(you)</span><?php endif; ?>
                         <span class="ml-1 rounded-full px-2 py-0.5 text-xs font-medium <?= $statusStyles[$st] ?? 'bg-slate-100 text-slate-500' ?>"><?= e($st) ?></span>
+                        <?php if (! empty($u['platform_roles'])): ?><span class="ml-1 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700" title="Platform roles">🛡 <?= e($u['platform_roles']) ?></span><?php endif; ?>
                     </div>
                     <div class="text-xs text-slate-400"><?= e($u['email']) ?> · <?= e($u['workspaces']) ?> membership(s) · last login <?= e(time_ago($u['last_login_at'] ?? null)) ?></div>
                     <div class="mt-1 text-xs text-slate-500">

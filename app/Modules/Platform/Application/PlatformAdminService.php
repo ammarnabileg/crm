@@ -53,6 +53,9 @@ final class PlatformAdminService
                     u.can_create_workspaces,
                     (SELECT COUNT(*) FROM memberships m WHERE m.user_id = u.id AND m.deleted_at IS NULL) AS workspaces,
                     (SELECT COUNT(*) FROM workspaces w WHERE w.owner_user_id = u.id AND w.status = 'active' AND w.deleted_at IS NULL) AS owned_active,
+                    (SELECT GROUP_CONCAT(pr.name ORDER BY pr.name SEPARATOR ', ')
+                       FROM platform_role_user pru JOIN platform_roles pr ON pr.id = pru.role_id AND pr.deleted_at IS NULL
+                      WHERE pru.user_id = u.id) AS platform_roles,
                     ap.plan_id, ap.expires_at, ap.status AS plan_status, p.name AS plan_name, p.limits AS plan_limits
                FROM users u
                LEFT JOIN account_plans ap ON ap.user_id = u.id
