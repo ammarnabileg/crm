@@ -6,11 +6,13 @@ namespace HaHireAI\Modules\Recruitment;
 
 use HaHireAI\Core\Contracts\CandidateDirectory;
 use HaHireAI\Core\Contracts\Container;
+use HaHireAI\Core\Contracts\RecruitmentActions;
 use HaHireAI\Core\Contracts\RecruitmentSnapshot;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Recruitment\Application\CandidateDirectoryAdapter;
 use HaHireAI\Modules\Recruitment\Application\DashboardService;
+use HaHireAI\Modules\Recruitment\Application\RecruitmentActionsAdapter;
 use HaHireAI\Modules\Recruitment\Presentation\AvatarController;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatePortalController;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatesController;
@@ -46,6 +48,8 @@ final class RecruitmentModule implements Module
         $container->singleton(CandidateDirectory::class, CandidateDirectoryAdapter::class);
         // Real Executive Dashboard KPIs for the Workspaces dashboard.
         $container->singleton(RecruitmentSnapshot::class, DashboardService::class);
+        // The write-surface the Workflow Engine uses to act on applications.
+        $container->singleton(RecruitmentActions::class, RecruitmentActionsAdapter::class);
     }
 
     public function boot(Container $container): void

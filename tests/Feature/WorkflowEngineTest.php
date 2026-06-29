@@ -15,8 +15,16 @@ use HaHireAI\Modules\AiEngine\Application\AiSettingsService;
 use HaHireAI\Modules\AiEngine\Application\PromptEngine;
 use HaHireAI\Modules\AiEngine\Application\ProviderRegistry;
 use HaHireAI\Modules\AiEngine\Infrastructure\Providers\EchoProvider;
+use HaHireAI\Core\Workflow\NullNotificationWriter;
+use HaHireAI\Core\Workflow\NullRecruitmentActions;
+use HaHireAI\Core\Workflow\NullTaskWriter;
 use HaHireAI\Modules\Audit\Application\AuditLogger;
+use HaHireAI\Modules\Notifications\Application\NotificationService;
+use HaHireAI\Modules\Notifications\Application\NotificationWriterAdapter;
+use HaHireAI\Modules\Tasks\Application\TaskService;
+use HaHireAI\Modules\Tasks\Application\TaskWriterAdapter;
 use HaHireAI\Modules\Workflow\Application\ActionExecutor;
+use HaHireAI\Modules\Workflow\Application\WorkflowCollectionService;
 use HaHireAI\Modules\Workflow\Application\WorkflowEngine;
 use HaHireAI\Modules\Workflow\Application\WorkflowService;
 use HaHireAI\Modules\Workflow\WorkflowModule;
@@ -60,7 +68,14 @@ final class WorkflowEngineTest extends TestCase
         $ai = new AiEngine($this->connection, $registry, $prompts, $settings);
 
         $this->workflows = new WorkflowService($this->connection);
-        $actions = new ActionExecutor($ai, new AuditLogger($this->connection));
+        $actions = new ActionExecutor(
+            $ai,
+            new AuditLogger($this->connection),
+            new TaskWriterAdapter(new TaskService($this->connection)),
+            new NotificationWriterAdapter(new NotificationService($this->connection)),
+            new NullRecruitmentActions(),
+            new WorkflowCollectionService($this->connection),
+        );
         $this->engine = new WorkflowEngine($this->connection, $this->workflows, $actions);
     }
 
@@ -158,6 +173,36 @@ final class WorkflowEngineTest extends TestCase
         $this->assertSame('log', $skipped['action']);
     }
 
+    public function test_create_task_action_creates_a_real_workspace_task_with_resolved_tokens(): void
+    {
+        $ws = $this->workspace();
+        $this->workflows->create($ws, 'Task on apply', 'application.submitted', [
+            ['action' => 'workspace.create_task', 'params' => ['title' => 'Review {{candidate_name}}']],
+        ]);
+
+        $this->engine->runForTrigger($ws, 'application.submitted', ['workspace_id' => $ws, 'candidate_name' => 'Sara']);
+
+        $task = $this->connection->selectOne('SELECT * FROM tasks WHERE workspace_id = ?', [$ws]);
+        $this->assertNotNull($task);
+        $this->assertSame('Review Sara', $task['title']); // {{candidate_name}} token resolved from the payload
+    }
+
+    public function test_notify_action_sends_an_in_app_notification_via_the_contract(): void
+    {
+        $ws = $this->workspace();
+        $userId = (string) $this->connection->selectOne('SELECT owner_user_id FROM workspaces WHERE id = ?', [$ws])['owner_user_id'];
+
+        $this->workflows->create($ws, 'Notify on apply', 'application.submitted', [
+            ['action' => 'users.notify', 'params' => ['user_id' => '{{user_id}}', 'title' => 'New application received']],
+        ]);
+
+        $this->engine->runForTrigger($ws, 'application.submitted', ['workspace_id' => $ws, 'user_id' => $userId]);
+
+        $note = $this->connection->selectOne('SELECT * FROM notifications WHERE workspace_id = ? AND user_id = ?', [$ws, $userId]);
+        $this->assertNotNull($note);
+        $this->assertSame('New application received', $note['title']);
+    }
+
     public function test_module_boot_listener_runs_workflow_on_dispatched_event(): void
     {
         $ws = $this->workspace();
@@ -172,6 +217,10 @@ final class WorkflowEngineTest extends TestCase
         $container->instance(EventDispatcher::class, new Dispatcher());
         // Logging is consumed via the AuditRecorder contract (ARCHITECTURE.md §4).
         $container->instance(\HaHireAI\Core\Contracts\AuditRecorder::class, new AuditLogger($this->connection));
+        // The engine's action write-surfaces — Null defaults as the Kernel binds.
+        $container->instance(\HaHireAI\Core\Contracts\TaskWriter::class, new NullTaskWriter());
+        $container->instance(\HaHireAI\Core\Contracts\NotificationWriter::class, new NullNotificationWriter());
+        $container->instance(\HaHireAI\Core\Contracts\RecruitmentActions::class, new NullRecruitmentActions());
 
         $registry = new ProviderRegistry();
         $registry->register(new EchoProvider());

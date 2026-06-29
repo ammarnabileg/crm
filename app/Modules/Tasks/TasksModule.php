@@ -6,9 +6,11 @@ namespace HaHireAI\Modules\Tasks;
 
 use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Contracts\TaskBoard;
+use HaHireAI\Core\Contracts\TaskWriter;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Tasks\Application\TaskService;
+use HaHireAI\Modules\Tasks\Application\TaskWriterAdapter;
 use HaHireAI\Modules\Tasks\Presentation\TasksController;
 
 /** Workspace tasks — hiring to-dos surfaced on the dashboard "My tasks" (Feature 14). */
@@ -28,6 +30,9 @@ final class TasksModule implements Module
     {
         // The shared task read-surface other modules depend on (ARCHITECTURE.md §4).
         $container->singleton(TaskBoard::class, static fn (Container $c): TaskBoard => $c->make(TaskService::class));
+
+        // The write-surface the Workflow Engine uses to create tasks as an action.
+        $container->singleton(TaskWriter::class, TaskWriterAdapter::class);
     }
 
     public function boot(Container $container): void

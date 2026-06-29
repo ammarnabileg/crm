@@ -7,9 +7,11 @@ namespace HaHireAI\Modules\Notifications;
 use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Contracts\EventDispatcher;
 use HaHireAI\Core\Contracts\NotificationFeed;
+use HaHireAI\Core\Contracts\NotificationWriter;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Notifications\Application\NotificationService;
+use HaHireAI\Modules\Notifications\Application\NotificationWriterAdapter;
 use HaHireAI\Modules\Notifications\Presentation\NotificationsController;
 
 /**
@@ -33,6 +35,9 @@ final class NotificationsModule implements Module
     {
         // Header bell feed other modules read without coupling (§4).
         $container->singleton(NotificationFeed::class, static fn (Container $c): NotificationFeed => $c->make(NotificationService::class));
+
+        // The write-surface the Workflow Engine uses to send notifications as an action.
+        $container->singleton(NotificationWriter::class, NotificationWriterAdapter::class);
     }
 
     public function boot(Container $container): void

@@ -258,6 +258,12 @@ $companyDir = $c->make(\HaHireAI\Core\Contracts\CompanyDirectory::class);
 $check('Company directory contract resolves (public careers page)', $companyDir instanceof \HaHireAI\Modules\Workspaces\Application\CompanyDirectoryService);
 $inviteInbox = $c->make(\HaHireAI\Core\Contracts\InvitationInbox::class);
 $check('Invitation inbox contract resolves (accept-first invitations)', $inviteInbox instanceof \HaHireAI\Modules\Memberships\Application\InvitationService);
+$taskWriter = $c->make(\HaHireAI\Core\Contracts\TaskWriter::class);
+$check('Task writer contract resolves (workflow create-task action)', $taskWriter instanceof \HaHireAI\Modules\Tasks\Application\TaskWriterAdapter);
+$notifWriter = $c->make(\HaHireAI\Core\Contracts\NotificationWriter::class);
+$check('Notification writer contract resolves (workflow notify action)', $notifWriter instanceof \HaHireAI\Modules\Notifications\Application\NotificationWriterAdapter);
+$recruitActions = $c->make(\HaHireAI\Core\Contracts\RecruitmentActions::class);
+$check('Recruitment actions contract resolves (workflow pipeline actions)', $recruitActions instanceof \HaHireAI\Modules\Recruitment\Application\RecruitmentActionsAdapter);
 
 // ── 8. Health ───────────────────────────────────────────────────────────────
 $head('8. Health');

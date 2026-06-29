@@ -67,5 +67,22 @@ final class CoreServiceProvider extends ServiceProvider
             \HaHireAI\Core\Contracts\RecruitmentSnapshot::class,
             \HaHireAI\Core\Recruitment\NullRecruitmentSnapshot::class,
         );
+
+        // No-op write surfaces for the Workflow Engine's actions. The owning
+        // modules (Tasks, Notifications, Recruitment) override these with thin
+        // adapters over their existing services; until then automations degrade
+        // gracefully instead of failing (ARCHITECTURE.md §4).
+        $c->singleton(
+            \HaHireAI\Core\Contracts\TaskWriter::class,
+            \HaHireAI\Core\Workflow\NullTaskWriter::class,
+        );
+        $c->singleton(
+            \HaHireAI\Core\Contracts\NotificationWriter::class,
+            \HaHireAI\Core\Workflow\NullNotificationWriter::class,
+        );
+        $c->singleton(
+            \HaHireAI\Core\Contracts\RecruitmentActions::class,
+            \HaHireAI\Core\Workflow\NullRecruitmentActions::class,
+        );
     }
 }
