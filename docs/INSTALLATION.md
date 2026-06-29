@@ -102,9 +102,13 @@ to use SSH, a terminal, Composer, or manual SQL at any point.
 >   "directory index forbidden" on `/` or a `404` on `/install` means the document
 >   root is the project root **and** `mod_rewrite`/`AllowOverride` is off — fix
 >   either of the two points above.
-> - The PHP dependencies (`vendor/`) must be present in the upload; the **release
->   package** (not the bare git repo) bundles them so the customer never runs
->   Composer.
+> - **No Composer / `vendor/` is required to run.** HaHireAI has **zero runtime
+>   dependencies** (`composer.json` `require` lists only `php` + `ext-*`), and
+>   `bootstrap/autoload.php` ships a PSR-4 fallback autoloader. The app therefore
+>   boots straight from the uploaded files — even with no `vendor/` directory — so
+>   `/install` (and `/setup.php`) load on a bare upload. Composer is needed only by
+>   developers, to run the test suite. (A previous `500` on `/` came from a missing
+>   `vendor/autoload.php`; that hard dependency has been removed.)
 
 ### 2.2 The Setup Wizard (Steps)
 

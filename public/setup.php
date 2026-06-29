@@ -5,9 +5,11 @@ declare(strict_types=1);
 /*
  * HaHireAI — self-contained browser setup.
  *
- * This file deliberately has NO framework/Composer dependency, so it works on a
- * fresh upload BEFORE `vendor/` exists (that is exactly why a plain /install
- * 500s on a bare upload). It offers two tabs:
+ * This file deliberately has NO framework/Composer dependency, so it is a
+ * guaranteed-to-load fallback even on a misconfigured host. The app itself also
+ * boots with no `vendor/` (bootstrap/autoload.php ships a PSR-4 fallback, and
+ * composer.json has zero runtime deps), so `/install` works on a bare upload too —
+ * this page is the belt-and-suspenders alternative. It offers two tabs:
  *
  *   1) Install  — database credentials + the first owner account (only).
  *   2) Terminal — a fixed, allow-listed set of setup commands (composer install,
@@ -192,19 +194,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ! $installed) {
                 'APP_ENV' => 'production', 'APP_DEBUG' => 'false',
             ]);
 
-            // 3) Ensure dependencies exist; if not, fetch them.
-            if (! is_file($ROOT . '/vendor/autoload.php')) {
-                $resolved = resolve_command('composer install', $ROOT);
-                if ($resolved !== null) {
-                    run_resolved($resolved, $ROOT);
-                }
-            }
-            if (! is_file($ROOT . '/vendor/autoload.php')) {
-                throw new RuntimeException('Dependencies are not installed. Open the Terminal tab and run "composer install", then come back and finish.');
-            }
-
-            // 4) Boot the framework (now that vendor/ exists, reading the .env we
-            //    just wrote) and run the real install: migrate, seed, owner, lock.
+            // 3) Boot the framework reading the .env we just wrote, then run the
+            //    real install: migrate, seed, owner, lock. No Composer needed —
+            //    HaHireAI has zero runtime dependencies and ships its own PSR-4
+            //    autoloader fallback (bootstrap/autoload.php), so it runs straight
+            //    from the uploaded files.
             /** @var \HaHireAI\Core\Kernel $kernel */
             $kernel = require $ROOT . '/bootstrap/app.php';
             $kernel->boot();

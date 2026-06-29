@@ -11,7 +11,7 @@ declare(strict_types=1);
 use HaHireAI\Core\Container\Container;
 use HaHireAI\Core\Kernel;
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require dirname(__DIR__) . '/bootstrap/autoload.php';
 
 $container = new Container();
 
