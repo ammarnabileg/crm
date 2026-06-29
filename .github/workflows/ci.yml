@@ -8,6 +8,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       mysql:
         image: mysql:8.0
@@ -69,8 +70,11 @@ jobs:
           php bin/console.php db:seed
           php bin/console.php billing:tick
 
-      - name: PHPUnit
-        run: vendor/bin/phpunit --no-coverage
+      - name: Wallet + seat-guard tests (targeted, fast)
+        run: vendor/bin/phpunit --no-coverage --filter 'WalletBillingTest'
 
       - name: Certify
         run: php bin/certify.php
+
+      - name: Full test suite
+        run: vendor/bin/phpunit --no-coverage
