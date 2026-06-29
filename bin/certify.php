@@ -157,7 +157,7 @@ foreach ($router->routes() as $r) {
     $paths[$r->method() . ' ' . $r->path()] = true;
 }
 foreach ([
-    'GET /install', 'GET /login', 'GET /dashboard', 'GET /jobs', 'GET /workflows',
+    'GET /', 'GET /install', 'GET /login', 'GET /dashboard', 'GET /jobs', 'GET /workflows',
     'GET /integrations', 'GET /billing', 'GET /overview', 'GET /diagnostics',
     'GET /all-workspaces', 'GET /users', 'GET /subscriptions',
     'GET /interviews', 'GET /human-interviews', 'GET /files', 'GET /notifications',

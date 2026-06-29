@@ -89,6 +89,23 @@ to use SSH, a terminal, Composer, or manual SQL at any point.
 5. On finish, **setup locks itself** and the user is redirected to **Login**
    (§2.3).
 
+> **Apache (Plesk / cPanel / shared hosting).** The repo ships the rewrite rules
+> needed to run on Apache:
+> - **Recommended:** set the site's **Document Root to `.../httpdocs/public`**.
+>   Then `public/.htaccess` routes all clean URLs (`/install`, `/login`, …) to the
+>   front controller, and nothing outside `public/` is web-reachable.
+> - **If you must keep the document root at the project root** (`httpdocs`): the
+>   shipped **root `.htaccess`** forwards every request into `public/` and blocks
+>   direct web access to `.env`, `app/`, `config/`, `storage/`, `vendor/`, etc.; a
+>   root `index.php` is the no-rewrite fallback for `/`.
+> - **`mod_rewrite` must be enabled** (default on Plesk/cPanel). A `403`
+>   "directory index forbidden" on `/` or a `404` on `/install` means the document
+>   root is the project root **and** `mod_rewrite`/`AllowOverride` is off — fix
+>   either of the two points above.
+> - The PHP dependencies (`vendor/`) must be present in the upload; the **release
+>   package** (not the bare git repo) bundles them so the customer never runs
+>   Composer.
+
 ### 2.2 The Setup Wizard (Steps)
 
 The browser wizard walks the customer through these steps, in order. Each step

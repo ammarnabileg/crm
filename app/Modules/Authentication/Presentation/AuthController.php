@@ -27,6 +27,16 @@ final class AuthController
     ) {
     }
 
+    /** The site root: send visitors to setup (if needed) or into the app. */
+    public function home(): Response
+    {
+        if (! $this->installer->isInstalled()) {
+            return Response::redirect('/install');
+        }
+
+        return Response::redirect($this->auth->check() ? '/dashboard' : '/login');
+    }
+
     public function showLogin(): Response
     {
         if (! $this->installer->isInstalled()) {
