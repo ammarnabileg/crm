@@ -6,6 +6,39 @@
   /* Light mode is the platform's base identity. */
   :root {
     color-scheme: light;
+
+    /* Brand accent channels (space-separated RGB), consumed by the `indigo-*`
+       utilities via tailwind.config.js. Default identity = azure blue. Defining
+       the accent here means every page/component shares one source of truth. */
+    --brand-50: 239 246 255;
+    --brand-100: 219 234 254;
+    --brand-200: 191 219 254;
+    --brand-300: 147 197 253;
+    --brand-400: 96 165 250;
+    --brand-500: 59 130 246;
+    --brand-600: 37 99 235;
+    --brand-700: 29 78 216;
+    --brand-800: 30 64 175;
+    --brand-900: 30 58 138;
+    --brand-950: 23 37 84;
+  }
+
+  /* The HaHireAI owner/platform shell wears a red accent so it is unmistakable
+     from the blue tenant workspaces. The body carries `.theme-platform`, and
+     every `indigo-*` utility on the page resolves to these red channels instead
+     — no per-element overrides, no view churn. */
+  .theme-platform {
+    --brand-50: 254 242 242;
+    --brand-100: 254 226 226;
+    --brand-200: 254 202 202;
+    --brand-300: 252 165 165;
+    --brand-400: 248 113 113;
+    --brand-500: 239 68 68;
+    --brand-600: 220 38 38;
+    --brand-700: 185 28 28;
+    --brand-800: 153 27 27;
+    --brand-900: 127 29 29;
+    --brand-950: 69 10 10;
   }
 
   /* One unified type identity across every page and component. */

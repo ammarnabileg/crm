@@ -32,6 +32,9 @@ final class PlatformShell
             'user' => $this->auth->user(),
             'sidebar' => $this->sidebar->build('platform', $context->permissions()),
             'workspaceName' => 'Platform',
+            // Red accent across the whole platform shell — distinct from the blue
+            // tenant workspaces. Consumed by layouts.app → <body class="theme-platform">.
+            'platformTheme' => true,
         ]);
 
         return Response::html($html);

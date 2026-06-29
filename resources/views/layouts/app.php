@@ -77,10 +77,12 @@ $initial = strtoupper(substr((string) ($user['name'] ?? '?'), 0, 1));
 /** @var string|null $currentWorkspaceId */
 /** @var list<array<string,mixed>> $notifications */
 /** @var int $unreadCount */
+/** @var bool $platformTheme */
 $workspaces ??= [];
 $currentWorkspaceId ??= null;
 $notifications ??= [];
 $unreadCount ??= 0;
+$platformTheme ??= false;
 $currentWsName = $workspaceName ?? 'Workspace';
 foreach ($workspaces as $w) {
     if ((string) $w['id'] === (string) $currentWorkspaceId) {
@@ -104,7 +106,7 @@ foreach ($workspaces as $w) {
         <script src="https://cdn.tailwindcss.com"></script>
     <?php endif; ?>
 </head>
-<body class="min-h-screen bg-slate-100 font-sans text-slate-800 antialiased">
+<body class="min-h-screen bg-slate-100 font-sans text-slate-800 antialiased<?= $platformTheme ? ' theme-platform' : '' ?>">
 <div class="flex min-h-screen">
     <!-- Single dynamic sidebar — generated from permissions, not roles -->
     <aside class="hidden w-64 shrink-0 flex-col border-e border-slate-200 bg-white md:flex">
