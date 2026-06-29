@@ -13,6 +13,7 @@ use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Navigation\Application\ContextSwitcher;
 use HaHireAI\Modules\Navigation\Application\SidebarBuilder;
+use HaHireAI\Modules\Workspaces\Application\BrandingService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspacePreferences;
 
@@ -33,6 +34,7 @@ final class WorkspaceShell
         private readonly SupportInfo $support,
         private readonly NotificationFeed $notifications,
         private readonly ContextSwitcher $switcher,
+        private readonly BrandingService $branding,
     ) {
     }
 
@@ -120,29 +122,33 @@ final class WorkspaceShell
             'unreadCount' => $wsId !== '' && $uId !== '' ? $this->notifications->unreadCount($wsId, $uId) : 0,
             'switcher' => $this->switcher->model('staff'),
             'fullBleed' => ($options['fullBleed'] ?? false) === true,
-            'brand' => $this->brand($wsId !== '' ? $wsId : null, $context->workspace()),
+            'brand' => $this->brand($wsId !== '' ? $wsId : null, $context->workspace(), $features),
         ]);
 
         return Response::html($html);
     }
 
     /**
-     * Per-workspace branding for the white-labelled shell (logo, name, accent).
+     * Per-workspace branding for the white-labelled shell. The company name is
+     * always shown; the custom colour scale, font and logo only apply when the
+     * plan includes the white_label feature (a paid service). Without it the
+     * shell keeps the default HaHireAI theme (docs/WHITE_LABEL.md).
      *
      * @param  array<string,mixed>|null  $workspace
+     * @param  list<string>|null  $features  enabled plan features (null = unlimited/dev)
      * @return array{name:string,initial:string,logoUrl:?string,style:string}
      */
-    private function brand(?string $workspaceId, ?array $workspace): array
+    private function brand(?string $workspaceId, ?array $workspace, ?array $features): array
     {
         $name = trim((string) ($workspace['name'] ?? 'Workspace')) ?: 'Workspace';
-        $hex = $workspaceId !== null ? (string) $this->preferences->get($workspaceId, 'brand.color', '') : '';
-        $hasLogo = $workspaceId !== null && (string) $this->preferences->get($workspaceId, 'brand.logo_file_id', '') !== '';
+        $entitled = $workspaceId !== null
+            && ($features === null || in_array('white_label', $features, true));
 
         return [
             'name' => $name,
             'initial' => mb_strtoupper(mb_substr($name, 0, 1)),
-            'logoUrl' => $hasLogo ? '/settings/logo' : null,
-            'style' => \HaHireAI\Modules\Workspaces\Application\BrandPalette::styleVars($hex),
+            'logoUrl' => $entitled ? $this->branding->logoUrl($workspaceId) : null,
+            'style' => $entitled ? $this->branding->shellStyle($workspaceId) : '',
         ];
     }
 

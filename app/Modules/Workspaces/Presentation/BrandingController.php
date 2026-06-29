@@ -10,39 +10,23 @@ use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
+use HaHireAI\Modules\Workspaces\Application\BrandingService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
-use HaHireAI\Modules\Workspaces\Application\WorkspacePreferences;
 
 /**
- * White Label & Branding Center (Phase A): per-company identity applied across
- * candidate-facing surfaces. Stored as brand.* workspace preferences (no schema
- * change). Gated by the workspace.branding permission and the white_label plan
- * feature (docs/WALLET_AND_BILLING.md).
+ * White Label & Branding Center: per-company identity applied across the app
+ * shell and candidate-facing surfaces. Every field is owned by BrandingService
+ * (the single source of truth) and stored as brand.* workspace preferences (no
+ * schema change). Gated by the workspace.branding permission and the white_label
+ * plan feature (docs/WHITE_LABEL.md, docs/WALLET_AND_BILLING.md).
  */
 final class BrandingController
 {
-    /** Editable text/colour brand fields: key => [label, input type]. */
-    private const FIELDS = [
-        'company_name' => ['Company name', 'text'],
-        'legal_name' => ['Legal name', 'text'],
-        'description' => ['Company description', 'textarea'],
-        'color' => ['Primary colour', 'color'],
-        'secondary_color' => ['Secondary colour', 'color'],
-        'accent_color' => ['Accent colour', 'color'],
-        'radius' => ['Corner radius (px)', 'number'],
-        'career_hero_title' => ['Career page hero title', 'text'],
-        'career_hero_subtitle' => ['Career page hero subtitle', 'text'],
-        'footer_text' => ['Footer text', 'textarea'],
-        'social_website' => ['Website URL', 'url'],
-        'social_linkedin' => ['LinkedIn URL', 'url'],
-        'social_twitter' => ['X / Twitter URL', 'url'],
-    ];
-
     public function __construct(
         private readonly WorkspaceShell $shell,
         private readonly WorkspaceContext $context,
         private readonly AuthContext $auth,
-        private readonly WorkspacePreferences $prefs,
+        private readonly BrandingService $branding,
         private readonly EntitlementResolver $entitlements,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
@@ -56,16 +40,11 @@ final class BrandingController
         }
         $ws = (string) $this->context->workspaceId();
 
-        $values = [];
-        foreach (array_keys(self::FIELDS) as $key) {
-            $values[$key] = (string) $this->prefs->get($ws, 'brand.' . $key, '');
-        }
-
         return $this->shell->render($this->context, 'branding.index', [
-            'fields' => self::FIELDS,
-            'values' => $values,
+            'fields' => $this->branding->fields(),
+            'values' => $this->branding->values($ws),
             'entitled' => $this->entitled($ws),
-            'hasLogo' => (string) $this->prefs->get($ws, 'brand.logo_file_id', '') !== '',
+            'hasLogo' => $this->branding->logoUrl($ws) !== null,
             'canManage' => $this->context->can('workspace.branding'),
             'status' => $this->session->pullFlash('status'),
             'error' => $this->session->pullFlash('error'),
@@ -85,9 +64,7 @@ final class BrandingController
             return Response::redirect('/billing');
         }
 
-        foreach (array_keys(self::FIELDS) as $key) {
-            $this->prefs->set($ws, 'brand.' . $key, trim((string) $request->input($key, '')));
-        }
+        $this->branding->save($ws, static fn (string $key): string => (string) $request->input($key, ''));
 
         $this->audit->record('workspace.branding.updated', [
             'workspace_id' => $ws,
