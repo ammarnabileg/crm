@@ -29,6 +29,12 @@ system — the engine never polls.
 | User Joined Workspace | `audit.memberships.invitation.accepted` |
 | Subscription Renewed | `audit.billing.subscription.renewed` |
 | Payment Failed | `audit.billing.payment.failed` |
+| Wallet Credited | `wallet.credited` |
+| Wallet Low Balance | `wallet.low_balance` |
+| Plan Activated / Renewed | `plan.activated` / `plan.renewed` |
+| Plan Lapsed / Locked | `plan.lapsed` / `plan.locked` |
+| Seat Added | `seat.added` |
+| Add-on Activated | `addon.activated` |
 | Manual / Webhook / Schedule | run on demand / future |
 
 Hired/Rejected share the status-changed event — add an **If** on the status field to

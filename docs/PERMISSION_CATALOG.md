@@ -156,8 +156,14 @@ Everything else requires an explicit permission below.
 ### Commerce (workspace)
 | Key | Allows | Module |
 |---|---|---|
-| `billing.view` | View billing/invoices/usage | Billing |
-| `billing.manage` | Manage plan/payment methods | Billing |
+| `billing.view` | View billing, wallet balance and history | Billing |
+| `billing.manage` | Manage billing (reach billing while locked; top up; compose; cancel auto-renew) | Billing |
+| `billing.wallet.topup` | Top up the workspace wallet (Fawaterak) | Billing |
+| `billing.plan.compose` | Compose / renew the monthly plan (seats + features) | Billing |
+| `billing.seats.manage` | Add billable seats | Billing |
+| `billing.addons.manage` | Activate plan add-ons | Billing |
+
+See `WALLET_AND_BILLING.md` for the workspace wallet model these keys govern.
 
 ### Integration (workspace)
 | Key | Allows | Module |
@@ -187,6 +193,7 @@ Everything else requires an explicit permission below.
 | `system.workspaces.manage` | Manage all workspaces (suspend/resume/license) | System Administration |
 | `system.subscriptions.manage` | Manage subscriptions/revenue | Subscriptions |
 | `system.plans.manage` | Manage plans & coupons | Subscriptions |
+| `system.pricing.manage` | Edit the platform pricing catalog (seat & feature prices) | Billing |
 | `system.settings.manage` | Manage platform settings | System Administration |
 | `system.ai.manage` | Manage global AI providers/models | AI Engine |
 | `system.integrations.manage` | Manage global connectors | Integration Platform |

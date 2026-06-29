@@ -4,32 +4,42 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Billing\Presentation;
 
+use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
-use HaHireAI\Core\Contracts\AuditRecorder;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
-use HaHireAI\Modules\Billing\Application\BillingService;
 use HaHireAI\Modules\Billing\Application\Exceptions\BillingException;
 use HaHireAI\Modules\Billing\Application\InvoiceService;
-use HaHireAI\Modules\Billing\Application\PlanService;
-use HaHireAI\Modules\Billing\Application\SubscriptionService;
+use HaHireAI\Modules\Billing\Application\PlanComposer;
+use HaHireAI\Modules\Billing\Application\PricingCatalog;
+use HaHireAI\Modules\Billing\Application\SeatCounter;
+use HaHireAI\Modules\Billing\Application\TopUpService;
+use HaHireAI\Modules\Billing\Application\WalletService;
+use HaHireAI\Modules\Billing\Application\WorkspacePlanService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
 
-/** Workspace billing: plan, status, invoices, and plan changes (docs/BILLING_PLATFORM.md §7). */
+/**
+ * Workspace billing: the prepaid wallet, the composed monthly plan (seats +
+ * features), add-ons, top-ups and history (docs/WALLET_AND_BILLING.md). Every
+ * action is permission-gated (keys, never roles) and CSRF-protected.
+ */
 final class BillingController
 {
     public function __construct(
         private readonly WorkspaceShell $shell,
         private readonly WorkspaceContext $context,
         private readonly AuthContext $auth,
-        private readonly PlanService $plans,
-        private readonly SubscriptionService $subscriptions,
-        private readonly InvoiceService $invoices,
-        private readonly BillingService $billing,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
+        private readonly WalletService $wallet,
+        private readonly PricingCatalog $pricing,
+        private readonly WorkspacePlanService $plans,
+        private readonly PlanComposer $composer,
+        private readonly TopUpService $topup,
+        private readonly SeatCounter $seats,
+        private readonly InvoiceService $invoices,
     ) {
     }
 
@@ -40,73 +50,157 @@ final class BillingController
         }
 
         $ws = (string) $this->context->workspaceId();
+        $plan = $this->plans->find($ws);
+        $activeFeatures = $this->plans->activeFeatureKeys($ws);
 
-        return $this->shell->render($this->context, 'billing.index', [
-            'subscription' => $this->subscriptions->findWithPlan($ws),
-            'plans' => $this->plans->publicPlans(),
-            'invoices' => $this->invoices->listForWorkspace($ws, 20),
+        return $this->shell->render($this->context, 'billing.wallet', [
+            'balanceCents' => $this->wallet->balance($ws),
+            'plan' => $plan,
+            'seatPriceCents' => $this->pricing->seatPriceCents(),
+            'billableSeats' => $this->seats->billableSeats($ws),
+            'coveredSeats' => $this->plans->coveredSeats($ws),
+            'premiumFeatures' => $this->pricing->premiumFeatures(),
+            'activeFeatures' => $activeFeatures,
+            'transactions' => $this->wallet->transactions($ws, 25),
+            'invoices' => $this->invoices->listForWorkspace($ws, 12),
             'canManage' => $this->context->can('billing.manage'),
-            'gatewayConnected' => $this->billing->gatewayConnected(),
-            'freeMode' => $this->billing->freeMode(),
-            'freePeriodDays' => $this->billing->freePeriodDays(),
+            'gatewayEnabled' => $this->topup->gatewayEnabled(),
             'status' => $this->session->pullFlash('status'),
             'error' => $this->session->pullFlash('error'),
         ]);
     }
 
-    public function subscribe(Request $request): Response
+    /** Start a wallet top-up: open a Fawaterak session and go to the checkout. */
+    public function topup(Request $request): Response
     {
-        if (($r = $this->gate('billing.manage', $request)) !== null) {
+        if (($r = $this->gate('billing.wallet.topup', $request)) !== null) {
             return $r;
         }
 
-        $planId = (string) $request->input('plan_id', '');
-        $hadSubscription = $this->subscriptions->find((string) $this->context->workspaceId()) !== null;
+        $ws = (string) $this->context->workspaceId();
+        $amountCents = (int) round(((float) $request->input('amount', 0)) * 100);
 
         try {
-            $action = $hadSubscription ? 'change' : 'subscribe';
-            if ($hadSubscription) {
-                $this->billing->changePlan((string) $this->context->workspaceId(), $planId);
-            } else {
-                $this->billing->subscribe((string) $this->context->workspaceId(), $planId);
-            }
+            $session = $this->topup->start($ws, $amountCents, $this->auth->id());
         } catch (BillingException $e) {
             $this->session->flash('error', $e->getMessage());
 
             return Response::redirect('/billing');
         }
 
-        $this->audit->record('billing.subscription.' . $action, [
-            'workspace_id' => $this->context->workspaceId(),
-            'actor_user_id' => $this->context->userId(),
-            'entity_type' => 'subscription',
-            'changes' => ['plan_id' => $planId],
+        $this->audit->record('billing.wallet.topup_started', [
+            'workspace_id' => $ws, 'actor_user_id' => $this->auth->id(),
+            'entity_type' => 'wallet', 'changes' => ['amount_cents' => $amountCents],
         ]);
-        $this->session->flash('status', 'Your plan has been updated.');
+
+        return Response::redirect($session['iframe_url']);
+    }
+
+    /** Offline simulate confirm (only when no live gateway is configured). */
+    public function topupSimulate(Request $request, string $paymentId): Response
+    {
+        if (($r = $this->gate('billing.wallet.topup', $request)) !== null) {
+            return $r;
+        }
+
+        // GET shows a confirm button; POST applies the credit.
+        if (! $request->isMethod('POST')) {
+            $payment = $this->topup->find($paymentId);
+
+            return $this->shell->render($this->context, 'billing.simulate', [
+                'payment' => $payment,
+            ]);
+        }
+
+        try {
+            $this->topup->confirmSimulated($paymentId, $this->auth->id());
+            $this->session->flash('status', 'Wallet topped up.');
+        } catch (BillingException $e) {
+            $this->session->flash('error', $e->getMessage());
+        }
 
         return Response::redirect('/billing');
     }
 
-    public function cancel(Request $request): Response
+    /** Compose / re-activate the monthly plan (seats + features), paid from the wallet. */
+    public function compose(Request $request): Response
     {
-        if (($r = $this->gate('billing.manage', $request)) !== null) {
+        if (($r = $this->gate('billing.plan.compose', $request)) !== null) {
             return $r;
         }
 
+        $ws = (string) $this->context->workspaceId();
+        $seats = (int) $request->input('seats', 0);
+        $features = array_values(array_map('strval', (array) $request->input('features', [])));
+
         try {
-            $this->billing->cancel((string) $this->context->workspaceId());
+            $this->composer->compose($ws, $seats, $features, $this->auth->id());
+            $this->session->flash('status', 'Your plan is active.');
         } catch (BillingException $e) {
             $this->session->flash('error', $e->getMessage());
 
             return Response::redirect('/billing');
         }
 
-        $this->audit->record('billing.subscription.cancel', [
-            'workspace_id' => $this->context->workspaceId(),
-            'actor_user_id' => $this->context->userId(),
-            'entity_type' => 'subscription',
+        $this->audit->record('billing.plan.composed', [
+            'workspace_id' => $ws, 'actor_user_id' => $this->auth->id(),
+            'entity_type' => 'workspace_plan', 'changes' => ['seats' => $seats, 'features' => $features],
         ]);
-        $this->session->flash('status', 'Your subscription will cancel at the end of the period.');
+
+        return Response::redirect('/billing');
+    }
+
+    /** Add one billable seat at a full month's price (expires with the plan). */
+    public function addSeat(Request $request): Response
+    {
+        if (($r = $this->gate('billing.seats.manage', $request)) !== null) {
+            return $r;
+        }
+
+        $ws = (string) $this->context->workspaceId();
+        try {
+            $this->composer->addSeat($ws, $this->auth->id());
+            $this->session->flash('status', 'Seat added for this month.');
+        } catch (BillingException $e) {
+            $this->session->flash('error', $e->getMessage());
+        }
+
+        return Response::redirect('/billing');
+    }
+
+    /** Activate an add-on feature mid-term (charged now, expires with the plan). */
+    public function addAddon(Request $request): Response
+    {
+        if (($r = $this->gate('billing.addons.manage', $request)) !== null) {
+            return $r;
+        }
+
+        $ws = (string) $this->context->workspaceId();
+        $feature = (string) $request->input('feature', '');
+        try {
+            $this->composer->addAddonFeature($ws, $feature, $this->auth->id());
+            $this->session->flash('status', 'Add-on activated.');
+        } catch (BillingException $e) {
+            $this->session->flash('error', $e->getMessage());
+        }
+
+        return Response::redirect('/billing');
+    }
+
+    /** Turn auto-renew on/off for the composed plan. */
+    public function autoRenew(Request $request): Response
+    {
+        if (($r = $this->gate('billing.manage', $request)) !== null) {
+            return $r;
+        }
+
+        $ws = (string) $this->context->workspaceId();
+        $plan = $this->plans->find($ws);
+        if ($plan !== null) {
+            $on = $request->input('auto_renew') !== null;
+            $this->plans->update((string) $plan['id'], ['auto_renew' => $on]);
+            $this->session->flash('status', $on ? 'Auto-renew enabled.' : 'Auto-renew disabled.');
+        }
 
         return Response::redirect('/billing');
     }

@@ -73,6 +73,22 @@ final class WorkspaceShell
             ], 'layouts.guest', ['title' => 'Service paused']), 503);
         }
 
+        // Billing lock: the company's composed plan could not be renewed from the
+        // wallet. Staff are denied every page except the billing area, and only
+        // those who can manage billing may reach it to top up & re-activate
+        // (docs/WALLET_AND_BILLING.md §8). Candidates/public pages are unaffected.
+        if (! $bypassGate && $workspaceId !== null && $this->entitlements->isLocked($workspaceId)) {
+            $path = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
+            $canManageBilling = $context->can('billing.manage');
+            if (! ($canManageBilling && str_starts_with($path, '/billing'))) {
+                return Response::html($this->view->page('workspace.locked', [
+                    'workspaceName' => $workspace['name'] ?? null,
+                    'support' => $this->support->support(),
+                    'canManageBilling' => $canManageBilling,
+                ], 'layouts.guest', ['title' => 'Plan paused']), 402);
+            }
+        }
+
         // Maintenance mode: pause the workspace for everyone except admins
         // (members who can change settings) and explicitly allow-listed IPs.
         // Settings stays reachable to toggle it off.

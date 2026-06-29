@@ -102,8 +102,12 @@ final class PermissionCatalog
                 'ai.keys.manage' => 'Manage workspace API keys',
             ],
             'Billing' => [
-                'billing.view' => 'View billing',
-                'billing.manage' => 'Manage plan/payment methods',
+                'billing.view' => 'View billing, wallet balance and history',
+                'billing.manage' => 'Manage billing (reach billing while locked; top up; compose; cancel auto-renew)',
+                'billing.wallet.topup' => 'Top up the workspace wallet (Fawaterak)',
+                'billing.plan.compose' => 'Compose / renew the monthly plan (seats + features)',
+                'billing.seats.manage' => 'Add billable seats',
+                'billing.addons.manage' => 'Activate plan add-ons',
             ],
             'Settings' => [
                 'settings.view' => 'View settings',
@@ -144,6 +148,7 @@ final class PermissionCatalog
             'system.roles.manage' => 'Manage platform roles & permissions',
             'system.workspaces.manage' => 'Manage all workspaces',
             'system.subscriptions.manage' => 'Manage subscriptions',
+            'system.pricing.manage' => 'Edit the platform pricing catalog (seat & feature prices)',
             'system.settings.manage' => 'Manage platform settings',
             'system.ai.manage' => 'Manage global AI providers',
             'system.diagnostics.run' => 'Run diagnostics',

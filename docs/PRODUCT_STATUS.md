@@ -24,6 +24,12 @@ MySQL 8, server-rendered, no framework._
 ### Staff workspace
 | Area | Status | Notes |
 |---|---|---|
+| **Wallet billing (per workspace)** | ✅ | prepaid USD wallet + ledger; owner free, extra staff = billable seats |
+| **Plan composer** (seats + features) | ✅ | live cost, mandatory pre-activation review; 1-month term; auto-renew from wallet |
+| **Add-ons** | ✅ | charged now, expire with the plan |
+| **Fawaterak top-up** | ✅ | iframe + signed idempotent webhook; offline simulate when unconfigured |
+| **Locked state** | ✅ | unfunded renewal blocks staff except the billing page (`billing.manage`) |
+| **Platform pricing catalog** | ✅ | seat + feature prices, System Owner (`system.pricing.manage`) |
 | Dashboard | ✅ | dynamic sidebar from permissions |
 | Jobs: list / create / **edit** / **archive** | ✅ | seniority intern→executive, salary band |
 | Job **question bank** (#4) | ✅ | feeds the AI interview room in order |
