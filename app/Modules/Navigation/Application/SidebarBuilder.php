@@ -37,6 +37,7 @@ final class SidebarBuilder
         ['label' => 'Developer', 'route' => '/integrations', 'permission' => 'integration.view', 'feature' => 'integrations'],
         ['label' => 'Search', 'route' => '/search', 'permission' => 'search.use'],
         ['label' => 'Files', 'route' => '/files', 'permission' => 'files.view'],
+        ['label' => 'Branding', 'route' => '/branding', 'permission' => 'workspace.branding', 'feature' => 'white_label'],
         ['label' => 'Settings', 'route' => '/settings', 'permission' => 'settings.view'],
         ['label' => 'Maintenance', 'route' => '/settings/maintenance', 'permission' => 'settings.update'],
         ['label' => 'Billing', 'route' => '/billing', 'permission' => 'billing.view'],
