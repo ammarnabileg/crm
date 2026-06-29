@@ -72,39 +72,55 @@ single identity, `USER_MODEL.md` §1) is implicit in every input — one login.
 
 ---
 
-## 3. Platform Context vs Workspace Context
+## 3. The three contexts — one engine, one shell, clean URLs
 
-Two operating contexts, one engine and one shell (`NAVIGATION_MAP.md` §2;
-`UI_GUIDELINES.md` §3).
+A single signed-in `User` operates in one of **three contexts**, all on the same
+engine, shell and unprefixed URL space (no `/admin`, no `/portal`). The active
+context is `AuthContext::contextType()` (`platform` | `staff` | `candidate`)
+plus the active `workspace_id`; together they decide what each page renders.
 
-| | **Platform Context** | **Workspace Context** |
-|---|---|---|
-| **Who operates here** | System Owners (`system.*`) | Members of the active workspace |
-| **Scope** | The platform itself (global data) | Exactly one active workspace (tenant-isolated) |
-| **Nav universe** | `NAVIGATION_MAP.md` §3 tree | `NAVIGATION_MAP.md` §4 tree |
-| **Visibility inputs** | `system.*` permissions + platform modules | permission **AND** subscription **AND** module |
-| **Entry gate** | `system.dashboard.view` | Active `Membership` + `workspace.view` |
+| | **Platform** | **Workspace (staff)** | **Candidate** |
+|---|---|---|---|
+| **Who operates here** | System Owners / site managers (`system.*`) | Members of the active workspace | Applicants in a workspace |
+| **Scope** | The platform itself (global data) | One active workspace (tenant-isolated) | One workspace, as an applicant |
+| **Shell** | `PlatformShell` (red accent) | `WorkspaceShell` (blue) | `CandidateShell` (blue) |
+| **Sidebar** | `NAVIGATION_MAP.md` §3 tree | §4 tree (permission-gated) | candidate menu (context, not perms) |
+| **Landing** | `/overview` | `/dashboard` | `/dashboard` → `/my-applications` |
+| **Entry gate** | any `system.*` permission | active `Membership` + `workspace.view` | an application in that workspace |
 
-### 3.1 Context resolution & switching
+### 3.1 Context resolution & the unified switcher
 
 ```
-On each request the engine resolves context:
-  activeContext = platform  AND system.dashboard.view ──▶ PLATFORM CONTEXT
-  activeContext = workspace AND Membership(activeWs)   ──▶ WORKSPACE CONTEXT
-  no workspace AND no system.*  ──▶ chooser: Create Workspace · Join Workspace
+/dashboard is the one context-aware landing:
+  contextType = candidate AND applicant somewhere ──▶ /my-applications
+  Membership(activeWs)                            ──▶ STAFF dashboard
+  applicant somewhere                             ──▶ /my-applications
+  pending invitation(s) by email                  ──▶ /invites   (accept-first)
+  otherwise                                       ──▶ /workspaces/select
+Platform pages (/overview, /users, …) render in PLATFORM context directly.
 ```
 
-- A **workspace switcher** MUST let the user move between joined workspaces and, if
-  granted `system.*`, into the Platform Context — all with **one login**
+- **One switcher** in the top bar (`ContextSwitcher`, built from the
+  `MemberDirectory` / `CandidateDirectory` / `AccessControl` / `InvitationInbox`
+  Core contracts) moves the user between **everything they can be** with one
+  login: 👑 **HaHireAI** (the platform panel, listed first for anyone with
+  platform access) → the **Workspaces** they staff → the workspaces they're
+  **Applying to** → pending **Invitations** → **New workspace**
   (`WORKSPACE_MODEL.md` §7; `USER_MODEL.md` §4).
-- Switching MUST **re-derive the entire navigation** from the new context's inputs;
-  the engine recomputes from scratch and MUST NOT merge entries from the prior
-  context. UI, data, branding, badges, and breadcrumbs MUST NOT **leak** across
-  contexts; the active context MUST be unmistakable.
-- A switch lands on a safe default (Platform **Overview** or workspace
-  **Dashboard**) rather than carrying a context-specific deep link across the
-  boundary (§7).
-- The same `User` reaches both contexts; data **never** crosses tenants, and a
+- Switching MUST **re-derive the entire navigation** from the new context; the
+  engine recomputes from scratch and MUST NOT merge entries or leak UI, data,
+  branding or badges across contexts. The active context MUST be unmistakable —
+  the platform shell is **red**, tenant workspaces **blue**.
+- **In-place navigation (pjax):** switching a context (or clicking the sidebar)
+  swaps only `#app-shell` — sidebar, header and content — with no full reload;
+  the accent follows a `data-theme` flag. The server emits a partial when the
+  `X-Partial` header is set; it is pure progressive enhancement (every link/form
+  still works without JS).
+- **Accept-first invitations:** being invited by email does not auto-join. The
+  workspace appears in the switcher only after the user accepts at `/invites`.
+- A switch lands on a safe default (Platform **Overview**, workspace
+  **Dashboard**, or the candidate's **My applications**), never a stale deep link.
+- The same `User` reaches every context; data **never** crosses tenants, and a
   System Owner reaching into a tenant is an explicit, audited bypass
   (`SECURITY_MATRIX.md` §1.3).
 

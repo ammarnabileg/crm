@@ -132,7 +132,7 @@ Billing internals (`ARCHITECTURE.md` §4).
 - Real **Stripe / Moyasar** adapters (+ webhooks → `subscription.*` events on the
   bus), **proration**, **tax/VAT**, multiple currencies per region.
 - **Platform-owner** subscriptions console (`system.subscriptions.manage`,
-  `/admin/subscriptions`): all-tenant view, manual overrides, refunds.
+  `/subscriptions`): all-tenant view, manual overrides, refunds.
 - **Usage-based** metering (e.g. `ai_runs_month`) and hard enforcement at action
   sites via `Entitlements::within()`.
 

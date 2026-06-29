@@ -116,7 +116,7 @@ a large refactor (~11 modules need published contracts + rewired DI).
 
 | Page | Status | Missing |
 |---|---|---|
-| Candidate Home (`/portal`) | 🟡 PARTIAL | profile-completion, tasks, on-home notifications/timeline |
+| Candidate Home (`/my-applications`) | 🟡 PARTIAL | profile-completion, tasks, on-home notifications/timeline |
 | Careers page | 🟡 PARTIAL | search, filters, departments/locations, share, SEO |
 | AI Interview Room — **Text** | ✅ EXISTS | counter, timer, autosave, resume, auto-end, completion screen — all present |
 | AI Interview Room — **Voice** | 🟡 PARTIAL | speech-to-text present; no review/retry step |

@@ -99,10 +99,10 @@ System/Companies/Users/Subscriptions/Diagnostics/… (no separate admin sidebar)
 
 | Route | Permission | Shows |
 |---|---|---|
-| `GET /admin` | `system.dashboard.view` | Overview: metrics, open alerts, health badge |
-| `GET /admin/diagnostics` | `system.diagnostics.run` | Probes, recent errors, alerts, backups (+ run backup) |
-| `GET /admin/diagnostics/json` | `system.observability.view` | Machine-readable health + metrics + alert count |
-| `POST /admin/diagnostics/backup` | `system.diagnostics.run` | Trigger a backup |
+| `GET /overview` | `system.dashboard.view` | Overview: metrics, open alerts, health badge |
+| `GET /diagnostics` | `system.diagnostics.run` | Probes, recent errors, alerts, backups (+ run backup) |
+| `GET /diagnostics/json` | `system.observability.view` | Machine-readable health + metrics + alert count |
+| `POST /diagnostics/backup` | `system.diagnostics.run` | Trigger a backup |
 
 Access requires a **System Owner** (`PlatformContext` — a `User` holding
 `system.*`, never a separate account type). The JSON endpoint is intended for
@@ -112,8 +112,8 @@ external uptime/monitoring integrations.
 
 ## 8. Deferred (designed)
 
-- The remaining platform screens (`/admin/workspaces`, `/admin/users`,
-  `/admin/subscriptions`, `/admin/ai`, `/admin/audit`, `/admin/settings`) —
+- The remaining platform screens (`/all-workspaces`, `/users`,
+  `/subscriptions`, `/ai-providers`, `/audit-log`, `/platform-settings`) —
   controllers on the same `PlatformShell`/`PlatformContext`.
 - Log **viewer/streaming** UI (the `Logger` already writes structured logs),
   per-request latency histograms, and external sinks (OpenTelemetry/Sentry) as
@@ -129,7 +129,7 @@ bus, the platform shell), not new architecture.
 ## 9. Acceptance (Phase 15)
 
 Verified on a live MySQL 8 database **and** an end-to-end HTTP run (System Owner
-login → `/admin` + `/admin/diagnostics/json`):
+login → `/overview` + `/diagnostics/json`):
 
 - ✅ `platformSnapshot()` reports tenancy/revenue/recruitment/AI/automation/health
   totals, resiliently.

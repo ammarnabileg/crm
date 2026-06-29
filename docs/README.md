@@ -245,8 +245,8 @@ Logger/ErrorHandler/event-bus/Audit infrastructure:
   webhook-failure and error spikes; open + auto-resolve.
 - **Backups**: recorded runs + verifiable manifest to storage.
 - **Ops dashboard** via `PlatformContext` + `PlatformShell` — the **same** single
-  dynamic sidebar in `platform` context: `/admin`, `/admin/diagnostics`,
-  `/admin/diagnostics/json`.
+  dynamic sidebar in `platform` context: `/overview`, `/diagnostics`,
+  `/diagnostics/json`.
 - Verified on live MySQL 8 + an end-to-end System-Owner HTTP run. Suite:
   **88 tests / 291 assertions**.
 
