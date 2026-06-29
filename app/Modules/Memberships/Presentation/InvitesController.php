@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Memberships\Presentation;
 
 use HaHireAI\Core\Contracts\AuditRecorder;
+use HaHireAI\Core\Contracts\WorkspaceSeatGuard;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
@@ -28,6 +29,7 @@ final class InvitesController
         private readonly ContextSwitcher $switcher,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
+        private readonly WorkspaceSeatGuard $seatGuard,
     ) {
     }
 
@@ -64,6 +66,14 @@ final class InvitesController
         $invite = $this->findOwn($invitationId, $email);
         if ($invite === null) {
             $this->session->flash('error', 'That invitation is no longer available.');
+
+            return Response::redirect('/invites');
+        }
+
+        // Joining as staff consumes a billable seat — enforce paid-seat limits so a
+        // workspace cannot exceed what it funded (docs/WALLET_AND_BILLING.md §5).
+        if (! $this->seatGuard->canAddBillableMember((string) $invite['workspace_id'])) {
+            $this->session->flash('error', $this->seatGuard->denyReason((string) $invite['workspace_id']));
 
             return Response::redirect('/invites');
         }

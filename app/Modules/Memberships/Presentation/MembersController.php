@@ -8,6 +8,7 @@ use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
 use HaHireAI\Core\Contracts\AuditRecorder;
+use HaHireAI\Core\Contracts\WorkspaceSeatGuard;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Memberships\Application\InvitationService;
 use HaHireAI\Modules\Memberships\Application\MembershipService;
@@ -27,6 +28,7 @@ final class MembersController
         private readonly InvitationService $invitations,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
+        private readonly WorkspaceSeatGuard $seatGuard,
     ) {
     }
 
@@ -100,7 +102,16 @@ final class MembersController
             return $guard;
         }
 
-        $this->members->setStatus((string) $this->context->workspaceId(), $membershipId, $status);
+        // Reactivating a member consumes a billable seat — enforce paid-seat limits
+        // (docs/WALLET_AND_BILLING.md §5). Suspending never needs a seat.
+        $ws = (string) $this->context->workspaceId();
+        if ($status === 'active' && ! $this->seatGuard->canAddBillableMember($ws)) {
+            $this->session->flash('error', $this->seatGuard->denyReason($ws));
+
+            return Response::redirect('/members');
+        }
+
+        $this->members->setStatus($ws, $membershipId, $status);
 
         $this->audit->record('memberships.member.status_changed', [
             'workspace_id' => $this->context->workspaceId(),
