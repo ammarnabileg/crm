@@ -84,6 +84,9 @@ final class WorkflowModule implements Module
         $router->post('/workflows/save', [WorkflowController::class, 'save']);
         $router->post('/workflows/{id}/run', [WorkflowController::class, 'run']);
         $router->post('/workflows/{id}/toggle', [WorkflowController::class, 'toggle']);
+        $router->get('/workflows/{id}/versions', [WorkflowController::class, 'versions']);
+        $router->post('/workflows/{id}/versions/{versionId}/restore', [WorkflowController::class, 'restoreVersion']);
+        $router->get('/workflows/{id}/executions/{executionId}', [WorkflowController::class, 'execution']);
 
         // Dynamic Collections — the no-code "database" with CSV export.
         $router->get('/collections', [CollectionsController::class, 'index']);

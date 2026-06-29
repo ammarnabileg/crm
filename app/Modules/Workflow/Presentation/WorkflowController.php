@@ -200,6 +200,76 @@ final class WorkflowController
         return Response::redirect('/workflows');
     }
 
+    /** Version history for a workflow, with rollback. */
+    public function versions(string $id): Response
+    {
+        if (($r = $this->gate('workflow.view')) !== null) {
+            return $r;
+        }
+
+        $workspaceId = (string) $this->context->workspaceId();
+        $workflow = $this->workflows->find($workspaceId, $id);
+        if ($workflow === null) {
+            return Response::redirect('/workflows');
+        }
+
+        return $this->shell->render($this->context, 'workflow.versions', [
+            'workflow' => $workflow,
+            'versions' => $this->workflows->listVersions($workspaceId, $id),
+            'canRestore' => $this->context->can('workflow.create'),
+            'status' => $this->session->pullFlash('status'),
+        ]);
+    }
+
+    /** Roll a workflow back to a previous version (saved as a new version). */
+    public function restoreVersion(Request $request, string $id, string $versionId): Response
+    {
+        if (($r = $this->gate('workflow.create', $request)) !== null) {
+            return $r;
+        }
+
+        $workspaceId = (string) $this->context->workspaceId();
+        $version = $this->workflows->findVersion($workspaceId, $versionId);
+        $workflow = $this->workflows->find($workspaceId, $id);
+        if ($version === null || $workflow === null) {
+            return Response::redirect('/workflows');
+        }
+
+        $graph = ['nodes' => $version['nodes'], 'edges' => $version['edges']];
+        $this->workflows->save(
+            $workspaceId,
+            $id,
+            (string) $workflow['name'],
+            $this->triggerEventFor($graph),
+            ['nodes' => $version['nodes'], 'edges' => $version['edges'], 'steps' => WorkflowGraph::compile($graph)],
+            (int) $workflow['enabled'] === 1,
+            $this->context->userId(),
+        );
+
+        $this->session->flash('status', 'Rolled back to version ' . $version['version'] . '.');
+
+        return Response::redirect('/workflows/' . $id . '/edit');
+    }
+
+    /** A single execution with its per-step log. */
+    public function execution(string $id, string $executionId): Response
+    {
+        if (($r = $this->gate('workflow.view')) !== null) {
+            return $r;
+        }
+
+        $workspaceId = (string) $this->context->workspaceId();
+        $execution = $this->workflows->findExecution($workspaceId, $executionId);
+        if ($execution === null) {
+            return Response::redirect('/workflows');
+        }
+
+        return $this->shell->render($this->context, 'workflow.execution', [
+            'execution' => $execution,
+            'steps' => $this->workflows->stepsForExecution($workspaceId, $executionId),
+        ]);
+    }
+
     /**
      * Derive the trigger event from the graph's trigger node, via the catalog.
      *

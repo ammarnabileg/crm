@@ -48,6 +48,7 @@
                                 <?php else: ?>
                                     <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">Disabled</span>
                                 <?php endif; ?>
+                                <a href="/workflows/<?= e($w['id']) ?>/versions" data-pjax class="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50" title="Version history">History</a>
                                 <?php if ($canCreate): ?>
                                     <form method="post" action="/workflows/<?= e($w['id']) ?>/run" class="m-0">
                                         <?= csrf_field() ?>
@@ -72,7 +73,8 @@
             <?php else: ?>
                 <ul class="divide-y divide-slate-100">
                     <?php foreach ($executions as $x): ?>
-                        <li class="flex items-center justify-between px-5 py-3 text-sm">
+                        <li>
+                          <a href="/workflows/<?= e($x['workflow_id']) ?>/executions/<?= e($x['id']) ?>" data-pjax class="flex items-center justify-between px-5 py-3 text-sm hover:bg-slate-50">
                             <div>
                                 <span class="font-medium text-slate-700"><?= e($x['workflow_name'] ?? 'workflow') ?></span>
                                 <span class="text-slate-400">· <?= e($x['steps_done']) ?>/<?= e($x['steps_total']) ?> steps</span>
@@ -90,6 +92,7 @@
                                 <span class="rounded-full px-2.5 py-0.5 text-xs font-medium <?= $cls ?>"><?= e($x['status']) ?></span>
                                 <div class="mt-0.5 text-xs text-slate-400"><?= e($x['created_at']) ?> UTC</div>
                             </div>
+                          </a>
                         </li>
                     <?php endforeach; ?>
                 </ul>

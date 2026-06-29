@@ -313,6 +313,32 @@ final class WorkflowEngineTest extends TestCase
         );
     }
 
+    public function test_save_snapshots_versions_and_execution_detail_is_retrievable(): void
+    {
+        $ws = $this->workspace();
+        $g1 = ['nodes' => [['id' => 't', 'type' => 'trigger.candidate_applied', 'config' => []], ['id' => 'a', 'type' => 'util.log', 'config' => ['message' => 'one']]], 'edges' => [['from' => 't', 'to' => 'a']]];
+        $id = $this->workflows->save($ws, null, 'WF', 'application.submitted', $g1 + ['steps' => WorkflowGraph::compile($g1)], true, null);
+
+        $g2 = $g1;
+        $g2['nodes'][1]['config']['message'] = 'two';
+        $this->workflows->save($ws, $id, 'WF', 'application.submitted', $g2 + ['steps' => WorkflowGraph::compile($g2)], true, null);
+
+        // Two saves → two versions, newest first; an old version round-trips.
+        $versions = $this->workflows->listVersions($ws, $id);
+        $this->assertCount(2, $versions);
+        $this->assertSame(2, (int) $versions[0]['version']);
+        $v1 = $this->workflows->findVersion($ws, (string) $versions[1]['id']);
+        $this->assertSame('one', $v1['nodes'][1]['config']['message']);
+
+        // Run it, then the execution + per-step log are retrievable for the detail page.
+        $this->engine->runById($ws, $id, ['workspace_id' => $ws]);
+        $exec = $this->connection->selectOne('SELECT * FROM workflow_executions WHERE workflow_id = ?', [$id]);
+        $this->assertNotNull($this->workflows->findExecution($ws, (string) $exec['id']));
+        $steps = $this->workflows->stepsForExecution($ws, (string) $exec['id']);
+        $this->assertNotEmpty($steps);
+        $this->assertSame('util.log', $steps[0]['action']);
+    }
+
     public function test_audit_event_triggers_a_matching_workflow_via_the_bridge(): void
     {
         $ws = $this->workspace();

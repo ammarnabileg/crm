@@ -161,6 +161,8 @@ foreach ([
     'GET /workflows/new', 'GET /workflows/templates', 'POST /workflows/templates/{key}/use',
     'GET /workflows/{id}/edit', 'POST /workflows/save',
     'POST /workflows/{id}/run', 'POST /workflows/{id}/toggle',
+    'GET /workflows/{id}/versions', 'POST /workflows/{id}/versions/{versionId}/restore',
+    'GET /workflows/{id}/executions/{executionId}',
     'GET /collections', 'POST /collections', 'GET /collections/{id}', 'GET /collections/{id}/export',
     'POST /collections/{id}/records', 'POST /collections/{id}/records/{recordId}/delete',
     'GET /integrations', 'GET /billing', 'GET /overview', 'GET /diagnostics',
