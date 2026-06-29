@@ -24,6 +24,7 @@ use HaHireAI\Modules\Notifications\Application\NotificationWriterAdapter;
 use HaHireAI\Modules\Tasks\Application\TaskService;
 use HaHireAI\Modules\Tasks\Application\TaskWriterAdapter;
 use HaHireAI\Modules\Workflow\Application\ActionExecutor;
+use HaHireAI\Modules\Workflow\Application\AuditTriggerBridge;
 use HaHireAI\Modules\Workflow\Application\WorkflowCollectionService;
 use HaHireAI\Modules\Workflow\Application\WorkflowEngine;
 use HaHireAI\Modules\Workflow\Application\WorkflowService;
@@ -310,6 +311,48 @@ final class WorkflowEngineTest extends TestCase
             'summarize_candidate',
             $this->connection->selectOne('SELECT capability FROM ai_sessions WHERE workspace_id = ?', [$ws])['capability'],
         );
+    }
+
+    public function test_audit_event_triggers_a_matching_workflow_via_the_bridge(): void
+    {
+        $ws = $this->workspace();
+        $this->workflows->create($ws, 'On interview evaluated', 'audit.recruitment.interview.evaluated', [
+            ['action' => 'log', 'params' => ['message' => 'interview done']],
+        ]);
+
+        $container = new Container();
+        $container->instance(Connection::class, $this->connection);
+        $dispatcher = new Dispatcher();
+        $container->instance(EventDispatcher::class, $dispatcher);
+        $container->instance(\HaHireAI\Core\Contracts\AuditRecorder::class, new AuditLogger($this->connection));
+        $container->instance(\HaHireAI\Core\Contracts\TaskWriter::class, new NullTaskWriter());
+        $container->instance(\HaHireAI\Core\Contracts\NotificationWriter::class, new NullNotificationWriter());
+        $container->instance(\HaHireAI\Core\Contracts\RecruitmentActions::class, new NullRecruitmentActions());
+        $registry = new ProviderRegistry();
+        $registry->register(new EchoProvider());
+        $prompts = new PromptEngine($this->connection);
+        $prompts->seedDefaults();
+        $container->instance(ProviderRegistry::class, $registry);
+        $container->instance(PromptEngine::class, $prompts);
+        $container->instance(AiSettingsService::class, new AiSettingsService(
+            $this->connection,
+            new Encrypter('base64:' . base64_encode(str_repeat('k', 32))),
+        ));
+
+        (new WorkflowModule())->boot($container);
+
+        // The bridge records the audit entry AND publishes audit.{action}; the
+        // engine reacts to the published event — no service was modified.
+        $bridge = new AuditTriggerBridge(new AuditLogger($this->connection), $dispatcher);
+        $bridge->record('recruitment.interview.evaluated', ['workspace_id' => $ws, 'entity_type' => 'application', 'entity_id' => 'app-1']);
+
+        $execution = $this->connection->selectOne('SELECT * FROM workflow_executions WHERE workspace_id = ?', [$ws]);
+        $this->assertNotNull($execution, 'the audit event should have triggered the workflow');
+        $this->assertSame('completed', $execution['status']);
+
+        // The engine's own audit actions must NOT re-trigger (loop guard).
+        $bridge->record('workflows.action.audit', ['workspace_id' => $ws]);
+        $this->assertSame(1, (int) $this->connection->selectOne('SELECT COUNT(*) AS c FROM workflow_executions WHERE workspace_id = ?', [$ws])['c']);
     }
 
     private function workspace(): string

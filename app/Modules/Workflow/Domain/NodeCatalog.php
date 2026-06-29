@@ -77,11 +77,11 @@ final class NodeCatalog
 
         return [
             $t('trigger.candidate_applied', 'Candidate Applied', 'A candidate applies to a job', 'application.submitted', $candidateOut),
-            $t('trigger.interview_started', 'Interview Started', 'An interview begins', 'audit.recruitment.interview.started', $candidateOut),
+            $t('trigger.interview_started', 'Interview Scheduled', 'An interview is scheduled', 'audit.recruitment.interview.scheduled', $candidateOut),
             $t('trigger.interview_finished', 'Interview Finished', 'An interview is completed', 'audit.recruitment.interview.evaluated', [...$candidateOut, 'ai_score']),
-            $t('trigger.pipeline_changed', 'Pipeline Changed', 'A candidate moves stage', 'audit.recruitment.application.status', [...$candidateOut, 'current_stage']),
-            $t('trigger.candidate_hired', 'Candidate Hired', 'A candidate is hired', 'audit.recruitment.application.hired', $candidateOut),
-            $t('trigger.candidate_rejected', 'Candidate Rejected', 'A candidate is rejected', 'audit.recruitment.application.rejected', $candidateOut),
+            $t('trigger.pipeline_changed', 'Pipeline Changed', 'A candidate moves stage', 'audit.recruitment.application.status_changed', [...$candidateOut, 'to_status']),
+            $t('trigger.candidate_hired', 'Candidate Hired', 'A candidate is hired (add an If on status)', 'audit.recruitment.application.status_changed', [...$candidateOut, 'to_status']),
+            $t('trigger.candidate_rejected', 'Candidate Rejected', 'A candidate is rejected (add an If on status)', 'audit.recruitment.application.status_changed', [...$candidateOut, 'to_status']),
             $t('trigger.offer_sent', 'Offer Sent', 'An offer is sent', 'audit.recruitment.offer.sent', $candidateOut),
             $t('trigger.offer_accepted', 'Offer Accepted', 'A candidate accepts an offer', 'audit.recruitment.offer.accepted', $candidateOut),
             $t('trigger.offer_declined', 'Offer Declined', 'A candidate declines an offer', 'audit.recruitment.offer.declined', $candidateOut),
