@@ -5,6 +5,7 @@ module.exports = {
   content: [
     './resources/views/**/*.php',
     './app/**/*.php',
+    './public/assets/**/*.js', // the workflow canvas builds node markup in JS
   ],
   theme: {
     extend: {

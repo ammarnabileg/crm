@@ -15,7 +15,7 @@ $initialGraph = json_encode([
     'edges' => $workflow['edges'] ?? [],
 ], $jsonFlags);
 ?>
-<div id="wf-builder" class="flex h-full flex-col bg-slate-50"
+<div id="wf-builder" class="flex h-[calc(100vh-4rem)] flex-col bg-slate-50"
      data-save-url="/workflows/save"
      data-csrf="<?= e($csrf) ?>"
      data-id="<?= e($wfId) ?>"
@@ -94,4 +94,14 @@ $initialGraph = json_encode([
     <script type="application/json" id="wf-categories"><?= json_encode($categories, $jsonFlags) ?></script>
     <script type="application/json" id="wf-initial"><?= $initialGraph ?></script>
 </div>
+<?php
+// Inline the canvas script straight from disk. This guarantees it runs even when a
+// host's rewrite/MIME config won't serve /assets/*.js (a common Plesk/cPanel issue
+// that left the palette empty); falls back to the external file if unreadable.
+$wfBuilderJs = @file_get_contents(base_path('public/assets/workflow-builder.js'));
+?>
+<?php if ($wfBuilderJs !== false): ?>
+<script><?= $wfBuilderJs ?></script>
+<?php else: ?>
 <script src="/assets/workflow-builder.js"></script>
+<?php endif; ?>
