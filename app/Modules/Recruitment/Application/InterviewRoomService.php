@@ -76,7 +76,7 @@ final class InterviewRoomService
      *
      * @return array<string, mixed>
      */
-    public function answer(string $workspaceId, string $interviewId, string $text, ?string $actorUserId = null): array
+    public function answer(string $workspaceId, string $interviewId, string $text, ?string $actorUserId = null, bool $changeRequested = false): array
     {
         $iv = $this->load($workspaceId, $interviewId);
         if ((string) $iv['status'] === 'completed') {
@@ -88,19 +88,31 @@ final class InterviewRoomService
         }
 
         $text = trim($text);
+
+        // Never move past an unanswered question: if the candidate submits nothing
+        // and did not explicitly ask for a different question, keep the SAME
+        // question on screen and wait for a real answer.
+        if ($text === '' && ! $changeRequested) {
+            return $this->state($workspaceId, $interviewId);
+        }
+
         if ($text !== '') {
             $this->append($workspaceId, $interviewId, 'candidate', mb_substr($text, 0, 4000));
         }
 
         $questions = $this->details($iv)['questions'] ?? [];
-        $asked = $this->countAsked($interviewId);          // AI questions already posed
+        $budget = max(1, min(self::MAX_QUESTIONS, count($questions) ?: self::MAX_QUESTIONS));
+        $answered = $this->countAnswered($interviewId);    // questions the candidate actually ANSWERED
         $timeUp = $this->secondsRemaining($iv) <= 0;
 
-        if ($asked >= count($questions) || $asked >= self::MAX_QUESTIONS || $timeUp) {
+        // Only ANSWERED questions count toward the budget — an unanswered or a
+        // changed question never consumes it. A change request always yields a
+        // fresh question and never ends the interview.
+        if (! $changeRequested && ($answered >= $budget || $timeUp)) {
             $this->finalize($workspaceId, $interviewId, $actorUserId);
         } else {
             // Adaptive follow-up: built on the candidate's answers + CV + the job.
-            $this->append($workspaceId, $interviewId, 'ai', $this->nextQuestion($workspaceId, $iv, $questions, $asked, $actorUserId));
+            $this->append($workspaceId, $interviewId, 'ai', $this->nextQuestion($workspaceId, $iv, $questions, $answered, $actorUserId));
         }
 
         return $this->state($workspaceId, $interviewId);
@@ -121,7 +133,7 @@ final class InterviewRoomService
 
         return [
             'messages' => $messages,
-            'asked' => $this->countAsked($interviewId),
+            'asked' => $this->countAnswered($interviewId), // progress = answered questions
             'max_questions' => self::MAX_QUESTIONS,
             'seconds_remaining' => $this->secondsRemaining($iv),
             'done' => (string) $iv['status'] === 'completed',
@@ -236,6 +248,7 @@ final class InterviewRoomService
         try {
             $remaining = max(1, min(self::MAX_QUESTIONS, max(1, count($planned))) - $asked);
             $result = $this->ai->run($workspaceId, 'interview_turn', [
+                'persona' => $this->persona($workspaceId, $iv),
                 'title' => (string) ($iv['job_title'] ?? 'this role'),
                 'job_context' => $this->jobContext($workspaceId, $iv, $planned),
                 'cv' => $this->candidateContext($workspaceId, $iv),
@@ -252,6 +265,40 @@ final class InterviewRoomService
         }
 
         return $fallback;
+    }
+
+    /**
+     * The interviewer's persona. The default is a strong, professional senior-HR
+     * voice. When the workspace links an AI Avatar (with its own personality) to
+     * the job, that personality replaces this default; removing the link restores
+     * the default. (The avatar-to-job link is wired separately.)
+     *
+     * @param  array<string,mixed>  $iv
+     */
+    private function persona(string $workspaceId, array $iv): string
+    {
+        $default = 'You are a strong, professional senior HR interviewer representing the company: composed, insightful and rigorous, yet warm and respectful. You put the candidate at ease while probing deeply and fairly.';
+
+        try {
+            $avatarId = (string) ($iv['avatar_id'] ?? '');
+            if ($avatarId !== '') {
+                $avatar = $this->connection->selectOne(
+                    'SELECT name, persona, personality FROM ai_avatars WHERE id = ? AND workspace_id = ?',
+                    [$avatarId, $workspaceId],
+                );
+                if ($avatar !== null) {
+                    $traits = trim((string) ($avatar['personality'] ?? $avatar['persona'] ?? ''));
+                    $name = trim((string) ($avatar['name'] ?? ''));
+                    if ($traits !== '') {
+                        return 'You are "' . ($name !== '' ? $name : 'the interviewer') . '", the company\'s AI interviewer. Stay fully in character: ' . $traits;
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // No avatar link (or column not present yet) — use the default persona.
+        }
+
+        return $default;
     }
 
     /**
@@ -332,7 +379,7 @@ final class InterviewRoomService
         return implode("\n", $parts);
     }
 
-    /** The recent conversation, oldest→newest, bounded so the prompt stays small. */
+    /** The recent conversation, oldest-to-newest, bounded so the prompt stays small. */
     private function recentTranscript(string $workspaceId, string $interviewId): string
     {
         $rows = $this->connection->select(
@@ -394,6 +441,12 @@ final class InterviewRoomService
         $aiCount = (int) ($this->connection->selectOne("SELECT COUNT(*) AS c FROM interview_messages WHERE interview_id = ? AND role = 'ai'", [$interviewId])['c'] ?? 0);
 
         return max(0, $aiCount - 1); // exclude the greeting
+    }
+
+    /** Questions the candidate actually ANSWERED — the only thing that consumes the budget. */
+    private function countAnswered(string $interviewId): int
+    {
+        return (int) ($this->connection->selectOne("SELECT COUNT(*) AS c FROM interview_messages WHERE interview_id = ? AND role = 'candidate'", [$interviewId])['c'] ?? 0);
     }
 
     private function secondsRemaining(array $iv): int
