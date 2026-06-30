@@ -91,7 +91,7 @@ $activeMap = array_flip($activeFeatures);
     <h2 class="text-lg font-semibold text-slate-900"><?= $plan === null ? 'Build your workspace' : 'Re-build / renew' ?></h2>
     <p class="mt-1 text-sm text-slate-500">Two steps: choose your team seats, then toggle the services you need. Cost is debited from your wallet; the term runs one month.</p>
 
-    <form method="post" action="/billing/compose" class="mt-4" onsubmit="return confirm('Activate this plan now? The cost is debited from your wallet and the term runs one month.');">
+    <form method="post" action="/billing/compose" class="mt-4">
         <?= csrf_field() ?>
         <div class="grid gap-8 lg:grid-cols-2">
             <div>
@@ -124,9 +124,18 @@ $activeMap = array_flip($activeFeatures);
             <strong>Before you activate:</strong> review whether you need any extra services now. Add-ons added later still <em>expire with this same plan</em> — you won't get a fresh month for them.
         </div>
 
-        <div class="mt-4 flex items-center justify-between">
+        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="text-sm text-slate-500">Estimated monthly cost: <span id="estCost" class="text-lg font-bold text-slate-900">$0.00</span></div>
-            <button class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"><?= $plan === null ? 'Activate plan' : 'Apply & renew' ?></button>
+            <div class="flex items-center gap-2">
+                <?php if ($active): ?>
+                    <button type="submit" formaction="/billing/change-plan"
+                            onclick="return confirm('Apply these changes now? Only the rest of this term is settled — an upgrade is charged pro-rata and a downgrade is credited back to your wallet. The new monthly price takes over at the next renewal.');"
+                            class="rounded-lg border border-indigo-300 px-5 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">Apply changes (prorated)</button>
+                <?php endif; ?>
+                <button type="submit"
+                        onclick="return confirm('<?= $plan === null ? 'Activate this plan now?' : 'Re-activate for a full month now?' ?> The cost is debited from your wallet and the term runs one month.');"
+                        class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"><?= $plan === null ? 'Activate plan' : 'Apply & renew (full month)' ?></button>
+            </div>
         </div>
     </form>
 </div>
