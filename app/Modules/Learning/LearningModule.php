@@ -67,9 +67,13 @@ final class LearningModule implements Module
         $router->post('/learning/{id}/comments', [LearningController::class, 'addComment']);
         $router->post('/learning/{id}/comments/{commentId}/delete', [LearningController::class, 'deleteComment']);
 
+        $router->post('/learning/{id}/items/{itemId}/questions', [LearningController::class, 'addQuestion']);
+        $router->post('/learning/{id}/questions/{questionId}/delete', [LearningController::class, 'deleteQuestion']);
+
         // --- Learner ("My Learning") ---
         $router->get('/my-learning', [MyLearningController::class, 'index']);
         $router->get('/my-learning/{id}', [MyLearningController::class, 'show']);
         $router->post('/my-learning/{id}/items/{itemId}', [MyLearningController::class, 'markItem']);
+        $router->post('/my-learning/{id}/quiz/{itemId}', [MyLearningController::class, 'submitQuiz']);
     }
 }

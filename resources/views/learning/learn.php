@@ -4,6 +4,8 @@
  * @var list<array<string,mixed>> $structure
  * @var array<string,mixed>|null $enrollment
  * @var array<string,string> $itemStatuses   item_id => status
+ * @var array<string,list<array<string,mixed>>> $quizzes        quiz item_id => questions(+options)
+ * @var array<string,array<string,mixed>|null> $quizAttempts    quiz item_id => best attempt
  * @var list<array<string,mixed>> $todos
  * @var list<array<string,mixed>> $comments
  * @var array<string,array{label:string,icon:string,hint:string}> $itemTypes
@@ -50,14 +52,49 @@ $done = (string) ($enrollment['status'] ?? '') === 'completed';
                                 <?php if (! empty($item['body'])): ?><p class="mt-1 whitespace-pre-line text-sm text-slate-600"><?= e($item['body']) ?></p><?php endif; ?>
                                 <?php if (! empty($item['url'])): ?><a href="<?= e($item['url']) ?>" target="_blank" rel="noopener" class="mt-1 inline-block text-xs text-indigo-600 hover:underline">Open resource ↗</a><?php endif; ?>
                             </div>
-                            <form method="post" action="/my-learning/<?= e($pid) ?>/items/<?= e($iid) ?>" class="shrink-0">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="status" value="<?= $itemDone ? 'not_started' : 'completed' ?>">
-                                <button class="rounded-lg px-3 py-1.5 text-xs font-semibold <?= $itemDone ? 'border border-slate-300 bg-white text-slate-600 hover:bg-slate-50' : 'bg-emerald-600 text-white hover:bg-emerald-700' ?>">
-                                    <?= $itemDone ? 'Undo' : 'Mark done' ?>
-                                </button>
-                            </form>
+                            <?php if ($type !== 'quiz'): ?>
+                                <form method="post" action="/my-learning/<?= e($pid) ?>/items/<?= e($iid) ?>" class="shrink-0">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="status" value="<?= $itemDone ? 'not_started' : 'completed' ?>">
+                                    <button class="rounded-lg px-3 py-1.5 text-xs font-semibold <?= $itemDone ? 'border border-slate-300 bg-white text-slate-600 hover:bg-slate-50' : 'bg-emerald-600 text-white hover:bg-emerald-700' ?>">
+                                        <?= $itemDone ? 'Undo' : 'Mark done' ?>
+                                    </button>
+                                </form>
+                            <?php endif; ?>
                         </div>
+                        <?php if ($type === 'quiz'): ?>
+                            <?php
+                            $qs = $quizzes[$iid] ?? [];
+                            $attempt = $quizAttempts[$iid] ?? null;
+                            ?>
+                            <?php if ($attempt !== null): ?>
+                                <p class="mt-2 text-xs <?= (int) $attempt['passed'] === 1 ? 'text-emerald-600' : 'text-amber-600' ?>">
+                                    Best attempt: <?= (int) $attempt['percent'] ?>% (<?= (int) $attempt['score'] ?>/<?= (int) $attempt['max_score'] ?>) — <?= (int) $attempt['passed'] === 1 ? 'passed' : 'not passed yet' ?>.
+                                </p>
+                            <?php endif; ?>
+                            <?php if ($qs === []): ?>
+                                <p class="mt-2 text-xs text-slate-400">No questions in this quiz yet.</p>
+                            <?php else: ?>
+                                <form method="post" action="/my-learning/<?= e($pid) ?>/quiz/<?= e($iid) ?>" class="mt-3 space-y-3">
+                                    <?= csrf_field() ?>
+                                    <?php foreach ($qs as $qi => $q): ?>
+                                        <div>
+                                            <p class="text-sm font-medium text-slate-700"><?= $qi + 1 ?>. <?= e($q['question']) ?></p>
+                                            <div class="mt-1 space-y-1">
+                                                <?php $multi = (string) ($q['type'] ?? 'single') === 'multiple'; ?>
+                                                <?php foreach ((array) $q['options'] as $opt): ?>
+                                                    <label class="flex items-center gap-2 text-sm text-slate-600">
+                                                        <input type="<?= $multi ? 'checkbox' : 'radio' ?>" name="answer[<?= e($q['id']) ?>][]" value="<?= e($opt['id']) ?>">
+                                                        <?= e($opt['label']) ?>
+                                                    </label>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                    <button class="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700">Submit quiz</button>
+                                </form>
+                            <?php endif; ?>
+                        <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
                 <?php if ((array) $section['items'] === []): ?><p class="text-xs text-slate-400">No content in this section.</p><?php endif; ?>

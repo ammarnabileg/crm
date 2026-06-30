@@ -12,6 +12,7 @@ use HaHireAI\Core\Events\Dispatcher;
 use HaHireAI\Modules\Learning\Application\CommentService;
 use HaHireAI\Modules\Learning\Application\EnrollmentService;
 use HaHireAI\Modules\Learning\Application\ProgramService;
+use HaHireAI\Modules\Learning\Application\QuizService;
 use HaHireAI\Modules\Learning\Application\TodoService;
 use HaHireAI\Modules\Learning\Domain\ItemType;
 use HaHireAI\Modules\Learning\Domain\TodoStatus;
@@ -30,6 +31,7 @@ final class LearningModuleTest extends TestCase
     private EnrollmentService $enrollments;
     private TodoService $todos;
     private CommentService $comments;
+    private QuizService $quizzes;
     private Dispatcher $events;
 
     /** @var array<string, list<string>> roleId => userIds, for the fake directory */
@@ -58,6 +60,7 @@ final class LearningModuleTest extends TestCase
         $this->programs = new ProgramService($this->connection);
         $this->todos = new TodoService($this->connection);
         $this->comments = new CommentService($this->connection);
+        $this->quizzes = new QuizService($this->connection);
         $this->enrollments = new EnrollmentService($this->connection, $this->programs, $this->fakeMembers(), $this->events);
     }
 
@@ -160,6 +163,39 @@ final class LearningModuleTest extends TestCase
         $todoId = $this->todos->create($ws, $pid, $owner, ['title' => 'Read', 'completion_mode' => TodoStatus::MODE_SELF, 'assignee_user_id' => $assignee]);
 
         $this->assertTrue($this->todos->changeStatus($ws, $todoId, 'done', $assignee, false)['ok']);
+    }
+
+    public function test_quiz_authoring_grading_and_completion(): void
+    {
+        [$ws, $owner] = $this->workspace();
+        $learner = $this->user('Quiz Taker');
+        $pid = $this->programs->create($ws, $owner, ['title' => 'Security Quiz', 'completion_rule' => 'required_items']);
+        $s = $this->programs->addSection($ws, $pid, $owner, 'Test', null, true);
+        $quizItem = $this->programs->addItem($ws, $pid, $s, $owner, ['type' => ItemType::QUIZ, 'title' => 'Final check', 'is_required' => true]);
+
+        $q1 = $this->quizzes->addQuestion($ws, $quizItem, 'Capital of France?', 'single');
+        $paris = $this->quizzes->addOption($ws, $q1, 'Paris', true);
+        $this->quizzes->addOption($ws, $q1, 'Berlin', false);
+        $q2 = $this->quizzes->addQuestion($ws, $quizItem, '2 + 2 = ?', 'single');
+        $four = $this->quizzes->addOption($ws, $q2, '4', true);
+        $this->quizzes->addOption($ws, $q2, '5', false);
+
+        $this->assertCount(2, $this->quizzes->questionsFor($ws, $quizItem));
+
+        // A failing attempt does not complete the item.
+        $fail = $this->quizzes->submit($ws, $pid, $quizItem, $learner, [$q1 => [$paris]], 70);
+        $this->assertSame(50, $fail['percent']);
+        $this->assertFalse($fail['passed']);
+
+        // A passing attempt grades 100% and (via the controller flow) completes it.
+        $pass = $this->quizzes->submit($ws, $pid, $quizItem, $learner, [$q1 => [$paris], $q2 => [$four]], 70);
+        $this->assertSame(100, $pass['percent']);
+        $this->assertTrue($pass['passed']);
+        $this->enrollments->setItemStatus($ws, $pid, $learner, $quizItem, 'completed', $learner);
+        $this->assertSame('completed', $this->enrollments->enrollment($ws, $pid, $learner)['status']);
+
+        // bestAttempt returns the 100% one.
+        $this->assertSame(100, (int) $this->quizzes->bestAttempt($ws, $quizItem, $learner)['percent']);
     }
 
     public function test_comments_thread_with_replies(): void
@@ -285,7 +321,8 @@ final class LearningModuleTest extends TestCase
     {
         $this->connection->statement('SET FOREIGN_KEY_CHECKS=0');
         foreach ([
-            'learning_activity', 'learning_quiz_options', 'learning_quiz_questions', 'learning_program_versions',
+            'learning_activity', 'learning_quiz_answers', 'learning_quiz_attempts',
+            'learning_quiz_options', 'learning_quiz_questions', 'learning_program_versions',
             'learning_program_editors', 'learning_item_progress', 'learning_enrollments', 'learning_assignments',
             'learning_attachments', 'learning_comment_mentions', 'learning_comments', 'learning_todo_status_history',
             'learning_todos', 'learning_items', 'learning_sections', 'learning_program_tags', 'learning_programs',

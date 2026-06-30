@@ -142,10 +142,19 @@ candidate is hired — can enrol a person into onboarding programs **without
 touching the Learning tables**. The seam is in place; the cross-module trigger is
 not wired yet (a deliberate, documented next step).
 
-## 11. What is scaffolded (architecture present, UI minimal)
+## 11. Quizzes (implemented)
 
-- **Quizzes** — `learning_quiz_questions` / `learning_quiz_options` exist and the
-  `quiz` item type is selectable; the take/grade UI is intentionally deferred.
+A `quiz` item holds **questions** (`learning_quiz_questions`) each with **options**
+(`learning_quiz_options`); single / multiple / boolean types are supported.
+Learners take the quiz from the reader; grading is the pure, zero-AI
+`QuizGrader` (a question scores when the selected option set exactly matches the
+correct set). Each submission records an **attempt** (`learning_quiz_attempts`) +
+its **answers** (`learning_quiz_answers`); on reaching the item's **pass mark**
+(`learning_items.pass_mark`, default 70%) the quiz item is marked complete and
+feeds program progress. Best-attempt is shown back to the learner.
+
+## 11b. What is scaffolded (architecture present, UI minimal)
+
 - **Department / team assignment** — accepted and recorded; member resolution
   awaits those org structures.
 - **Cross-workspace sharing** — `programs.visibility` is the seam; not enabled.

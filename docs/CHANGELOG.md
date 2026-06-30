@@ -11,6 +11,15 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added — Learning quizzes (zero-AI take & grade)
+- The `quiz` item type is now fully functional: author **questions + options**
+  (single/multiple/boolean), learners take the quiz in the reader, and the pure
+  `QuizGrader` grades it (exact correct-set match) with **zero AI**. Attempts +
+  answers are recorded (`learning_quiz_attempts` / `learning_quiz_answers`,
+  `2026_06_30_000005`); reaching the item's **pass mark** (`learning_items.pass_mark`,
+  default 70%) completes the item and advances program progress; best attempt is
+  shown back. +4 unit (QuizGrader) +1 feature.
+
 ### Added — Learning module (training, onboarding & development programs)
 - A new first-class **Learning** module (`HaHireAI\Modules\Learning`, depends on
   Workspaces/Memberships/Files). Workspace-owned **programs** built as a tree:

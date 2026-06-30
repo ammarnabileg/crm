@@ -13,6 +13,7 @@ use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Learning\Application\CommentService;
 use HaHireAI\Modules\Learning\Application\EnrollmentService;
 use HaHireAI\Modules\Learning\Application\ProgramService;
+use HaHireAI\Modules\Learning\Application\QuizService;
 use HaHireAI\Modules\Learning\Application\TodoService;
 use HaHireAI\Modules\Learning\Domain\ItemType;
 use HaHireAI\Modules\Learning\Domain\ProgramStatus;
@@ -36,6 +37,7 @@ final class LearningController
         private readonly EnrollmentService $enrollments,
         private readonly TodoService $todos,
         private readonly CommentService $comments,
+        private readonly QuizService $quizzes,
         private readonly MemberDirectory $members,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
@@ -101,10 +103,12 @@ final class LearningController
         }
 
         $roster = $this->enrollments->roster($ws, $id);
+        $structure = $this->programs->structure($ws, $id);
 
         return $this->shell->render($this->context, 'learning.show', [
             'program' => $program,
-            'structure' => $this->programs->structure($ws, $id),
+            'structure' => $structure,
+            'quizzes' => $this->quizMap($ws, $structure),
             'tags' => $this->programs->tagsFor($ws, $id),
             'editors' => $this->programs->editorsFor($ws, $id),
             'todos' => $this->todos->forProgram($ws, $id),
@@ -361,6 +365,61 @@ final class LearningController
         $this->comments->delete($ws, $commentId, (string) $this->context->userId(), $this->context->can('learning.manage'));
 
         return Response::redirect('/learning/' . $id . '#discussion');
+    }
+
+    // --- Quizzes -----------------------------------------------------------
+
+    public function addQuestion(Request $request, string $id, string $itemId): Response
+    {
+        if (($r = $this->gate('learning.manage', $request)) !== null) {
+            return $r;
+        }
+        $ws = (string) $this->context->workspaceId();
+        $qid = $this->quizzes->addQuestion($ws, $itemId, (string) $request->input('question', ''), (string) $request->input('type', 'single'));
+        // Options arrive as parallel arrays: option_label[] + correct[] (index list).
+        $labels = (array) $request->input('option_label', []);
+        $correct = array_map('strval', (array) $request->input('correct', []));
+        foreach ($labels as $i => $label) {
+            $label = trim((string) $label);
+            if ($label === '') {
+                continue;
+            }
+            $this->quizzes->addOption($ws, $qid, $label, in_array((string) $i, $correct, true));
+        }
+        $this->session->flash('status', 'Question added.');
+
+        return Response::redirect('/learning/' . $id);
+    }
+
+    public function deleteQuestion(Request $request, string $id, string $questionId): Response
+    {
+        if (($r = $this->gate('learning.manage', $request)) !== null) {
+            return $r;
+        }
+        $this->quizzes->deleteQuestion((string) $this->context->workspaceId(), $questionId);
+        $this->session->flash('status', 'Question removed.');
+
+        return Response::redirect('/learning/' . $id);
+    }
+
+    /**
+     * Build a map of quiz item_id => questions(+options) for the builder view.
+     *
+     * @param  list<array<string,mixed>>  $structure
+     * @return array<string, list<array<string,mixed>>>
+     */
+    private function quizMap(string $ws, array $structure): array
+    {
+        $map = [];
+        foreach ($structure as $section) {
+            foreach ((array) ($section['items'] ?? []) as $item) {
+                if ((string) $item['type'] === ItemType::QUIZ) {
+                    $map[(string) $item['id']] = $this->quizzes->questionsFor($ws, (string) $item['id']);
+                }
+            }
+        }
+
+        return $map;
     }
 
     /**

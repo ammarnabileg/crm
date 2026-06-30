@@ -2,6 +2,7 @@
 /**
  * @var array<string,mixed> $program
  * @var list<array<string,mixed>> $structure   sections, each with ['items']
+ * @var array<string,list<array<string,mixed>>> $quizzes  quiz item_id => questions(+options)
  * @var list<string> $tags
  * @var list<array<string,mixed>> $editors
  * @var list<array<string,mixed>> $todos
@@ -105,6 +106,35 @@ $st = (string) $program['status'];
                                             <form method="post" action="/learning/<?= e($pid) ?>/items/<?= e($item['id']) ?>/delete"><?= csrf_field() ?><button class="text-xs text-slate-400 hover:text-rose-600">✕</button></form>
                                         <?php endif; ?>
                                     </div>
+                                    <?php if ($type === 'quiz'): ?>
+                                        <?php $qs = $quizzes[(string) $item['id']] ?? []; ?>
+                                        <div class="border-t border-slate-50 bg-slate-50/50 px-4 py-2">
+                                            <?php foreach ($qs as $qi => $q): ?>
+                                                <div class="mb-1 flex items-start justify-between gap-2">
+                                                    <div class="text-xs text-slate-600">
+                                                        <span class="font-medium"><?= $qi + 1 ?>.</span> <?= e($q['question']) ?>
+                                                        <span class="text-slate-400">(<?= e(implode(' / ', array_map(static fn ($o) => $o['label'] . ((int) $o['is_correct'] === 1 ? ' ✓' : ''), (array) $q['options']))) ?>)</span>
+                                                    </div>
+                                                    <?php if ($canManage): ?><form method="post" action="/learning/<?= e($pid) ?>/questions/<?= e($q['id']) ?>/delete"><?= csrf_field() ?><button class="text-[11px] text-slate-400 hover:text-rose-600">✕</button></form><?php endif; ?>
+                                                </div>
+                                            <?php endforeach; ?>
+                                            <?php if ($canManage): ?>
+                                                <details class="mt-1"><summary class="cursor-pointer text-[11px] font-medium text-indigo-600">+ Add question</summary>
+                                                    <form method="post" action="/learning/<?= e($pid) ?>/items/<?= e($item['id']) ?>/questions" class="mt-1 space-y-1">
+                                                        <?= csrf_field() ?>
+                                                        <input name="question" required placeholder="Question text" class="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs">
+                                                        <?php for ($oi = 0; $oi < 4; $oi++): ?>
+                                                            <div class="flex items-center gap-1">
+                                                                <input type="checkbox" name="correct[]" value="<?= $oi ?>" title="Correct">
+                                                                <input name="option_label[]" placeholder="Option <?= $oi + 1 ?><?= $oi >= 2 ? ' (optional)' : '' ?>" class="grow rounded-lg border border-slate-300 px-2 py-1 text-xs">
+                                                            </div>
+                                                        <?php endfor; ?>
+                                                        <button class="rounded-lg bg-indigo-600 px-2 py-1 text-[11px] font-semibold text-white">Add question</button>
+                                                    </form>
+                                                </details>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
                                 <?php endforeach; ?>
                                 <?php if ((array) $section['items'] === []): ?><p class="px-4 py-3 text-xs text-slate-400">No content in this section yet.</p><?php endif; ?>
                             </div>
