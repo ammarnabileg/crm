@@ -292,6 +292,141 @@ final class SkillOntology
         return self::SENIORITY_LEVELS[mb_strtolower(trim($seniority))] ?? 0;
     }
 
+    /**
+     * Technical-stack grouping: canonical skill => the stack family it belongs
+     * to. Used to detect a candidate's primary technical stack with ZERO AI.
+     *
+     * @var array<string, string>
+     */
+    public const STACK_GROUPS = [
+        // Frontend
+        'JavaScript' => 'Frontend', 'TypeScript' => 'Frontend', 'React' => 'Frontend',
+        'Vue.js' => 'Frontend', 'Angular' => 'Frontend', 'Svelte' => 'Frontend',
+        'Next.js' => 'Frontend', 'HTML' => 'Frontend', 'CSS' => 'Frontend',
+        'Tailwind' => 'Frontend', 'SASS' => 'Frontend', 'Bootstrap' => 'Frontend',
+        // Backend
+        'PHP' => 'Backend', 'Laravel' => 'Backend', 'Symfony' => 'Backend',
+        'Node.js' => 'Backend', 'Python' => 'Backend', 'Django' => 'Backend',
+        'Flask' => 'Backend', 'FastAPI' => 'Backend', 'Java' => 'Backend',
+        'Spring' => 'Backend', 'C#' => 'Backend', '.NET' => 'Backend', 'Go' => 'Backend',
+        'Rust' => 'Backend', 'Ruby' => 'Backend', 'Rails' => 'Backend', 'Scala' => 'Backend',
+        'Elixir' => 'Backend', 'GraphQL' => 'Backend', 'REST' => 'Backend', 'gRPC' => 'Backend',
+        'Microservices' => 'Backend',
+        // Mobile
+        'Kotlin' => 'Mobile', 'Swift' => 'Mobile', 'Objective-C' => 'Mobile',
+        'Dart' => 'Mobile', 'Flutter' => 'Mobile', 'React Native' => 'Mobile',
+        // Data / AI
+        'SQL' => 'Data', 'Machine Learning' => 'Data', 'Deep Learning' => 'Data',
+        'TensorFlow' => 'Data', 'PyTorch' => 'Data', 'NLP' => 'Data', 'Pandas' => 'Data',
+        'NumPy' => 'Data', 'Data Analysis' => 'Data', 'Power BI' => 'Data',
+        'Tableau' => 'Data', 'Kafka' => 'Data',
+        // Databases
+        'MySQL' => 'Database', 'PostgreSQL' => 'Database', 'MongoDB' => 'Database',
+        'Redis' => 'Database', 'SQLite' => 'Database', 'Elasticsearch' => 'Database',
+        'Oracle' => 'Database', 'SQL Server' => 'Database',
+        // DevOps / Cloud
+        'AWS' => 'DevOps/Cloud', 'Azure' => 'DevOps/Cloud', 'GCP' => 'DevOps/Cloud',
+        'Docker' => 'DevOps/Cloud', 'Kubernetes' => 'DevOps/Cloud', 'Terraform' => 'DevOps/Cloud',
+        'Ansible' => 'DevOps/Cloud', 'Jenkins' => 'DevOps/Cloud', 'CI/CD' => 'DevOps/Cloud',
+        'Linux' => 'DevOps/Cloud',
+        // Design
+        'Figma' => 'Design', 'Adobe XD' => 'Design', 'Photoshop' => 'Design',
+        'Illustrator' => 'Design', 'UI/UX' => 'Design',
+    ];
+
+    /** Industry => detection cues (companies, domains, keywords). @var array<string, list<string>> */
+    public const INDUSTRY_CUES = [
+        'Fintech / Banking' => ['fintech', 'bank', 'banking', 'payments', 'payment gateway', 'trading', 'investment', 'insurance', 'lending', 'wallet'],
+        'E-commerce / Retail' => ['e-commerce', 'ecommerce', 'retail', 'marketplace', 'shopify', 'magento', 'woocommerce', 'storefront'],
+        'Healthcare / Medical' => ['healthcare', 'hospital', 'clinic', 'medical', 'pharma', 'pharmaceutical', 'telemedicine', 'health tech'],
+        'Education / EdTech' => ['education', 'edtech', 'e-learning', 'university', 'school', 'lms', 'courses'],
+        'Telecom' => ['telecom', 'telecommunications', 'gsm', '5g', 'isp', 'network operator'],
+        'Gaming / Entertainment' => ['gaming', 'game studio', 'unity', 'unreal', 'entertainment', 'streaming', 'media'],
+        'Government / Public' => ['government', 'public sector', 'ministry', 'municipality', 'e-government'],
+        'Logistics / Transport' => ['logistics', 'supply chain', 'shipping', 'fleet', 'delivery', 'transport', 'mobility', 'ride-hailing'],
+        'SaaS / Enterprise Software' => ['saas', 'b2b', 'enterprise software', 'crm', 'erp', 'platform'],
+        'Real Estate / PropTech' => ['real estate', 'proptech', 'property', 'brokerage'],
+        'Energy / Utilities' => ['energy', 'oil and gas', 'utilities', 'renewable', 'solar', 'power plant'],
+        'Marketing / Advertising' => ['advertising', 'ad agency', 'digital marketing', 'martech', 'campaign'],
+    ];
+
+    /** Leadership signal => human-readable label. @var array<string, string> */
+    public const LEADERSHIP_CUES = [
+        'led ' => 'Led initiatives/teams',
+        'leading ' => 'Led initiatives/teams',
+        'managed ' => 'Managed people or projects',
+        'managing ' => 'Managed people or projects',
+        'mentored' => 'Mentored / coached others',
+        'mentoring' => 'Mentored / coached others',
+        'supervised' => 'Supervised a team',
+        'coordinated' => 'Coordinated cross-functional work',
+        'spearheaded' => 'Spearheaded a programme',
+        'owned ' => 'Owned a product/area end-to-end',
+        'founded' => 'Founded / co-founded',
+        'co-founded' => 'Founded / co-founded',
+        'directed' => 'Directed a function',
+        'built and led' => 'Built and led a team',
+        'team of' => 'Responsible for a sized team',
+        'reports' => 'Had direct reports',
+        'direct reports' => 'Had direct reports',
+        'stakeholder' => 'Managed stakeholders',
+        'p&l' => 'Owned P&L responsibility',
+        'budget' => 'Managed a budget',
+        'hiring' => 'Involved in hiring',
+        'recruited' => 'Built the team (hiring)',
+    ];
+
+    /**
+     * Group a candidate's canonical skills into technical stacks.
+     *
+     * @param  list<string>  $skills  canonical skill names
+     * @return array<string, list<string>>  stack family => skills in it (desc by size)
+     */
+    public static function detectStacks(array $skills): array
+    {
+        $stacks = [];
+        foreach ($skills as $skill) {
+            $stack = self::STACK_GROUPS[$skill] ?? null;
+            if ($stack !== null) {
+                $stacks[$stack][] = $skill;
+            }
+        }
+        uasort($stacks, static fn (array $a, array $b): int => count($b) <=> count($a));
+
+        return $stacks;
+    }
+
+    /** @return list<string> industries detected in text (in cue-table order) */
+    public static function detectIndustries(string $text): array
+    {
+        $hay = ' ' . mb_strtolower($text) . ' ';
+        $found = [];
+        foreach (self::INDUSTRY_CUES as $industry => $cues) {
+            foreach ($cues as $cue) {
+                if (str_contains($hay, ' ' . $cue) || str_contains($hay, $cue . ' ')) {
+                    $found[$industry] = true;
+                    break;
+                }
+            }
+        }
+
+        return array_keys($found);
+    }
+
+    /** @return list<string> distinct human-readable leadership signals found in text */
+    public static function leadershipSignals(string $text): array
+    {
+        $hay = ' ' . mb_strtolower($text) . ' ';
+        $labels = [];
+        foreach (self::LEADERSHIP_CUES as $cue => $label) {
+            if (str_contains($hay, $cue)) {
+                $labels[$label] = true;
+            }
+        }
+
+        return array_keys($labels);
+    }
+
     private static function aliasPresent(string $paddedLowerHay, string $alias): bool
     {
         $alias = trim($alias);

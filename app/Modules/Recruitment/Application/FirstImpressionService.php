@@ -7,6 +7,7 @@ namespace HaHireAI\Modules\Recruitment\Application;
 use HaHireAI\Core\Contracts\EventDispatcher;
 use HaHireAI\Core\Contracts\SocialProfileProbe;
 use HaHireAI\Core\Database\Connection;
+use HaHireAI\Modules\Recruitment\Domain\FirstImpression\CandidateInsights;
 use HaHireAI\Modules\Recruitment\Domain\FirstImpression\FirstImpressionScore;
 use HaHireAI\Modules\Recruitment\Domain\FirstImpression\JobProfile;
 use HaHireAI\Modules\Recruitment\Domain\FirstImpression\ResumeAnalysisEngine;
@@ -62,6 +63,9 @@ final class FirstImpressionService
         $jobProfile = JobProfile::fromJobRow($job);
         $resumeResult = $this->analysis->analyze($resume, $jobProfile);
 
+        // 2b) Engine 1b — Candidate Intelligence (advisory, never changes the score).
+        $insights = CandidateInsights::derive($resume, $jobProfile);
+
         // 3) Engine 2 — social credibility (optional boost; neutral when absent).
         [$snapshots, $scored] = $this->probeSocial($links, $jobProfile);
         $roll = SocialScoring::roll($scored);
@@ -72,7 +76,7 @@ final class FirstImpressionService
         $fi = FirstImpressionScore::decide($resumeResult, $roll, $threshold, $socialConfidence);
 
         // 5) Persist (normalised, transactional).
-        $reportId = $this->persist($workspaceId, $applicationId, $candidateUserId, (string) ($job['id'] ?? ''), $resumeId, $parsed, $resume, $resumeResult, $fi, $snapshots, $scored, $roll, $socialConfidence);
+        $reportId = $this->persist($workspaceId, $applicationId, $candidateUserId, (string) ($job['id'] ?? ''), $resumeId, $parsed, $resume, $resumeResult, $fi, $snapshots, $scored, $roll, $socialConfidence, $insights);
 
         // 6) React-ready events on the bus.
         $this->emit($workspaceId, $candidateUserId, $applicationId, (string) ($job['id'] ?? ''), $reportId, $fi);
@@ -186,13 +190,14 @@ final class FirstImpressionService
         array $scored,
         array $roll,
         int $socialConfidence,
+        array $insights = [],
     ): string {
         $reportId = Ulid::generate();
         $now = gmdate('Y-m-d H:i:s');
 
         $this->connection->transaction(function () use (
             $reportId, $workspaceId, $applicationId, $candidateUserId, $jobId, $resumeId,
-            $parsed, $resume, $r, $fi, $snapshots, $scored, $roll, $socialConfidence, $now
+            $parsed, $resume, $r, $fi, $snapshots, $scored, $roll, $socialConfidence, $now, $insights
         ): void {
             // --- report ---
             $this->connection->statement(
@@ -242,6 +247,8 @@ final class FirstImpressionService
                 'publication' => $resume->publications,
                 'award' => $resume->awards,
                 'link' => $resume->links,
+                // --- Candidate Intelligence (advisory, zero-AI) ---
+                ...$this->insightDetailGroups($insights),
             ]);
 
             // --- social (only when links were probed) ---
@@ -286,6 +293,74 @@ final class FirstImpressionService
         });
 
         return $reportId;
+    }
+
+    /**
+     * Flatten the Candidate Intelligence derivation into normalised
+     * resume_analysis_details groups (kind => list<string> labels). Advisory
+     * only — these rows never affect the score; existing readers ignore unknown
+     * kinds, so this is fully backward-compatible.
+     *
+     * @param  array<string, mixed>  $insights
+     * @return array<string, list<string>>
+     */
+    private function insightDetailGroups(array $insights): array
+    {
+        if ($insights === []) {
+            return [];
+        }
+
+        $groups = [];
+
+        $progression = $insights['career_progression'] ?? null;
+        if (is_array($progression) && ($progression['trajectory'] ?? 'insufficient') !== 'insufficient') {
+            $groups['insight_progression'] = [(string) ($progression['label'] ?? '')];
+        }
+
+        $seniority = $insights['seniority'] ?? null;
+        if (is_array($seniority) && (int) ($seniority['rank'] ?? 0) > 0) {
+            $groups['insight_seniority'] = [(string) ($seniority['label'] ?? '')];
+        }
+
+        if (! empty($insights['leadership']) && is_array($insights['leadership'])) {
+            $groups['insight_leadership'] = array_values(array_map('strval', $insights['leadership']));
+        }
+
+        if (! empty($insights['industries']) && is_array($insights['industries'])) {
+            $groups['insight_industry'] = array_values(array_map('strval', $insights['industries']));
+        }
+
+        $stacks = $insights['tech_stacks'] ?? [];
+        if (is_array($stacks) && $stacks !== []) {
+            $rows = [];
+            foreach ($stacks as $family => $skills) {
+                $rows[] = $family . ': ' . implode(', ', array_slice((array) $skills, 0, 8));
+            }
+            $groups['insight_stack'] = $rows;
+        }
+
+        $stability = $insights['stability'] ?? null;
+        if (is_array($stability) && (int) ($stability['avg_months'] ?? 0) > 0) {
+            $groups['insight_stability'] = [(string) ($stability['label'] ?? '')];
+        }
+
+        if (! empty($insights['consistency']) && is_array($insights['consistency'])) {
+            $groups['insight_consistency'] = array_values(array_map('strval', $insights['consistency']));
+        }
+
+        $gaps = $insights['skill_gaps'] ?? [];
+        if (is_array($gaps) && $gaps !== []) {
+            $groups['insight_skill_gap'] = array_values(array_map(
+                static fn (array $g): string => (string) ($g['skill'] ?? '') . ' (' . (string) ($g['severity'] ?? 'core') . ')',
+                $gaps,
+            ));
+        }
+
+        if (! empty($insights['highlights']) && is_array($insights['highlights'])) {
+            $groups['insight_highlight'] = array_values(array_map('strval', $insights['highlights']));
+        }
+
+        return $groups;
     }
 
     /**

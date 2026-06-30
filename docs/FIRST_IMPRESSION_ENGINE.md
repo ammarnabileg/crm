@@ -124,6 +124,27 @@ matched/missing skills, keyword hits, present/missing sections, strengths,
 weaknesses, recommendations, rule matches, rule failures, plus the structured CV
 data (titles, companies, education, certs, languages, projects, links).
 
+### 3.2b Candidate Intelligence (Engine 1b — advisory, never scores)
+
+On top of the scoring sub-scores, a pure **`CandidateInsights`** derivation adds
+**rule-based, zero-AI** intelligence *about* the candidate. It is **advisory
+only** — it never changes `overall`, `passed`, or the decision; it produces
+normalised `resume_analysis_details` rows (kinds prefixed `insight_*`) shown on
+the report. Existing readers ignore the new kinds, so it is fully
+backward-compatible. Derivations:
+
+| Insight | Kind | What it derives (deterministically) |
+|---|---|---|
+| Career progression | `insight_progression` | upward / lateral / downward trajectory across the dated roles |
+| Seniority | `insight_seniority` | inferred level in words (Intern…Executive) from titles + years |
+| Employment stability | `insight_stability` | average tenure per role, in words |
+| Technical stacks | `insight_stack` | skills clustered into Frontend/Backend/Mobile/Data/Database/DevOps-Cloud/Design |
+| Industry experience | `insight_industry` | domains worked in (fintech, healthcare, e-commerce, …) via a cue ontology |
+| Leadership indicators | `insight_leadership` | led/managed/mentored/"team of N"/P&L/hiring cues |
+| Skill gaps | `insight_skill_gap` | required skills absent from the CV, each tagged `critical` (in the job title) or `core` |
+| Consistency notes | `insight_consistency` | soft flags (e.g. stated years vs dated roles) — advisory, never a penalty |
+| At-a-glance | `insight_highlight` | a short chip summary of the above |
+
 ### 3.3 Confidence
 
 A 0..100 confidence is stored on every report (parse confidence + how much

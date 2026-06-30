@@ -148,6 +148,54 @@ $list = static function (string $kind) use ($details): string {
         </div>
     </div>
 
+    <!-- Candidate Intelligence (rule-based, zero-AI, advisory) -->
+    <?php
+    $insightKinds = ['insight_seniority', 'insight_progression', 'insight_stability', 'insight_primary_stack',
+        'insight_stack', 'insight_industry', 'insight_leadership', 'insight_skill_gap', 'insight_consistency', 'insight_highlight'];
+    $hasInsights = false;
+    foreach ($insightKinds as $ik) {
+        if (! empty($details[$ik])) { $hasInsights = true; break; }
+    }
+    ?>
+    <?php if ($hasInsights): ?>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 class="mb-1 text-sm font-semibold text-slate-900">Candidate intelligence
+                <span class="text-xs font-normal text-slate-400">(rule-based · no AI · advisory — does not change the score)</span>
+            </h3>
+            <div class="mt-3 grid gap-4 md:grid-cols-2">
+                <?php if (! empty($details['insight_highlight'])): ?>
+                    <div class="md:col-span-2">
+                        <p class="text-xs font-medium text-slate-500">At a glance</p>
+                        <div class="mt-1"><?= $chips('insight_highlight', 'indigo') ?></div>
+                    </div>
+                <?php endif; ?>
+                <?php
+                $insightRow = static function (string $kind, string $title, string $color) use ($details, $chips): string {
+                    if (empty($details[$kind])) {
+                        return '';
+                    }
+
+                    return '<div><p class="text-xs font-medium text-slate-500">' . e($title) . '</p>'
+                        . '<div class="mt-1">' . $chips($kind, $color) . '</div></div>';
+                };
+                echo $insightRow('insight_seniority', 'Seniority', 'slate');
+                echo $insightRow('insight_progression', 'Career progression', 'emerald');
+                echo $insightRow('insight_stability', 'Employment stability', 'slate');
+                echo $insightRow('insight_stack', 'Technical stacks', 'indigo');
+                echo $insightRow('insight_industry', 'Industry experience', 'violet');
+                echo $insightRow('insight_leadership', 'Leadership indicators', 'amber');
+                echo $insightRow('insight_skill_gap', 'Skill gaps vs the role', 'rose');
+                ?>
+            </div>
+            <?php if (! empty($details['insight_consistency'])): ?>
+                <div class="mt-4 rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+                    <p class="text-xs font-medium text-amber-700">Consistency notes (advisory — worth confirming)</p>
+                    <ul class="mt-1 list-disc space-y-1 pl-4"><?= $list('insight_consistency') ?></ul>
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
     <!-- Social credibility -->
     <?php if ($social !== null): ?>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

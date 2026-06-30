@@ -11,6 +11,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added — Candidate Intelligence (zero-AI advisory enrichment of First Impression)
+- A pure, deterministic **`CandidateInsights`** layer (Engine 1b) that enriches
+  every First Impression report with rule-based intelligence — **career
+  progression**, **seniority detection**, **employment stability**, **technical
+  stack detection**, **industry detection**, **leadership indicators**,
+  **skill-gap analysis** (critical/core), and **consistency notes** — spending
+  **zero AI credits**. It is strictly **advisory**: it never changes the score or
+  the decision, and is persisted as normalised `resume_analysis_details` rows
+  (`insight_*` kinds), so existing readers are unaffected (backward-compatible).
+- The `SkillOntology` gained stack-grouping, an industry-cue map and leadership
+  cues with `detectStacks()` / `detectIndustries()` / `leadershipSignals()`.
+- Surfaced read-only in the Decision-Center First Impression tab and the
+  candidate's My Insights. 6 new unit tests (126 unit total green). Docs:
+  `FIRST_IMPRESSION_ENGINE.md` §3.2b.
+
 ### Changed — First Impression Engine audit remediation (production-hardening)
 - **Referential integrity:** `first_impression_reports` now FK-constrains
   `candidate_user_id`/`job_id`/`application_id` (CASCADE) and `resume_id`/
