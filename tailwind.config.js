@@ -7,6 +7,15 @@ module.exports = {
     './app/**/*.php',
     './public/assets/**/*.js', // the workflow canvas builds node markup in JS
   ],
+  // The First Impression report colours score bars/badges by value at runtime
+  // (bg-{emerald|indigo|amber|rose}-{shade}), so those dynamic class names never
+  // appear literally in the source. Safelist them so the production build keeps
+  // them. See resources/views/recruitment/_first_impression.php.
+  safelist: [
+    {
+      pattern: /(bg|text)-(emerald|amber|rose|violet|slate)-(50|100|500|600|700)/,
+    },
+  ],
   theme: {
     extend: {
       // One unified font identity across every page/component.

@@ -51,6 +51,7 @@ final class SidebarBuilder
     private const CANDIDATE_ITEMS = [
         ['label' => 'My Applications', 'route' => '/my-applications', 'permission' => '*'],
         ['label' => 'Available Jobs', 'route' => '/open-jobs', 'permission' => '*'],
+        ['label' => 'My Insights', 'route' => '/my-insights', 'permission' => '*'],
         ['label' => 'My Profile', 'route' => '/my-profile', 'permission' => '*'],
     ];
 

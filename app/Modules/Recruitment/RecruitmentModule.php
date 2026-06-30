@@ -180,6 +180,7 @@ final class RecruitmentModule implements Module
         // /dashboard (context-aware) → /my-applications.
         $router->post('/candidacy/{workspaceId}/switch', [CandidatePortalController::class, 'switchWorkspace']);
         $router->get('/open-jobs', [CandidatePortalController::class, 'jobs']);
+        $router->get('/open-jobs/{jobId}/prepare', [CandidatePortalController::class, 'prepare']);
         $router->post('/open-jobs/{jobId}/apply', [CandidatePortalController::class, 'apply']);
         $router->get('/interview/{interviewId}', [CandidatePortalController::class, 'room']);
         $router->post('/interview/{interviewId}/cv', [CandidatePortalController::class, 'roomCv']);
@@ -194,6 +195,10 @@ final class RecruitmentModule implements Module
         $router->get('/my-profile', [CandidatePortalController::class, 'profile']);
         $router->post('/my-profile', [CandidatePortalController::class, 'updateProfile']);
         $router->post('/my-profile/cv', [CandidatePortalController::class, 'uploadCv']);
+        // The candidate's own First Impression insights (read-only; refreshed on
+        // each new application).
+        $router->get('/my-insights', [CandidatePortalController::class, 'insights']);
+        $router->get('/my-insights/{reportId}', [CandidatePortalController::class, 'insight']);
 
         // Talent pool.
         $router->get('/talent-pool', [TalentPoolController::class, 'index']);
