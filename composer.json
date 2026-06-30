@@ -10,11 +10,11 @@
         "ext-json": "*",
         "ext-openssl": "*",
         "ext-ctype": "*",
-        "ext-fileinfo": "*",
-        "smalot/pdfparser": "^2.7"
+        "ext-fileinfo": "*"
     },
     "require-dev": {
-        "phpunit/phpunit": "^11.0"
+        "phpunit/phpunit": "^11.0",
+        "smalot/pdfparser": "^2.7"
     },
     "autoload": {
         "psr-4": {
