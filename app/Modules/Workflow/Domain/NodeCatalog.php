@@ -98,6 +98,11 @@ final class NodeCatalog
             $t('trigger.first_impression_passed', 'First Impression Passed', 'An applicant reaches the minimum score (continues to AI)', 'first_impression.passed', $fiOut),
             $t('trigger.first_impression_failed', 'First Impression Failed', 'An applicant is filtered before the AI interview', 'first_impression.failed', $fiOut),
             $t('trigger.first_impression_override', 'First Impression Override', 'HR overrides a filtered decision to allow the AI interview', 'first_impression.overridden', $fiOut),
+
+            // Learning module — assignment / enrollment / completion (zero-AI).
+            $t('trigger.learning_assigned', 'Learning Program Assigned', 'A learning program is assigned to a user/role', 'learning.program.assigned', ['program_id', 'assignee_type', 'assignee_id', 'enrolled']),
+            $t('trigger.learning_enrolled', 'Learning Enrollment Created', 'A learner is enrolled into a program', 'learning.enrollment.created', ['program_id', 'user_id']),
+            $t('trigger.learning_completed', 'Learning Program Completed', 'A learner completes a program', 'learning.program.completed', ['program_id', 'user_id']),
             [
                 'type' => 'trigger.schedule', 'category' => 'Triggers', 'kind' => 'trigger',
                 'label' => 'Schedule', 'description' => 'Run on a schedule', 'icon' => 'clock',

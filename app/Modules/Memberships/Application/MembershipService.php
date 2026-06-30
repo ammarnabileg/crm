@@ -122,6 +122,26 @@ final class MembershipService implements MemberDirectory
     }
 
     /**
+     * The user ids of active members holding a given role — used by other modules
+     * (e.g. Learning assignment fan-out) through the MemberDirectory contract, so
+     * they never read the memberships/roles tables directly (ARCHITECTURE.md §4).
+     *
+     * @return list<string>
+     */
+    public function membersWithRole(string $workspaceId, string $roleId): array
+    {
+        $rows = $this->connection->select(
+            "SELECT DISTINCT m.user_id
+               FROM memberships m
+               JOIN membership_roles mr ON mr.membership_id = m.id
+              WHERE m.workspace_id = ? AND mr.role_id = ? AND m.status = 'active' AND m.deleted_at IS NULL",
+            [$workspaceId, $roleId],
+        );
+
+        return array_map(static fn (array $r): string => (string) $r['user_id'], $rows);
+    }
+
+    /**
      * Change a member's status (active|suspended|invited). Tenant-guarded: the
      * membership must belong to the given workspace.
      */

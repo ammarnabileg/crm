@@ -123,6 +123,11 @@ final class ContextSwitcherTest extends TestCase
                 return [];
             }
 
+            public function membersWithRole(string $workspaceId, string $roleId): array
+            {
+                return [];
+            }
+
             public function setStatus(string $workspaceId, string $membershipId, string $status): bool
             {
                 return false;

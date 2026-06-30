@@ -54,6 +54,7 @@ Modules are organized into layers. Lower layers never depend on higher ones.
 | **Search** | Platform Services | Unified workspace-scoped search index | 9 |
 | **Audit** | Platform Services | Immutable activity & audit trail | 9 |
 | **Recruitment** | Business Domain | Full hiring operating system (see §3) | 10 |
+| **Learning** | Business Domain | Training/onboarding/development programs: sections→items, assignment, enrollment + progress, self/manager to-dos, polymorphic comments, collaboration (see `LEARNING_PROGRAMS.md`) | 10 |
 | **AI Engine** | Intelligence | Central, multi-provider AI capability layer | 11 |
 | **Reports / Analytics** | Intelligence | Cross-module metrics, dashboards, saved views | 10–15 |
 | **Workflow Engine** | Process | Central automation, triggers, conditions, actions, approvals, scheduler, background jobs | 12 |

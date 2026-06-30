@@ -65,6 +65,13 @@ final class PermissionCatalog
                 'task.view' => 'View tasks',
                 'task.manage' => 'Create, assign and complete tasks',
             ],
+            'Learning' => [
+                'learning.view' => 'View learning programs and own enrollments',
+                'learning.manage' => 'Create and edit programs, sections, items and todos',
+                'learning.publish' => 'Publish, archive and version programs',
+                'learning.assign' => 'Assign programs and manage enrollments',
+                'learning.todo.manage' => 'Complete manager-controlled todos and manage any todo',
+            ],
             'Applications' => [
                 'application.view' => 'View applications',
                 'application.update' => 'Update an application',

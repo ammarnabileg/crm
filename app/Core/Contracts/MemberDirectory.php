@@ -31,6 +31,9 @@ interface MemberDirectory
     /** @return list<array<string, mixed>> members of a workspace with their role names + activity */
     public function membersForWorkspace(string $workspaceId): array;
 
+    /** @return list<string> user ids of active members holding the given role (for assignment fan-out) */
+    public function membersWithRole(string $workspaceId, string $roleId): array;
+
     public function setStatus(string $workspaceId, string $membershipId, string $status): bool;
 
     public function remove(string $workspaceId, string $membershipId): bool;

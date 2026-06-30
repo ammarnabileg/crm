@@ -23,6 +23,8 @@ final class SidebarBuilder
         ['label' => 'Talent Pool', 'route' => '/talent-pool', 'permission' => 'talent.view'],
         ['label' => 'Pipeline', 'route' => '/pipeline', 'permission' => 'pipeline.view'],
         ['label' => 'Tasks', 'route' => '/tasks', 'permission' => 'task.view', 'feature' => 'tasks'],
+        ['label' => 'Learning', 'route' => '/learning', 'permission' => 'learning.view'],
+        ['label' => 'My Learning', 'route' => '/my-learning', 'permission' => 'learning.view'],
         ['label' => 'AI Interviews', 'route' => '/interviews', 'permission' => 'interview.view'],
         ['label' => 'Human Interviews', 'route' => '/human-interviews', 'permission' => 'interview.view'],
         ['label' => 'Avatars', 'route' => '/avatars', 'permission' => 'avatar.view'],

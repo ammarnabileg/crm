@@ -11,6 +11,35 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added — Learning module (training, onboarding & development programs)
+- A new first-class **Learning** module (`HaHireAI\Modules\Learning`, depends on
+  Workspaces/Memberships/Files). Workspace-owned **programs** built as a tree:
+  **program → sections → items** (lesson / video / document / link / task /
+  todo_list / quiz / note), with cover, category, tags, difficulty, estimated
+  duration, and a **completion rule** (all / required / percentage).
+- **Lifecycle & collaboration:** draft → published → archived, multi-editor
+  authoring (owner/editor/viewer), and **version snapshots**.
+- **To-dos** with two completion modes — **self** (assignee closes) and
+  **manager-controlled** (only a supervisor with `learning.todo.manage` closes) —
+  each with due date, priority, assignee and a full **status-history** trail.
+- **Polymorphic comments** on any program/section/item/todo with replies,
+  @mentions, edit and permission-aware soft delete; polymorphic attachments.
+- **Assignment → enrollment → progress:** assign to user/role/department/team
+  (role fan-out via a new `MemberDirectory::membersWithRole()` contract method);
+  per-item progress rolled up by the pure `ProgressCalculator`; roster + stats for
+  managers and a learner **My Learning** view with progress.
+- **Events/Workflow:** `learning.program.assigned` / `learning.enrollment.created`
+  / `learning.program.completed` published on the bus and registered as Workflow
+  triggers. **Permissions:** `learning.view|manage|publish|assign|todo.manage`.
+  **Sidebar:** *Learning* + *My Learning*.
+- **Architecture seam:** a `LearningCatalog` Core contract (publishedPrograms /
+  countPrograms / enrollUser) for future candidate/employee onboarding without
+  touching Learning tables. Quizzes, department/team resolution, cross-workspace
+  sharing and version-restore are scaffolded (tables/seams present, UI deferred).
+- 17 normalised, FK-constrained, tenant-scoped tables
+  (`2026_06_30_000004_learning_module`). Tests: 6 unit + 7 live-MySQL feature.
+  Docs: **`LEARNING_PROGRAMS.md`**, `MODULES.md`.
+
 ### Added — Candidate Intelligence (zero-AI advisory enrichment of First Impression)
 - A pure, deterministic **`CandidateInsights`** layer (Engine 1b) that enriches
   every First Impression report with rule-based intelligence — **career

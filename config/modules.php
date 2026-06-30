@@ -25,5 +25,6 @@ return [
     \HaHireAI\Modules\Observability\ObservabilityModule::class,
     \HaHireAI\Modules\Notifications\NotificationsModule::class,
     \HaHireAI\Modules\Tasks\TasksModule::class,
+    \HaHireAI\Modules\Learning\LearningModule::class,
     \HaHireAI\Modules\Platform\PlatformModule::class,
 ];
