@@ -31,7 +31,7 @@ final class NodeCatalog
         return [
             // ── Triggers — bound to events that already exist in the system ─────
             ...self::triggers(),
-            // ── Conditions & Logic ─────────────────────────────────────────────
+            // ── Conditions & Logic ───────────────────────────────
             ...self::logic(),
             // ── Actions across modules (existing services/contracts only) ───────
             ...self::actions(),
@@ -169,24 +169,25 @@ final class NodeCatalog
     /** @return list<array<string,mixed>> action nodes (executed via existing services/contracts). */
     private static function actions(): array
     {
-        $n = static fn (string $type, string $cat, string $label, string $desc, string $icon, array $config = []): array => [
+        $n = static fn (string $type, string $cat, string $label, string $desc, string $icon, array $config = [], array $outputs = []): array => [
             'type' => $type, 'category' => $cat, 'kind' => 'action',
-            'label' => $label, 'description' => $desc, 'icon' => $icon, 'config' => $config, 'outputs' => [],
+            'label' => $label, 'description' => $desc, 'icon' => $icon, 'config' => $config, 'outputs' => $outputs,
         ];
         $varField = static fn (string $key, string $label): array => ['key' => $key, 'label' => $label, 'type' => 'variable'];
         $text = static fn (string $key, string $label): array => ['key' => $key, 'label' => $label, 'type' => 'text'];
 
         return [
-            // AI — via the existing AI Engine (never embeds AI/providers).
-            $n('ai.summary', 'AI', 'Generate Summary', 'Summarise with AI', 'sparkles', [$varField('subject', 'About')]),
-            $n('ai.evaluate_interview', 'AI', 'Evaluate Interview', 'Score an interview with AI', 'sparkles', [$varField('interview', 'Interview')]),
-            $n('ai.rank_candidate', 'AI', 'Rank Candidate', 'Rank a candidate with AI', 'sparkles', [$varField('candidate', 'Candidate')]),
-            $n('ai.generate_questions', 'AI', 'Generate Questions', 'Draft interview questions', 'sparkles', [$text('topic', 'Topic')]),
-            $n('ai.translate', 'AI', 'Translate', 'Translate text', 'sparkles', [$varField('text', 'Text'), $text('to', 'To language')]),
-            $n('ai.summarize_cv', 'AI', 'Summarize CV', 'Summarise a CV', 'sparkles', [$varField('candidate', 'Candidate')]),
-            $n('ai.recommendation', 'AI', 'Recommendation', 'AI hiring recommendation', 'sparkles', [$varField('candidate', 'Candidate')]),
-            $n('ai.decision', 'AI', 'Decision', 'AI advisory decision', 'sparkles', [$varField('subject', 'About')]),
-            $n('ai.skill_extraction', 'AI', 'Skill Extraction', 'Extract skills from text', 'sparkles', [$varField('text', 'Text')]),
+            // AI — via the existing AI Engine (never embeds AI/providers). Each
+            // declares the variable(s) it produces, so later nodes can read them.
+            $n('ai.summary', 'AI', 'Generate Summary', 'Summarise with AI', 'sparkles', [$varField('subject', 'About')], ['summary']),
+            $n('ai.evaluate_interview', 'AI', 'Evaluate Interview', 'Score an interview with AI', 'sparkles', [$varField('interview', 'Interview')], ['ai_score', 'recommendation']),
+            $n('ai.rank_candidate', 'AI', 'Rank Candidate', 'Rank a candidate with AI', 'sparkles', [$varField('candidate', 'Candidate')], ['rank', 'score']),
+            $n('ai.generate_questions', 'AI', 'Generate Questions', 'Draft interview questions', 'sparkles', [$text('topic', 'Topic')], ['questions']),
+            $n('ai.translate', 'AI', 'Translate', 'Translate text', 'sparkles', [$varField('text', 'Text'), $text('to', 'To language')], ['translation']),
+            $n('ai.summarize_cv', 'AI', 'Summarize CV', 'Summarise a CV', 'sparkles', [$varField('candidate', 'Candidate')], ['cv_summary']),
+            $n('ai.recommendation', 'AI', 'Recommendation', 'AI hiring recommendation', 'sparkles', [$varField('candidate', 'Candidate')], ['recommendation']),
+            $n('ai.decision', 'AI', 'Decision', 'AI advisory decision', 'sparkles', [$varField('subject', 'About')], ['decision']),
+            $n('ai.skill_extraction', 'AI', 'Skill Extraction', 'Extract skills from text', 'sparkles', [$varField('text', 'Text')], ['skills']),
 
             // Recruitment — via the RecruitmentActions contract (existing services).
             $n('recruitment.move_candidate', 'Recruitment', 'Move Candidate', 'Move to a pipeline stage', 'users', [$varField('application_id', 'Application'), $text('stage', 'Stage')]),
@@ -194,7 +195,7 @@ final class NodeCatalog
             $n('recruitment.schedule_interview', 'Recruitment', 'Schedule Interview', 'Schedule an AI/human interview', 'calendar', [$varField('application_id', 'Application'), ['key' => 'kind', 'label' => 'Type', 'type' => 'select', 'options' => ['ai', 'human']]]),
             $n('recruitment.reject_candidate', 'Recruitment', 'Reject Candidate', 'Reject an application', 'users', [$varField('application_id', 'Application')]),
             $n('recruitment.hire_candidate', 'Recruitment', 'Hire Candidate', 'Mark as hired', 'users', [$varField('application_id', 'Application')]),
-            $n('recruitment.create_offer', 'Recruitment', 'Create Offer', 'Create an offer', 'document', [$varField('application_id', 'Application'), $text('salary', 'Salary')]),
+            $n('recruitment.create_offer', 'Recruitment', 'Create Offer', 'Create an offer', 'document', [$varField('application_id', 'Application'), $text('salary', 'Salary')], ['offer_id']),
             $n('recruitment.send_offer', 'Recruitment', 'Send Offer', 'Send an offer', 'document', [$varField('offer_id', 'Offer')]),
             $n('recruitment.archive_candidate', 'Recruitment', 'Archive Candidate', 'Archive an application', 'archive', [$varField('application_id', 'Application')]),
             $n('recruitment.add_to_talent_pool', 'Recruitment', 'Add To Talent Pool', 'Add to a talent pool', 'users', [$varField('user_id', 'Candidate'), $text('pool', 'Pool')]),
@@ -219,13 +220,13 @@ final class NodeCatalog
             $n('notify.teams', 'Notifications', 'Teams', 'Post to Teams (via webhook)', 'globe', [$text('url', 'Webhook URL'), $text('message', 'Message')]),
 
             // Database — Dynamic Collections (no raw SQL).
-            $n('db.create_record', 'Database', 'Create Record', 'Add a record to a collection', 'database', [$text('collection', 'Collection'), $text('fields', 'Fields')]),
+            $n('db.create_record', 'Database', 'Create Record', 'Add a record to a collection', 'database', [$text('collection', 'Collection'), $text('fields', 'Fields')], ['record_id']),
             $n('db.update_record', 'Database', 'Update Record', 'Update a record', 'database', [$text('collection', 'Collection'), $varField('record_id', 'Record'), $text('fields', 'Fields')]),
             $n('db.delete_record', 'Database', 'Delete Record', 'Delete a record', 'database', [$text('collection', 'Collection'), $varField('record_id', 'Record')]),
             $n('db.archive_record', 'Database', 'Archive Record', 'Archive a record', 'database', [$text('collection', 'Collection'), $varField('record_id', 'Record')]),
             $n('db.restore_record', 'Database', 'Restore Record', 'Restore an archived record', 'database', [$text('collection', 'Collection'), $varField('record_id', 'Record')]),
-            $n('db.find_record', 'Database', 'Find Record', 'Find a record', 'database', [$text('collection', 'Collection'), $text('match', 'Match')]),
-            $n('db.count_records', 'Database', 'Count Records', 'Count records', 'database', [$text('collection', 'Collection')]),
+            $n('db.find_record', 'Database', 'Find Record', 'Find a record', 'database', [$text('collection', 'Collection'), $text('match', 'Match')], ['record']),
+            $n('db.count_records', 'Database', 'Count Records', 'Count records', 'database', [$text('collection', 'Collection')], ['count']),
             $n('db.upsert_record', 'Database', 'Upsert Record', 'Create or update a record', 'database', [$text('collection', 'Collection'), $text('fields', 'Fields')]),
 
             // Files
@@ -239,7 +240,7 @@ final class NodeCatalog
             $n('time.timeout', 'Time', 'Timeout', 'Fail after a timeout', 'clock', [$text('minutes', 'Minutes')]),
 
             // Integrations
-            $n('integration.http', 'Integrations', 'HTTP Request', 'Call an external API', 'globe', [$text('url', 'URL'), ['key' => 'method', 'label' => 'Method', 'type' => 'select', 'options' => ['GET', 'POST']]]),
+            $n('integration.http', 'Integrations', 'HTTP Request', 'Call an external API', 'globe', [$text('url', 'URL'), ['key' => 'method', 'label' => 'Method', 'type' => 'select', 'options' => ['GET', 'POST']]], ['response', 'status']),
 
             // Utilities
             $n('util.log', 'Utilities', 'Log', 'Write a log line', 'document', [$text('message', 'Message')]),
