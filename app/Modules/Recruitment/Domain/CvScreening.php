@@ -69,4 +69,29 @@ final class CvScreening
 
         return count(self::hits($candidateText, $keywords)) >= max(1, $minHits);
     }
+
+    /**
+     * True once the application deadline has passed. A NULL/empty deadline means
+     * the role is open indefinitely. Stored DATETIMEs are UTC.
+     */
+    public static function deadlinePassed(?string $deadlineAt, ?int $nowTs = null): bool
+    {
+        if ($deadlineAt === null || trim($deadlineAt) === '') {
+            return false;
+        }
+        $ts = strtotime($deadlineAt . ' UTC');
+
+        return $ts !== false && ($nowTs ?? time()) >= $ts;
+    }
+
+    /** Seconds left until the deadline (0 if passed or none) — for a countdown. */
+    public static function secondsUntilDeadline(?string $deadlineAt, ?int $nowTs = null): int
+    {
+        if ($deadlineAt === null || trim($deadlineAt) === '') {
+            return 0;
+        }
+        $ts = strtotime($deadlineAt . ' UTC');
+
+        return $ts === false ? 0 : max(0, $ts - ($nowTs ?? time()));
+    }
 }
