@@ -170,7 +170,42 @@ final class InterviewRoomService
         }
     }
 
-    // ── internals ───────────────────────────────────────────────────
+    /**
+     * The CV gate. Before the live AI interview begins the candidate must put a
+     * CV on record — chosen from their library or freshly uploaded. Returns true
+     * while no CV is recorded for this not-yet-started interview, so the room
+     * shows the CV step first. An already-started or completed interview is never
+     * blocked (resuming, and interviews that predate the gate, still work).
+     */
+    public function needsCv(string $workspaceId, string $interviewId): bool
+    {
+        $iv = $this->load($workspaceId, $interviewId);
+        if ((string) $iv['status'] === 'completed' || ! empty($iv['started_at'])) {
+            return false;
+        }
+
+        return empty($this->details($iv)['cv_ready']);
+    }
+
+    /**
+     * Record the candidate's chosen/uploaded CV against this interview and open
+     * the gate. The file id is one of the candidate's library CVs (entity 'cv').
+     */
+    public function attachCv(string $workspaceId, string $interviewId, string $cvFileId): void
+    {
+        $iv = $this->load($workspaceId, $interviewId);
+        $details = $this->details($iv);
+        $details['cv_ready'] = true;
+        if ($cvFileId !== '') {
+            $details['cv_file_id'] = $cvFileId;
+        }
+        $this->connection->statement(
+            'UPDATE interviews SET details = ?, updated_at = ? WHERE id = ? AND workspace_id = ?',
+            [json_encode($details), gmdate('Y-m-d H:i:s'), $interviewId, $workspaceId],
+        );
+    }
+
+    // ── internals ────────────────────────────────────────────────────────────
 
     /** @return list<string> */
     private function planQuestions(string $workspaceId, string $jobId, string $jobTitle, ?string $actorUserId): array
@@ -271,7 +306,7 @@ final class InterviewRoomService
      * The interviewer's persona. The default is a strong, professional senior-HR
      * voice. When the workspace links an AI Avatar (with its own personality) to
      * the job, that personality replaces this default; removing the link restores
-     * the default. (The avatar-to-job link is wired separately.)
+     * the default. (The avatar↔job link is wired separately.)
      *
      * @param  array<string,mixed>  $iv
      */
@@ -379,7 +414,7 @@ final class InterviewRoomService
         return implode("\n", $parts);
     }
 
-    /** The recent conversation, oldest-to-newest, bounded so the prompt stays small. */
+    /** The recent conversation, oldest→newest, bounded so the prompt stays small. */
     private function recentTranscript(string $workspaceId, string $interviewId): string
     {
         $rows = $this->connection->select(
