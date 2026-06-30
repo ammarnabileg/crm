@@ -156,9 +156,24 @@ final class CandidatePortalController
             return Response::redirect('/my-applications');
         }
 
+        $ws = (string) $this->context->workspaceId();
+        $uid = (string) $this->context->userId();
+
+        // CV gate (spec): a CV must be on record before the live interview — the
+        // candidate either picks one from their library or uploads a new one.
+        if ($this->room->needsCv($ws, $interviewId)) {
+            return $this->shell->render($this->context, 'portal.interview_cv', [
+                'interview' => $iv,
+                'cvs' => $this->files->listForEntity($ws, 'cv', $uid),
+                'applicationId' => (string) $iv['application_id'],
+                'workspaceName' => $this->context->workspace()['name'] ?? '',
+                'status' => $this->session->pullFlash('status'),
+            ]);
+        }
+
         $state = (string) $iv['status'] === 'completed'
-            ? $this->room->state((string) $this->context->workspaceId(), $interviewId)
-            : $this->room->begin((string) $this->context->workspaceId(), $interviewId, (string) $this->context->userId());
+            ? $this->room->state($ws, $interviewId)
+            : $this->room->begin($ws, $interviewId, $uid);
 
         return $this->shell->render($this->context, 'portal.interview', [
             'interview' => $iv,
@@ -166,6 +181,50 @@ final class CandidatePortalController
             'applicationId' => (string) $iv['application_id'],
             'workspaceName' => $this->context->workspace()['name'] ?? '',
         ]);
+    }
+
+    /**
+     * CV gate submission: record the chosen library CV or a freshly uploaded one
+     * against the interview, then enter the room. Stays on the gate (with a hint)
+     * until a real CV is provided.
+     */
+    public function roomCv(Request $request, string $interviewId): Response
+    {
+        if (($r = $this->gate($request)) !== null) {
+            return $r;
+        }
+
+        $iv = $this->ownedInterview($interviewId);
+        if ($iv === null) {
+            return Response::redirect('/my-applications');
+        }
+
+        $ws = (string) $this->context->workspaceId();
+        $uid = (string) $this->context->userId();
+        $fileId = trim((string) $request->input('cv_file_id', ''));
+
+        // A freshly uploaded CV joins the candidate's library and is used here.
+        $cv = $request->file('cv');
+        if ($cv !== null && ($cv['tmp_name'] ?? '') !== '') {
+            try {
+                $fileId = $this->files->store($ws, $uid, 'cv', $uid, $cv['tmp_name'], $cv['name'], $cv['size'] ?? null);
+            } catch (\Throwable $e) {
+                $this->session->flash('status', $e->getMessage());
+
+                return Response::redirect('/interview/' . $interviewId);
+            }
+        }
+
+        // Must end up with a real CV — a picked library file or a new upload.
+        if ($fileId === '' || $this->files->find($ws, $fileId) === null) {
+            $this->session->flash('status', 'Please choose one of your CVs or upload a new one to begin.');
+
+            return Response::redirect('/interview/' . $interviewId);
+        }
+
+        $this->room->attachCv($ws, $interviewId, $fileId);
+
+        return Response::redirect('/interview/' . $interviewId);
     }
 
     public function roomAnswer(Request $request, string $interviewId): Response
@@ -184,6 +243,7 @@ final class CandidatePortalController
             $interviewId,
             (string) $request->input('answer', ''),
             (string) $this->context->userId(),
+            (string) $request->input('action', '') === 'change', // "ask me a different question"
         );
 
         // Post/Redirect/Get — the room page renders the updated conversation.
