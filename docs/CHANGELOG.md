@@ -11,6 +11,27 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Changed — First Impression Engine audit remediation (production-hardening)
+- **Referential integrity:** `first_impression_reports` now FK-constrains
+  `candidate_user_id`/`job_id`/`application_id` (CASCADE) and `resume_id`/
+  `overridden_by` (SET NULL); `resume_analysis.resume_id` → `user_resumes`
+  (SET NULL). `foreign()` auto-indexes each column, adding the standalone
+  `resume_id` / `candidate_user_id` indexes the re-analysis and cross-workspace
+  "My Insights" lookups need. (Edited the not-yet-released migration in place.)
+- **Event naming:** the HR override bus event is renamed
+  `first_impression.override` → **`first_impression.overridden`** (past-tense,
+  Constitution §7) and now carries the report headline (`overall_score`,
+  `threshold`, `passed`, `decision`) for parity with completed/passed/failed; the
+  matching Workflow trigger node was updated.
+- **De-duplication:** the legacy `Application/ResumeParser` (byte-identical regex +
+  a hard-coded skill list, duplicating the new Resume Parsing Layer) is now a thin
+  backward-compatible adapter over `ResumeStructurer` — one source of truth, same
+  public `parse(): array` contract and tests. Removed dead
+  `ResumeParserManager::withDefaults()`.
+- **Docs:** `JOB_CONFIGURATION_AND_SCREENING.md` now documents the First
+  Impression per-job controls + the `filtered_pre_ai` status; the engine doc
+  clarifies the `portal.prepare` view vs. its `/open-jobs/{jobId}/prepare` route.
+
 ### Added — First Impression Engine (zero-AI gate before any paid AI interview)
 - A **fully rule-based, no-AI** gate between Apply and the AI interview, so AI
   credits are never spent on applicants far from the job. **Opt-in per job**

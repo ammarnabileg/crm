@@ -97,6 +97,15 @@ return new class extends Migration {
             $t->index(['workspace_id', 'candidate_user_id'], 'fir_ws_cand_idx');
             $t->index('application_id', 'fir_app_idx');
             $t->foreign('workspace_id', 'workspaces', 'id', 'CASCADE');
+            // Referential integrity for the report's parents (house style: every
+            // <entity>_id is FK-constrained). foreign() auto-indexes each column,
+            // which also gives the standalone candidate_user_id / resume_id index
+            // the cross-workspace "My Insights" and re-analysis lookups need.
+            $t->foreign('candidate_user_id', 'users', 'id', 'CASCADE');
+            $t->foreign('job_id', 'jobs', 'id', 'CASCADE');
+            $t->foreign('application_id', 'applications', 'id', 'CASCADE');
+            $t->foreign('resume_id', 'user_resumes', 'id', 'SET NULL');
+            $t->foreign('overridden_by', 'users', 'id', 'SET NULL');
         });
 
         $schema->createIfNotExists('resume_analysis', static function (Blueprint $t): void {
@@ -125,6 +134,7 @@ return new class extends Migration {
             $t->index('report_id', 'resume_analysis_report_idx');
             $t->foreign('workspace_id', 'workspaces', 'id', 'CASCADE');
             $t->foreign('report_id', 'first_impression_reports', 'id', 'CASCADE');
+            $t->foreign('resume_id', 'user_resumes', 'id', 'SET NULL');
         });
 
         // Flexible, normalised detail rows — NEVER a big JSON blob.

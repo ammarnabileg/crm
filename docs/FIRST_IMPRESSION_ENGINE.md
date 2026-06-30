@@ -152,8 +152,11 @@ New application status: **`filtered_pre_ai`** (“Filtered Before AI”).
 
 ## 5. Surfaces
 
-- **Application Preparation** (`portal.prepare` / inline on the public job page):
-  social auto-fill + CV library select/upload (résumé mandatory).
+- **Application Preparation** (the `portal.prepare` view, served at
+  `GET /open-jobs/{jobId}/prepare`; the applicant surface uses clean unprefixed
+  URLs — `portal.*` here names the **view**, not a `/portal/*` route — plus the
+  inline equivalent on the public job page): social auto-fill + CV library
+  select/upload (résumé mandatory).
 - **Decision Center → “First Impression” tab** (candidate file): the full report,
   read-only, with a one-click **Override → allow AI interview** for filtered
   candidates (permission `pipeline.manage`).
@@ -165,7 +168,9 @@ New application status: **`filtered_pre_ai`** (“Filtered Before AI”).
   weaknesses, funnel, conversion rate, and **AI credits saved** (interviews
   avoided + estimated tokens/cost), filterable per job, with a per-month table.
 - **Workflow triggers**: `First Impression Completed / Passed / Failed /
-  Override`, each carrying the report headline as node outputs.
+  Override`, each carrying the report headline as node outputs. The bus events are
+  `first_impression.completed` / `.passed` / `.failed` / `.overridden`
+  (all past-tense per Constitution §7).
 
 ## 6. Guarantees
 

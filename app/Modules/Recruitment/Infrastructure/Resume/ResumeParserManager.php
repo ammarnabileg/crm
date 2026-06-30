@@ -35,14 +35,6 @@ final class ResumeParserManager
         $this->parsers[] = $parser;
     }
 
-    /** A manager wired with the built-in PDF/DOCX/TXT parsers. */
-    public static function withDefaults(): self
-    {
-        $m = new self();
-
-        return $m;
-    }
-
     private function registerDefaults(): void
     {
         $this->parsers = [

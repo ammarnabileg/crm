@@ -36,8 +36,30 @@ is nullable or defaulted, so existing jobs keep their previous behaviour):
 | `interview_start_mode` | VARCHAR(16) ='choice' | `immediate` \| `later` \| `choice` (start-now-or-later). |
 | `deadline_at` | DATETIME (UTC) | Application deadline (pre-existing column; now used for the countdown + entry guard). |
 
+Migration `2026_06_30_000003_first_impression_engine` adds the two **First
+Impression** controls (both defaulted, so existing jobs are unchanged):
+
+| Column | Type | Meaning |
+|---|---|---|
+| `first_impression_enabled` | TINYINT(1) =0 | Opt-in switch for the zero-AI First Impression gate that runs **between Apply and the paid AI interview**. Off by default. |
+| `min_first_impression_score` | INT =65 | The First Impression credibility score (0–100) at/above which an applicant proceeds to the AI interview; below it the applicant is saved with status `filtered_pre_ai` and HR may override. |
+
+> The First Impression gate is **fully rule-based and spends zero AI credits** —
+> it is the credit-saving layer that sits *before* the AI screening described in
+> this document. See **`FIRST_IMPRESSION_ENGINE.md`** for the scoring model, the
+> normalised report tables, the HR override and the analytics. When both are on,
+> the order is: **Apply → First Impression (no AI) → AI Screening interview**.
+
 And `applications.available_from` (VARCHAR 255) — the candidate's "when can you
 start" answer captured at apply time.
+
+### New application status
+
+`filtered_pre_ai` ("Filtered Before AI") — set when First Impression scores an
+applicant below `min_first_impression_score`. The application, candidate, CV and
+full report are still saved; only the AI interview is withheld until an HR
+override (`pipeline.manage`). The value is a plain string on
+`applications.status` (no ENUM), added to `ApplicationStatus::STATUSES`.
 
 **Staff UI** — `JobsController` (`create`/`store`/`edit`/`update`) renders the
 shared fieldset `resources/views/recruitment/jobs/_config_form.php` on the create

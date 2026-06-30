@@ -86,7 +86,7 @@ final class FirstImpressionTest extends TestCase
         [$ws, $owner, $candidate] = $this->workspace();
         $job = $this->fiJob($ws, $owner, 'Senior PHP Engineer', 'PHP,Laravel,MySQL,Docker', 'senior', 5, 65);
         $resumeId = $this->resumes->store($candidate, $this->cvFile(self::PHP_CV), 'sara.txt', 'text/plain', false);
-        $appId = Ulid::generate();
+        $appId = $this->application($ws, (string) $job['id'], $candidate);
 
         $out = $this->service()->run($ws, $job, $appId, $candidate, $resumeId, [], '');
 
@@ -113,7 +113,7 @@ final class FirstImpressionTest extends TestCase
         $job = $this->fiJob($ws, $owner, 'Senior Java Engineer', 'Java,Spring,Kotlin,Kafka', 'lead', 8, 65);
         $resumeId = $this->resumes->store($candidate, $this->cvFile(self::PHP_CV), 'sara.txt', 'text/plain', false);
 
-        $out = $this->service()->run($ws, $job, Ulid::generate(), $candidate, $resumeId, [], '');
+        $out = $this->service()->run($ws, $job, $this->application($ws, (string) $job['id'], $candidate), $candidate, $resumeId, [], '');
 
         $this->assertFalse($out['passed']);
         $this->assertSame('filtered', $out['decision']);
@@ -140,7 +140,7 @@ final class FirstImpressionTest extends TestCase
             }
         };
 
-        $out = $this->service($probe)->run($ws, $job, Ulid::generate(), $candidate, $resumeId, ['https://github.com/sarah'], '');
+        $out = $this->service($probe)->run($ws, $job, $this->application($ws, (string) $job['id'], $candidate), $candidate, $resumeId, ['https://github.com/sarah'], '');
 
         $full = $this->reports->full($ws, $out['report_id']);
         $this->assertNotNull($full['social']);
@@ -157,7 +157,7 @@ final class FirstImpressionTest extends TestCase
         $job = $this->fiJob($ws, $owner, 'Senior Java Engineer', 'Java,Spring', 'lead', 8, 90);
         $resumeId = $this->resumes->store($candidate, $this->cvFile(self::PHP_CV), 'sara.txt', 'text/plain', false);
         $svc = $this->service();
-        $out = $svc->run($ws, $job, Ulid::generate(), $candidate, $resumeId, [], '');
+        $out = $svc->run($ws, $job, $this->application($ws, (string) $job['id'], $candidate), $candidate, $resumeId, [], '');
         $this->assertFalse($out['passed']);
 
         $svc->override($ws, $out['report_id'], $owner);
@@ -181,7 +181,7 @@ final class FirstImpressionTest extends TestCase
             });
         }
 
-        $this->service()->run($ws, $job, Ulid::generate(), $candidate, $resumeId, [], '');
+        $this->service()->run($ws, $job, $this->application($ws, (string) $job['id'], $candidate), $candidate, $resumeId, [], '');
 
         $this->assertContains('first_impression.completed', $seen);
         $this->assertContains('first_impression.passed', $seen);
@@ -224,6 +224,23 @@ final class FirstImpressionTest extends TestCase
         $this->connection->statement(
             'INSERT INTO users (id, name, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
             [$id, $name, $email, 'x', $now, $now],
+        );
+
+        return $id;
+    }
+
+    /**
+     * A real application row — production always creates the application before
+     * the gate runs (CandidatePortalController/PublicJobController), so the report
+     * FK to `applications` is satisfied. The tests mirror that ordering.
+     */
+    private function application(string $ws, string $jobId, string $candidate): string
+    {
+        $id = Ulid::generate();
+        $now = gmdate('Y-m-d H:i:s');
+        $this->connection->statement(
+            'INSERT INTO applications (id, workspace_id, job_id, user_id, status, applied_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [$id, $ws, $jobId, $candidate, 'applied', $now, $now, $now],
         );
 
         return $id;

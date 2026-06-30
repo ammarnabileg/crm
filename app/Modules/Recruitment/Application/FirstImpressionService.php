@@ -109,13 +109,19 @@ final class FirstImpressionService
               WHERE id = ? AND workspace_id = ?',
             [$byUserId, $now, 'passed', $now, $reportId, $workspaceId],
         );
-        $this->events->dispatch('first_impression.override', [
+        // Past-tense event name per Constitution §7; carries the report headline
+        // for parity with completed/passed/failed so Workflow nodes see the score.
+        $this->events->dispatch('first_impression.overridden', [
             'workspace_id' => $workspaceId,
             'report_id' => $reportId,
             'application_id' => $report['application_id'] ?? null,
             'job_id' => $report['job_id'] ?? null,
             'user_id' => $byUserId,
             'candidate_user_id' => $report['candidate_user_id'] ?? null,
+            'overall_score' => (int) ($report['overall_score'] ?? 0),
+            'threshold' => (int) ($report['threshold'] ?? 0),
+            'passed' => true,
+            'decision' => 'passed',
         ]);
 
         return $report;
