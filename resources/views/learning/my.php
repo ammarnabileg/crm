@@ -2,6 +2,7 @@
 /**
  * @var list<array<string,mixed>> $enrollments
  * @var list<array<string,mixed>> $todos
+ * @var list<array<string,mixed>> $certificates
  * @var string|null $status
  */
 ?>
@@ -42,6 +43,21 @@
         <?php endif; ?>
     </div>
 
+    <div class="space-y-4">
+    <?php if (! empty($certificates)): ?>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 class="mb-3 text-sm font-semibold text-slate-900">My certificates</h2>
+            <div class="space-y-2">
+                <?php foreach ($certificates as $c): ?>
+                    <a href="/my-learning/certificate/<?= e($c['serial']) ?>" class="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2 hover:bg-slate-50">
+                        <span class="text-sm text-slate-700">🎓 <?= e($c['program_title'] ?? $c['title']) ?></span>
+                        <span class="text-xs text-slate-400"><?= (int) $c['percent'] ?>%</span>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <div class="self-start rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 class="mb-3 text-sm font-semibold text-slate-900">My open to-dos</h2>
         <?php if ($todos === []): ?>
@@ -60,5 +76,6 @@
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
+    </div>
     </div>
 </div>

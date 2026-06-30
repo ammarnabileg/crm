@@ -9,6 +9,8 @@
  * @var list<array<string,mixed>> $roster
  * @var array{total:int,completed:int,in_progress:int,not_started:int,avg_percent:int} $stats
  * @var list<array<string,mixed>> $assignments
+ * @var list<array<string,mixed>> $prerequisites
+ * @var list<array<string,mixed>> $otherPrograms
  * @var list<array<string,mixed>> $activity
  * @var list<array<string,mixed>> $comments
  * @var list<array<string,mixed>> $members
@@ -337,6 +339,32 @@ $st = (string) $program['status'];
                     <button class="w-full rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900">Save settings</button>
                 </form>
                 <form method="post" action="/learning/<?= e($pid) ?>/delete" onsubmit="return confirm('Delete this program?')" class="mt-2"><?= csrf_field() ?><button class="text-xs text-rose-500 hover:text-rose-700">Delete program</button></form>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($canManage): ?>
+            <!-- Prerequisites -->
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 class="mb-1 text-sm font-semibold text-slate-900">Prerequisites</h2>
+                <p class="mb-3 text-xs text-slate-400">Programs a learner should finish first.</p>
+                <?php if (! empty($prerequisites)): ?>
+                    <div class="mb-3 space-y-1">
+                        <?php foreach ($prerequisites as $pre): ?>
+                            <div class="flex items-center justify-between rounded-lg bg-slate-50 px-2 py-1 text-xs">
+                                <span class="text-slate-600"><?= e($pre['title']) ?></span>
+                                <form method="post" action="/learning/<?= e($pid) ?>/prerequisites/<?= e($pre['program_id']) ?>/delete"><?= csrf_field() ?><button class="text-slate-400 hover:text-rose-600">✕</button></form>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                <form method="post" action="/learning/<?= e($pid) ?>/prerequisites" class="flex gap-2">
+                    <?= csrf_field() ?>
+                    <select name="prerequisite_program_id" required class="grow rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+                        <option value="">Choose a program…</option>
+                        <?php foreach ($otherPrograms as $op): ?><option value="<?= e($op['id']) ?>"><?= e($op['title']) ?></option><?php endforeach; ?>
+                    </select>
+                    <button class="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">Add</button>
+                </form>
             </div>
         <?php endif; ?>
 

@@ -10,6 +10,7 @@ use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Learning\Application\LearningCatalogAdapter;
 use HaHireAI\Modules\Learning\Presentation\LearningController;
+use HaHireAI\Modules\Learning\Presentation\LearningPathController;
 use HaHireAI\Modules\Learning\Presentation\MyLearningController;
 
 /**
@@ -70,8 +71,21 @@ final class LearningModule implements Module
         $router->post('/learning/{id}/items/{itemId}/questions', [LearningController::class, 'addQuestion']);
         $router->post('/learning/{id}/questions/{questionId}/delete', [LearningController::class, 'deleteQuestion']);
 
+        $router->post('/learning/{id}/prerequisites', [LearningController::class, 'addPrerequisite']);
+        $router->post('/learning/{id}/prerequisites/{preId}/delete', [LearningController::class, 'removePrerequisite']);
+
+        // --- Learning paths (tracks) ---
+        $router->get('/learning-paths', [LearningPathController::class, 'index']);
+        $router->post('/learning-paths', [LearningPathController::class, 'create']);
+        $router->get('/learning-paths/{id}', [LearningPathController::class, 'show']);
+        $router->post('/learning-paths/{id}/status', [LearningPathController::class, 'setStatus']);
+        $router->post('/learning-paths/{id}/delete', [LearningPathController::class, 'delete']);
+        $router->post('/learning-paths/{id}/programs', [LearningPathController::class, 'addProgram']);
+        $router->post('/learning-paths/{id}/programs/{programId}/delete', [LearningPathController::class, 'removeProgram']);
+
         // --- Learner ("My Learning") ---
         $router->get('/my-learning', [MyLearningController::class, 'index']);
+        $router->get('/my-learning/certificate/{serial}', [MyLearningController::class, 'certificate']);
         $router->get('/my-learning/{id}', [MyLearningController::class, 'show']);
         $router->post('/my-learning/{id}/items/{itemId}', [MyLearningController::class, 'markItem']);
         $router->post('/my-learning/{id}/quiz/{itemId}', [MyLearningController::class, 'submitQuiz']);

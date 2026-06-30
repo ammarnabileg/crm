@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Learning\Presentation;
 
 use HaHireAI\Core\Contracts\AuditRecorder;
+use HaHireAI\Core\Contracts\EntitlementResolver;
 use HaHireAI\Core\Contracts\MemberDirectory;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
@@ -12,6 +13,7 @@ use HaHireAI\Core\Http\Session;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Learning\Application\CommentService;
 use HaHireAI\Modules\Learning\Application\EnrollmentService;
+use HaHireAI\Modules\Learning\Application\PrerequisiteService;
 use HaHireAI\Modules\Learning\Application\ProgramService;
 use HaHireAI\Modules\Learning\Application\QuizService;
 use HaHireAI\Modules\Learning\Application\TodoService;
@@ -38,9 +40,11 @@ final class LearningController
         private readonly TodoService $todos,
         private readonly CommentService $comments,
         private readonly QuizService $quizzes,
+        private readonly PrerequisiteService $prerequisites,
         private readonly MemberDirectory $members,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
+        private readonly EntitlementResolver $entitlements,
     ) {
     }
 
@@ -115,6 +119,11 @@ final class LearningController
             'roster' => $roster['enrollments'],
             'stats' => $roster['stats'],
             'assignments' => $this->enrollments->assignmentsFor($ws, $id),
+            'prerequisites' => $this->prerequisites->forProgram($ws, $id),
+            'otherPrograms' => array_values(array_filter(
+                $this->programs->listForWorkspace($ws, [], 200),
+                static fn (array $p): bool => (string) $p['id'] !== $id,
+            )),
             'activity' => $this->programs->recentActivity($ws, $id),
             'comments' => $this->comments->thread($ws, 'program', $id),
             'members' => $this->members->membersForWorkspace($ws),
@@ -367,6 +376,34 @@ final class LearningController
         return Response::redirect('/learning/' . $id . '#discussion');
     }
 
+    // --- Prerequisites -----------------------------------------------------
+
+    public function addPrerequisite(Request $request, string $id): Response
+    {
+        if (($r = $this->gate('learning.manage', $request)) !== null) {
+            return $r;
+        }
+        $ws = (string) $this->context->workspaceId();
+        $pre = (string) $request->input('prerequisite_program_id', '');
+        if ($pre !== '') {
+            $this->prerequisites->add($ws, $id, $pre);
+            $this->session->flash('status', 'Prerequisite added.');
+        }
+
+        return Response::redirect('/learning/' . $id);
+    }
+
+    public function removePrerequisite(Request $request, string $id, string $preId): Response
+    {
+        if (($r = $this->gate('learning.manage', $request)) !== null) {
+            return $r;
+        }
+        $this->prerequisites->remove((string) $this->context->workspaceId(), $id, $preId);
+        $this->session->flash('status', 'Prerequisite removed.');
+
+        return Response::redirect('/learning/' . $id);
+    }
+
     // --- Quizzes -----------------------------------------------------------
 
     public function addQuestion(Request $request, string $id, string $itemId): Response
@@ -452,6 +489,9 @@ final class LearningController
         }
         if (! $this->context->resolve()) {
             return Response::redirect('/dashboard');
+        }
+        if (($gate = FeatureGate::check($this->entitlements, (string) $this->context->workspaceId())) !== null) {
+            return $gate;
         }
         if (! $this->context->can($permission)) {
             return Response::html('<h1>403</h1><p>You do not have permission.</p>', 403);

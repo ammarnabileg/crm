@@ -9,8 +9,11 @@ use HaHireAI\Core\Database\Connection;
 use HaHireAI\Core\Database\Migrations\MigrationRunner;
 use HaHireAI\Core\Database\Schema\SchemaBuilder;
 use HaHireAI\Core\Events\Dispatcher;
+use HaHireAI\Modules\Learning\Application\CertificateService;
 use HaHireAI\Modules\Learning\Application\CommentService;
 use HaHireAI\Modules\Learning\Application\EnrollmentService;
+use HaHireAI\Modules\Learning\Application\LearningPathService;
+use HaHireAI\Modules\Learning\Application\PrerequisiteService;
 use HaHireAI\Modules\Learning\Application\ProgramService;
 use HaHireAI\Modules\Learning\Application\QuizService;
 use HaHireAI\Modules\Learning\Application\TodoService;
@@ -32,6 +35,9 @@ final class LearningModuleTest extends TestCase
     private TodoService $todos;
     private CommentService $comments;
     private QuizService $quizzes;
+    private CertificateService $certificates;
+    private PrerequisiteService $prerequisites;
+    private LearningPathService $paths;
     private Dispatcher $events;
 
     /** @var array<string, list<string>> roleId => userIds, for the fake directory */
@@ -61,7 +67,10 @@ final class LearningModuleTest extends TestCase
         $this->todos = new TodoService($this->connection);
         $this->comments = new CommentService($this->connection);
         $this->quizzes = new QuizService($this->connection);
-        $this->enrollments = new EnrollmentService($this->connection, $this->programs, $this->fakeMembers(), $this->events);
+        $this->certificates = new CertificateService($this->connection);
+        $this->prerequisites = new PrerequisiteService($this->connection);
+        $this->paths = new LearningPathService($this->connection);
+        $this->enrollments = new EnrollmentService($this->connection, $this->programs, $this->fakeMembers(), $this->events, $this->certificates);
     }
 
     protected function tearDown(): void
@@ -198,6 +207,65 @@ final class LearningModuleTest extends TestCase
         $this->assertSame(100, (int) $this->quizzes->bestAttempt($ws, $quizItem, $learner)['percent']);
     }
 
+    public function test_certificate_issued_on_completion(): void
+    {
+        [$ws, $owner] = $this->workspace();
+        $learner = $this->user('Grad');
+        $pid = $this->programs->create($ws, $owner, ['title' => 'Onboarding', 'completion_rule' => 'all_items']);
+        $s = $this->programs->addSection($ws, $pid, $owner, 'M', null, true);
+        $i1 = $this->programs->addItem($ws, $pid, $s, $owner, ['title' => 'Read', 'is_required' => true]);
+        $this->programs->setStatus($ws, $pid, 'published', $owner);
+
+        $this->assertNull($this->certificates->forProgram($ws, $pid, $learner));
+        $this->enrollments->setItemStatus($ws, $pid, $learner, $i1, 'completed');
+
+        $cert = $this->certificates->forProgram($ws, $pid, $learner);
+        $this->assertNotNull($cert);
+        $this->assertSame(100, (int) $cert['percent']);
+        $this->assertNotNull($this->certificates->findBySerial($ws, (string) $cert['serial']));
+        $this->assertCount(1, $this->certificates->forUser($ws, $learner));
+    }
+
+    public function test_prerequisites_block_until_complete(): void
+    {
+        [$ws, $owner] = $this->workspace();
+        $learner = $this->user('Seq');
+        $basics = $this->programs->create($ws, $owner, ['title' => 'Basics', 'completion_rule' => 'all_items']);
+        $advanced = $this->programs->create($ws, $owner, ['title' => 'Advanced']);
+        $this->assertTrue($this->prerequisites->add($ws, $advanced, $basics));
+        $this->assertFalse($this->prerequisites->add($ws, $advanced, $advanced), 'no self-prerequisite');
+
+        // Not satisfied until Basics is completed.
+        $this->assertFalse($this->prerequisites->isSatisfied($ws, $advanced, $learner));
+        $this->assertCount(1, $this->prerequisites->unmetFor($ws, $advanced, $learner));
+
+        $s = $this->programs->addSection($ws, $basics, $owner, 'M', null, true);
+        $i = $this->programs->addItem($ws, $basics, $s, $owner, ['title' => 'X', 'is_required' => true]);
+        $this->enrollments->setItemStatus($ws, $basics, $learner, $i, 'completed');
+
+        $this->assertTrue($this->prerequisites->isSatisfied($ws, $advanced, $learner));
+    }
+
+    public function test_learning_path_progress(): void
+    {
+        [$ws, $owner] = $this->workspace();
+        $learner = $this->user('Pather');
+        $p1 = $this->programs->create($ws, $owner, ['title' => 'P1', 'completion_rule' => 'all_items']);
+        $p2 = $this->programs->create($ws, $owner, ['title' => 'P2']);
+        $pathId = $this->paths->create($ws, $owner, 'Track', 'desc');
+        $this->paths->addProgram($ws, $pathId, $p1);
+        $this->paths->addProgram($ws, $pathId, $p2);
+
+        $this->assertCount(2, $this->paths->programsFor($ws, $pathId));
+        $this->assertSame(0, $this->paths->progressFor($ws, $pathId, $learner)['percent']);
+
+        // Complete P1 → 50% of the path.
+        $s = $this->programs->addSection($ws, $p1, $owner, 'M', null, true);
+        $i = $this->programs->addItem($ws, $p1, $s, $owner, ['title' => 'X', 'is_required' => true]);
+        $this->enrollments->setItemStatus($ws, $p1, $learner, $i, 'completed');
+        $this->assertSame(50, $this->paths->progressFor($ws, $pathId, $learner)['percent']);
+    }
+
     public function test_comments_thread_with_replies(): void
     {
         [$ws, $owner] = $this->workspace();
@@ -321,6 +389,7 @@ final class LearningModuleTest extends TestCase
     {
         $this->connection->statement('SET FOREIGN_KEY_CHECKS=0');
         foreach ([
+            'learning_path_programs', 'learning_paths', 'learning_prerequisites', 'learning_certificates',
             'learning_activity', 'learning_quiz_answers', 'learning_quiz_attempts',
             'learning_quiz_options', 'learning_quiz_questions', 'learning_program_versions',
             'learning_program_editors', 'learning_item_progress', 'learning_enrollments', 'learning_assignments',

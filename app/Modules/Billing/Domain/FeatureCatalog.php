@@ -38,6 +38,7 @@ final class FeatureCatalog
             ['key' => 'career_domain', 'name' => 'Custom Career Domain', 'description' => 'Connect careers.yourcompany.com to your career page.', 'category' => 'premium', 'price_cents' => 1500, 'sort' => 12],
             ['key' => 'support_center', 'name' => 'Support Center', 'description' => 'Tickets, SLA, knowledge base, announcements and changelog.', 'category' => 'premium', 'price_cents' => 1900, 'sort' => 13],
             ['key' => 'tasks', 'name' => 'Tasks & Assignment', 'description' => 'Assign work and manage tasks across the team.', 'category' => 'premium', 'price_cents' => 1000, 'sort' => 14],
+            ['key' => 'learning', 'name' => 'Learning & Development', 'description' => 'Build training, onboarding & development programs (sections, lessons, quizzes, to-dos), assign them and track progress.', 'category' => 'premium', 'price_cents' => 2500, 'sort' => 15],
         ];
     }
 

@@ -102,6 +102,33 @@ via the polymorphic `learning_attachments` table.
 - A **roster + stats** dashboard (enrolled / completed / in-progress / avg %) is on
   the program page; each learner sees their own **My Learning** with progress bars.
 
+## 6b. LMS capabilities — certificates, prerequisites, paths
+
+- **Certificates.** Completing a program issues a **certificate**
+  (`learning_certificates`, one per learner per program, idempotent) with a
+  verifiable serial; learners see them on *My Learning* and open a printable
+  certificate page (`/my-learning/certificate/{serial}`). Issued automatically in
+  `EnrollmentService` when an enrollment reaches *completed*.
+- **Prerequisites.** A program can require other programs first
+  (`learning_prerequisites`); the learner reader shows the unmet prerequisites,
+  and authors manage them from the program page.
+- **Learning paths (tracks).** An ordered sequence of programs
+  (`learning_paths` + `learning_path_programs`) with its own draft/published
+  lifecycle and per-learner path progress (share of its programs completed).
+  Surfaced at `/learning-paths`.
+
+## 6c. Paid feature (Billing add-on)
+
+Learning is a **paid add-on** (`learning` in `FeatureCatalog`), **not** part of
+the basic plan. Every Learning route — authoring, learner, and paths — passes a
+`FeatureGate` that allows access only when the workspace's composed plan enables
+the `learning` feature (or when billing is disabled / there is no plan, so the
+platform still works out of the box). The sidebar items are feature-gated too.
+**Disabling the add-on never deletes data** — it only blocks access until the
+subscription re-enables it, at which point every program, enrollment and
+certificate reappears. The architecture leaves room for a free tier / trial
+(the gate is a single check, easily relaxed per plan).
+
 ## 7. Permissions (catalog)
 
 | Key | Grants |

@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace HaHireAI\Modules\Learning\Presentation;
 
+use HaHireAI\Core\Contracts\EntitlementResolver;
 use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
+use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
+use HaHireAI\Modules\Learning\Application\CertificateService;
 use HaHireAI\Modules\Learning\Application\CommentService;
 use HaHireAI\Modules\Learning\Application\EnrollmentService;
+use HaHireAI\Modules\Learning\Application\PrerequisiteService;
 use HaHireAI\Modules\Learning\Application\ProgramService;
 use HaHireAI\Modules\Learning\Application\QuizService;
 use HaHireAI\Modules\Learning\Application\TodoService;
@@ -34,7 +38,11 @@ final class MyLearningController
         private readonly TodoService $todos,
         private readonly CommentService $comments,
         private readonly QuizService $quizzes,
+        private readonly CertificateService $certificates,
+        private readonly PrerequisiteService $prerequisites,
         private readonly Session $session,
+        private readonly EntitlementResolver $entitlements,
+        private readonly View $view,
     ) {
     }
 
@@ -49,6 +57,7 @@ final class MyLearningController
         return $this->shell->render($this->context, 'learning.my', [
             'enrollments' => $this->enrollments->forUser($ws, $uid),
             'todos' => $this->todos->openForUser($ws, $uid),
+            'certificates' => $this->certificates->forUser($ws, $uid),
             'status' => $this->session->pullFlash('status'),
         ]);
     }
@@ -95,12 +104,29 @@ final class MyLearningController
             'itemStatuses' => $statuses,
             'quizzes' => $quizzes,
             'quizAttempts' => $quizAttempts,
+            'unmetPrereqs' => $this->prerequisites->unmetFor($ws, $id, $uid),
+            'certificate' => $this->certificates->forProgram($ws, $id, $uid),
             'todos' => $this->todos->forProgram($ws, $id),
             'comments' => $this->comments->thread($ws, 'program', $id),
             'itemTypes' => ItemType::TYPES,
             'currentUserId' => $uid,
             'status' => $this->session->pullFlash('status'),
         ]);
+    }
+
+    /** A printable completion certificate, verifiable by its serial. */
+    public function certificate(Request $request, string $serial): Response
+    {
+        if (($r = $this->gate('learning.view')) !== null) {
+            return $r;
+        }
+        $ws = (string) $this->context->workspaceId();
+        $cert = $this->certificates->findBySerial($ws, $serial);
+        if ($cert === null) {
+            return Response::html('<h1>404</h1><p>Certificate not found.</p>', 404);
+        }
+
+        return Response::html($this->view->page('learning.certificate', ['cert' => $cert], 'layouts.guest', ['title' => 'Certificate']));
     }
 
     public function submitQuiz(Request $request, string $id, string $itemId): Response
@@ -160,6 +186,9 @@ final class MyLearningController
         }
         if (! $this->context->resolve()) {
             return Response::redirect('/dashboard');
+        }
+        if (($gate = FeatureGate::check($this->entitlements, (string) $this->context->workspaceId())) !== null) {
+            return $gate;
         }
         if (! $this->context->can($permission)) {
             return Response::html('<h1>403</h1><p>You do not have permission.</p>', 403);

@@ -11,6 +11,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added — Learning becomes a real LMS + a paid add-on
+- **Certificates:** completing a program now issues a verifiable certificate
+  (`learning_certificates`, idempotent, printable page + serial verify); auto-issued
+  in `EnrollmentService` on completion and shown on My Learning.
+- **Prerequisites:** a program can require others first (`learning_prerequisites`);
+  the learner reader surfaces unmet prerequisites; authors manage them per program.
+- **Learning paths (tracks):** ordered sequences of programs (`learning_paths` /
+  `learning_path_programs`) with their own lifecycle and per-learner path progress,
+  at `/learning-paths` (`LearningPathController`). Migration `2026_06_30_000006`.
+- **Paid add-on:** Learning is now a Billing feature (`learning` in `FeatureCatalog`,
+  $25/mo), **not** in the basic plan. A `FeatureGate` guards every Learning route
+  (authoring, learner, paths) and the sidebar items; disabling it **never deletes
+  data** — access is blocked until re-enabled. Architecture allows a future free
+  tier / trial. +4 unit (FeatureGate/QuizGrader earlier) +3 feature (cert/prereq/path).
+
 ### Added — Learning quizzes (zero-AI take & grade)
 - The `quiz` item type is now fully functional: author **questions + options**
   (single/multiple/boolean), learners take the quiz in the reader, and the pure

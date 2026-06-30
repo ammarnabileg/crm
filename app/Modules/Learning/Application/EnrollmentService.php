@@ -27,6 +27,7 @@ final class EnrollmentService
         private readonly ProgramService $programs,
         private readonly MemberDirectory $members,
         private readonly EventDispatcher $events,
+        private readonly ?CertificateService $certificates = null,
     ) {
     }
 
@@ -155,6 +156,8 @@ final class EnrollmentService
 
         if ($status === 'completed' && ! $wasComplete) {
             $this->programs->activity($workspaceId, $programId, 'enrollment', (string) $enrollment['id'], $userId, 'completed', null);
+            // Issue a completion certificate (idempotent) when the layer is wired.
+            $this->certificates?->issue($workspaceId, $programId, $userId, (string) ($program['title'] ?? 'Program'), $progress['percent'], (string) $enrollment['id']);
             $this->events->dispatch('learning.program.completed', [
                 'workspace_id' => $workspaceId, 'program_id' => $programId, 'user_id' => $userId,
             ]);

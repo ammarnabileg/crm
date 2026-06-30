@@ -6,6 +6,8 @@
  * @var array<string,string> $itemStatuses   item_id => status
  * @var array<string,list<array<string,mixed>>> $quizzes        quiz item_id => questions(+options)
  * @var array<string,array<string,mixed>|null> $quizAttempts    quiz item_id => best attempt
+ * @var list<array<string,mixed>> $unmetPrereqs
+ * @var array<string,mixed>|null $certificate
  * @var list<array<string,mixed>> $todos
  * @var list<array<string,mixed>> $comments
  * @var array<string,array{label:string,icon:string,hint:string}> $itemTypes
@@ -28,7 +30,22 @@ $done = (string) ($enrollment['status'] ?? '') === 'completed';
         <span class="text-sm font-medium text-slate-700"><?= $pct ?>%</span>
         <?php if ($done): ?><span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">Completed 🎉</span><?php endif; ?>
     </div>
+    <?php if (! empty($certificate)): ?>
+        <a href="/my-learning/certificate/<?= e($certificate['serial']) ?>" class="mt-3 inline-block rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100">🎓 View your certificate</a>
+    <?php endif; ?>
 </div>
+
+<?php if (! empty($unmetPrereqs)): ?>
+    <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <p class="text-sm font-medium text-amber-800">Complete these prerequisites first:</p>
+        <ul class="mt-1 list-disc pl-5 text-sm text-amber-700">
+            <?php foreach ($unmetPrereqs as $pre): ?>
+                <li><a href="/my-learning/<?= e($pre['program_id']) ?>" class="underline hover:no-underline"><?= e($pre['title']) ?></a></li>
+            <?php endforeach; ?>
+        </ul>
+        <p class="mt-1 text-xs text-amber-600">You can still review the content below, but finish the above to stay on track.</p>
+    </div>
+<?php endif; ?>
 
 <div class="space-y-5">
     <?php foreach ($structure as $si => $section): ?>
