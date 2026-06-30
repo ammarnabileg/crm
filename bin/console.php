@@ -70,7 +70,13 @@ switch ($command) {
     case 'db:seed':
         $permissions = $kernel->container()->make(PermissionSeeder::class)->seed();
         $kernel->container()->make(PlanService::class)->seedDefaults();
-        $out("Seeded {$permissions} permission(s) and the billing plan catalog.");
+        $kernel->container()->make(\HaHireAI\Modules\Billing\Application\PricingCatalog::class)->seedDefaults();
+        $out("Seeded {$permissions} permission(s), the billing plan catalog and the wallet pricing catalog.");
+        break;
+
+    case 'billing:tick':
+        $result = $kernel->container()->make(\HaHireAI\Modules\Billing\Application\WorkspacePlanLifecycle::class)->tick();
+        $out("Composed plans — processed: {$result['processed']}, renewed: {$result['renewed']}, locked: {$result['locked']}.");
         break;
 
     case 'health':
@@ -82,5 +88,5 @@ switch ($command) {
         break;
 
     default:
-        $out('Commands: migrate | migrate:rollback | migrate:status | db:wipe | db:seed | health');
+        $out('Commands: migrate | migrate:rollback | migrate:status | db:wipe | db:seed | billing:tick | health');
 }

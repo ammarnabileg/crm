@@ -21,4 +21,9 @@ final class NullEntitlementResolver implements EntitlementResolver
     {
         return true;
     }
+
+    public function isLocked(string $workspaceId): bool
+    {
+        return false;
+    }
 }

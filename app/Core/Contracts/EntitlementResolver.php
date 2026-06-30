@@ -22,4 +22,12 @@ interface EntitlementResolver
 
     /** Whether the workspace may operate (false when suspended/canceled). */
     public function isUsable(string $workspaceId): bool;
+
+    /**
+     * Whether the workspace's composed plan is locked (a wallet renewal could not
+     * be funded). Staff are gated to the billing area until it is topped up &
+     * re-activated. False when there is no composed plan (pre-billing / legacy).
+     * See docs/WALLET_AND_BILLING.md §8.
+     */
+    public function isLocked(string $workspaceId): bool;
 }

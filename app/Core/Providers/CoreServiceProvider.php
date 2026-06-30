@@ -56,6 +56,12 @@ final class CoreServiceProvider extends ServiceProvider
             \HaHireAI\Core\Billing\NullEntitlementResolver::class,
         );
 
+        // Permissive default; the Billing module overrides this with a seat-aware guard.
+        $c->singleton(
+            \HaHireAI\Core\Contracts\WorkspaceSeatGuard::class,
+            \HaHireAI\Core\Billing\NullWorkspaceSeatGuard::class,
+        );
+
         // Empty default; the Recruitment module overrides this with a real directory.
         $c->singleton(
             \HaHireAI\Core\Contracts\CandidateDirectory::class,

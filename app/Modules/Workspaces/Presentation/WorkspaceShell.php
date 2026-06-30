@@ -13,6 +13,7 @@ use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Navigation\Application\ContextSwitcher;
 use HaHireAI\Modules\Navigation\Application\SidebarBuilder;
+use HaHireAI\Modules\Workspaces\Application\BrandingService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Application\WorkspacePreferences;
 
@@ -33,6 +34,7 @@ final class WorkspaceShell
         private readonly SupportInfo $support,
         private readonly NotificationFeed $notifications,
         private readonly ContextSwitcher $switcher,
+        private readonly BrandingService $branding,
     ) {
     }
 
@@ -73,6 +75,22 @@ final class WorkspaceShell
             ], 'layouts.guest', ['title' => 'Service paused']), 503);
         }
 
+        // Billing lock: the company's composed plan could not be renewed from the
+        // wallet. Staff are denied every page except the billing area, and only
+        // those who can manage billing may reach it to top up & re-activate
+        // (docs/WALLET_AND_BILLING.md §8). Candidates/public pages are unaffected.
+        if (! $bypassGate && $workspaceId !== null && $this->entitlements->isLocked($workspaceId)) {
+            $path = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
+            $canManageBilling = $context->can('billing.manage');
+            if (! ($canManageBilling && str_starts_with($path, '/billing'))) {
+                return Response::html($this->view->page('workspace.locked', [
+                    'workspaceName' => $workspace['name'] ?? null,
+                    'support' => $this->support->support(),
+                    'canManageBilling' => $canManageBilling,
+                ], 'layouts.guest', ['title' => 'Plan paused']), 402);
+            }
+        }
+
         // Maintenance mode: pause the workspace for everyone except admins
         // (members who can change settings) and explicitly allow-listed IPs.
         // Settings stays reachable to toggle it off.
@@ -104,29 +122,33 @@ final class WorkspaceShell
             'unreadCount' => $wsId !== '' && $uId !== '' ? $this->notifications->unreadCount($wsId, $uId) : 0,
             'switcher' => $this->switcher->model('staff'),
             'fullBleed' => ($options['fullBleed'] ?? false) === true,
-            'brand' => $this->brand($wsId !== '' ? $wsId : null, $context->workspace()),
+            'brand' => $this->brand($wsId !== '' ? $wsId : null, $context->workspace(), $features),
         ]);
 
         return Response::html($html);
     }
 
     /**
-     * Per-workspace branding for the white-labelled shell (logo, name, accent).
+     * Per-workspace branding for the white-labelled shell. The company name is
+     * always shown; the custom colour scale, font and logo only apply when the
+     * plan includes the white_label feature (a paid service). Without it the
+     * shell keeps the default HaHireAI theme (docs/WHITE_LABEL.md).
      *
      * @param  array<string,mixed>|null  $workspace
+     * @param  list<string>|null  $features  enabled plan features (null = unlimited/dev)
      * @return array{name:string,initial:string,logoUrl:?string,style:string}
      */
-    private function brand(?string $workspaceId, ?array $workspace): array
+    private function brand(?string $workspaceId, ?array $workspace, ?array $features): array
     {
         $name = trim((string) ($workspace['name'] ?? 'Workspace')) ?: 'Workspace';
-        $hex = $workspaceId !== null ? (string) $this->preferences->get($workspaceId, 'brand.color', '') : '';
-        $hasLogo = $workspaceId !== null && (string) $this->preferences->get($workspaceId, 'brand.logo_file_id', '') !== '';
+        $entitled = $workspaceId !== null
+            && ($features === null || in_array('white_label', $features, true));
 
         return [
             'name' => $name,
             'initial' => mb_strtoupper(mb_substr($name, 0, 1)),
-            'logoUrl' => $hasLogo ? '/settings/logo' : null,
-            'style' => \HaHireAI\Modules\Workspaces\Application\BrandPalette::styleVars($hex),
+            'logoUrl' => $entitled ? $this->branding->logoUrl($workspaceId) : null,
+            'style' => $entitled ? $this->branding->shellStyle($workspaceId) : '',
         ];
     }
 

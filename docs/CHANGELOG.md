@@ -11,6 +11,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added — Workspace Wallet Billing (v2)
+- **Per-workspace prepaid wallet + composed monthly plan.** Billing now belongs to
+  the Workspace (a company), not the user: each workspace owns a **wallet** (USD
+  credits), pays **per billable seat** (every staff member beyond the free Owner)
+  plus **flat-priced premium features**, with **basics (Jobs/Interviews) free**.
+- **Fawaterak top-up** (hosted iframe + signed, idempotent webhook) as the only
+  money-in path, behind the `PaymentGateway`/`HostedCheckoutGateway` contracts.
+- **Plan composer** with a mandatory pre-activation review, **add-ons** that expire
+  with the plan, **auto-renew from the wallet**, and a **locked** state that blocks
+  staff (except `billing.manage`) from everything but the billing page.
+- **Platform-set pricing catalog** (`system.pricing.manage`); new workspace billing
+  permission keys; billing **domain events** for the Workflow product.
+- Docs: `WALLET_AND_BILLING.md`, ADR `0002-workspace-wallet-billing.md`; updates to
+  `BILLING_PLATFORM.md`, `PERMISSION_CATALOG.md`, `WORKFLOW_EVENTS.md`.
+
 ### Added — Phase 1: Project Constitution & Architecture Foundation
 - `PROJECT_CONSTITUTION.md` — the supreme reference (vision, principles,
   architecture/development rules, naming, folder & module standards, security,

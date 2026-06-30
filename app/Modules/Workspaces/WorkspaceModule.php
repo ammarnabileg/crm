@@ -9,6 +9,7 @@ use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Workspaces\Application\CompanyDirectoryService;
+use HaHireAI\Modules\Workspaces\Presentation\BrandingController;
 use HaHireAI\Modules\Workspaces\Presentation\DashboardController;
 use HaHireAI\Modules\Workspaces\Presentation\MaintenanceController;
 use HaHireAI\Modules\Workspaces\Presentation\SettingsController;
@@ -54,5 +55,7 @@ final class WorkspaceModule implements Module
         $router->get('/settings/maintenance', [MaintenanceController::class, 'index']);
         $router->post('/settings/maintenance/enable', [MaintenanceController::class, 'enable']);
         $router->post('/settings/maintenance/disable', [MaintenanceController::class, 'disable']);
+        $router->get('/branding', [BrandingController::class, 'index']);
+        $router->post('/branding', [BrandingController::class, 'update']);
     }
 }

@@ -1,7 +1,15 @@
 # BILLING PLATFORM — HaHireAI
 
-> **Status:** Implemented (Phase 14, core) · **Version:** 1.0.0 · **Last updated:** 2026-06-28
+> **Status:** Implemented (Phase 14, core) · **Version:** 1.1.0 · **Last updated:** 2026-06-29
 > **Defers to:** `PROJECT_CONSTITUTION.md`, `ARCHITECTURE.md`, `WORKSPACE_MODEL.md`, `PERMISSION_MODEL.md`.
+
+> **v2 — Workspace Wallet Billing.** The billing unit is the **Workspace (a
+> company)**. Owners prepay **credits** (Fawaterak top-up) and **compose** a
+> monthly plan of **billable seats + flat-priced features**; it **auto-renews from
+> the wallet** and **locks** the workspace when unfunded. This document describes
+> the original plan/subscription core (still present for backward compatibility);
+> the wallet model that supersedes it for new workspaces is specified in
+> **`WALLET_AND_BILLING.md`** (ADR `adr/0002-workspace-wallet-billing.md`).
 
 ---
 

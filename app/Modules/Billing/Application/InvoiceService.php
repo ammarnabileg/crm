@@ -17,7 +17,7 @@ final class InvoiceService
     /**
      * @param  list<array{label: string, amount_cents: int}>  $lineItems
      */
-    public function issue(string $workspaceId, string $subscriptionId, int $amountCents, string $currency, ?string $periodStart, ?string $periodEnd, array $lineItems, string $status = 'open'): string
+    public function issue(string $workspaceId, ?string $subscriptionId, int $amountCents, string $currency, ?string $periodStart, ?string $periodEnd, array $lineItems, string $status = 'open'): string
     {
         $id = Ulid::generate();
         $now = gmdate('Y-m-d H:i:s');

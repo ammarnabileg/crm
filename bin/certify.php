@@ -272,6 +272,23 @@ $check('Notification writer contract resolves (workflow notify action)', $notifW
 $recruitActions = $c->make(\HaHireAI\Core\Contracts\RecruitmentActions::class);
 $check('Recruitment actions contract resolves (workflow pipeline actions)', $recruitActions instanceof \HaHireAI\Modules\Recruitment\Application\RecruitmentActionsAdapter);
 
+// ── 7b. Workspace wallet billing ────────────────────────────────────────────
+$head('7b. Workspace Wallet Billing');
+$checkout = $c->make(\HaHireAI\Modules\Billing\Contracts\HostedCheckoutGateway::class);
+$check('hosted-checkout (top-up) gateway resolves', $checkout instanceof \HaHireAI\Modules\Billing\Infrastructure\FawaterakGateway, $checkout->key());
+$entRes = $c->make(\HaHireAI\Core\Contracts\EntitlementResolver::class);
+$check('entitlement resolver exposes the billing lock', method_exists($entRes, 'isLocked'));
+$catalogKeys = array_column(PermissionCatalog::all(), 'key');
+$billingKeys = ['billing.wallet.topup', 'billing.plan.compose', 'billing.seats.manage', 'billing.addons.manage', 'system.pricing.manage'];
+$missingBilling = array_values(array_diff($billingKeys, $catalogKeys));
+$check('wallet-billing permission keys are in the catalog', $missingBilling === [], $missingBilling === [] ? '' : 'missing: ' . implode(', ', $missingBilling));
+$walletMigrations = ['000036_create_wallet_tables', '000037_create_pricing_tables', '000038_create_workspace_plans_tables', '000039_create_fawaterak_payments_table'];
+$migDir = $kernel->basePath('database/migrations');
+$missingMig = array_values(array_filter($walletMigrations, static fn (string $m): bool => glob($migDir . '/*' . $m . '.php') === []));
+$check('wallet-billing migrations are present', $missingMig === [], $missingMig === [] ? '' : 'missing: ' . implode(', ', $missingMig));
+$composer = $c->make(\HaHireAI\Modules\Billing\Application\PlanComposer::class);
+$check('plan composer resolves (seats + features charging)', $composer instanceof \HaHireAI\Modules\Billing\Application\PlanComposer);
+
 // ── 8. Health ───────────────────────────────────────────────────────────────
 $head('8. Health');
 $report = $c->make(HealthChecker::class)->run();
