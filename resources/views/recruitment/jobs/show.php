@@ -8,8 +8,16 @@
 /** @var list<array<string,mixed>> $invitations */
 /** @var list<array<string,mixed>> $questions */
 /** @var list<array<string,mixed>> $criteria */
+/** @var list<array<string,mixed>> $avatars */
+/** @var array<string,mixed>|null $linkedAvatar */
+/** @var array<string,bool> $aiStatus */
 /** @var string|null $newLink */
 /** @var string|null $status */
+
+$cfgChip = static fn (string $label, string $value): string =>
+    '<div class="rounded-lg bg-slate-50 px-3 py-2"><div class="text-xs text-slate-400">' . e($label) . '</div><div class="text-sm font-medium text-slate-700">' . e($value) . '</div></div>';
+$onOff = static fn ($v): string => (int) $v === 1 ? 'On' : 'Off';
+$orDash = static fn ($v): string => ($v === null || $v === '') ? '—' : (string) $v;
 ?>
 <div class="mb-6 flex items-start justify-between">
     <div>
@@ -79,6 +87,78 @@
                     <li class="rounded-md bg-slate-50 px-3 py-1.5"><?= e($s['name']) ?></li>
                 <?php endforeach; ?>
             </ol>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- Hiring configuration + AI interviewer avatar -->
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-slate-900">Hiring configuration</h2>
+            <?php if ($canEdit): ?><a href="/jobs/<?= e($job['id']) ?>/edit" class="text-xs font-medium text-indigo-600 hover:underline">Edit configuration</a><?php endif; ?>
+        </div>
+        <div class="grid gap-2 sm:grid-cols-3">
+            <?= $cfgChip('AI screening', $onOff($job['ai_screening_enabled'] ?? 1)) ?>
+            <?= $cfgChip('Interview', $onOff($job['interview_required'] ?? 1) === 'On' ? 'Required' : 'Optional') ?>
+            <?= $cfgChip('Type', ucfirst((string) ($job['interview_type'] ?? 'text'))) ?>
+            <?= $cfgChip('Passing score', $orDash($job['passing_score'] ?? null)) ?>
+            <?= $cfgChip('Auto-reject below', $orDash($job['auto_reject_score'] ?? null)) ?>
+            <?= $cfgChip('Start mode', ucfirst((string) ($job['interview_start_mode'] ?? 'choice'))) ?>
+            <?= $cfgChip('Duration (min)', $orDash($job['interview_duration_minutes'] ?? null) === '—' ? '20 (default)' : (string) $job['interview_duration_minutes']) ?>
+            <?= $cfgChip('Questions limit', $orDash($job['questions_limit'] ?? null) === '—' ? '12 (default)' : (string) $job['questions_limit']) ?>
+            <?= $cfgChip('Max attempts', (string) ($job['max_attempts'] ?? 1)) ?>
+            <?= $cfgChip('Experience (yrs)', $orDash($job['experience_min'] ?? null) . '–' . $orDash($job['experience_max'] ?? null)) ?>
+            <?= $cfgChip('Interview expires', $orDash($job['interview_expiration_days'] ?? null) === '—' ? '—' : $job['interview_expiration_days'] . ' days') ?>
+            <?= $cfgChip('Deadline', $orDash(! empty($job['deadline_at']) ? substr((string) $job['deadline_at'], 0, 16) . ' UTC' : null)) ?>
+        </div>
+        <?php if (! empty($job['screening_keywords'])): ?>
+            <div class="mt-3"><span class="text-xs text-slate-400">Screening keywords:</span> <span class="text-sm text-slate-700"><?= e((string) $job['screening_keywords']) ?></span></div>
+        <?php endif; ?>
+        <?php if (! empty($job['required_skills'])): ?>
+            <div class="mt-1"><span class="text-xs text-slate-400">Required skills:</span> <span class="text-sm text-slate-700"><?= e((string) $job['required_skills']) ?></span></div>
+        <?php endif; ?>
+    </div>
+
+    <!-- AI interviewer avatar (spec #3) -->
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-3 text-sm font-semibold text-slate-900">AI interviewer avatar</h2>
+        <?php if ($linkedAvatar !== null): ?>
+            <div class="flex items-center gap-3">
+                <?php if (! empty($linkedAvatar['image_url'])): ?>
+                    <img src="<?= e((string) $linkedAvatar['image_url']) ?>" alt="" class="h-12 w-12 rounded-full object-cover">
+                <?php else: ?>
+                    <div class="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-lg font-semibold text-indigo-600"><?= e(strtoupper(substr((string) $linkedAvatar['name'], 0, 1))) ?></div>
+                <?php endif; ?>
+                <div>
+                    <div class="text-sm font-semibold text-slate-800"><?= e((string) $linkedAvatar['name']) ?></div>
+                    <div class="text-xs capitalize text-slate-400"><?= e((string) ($linkedAvatar['persona'] ?? 'professional')) ?></div>
+                </div>
+            </div>
+            <?php if ((string) ($job['interview_type'] ?? '') === 'avatar' && empty($aiStatus['video'])): ?>
+                <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">HeyGen isn't configured — the interview will automatically fall back to text/voice.</p>
+            <?php endif; ?>
+            <?php if ($canEdit): ?>
+                <div class="mt-4 flex items-center gap-2">
+                    <a href="/avatars/<?= e((string) $linkedAvatar['id']) ?>/preview" target="_blank" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Preview</a>
+                    <form method="post" action="/jobs/<?= e($job['id']) ?>/avatar/remove"><?= csrf_field() ?>
+                        <button class="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50">✕ Remove</button>
+                    </form>
+                </div>
+            <?php endif; ?>
+        <?php else: ?>
+            <p class="text-sm text-slate-500">Using the default strong-HR persona.</p>
+            <?php if ($canEdit && $avatars !== []): ?>
+                <form method="post" action="/jobs/<?= e($job['id']) ?>/avatar" class="mt-3 flex gap-2">
+                    <?= csrf_field() ?>
+                    <select name="avatar_id" class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+                        <?php foreach ($avatars as $av): ?><option value="<?= e((string) $av['id']) ?>"><?= e((string) $av['name']) ?></option><?php endforeach; ?>
+                    </select>
+                    <button class="whitespace-nowrap rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700">Link</button>
+                </form>
+            <?php elseif ($canEdit): ?>
+                <p class="mt-2 text-xs text-slate-400">Create an avatar under <a href="/avatars" class="text-indigo-600 hover:underline">Avatars</a> to link one here.</p>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
