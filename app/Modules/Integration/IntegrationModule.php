@@ -6,11 +6,20 @@ namespace HaHireAI\Modules\Integration;
 
 use HaHireAI\Core\Contracts\Container;
 use HaHireAI\Core\Contracts\EventDispatcher;
+use HaHireAI\Core\Contracts\SocialProfileProbe;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
+use HaHireAI\Modules\Integration\Application\SocialAdapterRegistry;
+use HaHireAI\Modules\Integration\Application\SocialProbeService;
 use HaHireAI\Modules\Integration\Application\WebhookDispatcher;
 use HaHireAI\Modules\Integration\Contracts\HttpClient;
+use HaHireAI\Modules\Integration\Contracts\HttpFetcher;
 use HaHireAI\Modules\Integration\Infrastructure\CurlHttpClient;
+use HaHireAI\Modules\Integration\Infrastructure\CurlHttpFetcher;
+use HaHireAI\Modules\Integration\Infrastructure\Social\GithubAdapter;
+use HaHireAI\Modules\Integration\Infrastructure\Social\RecognizedProfileAdapter;
+use HaHireAI\Modules\Integration\Infrastructure\Social\StackOverflowAdapter;
+use HaHireAI\Modules\Integration\Infrastructure\Social\WebsiteAdapter;
 use HaHireAI\Modules\Integration\Presentation\Api\ApiController;
 use HaHireAI\Modules\Integration\Presentation\IntegrationController;
 
@@ -39,6 +48,30 @@ final class IntegrationModule implements Module
     {
         // Real outbound transport; tests inject a fake HttpClient instead.
         $container->singleton(HttpClient::class, CurlHttpClient::class);
+
+        // Read transport for the social adapters (GET); separate from the webhook
+        // client so its test fakes stay untouched.
+        $container->singleton(HttpFetcher::class, CurlHttpFetcher::class);
+
+        // Social Credibility: a registry of pluggable, provider-agnostic adapters.
+        // Specific sources first; the website catch-all LAST. Login-walled
+        // platforms (LinkedIn/X/…) are recorded but recognised-only (neutral).
+        // Adding a new source is one line here — Recruitment never changes.
+        $container->singleton(SocialAdapterRegistry::class, static function (Container $c): SocialAdapterRegistry {
+            $fetcher = $c->make(HttpFetcher::class);
+
+            return new SocialAdapterRegistry([
+                new GithubAdapter($fetcher),
+                new StackOverflowAdapter($fetcher),
+                new RecognizedProfileAdapter(),
+                new WebsiteAdapter($fetcher),
+            ]);
+        });
+
+        // The single door Recruitment uses to collect public social data.
+        $container->singleton(SocialProfileProbe::class, static fn (Container $c): SocialProfileProbe => new SocialProbeService(
+            $c->make(SocialAdapterRegistry::class),
+        ));
     }
 
     public function boot(Container $container): void
