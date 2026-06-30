@@ -65,25 +65,36 @@
     function buildPalette(filter) {
       paletteEl.innerHTML = '';
       filter = (filter || '').toLowerCase();
+      if (!catalog.length) {
+        paletteEl.innerHTML = '<div style="padding:12px;color:#ef4444;font-size:12px">No nodes to show — the catalog failed to load. Reload the page.</div>';
+        return;
+      }
+      var shown = 0;
       categories.forEach(function (cat) {
         var items = catalog.filter(function (n) {
           return n.category === cat && (!filter || (n.label + ' ' + n.description).toLowerCase().indexOf(filter) >= 0);
         });
         if (!items.length) return;
-        var group = el('div', 'mb-3');
-        group.appendChild(el('div', 'px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400', esc(cat)));
+        var group = el('div'); group.style.marginBottom = '12px';
+        var hdr = el('div', '', esc(cat));
+        hdr.style.cssText = 'padding:0 8px 4px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;';
+        group.appendChild(hdr);
         items.forEach(function (n) {
           var color = CAT_COLOR[n.category] || '#94a3b8';
-          var item = el('div', 'group mb-1 flex cursor-grab items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm hover:border-indigo-300 hover:bg-indigo-50');
+          // Inline layout so the palette renders even with a stale/missing CSS build.
+          var item = el('div', 'wf-pal-item');
+          item.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:4px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;color:#334155;cursor:grab;';
           item.setAttribute('draggable', 'true');
-          item.innerHTML = '<span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background:' + color + '"></span>'
-            + '<span class="truncate text-slate-700">' + esc(n.label) + '</span>';
+          item.innerHTML = '<span style="display:inline-block;height:10px;width:10px;flex:none;border-radius:9999px;background:' + color + '"></span>'
+            + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(n.label) + '</span>';
           item.title = n.description;
           item.addEventListener('dragstart', function (ev) { ev.dataTransfer.setData('text/plain', n.type); });
           group.appendChild(item);
         });
         paletteEl.appendChild(group);
+        shown += items.length;
       });
+      if (!shown) paletteEl.innerHTML = '<div style="padding:12px;color:#94a3b8;font-size:12px">No nodes match your search.</div>';
     }
     buildPalette('');
     root.querySelector('#wf-search').addEventListener('input', function (e) { buildPalette(e.target.value); });
@@ -170,6 +181,11 @@
         card.style.left = n.x + 'px'; card.style.top = n.y + 'px'; card.style.width = NODE_W + 'px';
         card.dataset.id = n.id;
 
+        // Position is set inline (not via a Tailwind class) so cards always lay
+        // out correctly even if the CSS build is stale on the host.
+        card.style.position = 'absolute';
+
+        var outs = nodeOutputs(def);
         var summary = configSummary(n, def);
         card.innerHTML =
           '<div class="wf-head flex cursor-move items-center gap-2 rounded-t-xl px-3 py-2" style="background:' + color + '14">'
@@ -177,16 +193,25 @@
           + '<span class="truncate text-sm font-semibold text-slate-800">' + esc(def.label) + '</span>'
           + '<span class="ms-auto text-[10px] font-medium uppercase tracking-wide text-slate-400">' + esc(k) + '</span>'
           + '</div>'
-          + '<div class="px-3 py-2 text-xs text-slate-500">' + (summary || '<span class="text-slate-300">No settings</span>') + '</div>';
+          + '<div class="px-3 py-2 text-xs text-slate-500">' + (summary || '<span class="text-slate-300">No settings</span>') + '</div>'
+          + (outs.length
+            ? '<div class="flex flex-wrap gap-1 border-t border-slate-100 px-3 py-1.5">'
+              + outs.map(function (o) { return '<span style="display:inline-block;padding:1px 6px;border-radius:9999px;background:#f1f5f9;color:#64748b;font-size:10px">' + esc(o) + '</span>'; }).join('')
+              + '</div>'
+            : '');
 
-        // Ports: input (left) unless trigger; output (right) unless pure end.
+        // Ports — input (left, unless trigger) and output (right, always). Styled
+        // inline so a stale/missing CSS build can never hide them: this is exactly
+        // the "only the input shows / can't grab the output" symptom.
+        var portCss = 'position:absolute;width:16px;height:16px;border-radius:9999px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(15,23,42,.15);z-index:3;top:' + (PORT_Y - 8) + 'px;';
         if (k !== 'trigger') {
-          var pin = el('div', 'wf-port wf-in absolute -left-2.5 h-4 w-4 rounded-full border-2 border-white bg-slate-400 transition hover:scale-125 hover:bg-indigo-500');
-          pin.style.top = (PORT_Y - 8) + 'px'; pin.dataset.in = n.id; pin.title = 'Input — drop a connection here'; card.appendChild(pin);
+          var pin = el('div', 'wf-port wf-in');
+          pin.style.cssText = portCss + 'left:-9px;background:#94a3b8;cursor:pointer;';
+          pin.dataset.in = n.id; pin.title = 'Input — drop a connection here'; card.appendChild(pin);
         }
-        var pout = el('div', 'wf-port wf-out absolute -right-2.5 h-4 w-4 cursor-crosshair rounded-full border-2 border-white transition hover:scale-125 hover:ring-2 hover:ring-indigo-300');
-        pout.style.top = (PORT_Y - 8) + 'px'; pout.style.background = color; pout.dataset.out = n.id; pout.title = 'Drag from here to connect';
-        card.appendChild(pout);
+        var pout = el('div', 'wf-port wf-out');
+        pout.style.cssText = portCss + 'right:-9px;background:' + color + ';cursor:crosshair;';
+        pout.dataset.out = n.id; pout.title = 'Output — drag from here to connect the next node'; card.appendChild(pout);
 
         nodesEl.appendChild(card);
       });
@@ -250,10 +275,31 @@
     }
 
     // ---- Inspector ------------------------------------------------------------
-    function availableVars() {
+    function nodeOutputs(def) {
+      return def && def.outputs ? def.outputs : [];
+    }
+    // Every node that can reach `id` by following edges backwards (its upstream).
+    function ancestorsOf(id) {
+      var seen = {}, stack = [id], order = [];
+      while (stack.length) {
+        var cur = stack.pop();
+        state.edges.forEach(function (e) {
+          if (e.to === cur && !seen[e.from]) { seen[e.from] = true; order.push(e.from); stack.push(e.from); }
+        });
+      }
+      return order;
+    }
+    // Variables a node may read: the trigger's outputs PLUS every output produced
+    // by an upstream node — so you can feed one node's output into the next.
+    function availableVars(forId) {
+      var names = [];
       var t = state.nodes.find(function (n) { return kind(n.type) === 'trigger'; });
-      var outs = t && byType[t.type] ? (byType[t.type].outputs || []) : [];
-      return outs.map(function (o) { return '{{' + o + '}}'; });
+      if (t && byType[t.type]) nodeOutputs(byType[t.type]).forEach(function (o) { if (names.indexOf(o) < 0) names.push(o); });
+      if (forId) ancestorsOf(forId).forEach(function (aid) {
+        var an = nodeById(aid); if (!an) return;
+        nodeOutputs(byType[an.type] || {}).forEach(function (o) { if (names.indexOf(o) < 0) names.push(o); });
+      });
+      return names.map(function (o) { return '{{' + o + '}}'; });
     }
     function renderInspector() {
       var box = root.querySelector('#wf-inspector');
@@ -272,7 +318,7 @@
         return;
       }
       var def = byType[n.type] || { label: n.type, description: '', config: [] };
-      var vars = availableVars();
+      var vars = availableVars(n.id);
       var html = '<div class="mb-3"><div class="text-sm font-semibold text-slate-800">' + esc(def.label) + '</div>'
         + '<div class="text-xs text-slate-500">' + esc(def.description) + '</div></div>';
 
