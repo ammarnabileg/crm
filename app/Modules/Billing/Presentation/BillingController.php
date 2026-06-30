@@ -150,6 +150,38 @@ final class BillingController
         return Response::redirect('/billing');
     }
 
+    /**
+     * Upgrade or downgrade the composed plan mid-term. Only the remaining slice of
+     * the term is settled now, pro-rata: an upgrade is charged, a downgrade is
+     * credited back to the wallet (docs/WALLET_AND_BILLING.md §14).
+     */
+    public function changePlan(Request $request): Response
+    {
+        if (($r = $this->gate('billing.plan.compose', $request)) !== null) {
+            return $r;
+        }
+
+        $ws = (string) $this->context->workspaceId();
+        $seats = (int) $request->input('seats', 0);
+        $features = array_values(array_map('strval', (array) $request->input('features', [])));
+
+        try {
+            $this->composer->changePlan($ws, $seats, $features, $this->auth->id());
+            $this->session->flash('status', 'Your plan has been updated. The change was prorated for this term.');
+        } catch (BillingException $e) {
+            $this->session->flash('error', $e->getMessage());
+
+            return Response::redirect('/billing');
+        }
+
+        $this->audit->record('billing.plan.changed', [
+            'workspace_id' => $ws, 'actor_user_id' => $this->auth->id(),
+            'entity_type' => 'workspace_plan', 'changes' => ['seats' => $seats, 'features' => $features],
+        ]);
+
+        return Response::redirect('/billing');
+    }
+
     /** Add one billable seat at a full month's price (expires with the plan). */
     public function addSeat(Request $request): Response
     {

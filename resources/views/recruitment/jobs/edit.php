@@ -1,6 +1,9 @@
 <?php
 /** @var array<string,mixed> $job */
 /** @var string|null $error */
+/** @var list<array<string,mixed>> $avatars */
+/** @var list<array<string,mixed>> $stages */
+/** @var array<string,bool> $aiStatus */
 $sel = static fn (string $v): string => (string) ($job['seniority'] ?? '') === $v ? 'selected' : '';
 ?>
 <div class="mb-6">
@@ -52,6 +55,9 @@ $sel = static fn (string $v): string => (string) ($job['seniority'] ?? '') === $
         <label class="mb-1 block text-sm font-medium text-slate-700">Description</label>
         <textarea name="description" rows="6" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"><?= e($job['description'] ?? '') ?></textarea>
     </div>
+
+    <?php require __DIR__ . '/_config_form.php'; ?>
+
     <div class="flex gap-2">
         <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Save changes</button>
         <a href="/jobs/<?= e($job['id']) ?>" class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Cancel</a>

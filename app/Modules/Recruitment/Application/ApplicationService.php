@@ -23,23 +23,23 @@ final class ApplicationService
     }
 
     /** Create an application (idempotent per job+user). Returns the application id. */
-    public function apply(string $workspaceId, string $jobId, string $userId, ?string $coverNote = null): string
+    public function apply(string $workspaceId, string $jobId, string $userId, ?string $coverNote = null, ?string $availableFrom = null): string
     {
         $existing = $this->connection->selectOne('SELECT id FROM applications WHERE job_id = ? AND user_id = ?', [$jobId, $userId]);
         if ($existing !== null) {
             throw new ApplicationException('You have already applied to this job.');
         }
 
-        return $this->connection->transaction(function () use ($workspaceId, $jobId, $userId, $coverNote): string {
+        return $this->connection->transaction(function () use ($workspaceId, $jobId, $userId, $coverNote, $availableFrom): string {
             $profileId = $this->candidates->getOrCreate($workspaceId, $userId);
             $stageId = $this->jobs->firstStageId($jobId);
             $id = Ulid::generate();
             $now = gmdate('Y-m-d H:i:s');
 
             $this->connection->statement(
-                'INSERT INTO applications (id, workspace_id, job_id, user_id, candidate_profile_id, current_stage_id, status, source, cover_note, applied_at, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$id, $workspaceId, $jobId, $userId, $profileId, $stageId, 'applied', 'public', $coverNote, $now, $now, $now],
+                'INSERT INTO applications (id, workspace_id, job_id, user_id, candidate_profile_id, current_stage_id, status, source, cover_note, available_from, applied_at, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$id, $workspaceId, $jobId, $userId, $profileId, $stageId, 'applied', 'public', $coverNote, $availableFrom, $now, $now, $now],
             );
 
             $this->connection->statement(
@@ -67,6 +67,7 @@ final class ApplicationService
     {
         return $this->connection->selectOne(
             'SELECT a.*, j.title AS job_title, j.description AS job_description, j.location, j.employment_type,
+                    j.deadline_at, j.interview_required, j.ai_screening_enabled,
                     s.name AS stage_name
                FROM applications a
                JOIN jobs j ON j.id = a.job_id

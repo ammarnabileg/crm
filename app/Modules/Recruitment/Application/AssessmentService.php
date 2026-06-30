@@ -6,6 +6,7 @@ namespace HaHireAI\Modules\Recruitment\Application;
 
 use HaHireAI\Core\Database\Connection;
 use HaHireAI\Modules\AiEngine\Application\AiEngine;
+use HaHireAI\Modules\Recruitment\Domain\CvScreening;
 use HaHireAI\Modules\Recruitment\Domain\SkillCatalog;
 use HaHireAI\Shared\Ulid;
 
@@ -32,7 +33,7 @@ final class AssessmentService
     public function assessFromInterview(string $workspaceId, string $interviewId, ?string $actorUserId = null): array
     {
         $iv = $this->connection->selectOne(
-            'SELECT i.*, u.name AS candidate, j.title AS job FROM interviews i
+            'SELECT i.*, u.name AS candidate, j.title AS job, j.required_skills, j.screening_keywords FROM interviews i
                JOIN users u ON u.id = i.candidate_user_id
                JOIN jobs j ON j.id = i.job_id
               WHERE i.id = ? AND i.workspace_id = ?',
@@ -42,14 +43,23 @@ final class AssessmentService
             throw new \HaHireAI\Modules\Recruitment\Application\Exceptions\ApplicationException('Interview not found.');
         }
 
+        $transcript = (string) ($iv['transcript'] ?? '');
+
         $result = $this->ai->run($workspaceId, 'assess_candidate', [
             'name' => (string) $iv['candidate'],
             'title' => (string) $iv['job'],
-            'transcript' => mb_substr((string) ($iv['transcript'] ?? ''), 0, 2000),
+            'transcript' => mb_substr($transcript, 0, 2000),
         ], $actorUserId);
 
-        $seed = (string) $iv['id'] . '|' . (string) ($iv['transcript'] ?? $iv['candidate']);
-        $data = $this->structured($seed);
+        // Real signals (not crc32): the AI's own SCORE when a real provider returns
+        // one, plus a deterministic skills/keyword match of the job's required
+        // skills against what the candidate actually said + their CV.
+        $candidateText = $transcript . ' ' . $this->candidateText($workspaceId, (string) $iv['candidate_user_id']);
+        $skillsMatch = $this->skillsMatch((string) ($iv['required_skills'] ?? ''), (string) ($iv['screening_keywords'] ?? ''), $candidateText);
+        $aiScore = $this->parseScore($result->text);
+
+        $seed = (string) $iv['id'] . '|' . ($transcript !== '' ? $transcript : (string) $iv['candidate']);
+        $data = $this->structured($seed, $aiScore, $skillsMatch, $result->text);
 
         return $this->store(
             $workspaceId,
@@ -153,9 +163,10 @@ final class AssessmentService
      * Build the structured assessment. Deterministic from a seed so the echo
      * provider produces stable, advisory placeholder analysis.
      *
+     * @param  array{percent:int,matched:list<string>,missing:list<string>}|null  $skillsMatch
      * @return array<string, mixed>
      */
-    private function structured(string $seed): array
+    private function structured(string $seed, ?int $aiScore = null, ?array $skillsMatch = null, string $aiText = ''): array
     {
         $base = 60 + (int) (crc32($seed) % 26); // 60..85
         $skills = [];
@@ -171,11 +182,23 @@ final class AssessmentService
             ];
         }
 
-        $fit = 0;
+        $skillFit = 0;
         foreach (SkillCatalog::SKILLS as $key => $meta) {
-            $fit += $skills[$key]['score'] * $meta['weight'];
+            $skillFit += $skills[$key]['score'] * $meta['weight'];
         }
-        $fit = (int) round($fit / 100);
+        $skillFit = (int) round($skillFit / 100);
+
+        // The fit score is driven by REAL signal: the AI's own SCORE when a real
+        // provider returned one; otherwise the job's required-skills match blended
+        // with the competency baseline; otherwise the baseline alone.
+        if ($aiScore !== null) {
+            $fit = $aiScore;
+        } elseif ($skillsMatch !== null) {
+            $fit = (int) round(0.6 * $skillsMatch['percent'] + 0.4 * $skillFit);
+        } else {
+            $fit = $skillFit;
+        }
+        $fit = max(0, min(100, $fit));
         $band = SkillCatalog::band($fit);
 
         // strengths/weaknesses from extremes.
@@ -205,17 +228,80 @@ final class AssessmentService
             $redFlags[] = $catalog[$i];
         }
 
+        // Prefer the model's own narrative when a real provider returned one;
+        // otherwise a deterministic advisory summary.
+        $aiText = trim($aiText);
+        $summary = mb_strlen($aiText) >= 60
+            ? mb_substr($aiText, 0, 600)
+            : 'Advisory AI assessment from the interview — overall fit ' . $fit . '/100 (' . SkillCatalog::bandLabel($band) . '). A human makes the final decision.';
+
         return [
             'fit_score' => $fit,
             'recommendation' => $band,
-            'summary' => 'Advisory AI assessment from the interview — overall fit ' . $fit . '/100 (' . SkillCatalog::bandLabel($band) . '). A human makes the final decision.',
-            'strengths' => array_values($strengths),
-            'weaknesses' => array_values($weaknesses),
+            'summary' => $summary,
+            'strengths' => $skillsMatch !== null && $skillsMatch['matched'] !== [] ? array_values(array_unique(array_merge($skillsMatch['matched'], array_values($strengths)))) : array_values($strengths),
+            'weaknesses' => $skillsMatch !== null && $skillsMatch['missing'] !== [] ? array_values(array_unique(array_merge($skillsMatch['missing'], array_values($weaknesses)))) : array_values($weaknesses),
             'skills' => $skills,
             'behavior' => $behavior,
             'red_flags' => $redFlags,
-            'cv' => null,
+            'cv' => $skillsMatch,
         ];
+    }
+
+    /** Parse a provider-returned "SCORE: NN" (0-100), or null when absent (echo provider). */
+    private function parseScore(string $text): ?int
+    {
+        if (preg_match('/SCORE[:\s]+(\d{1,3})/i', $text, $m) === 1) {
+            return max(0, min(100, (int) $m[1]));
+        }
+
+        return null;
+    }
+
+    /**
+     * Deterministic skills/keyword match: how many of the job's required skills
+     * (and screening keywords) appear in the candidate's words + CV. Returns the
+     * percent matched plus the matched/missing lists, or null when the job lists none.
+     *
+     * @return array{percent:int,matched:list<string>,missing:list<string>}|null
+     */
+    private function skillsMatch(string $requiredSkills, string $screeningKeywords, string $candidateText): ?array
+    {
+        $terms = array_values(array_unique(array_merge(
+            CvScreening::keywords($requiredSkills),
+            CvScreening::keywords($screeningKeywords),
+        )));
+        if ($terms === []) {
+            return null;
+        }
+
+        $matched = CvScreening::hits($candidateText, $terms);
+        $missing = array_values(array_diff($terms, $matched));
+        $percent = (int) round(count($matched) / max(1, count($terms)) * 100);
+
+        return ['percent' => $percent, 'matched' => array_values($matched), 'missing' => $missing];
+    }
+
+    /** The candidate's CV text in this workspace (summary + structured details), for matching. */
+    private function candidateText(string $workspaceId, string $userId): string
+    {
+        $prof = $this->connection->selectOne(
+            'SELECT summary, details FROM candidate_profiles WHERE workspace_id = ? AND user_id = ?',
+            [$workspaceId, $userId],
+        );
+        if ($prof === null) {
+            return '';
+        }
+        $parts = [(string) ($prof['summary'] ?? '')];
+        $details = $prof['details'] ?? null;
+        $details = is_array($details) ? $details : (is_string($details) ? (json_decode($details, true) ?: []) : []);
+        foreach (['skills', 'education', 'certifications', 'languages'] as $key) {
+            if (! empty($details[$key]) && is_scalar($details[$key])) {
+                $parts[] = (string) $details[$key];
+            }
+        }
+
+        return trim(implode(' ', array_filter($parts)));
     }
 
     /**

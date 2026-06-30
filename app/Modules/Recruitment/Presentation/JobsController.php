@@ -8,8 +8,10 @@ use HaHireAI\Core\Http\Request;
 use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
 use HaHireAI\Core\Contracts\AuditRecorder;
+use HaHireAI\Modules\AiEngine\Contracts\AiCapabilities;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Recruitment\Application\ApplicationService;
+use HaHireAI\Modules\Recruitment\Application\AvatarService;
 use HaHireAI\Modules\Recruitment\Application\InterviewInvitationService;
 use HaHireAI\Modules\Recruitment\Application\JobContentService;
 use HaHireAI\Modules\Recruitment\Application\JobService;
@@ -26,6 +28,8 @@ final class JobsController
         private readonly ApplicationService $applications,
         private readonly InterviewInvitationService $invitations,
         private readonly JobContentService $content,
+        private readonly AvatarService $avatars,
+        private readonly AiCapabilities $ai,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
     ) {
@@ -80,6 +84,9 @@ final class JobsController
 
         return $this->shell->render($this->context, 'recruitment.jobs.create', [
             'error' => $this->session->pullFlash('error'),
+            'avatars' => $this->avatars->listActive((string) $this->context->workspaceId()),
+            'stages' => [],
+            'aiStatus' => $this->ai->status((string) $this->context->workspaceId()),
         ]);
     }
 
@@ -111,6 +118,10 @@ final class JobsController
             ],
         );
 
+        // Apply the full hiring configuration (AI screening, interview behaviour,
+        // scoring automation, avatar, deadline) on top of the new draft.
+        $this->jobs->update((string) $this->context->workspaceId(), $jobId, $this->jobConfig($request));
+
         $this->audit->record('recruitment.job.created', [
             'workspace_id' => $this->context->workspaceId(),
             'actor_user_id' => $this->context->userId(),
@@ -135,6 +146,9 @@ final class JobsController
             return Response::redirect('/jobs');
         }
 
+        $ws = (string) $this->context->workspaceId();
+        $linkedAvatar = ! empty($job['avatar_id']) ? $this->avatars->find($ws, (string) $job['avatar_id']) : null;
+
         return $this->shell->render($this->context, 'recruitment.jobs.show', [
             'job' => $job,
             'stages' => $this->jobs->stagesForJob($id),
@@ -142,9 +156,12 @@ final class JobsController
             'canEdit' => $this->context->can('job.update'),
             'canViewPipeline' => $this->context->can('pipeline.view'),
             'canInvite' => $this->context->can('interview.schedule'),
-            'invitations' => $this->invitations->listForJob((string) $this->context->workspaceId(), $id),
-            'questions' => $this->content->questions((string) $this->context->workspaceId(), $id),
-            'criteria' => $this->content->criteria((string) $this->context->workspaceId(), $id),
+            'invitations' => $this->invitations->listForJob($ws, $id),
+            'questions' => $this->content->questions($ws, $id),
+            'criteria' => $this->content->criteria($ws, $id),
+            'avatars' => $this->avatars->listActive($ws),
+            'linkedAvatar' => $linkedAvatar,
+            'aiStatus' => $this->ai->status($ws),
             'newLink' => $this->session->pullFlash('new_link'),
             'status' => $this->session->pullFlash('status'),
         ]);
@@ -160,9 +177,14 @@ final class JobsController
             return Response::redirect('/jobs');
         }
 
+        $ws = (string) $this->context->workspaceId();
+
         return $this->shell->render($this->context, 'recruitment.jobs.edit', [
             'job' => $job,
             'error' => $this->session->pullFlash('error'),
+            'avatars' => $this->avatars->listActive($ws),
+            'stages' => $this->jobs->stagesForJob($id),
+            'aiStatus' => $this->ai->status($ws),
         ]);
     }
 
@@ -178,7 +200,7 @@ final class JobsController
             return Response::redirect('/jobs/' . $id . '/edit');
         }
 
-        $this->jobs->update((string) $this->context->workspaceId(), $id, [
+        $this->jobs->update((string) $this->context->workspaceId(), $id, array_merge([
             'title' => $title,
             'description' => (string) $request->input('description', ''),
             'location' => (string) $request->input('location', ''),
@@ -187,7 +209,7 @@ final class JobsController
             'salary_min' => ($v = trim((string) $request->input('salary_min', ''))) !== '' ? (int) $v : null,
             'salary_max' => ($v = trim((string) $request->input('salary_max', ''))) !== '' ? (int) $v : null,
             'currency' => trim((string) $request->input('currency', 'USD')) ?: 'USD',
-        ]);
+        ], $this->jobConfig($request)));
         $this->audit->record('recruitment.job.updated', [
             'workspace_id' => $this->context->workspaceId(),
             'actor_user_id' => $this->context->userId(),
@@ -312,6 +334,110 @@ final class JobsController
         $this->session->flash('status', 'Job published — the public link is now live.');
 
         return Response::redirect('/jobs/' . $id);
+    }
+
+    /** Link (or replace) the AI interviewer avatar on a job — sets the avatar persona + avatar mode. */
+    public function linkAvatar(Request $request, string $id): Response
+    {
+        if (($r = $this->gate('job.update', $request)) !== null) {
+            return $r;
+        }
+        $ws = (string) $this->context->workspaceId();
+        $avatarId = trim((string) $request->input('avatar_id', ''));
+        $avatar = $avatarId !== '' ? $this->avatars->find($ws, $avatarId) : null;
+        if ($avatar === null) {
+            $this->session->flash('status', 'Choose an active avatar to link.');
+
+            return Response::redirect('/jobs/' . $id);
+        }
+        $this->jobs->update($ws, $id, ['avatar_id' => $avatarId, 'interview_type' => 'avatar']);
+        $this->audit->record('recruitment.job.avatar_linked', [
+            'workspace_id' => $ws,
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'job',
+            'entity_id' => $id,
+            'changes' => ['avatar_id' => $avatarId],
+        ]);
+        $this->session->flash('status', 'Avatar linked — the AI interviewer now speaks as “' . (string) $avatar['name'] . '”.');
+
+        return Response::redirect('/jobs/' . $id);
+    }
+
+    /** Remove the avatar link (X) — the AI reverts to its default strong-HR persona. */
+    public function unlinkAvatar(Request $request, string $id): Response
+    {
+        if (($r = $this->gate('job.update', $request)) !== null) {
+            return $r;
+        }
+        $ws = (string) $this->context->workspaceId();
+        $this->jobs->update($ws, $id, ['avatar_id' => null, 'interview_type' => 'text']);
+        $this->audit->record('recruitment.job.avatar_unlinked', [
+            'workspace_id' => $ws,
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'job',
+            'entity_id' => $id,
+        ]);
+        $this->session->flash('status', 'Avatar removed — the AI interviewer is back to its default behaviour.');
+
+        return Response::redirect('/jobs/' . $id);
+    }
+
+    /**
+     * Build the per-job hiring configuration from the request, normalising types.
+     * Used by both store() and update() so the job is the single control surface
+     * for AI screening, interview behaviour, scoring automation and the avatar.
+     *
+     * @return array<string, mixed>
+     */
+    private function jobConfig(Request $request): array
+    {
+        $int = static function (string $k) use ($request): ?int {
+            $v = trim((string) $request->input($k, ''));
+
+            return $v === '' ? null : max(0, (int) $v);
+        };
+        $str = static fn (string $k): ?string => trim((string) $request->input($k, '')) ?: null;
+        $enum = static function (string $k, array $allowed, string $default) use ($request): string {
+            $v = (string) $request->input($k, $default);
+
+            return in_array($v, $allowed, true) ? $v : $default;
+        };
+
+        $passing = $int('passing_score');
+        $reject = $int('auto_reject_score');
+        $maxAttempts = $int('max_attempts');
+
+        return [
+            'ai_screening_enabled' => $request->input('ai_screening_enabled') !== null ? 1 : 0,
+            'interview_required' => $request->input('interview_required') !== null ? 1 : 0,
+            'interview_type' => $enum('interview_type', ['text', 'voice', 'avatar'], 'text'),
+            'avatar_id' => $str('avatar_id'),
+            'screening_keywords' => $str('screening_keywords'),
+            'required_skills' => $str('required_skills'),
+            'experience_min' => $int('experience_min'),
+            'experience_max' => $int('experience_max'),
+            'passing_score' => $passing !== null ? min(100, $passing) : null,
+            'auto_reject_score' => $reject !== null ? min(100, $reject) : null,
+            'auto_advance_stage_id' => $str('auto_advance_stage_id'),
+            'interview_expiration_days' => $int('interview_expiration_days'),
+            'max_attempts' => $maxAttempts !== null ? max(1, $maxAttempts) : 1,
+            'interview_duration_minutes' => $int('interview_duration_minutes'),
+            'questions_limit' => $int('questions_limit'),
+            'interview_start_mode' => $enum('interview_start_mode', ['immediate', 'later', 'choice'], 'choice'),
+            'deadline_at' => $this->normalizeDeadline((string) $request->input('deadline_at', '')),
+        ];
+    }
+
+    /** Normalise a datetime-local input to a UTC 'Y-m-d H:i:s' string (or null). */
+    private function normalizeDeadline(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+        $ts = strtotime($value);
+
+        return $ts !== false ? gmdate('Y-m-d H:i:s', $ts) : null;
     }
 
     private function gate(string $permission, ?Request $request = null): ?Response

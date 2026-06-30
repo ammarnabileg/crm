@@ -6,6 +6,7 @@ namespace HaHireAI\Modules\Billing\Application;
 
 use HaHireAI\Core\Contracts\EventDispatcher;
 use HaHireAI\Modules\Billing\Application\Exceptions\BillingException;
+use HaHireAI\Modules\Billing\Domain\ProrationCalculator;
 
 /**
  * Composes, renews and extends the per-workspace monthly plan, charging the
@@ -23,6 +24,7 @@ final class PlanComposer
         private readonly SeatCounter $seats,
         private readonly InvoiceService $invoices,
         private readonly EventDispatcher $events,
+        private readonly ProrationCalculator $proration = new ProrationCalculator(),
     ) {
     }
 
@@ -194,6 +196,64 @@ final class PlanComposer
         $this->maybeLowBalance($workspaceId);
     }
 
+    /**
+     * Change the composed plan mid-term (upgrade or downgrade its seats and/or
+     * features). Only the *remaining* slice of the current term is settled now,
+     * pro-rata (docs/WALLET_AND_BILLING.md §14): an upgrade debits the prorated
+     * difference (rejected when short) and issues a paid invoice; a downgrade
+     * credits the prorated difference back to the wallet. The new full monthly
+     * price and the new base seats/features take effect immediately and carry
+     * into the next renewal; the term's end date is unchanged. Seats are clamped
+     * up to the current staff count so existing members stay covered.
+     *
+     * @param  list<string>  $featureKeys  the target base feature set
+     */
+    public function changePlan(string $workspaceId, int $seats, array $featureKeys, ?string $actorUserId = null, ?int $nowTs = null): void
+    {
+        $nowTs ??= time();
+        $plan = $this->requireActivePlan($workspaceId);
+        $planId = (string) $plan['id'];
+
+        $currentMonthly = (int) $plan['monthly_cost_cents'];
+        $targetSeats = max($seats, $this->seats->billableSeats($workspaceId));
+        $targetFeatures = $this->featurePrices($featureKeys);
+        $targetMonthly = $targetSeats * $this->pricing->seatPriceCents() + array_sum($targetFeatures);
+
+        $startTs = $this->ts($plan['period_start'] ?? null);
+        $endTs = $this->ts($plan['period_end'] ?? null);
+        $delta = ($startTs !== null && $endTs !== null)
+            ? $this->proration->changeAmountCents($currentMonthly, $targetMonthly, $nowTs, $startTs, $endTs)
+            : 0;
+
+        if ($delta > 0) {
+            if (! $this->wallet->canAfford($workspaceId, $delta)) {
+                throw new BillingException('Not enough credits to upgrade. Please top up the wallet first.');
+            }
+            $this->wallet->debit($workspaceId, $delta, 'plan', $planId, 'Plan change (prorated)', $actorUserId, 'proration');
+            $invoiceId = $this->invoices->issue($workspaceId, null, $delta, 'USD', $this->sql($nowTs), $plan['period_end'] ?? null, [
+                ['label' => "Plan change (prorated) — {$targetSeats} seat(s)", 'amount_cents' => $delta],
+            ]);
+            $this->invoices->markPaid($invoiceId, 'wallet');
+        } elseif ($delta < 0) {
+            $this->wallet->credit($workspaceId, -$delta, 'system', $planId, 'Plan downgrade credit (prorated)', $actorUserId, 'refund');
+        }
+
+        $this->plans->update($planId, [
+            'seats_paid' => $targetSeats,
+            'monthly_cost_cents' => $targetMonthly,
+        ]);
+        $this->plans->setFeatures($workspaceId, $planId, $targetFeatures);
+
+        $this->events->dispatch('plan.changed', [
+            'workspace_id' => $workspaceId,
+            'seats' => $targetSeats,
+            'features' => array_keys($targetFeatures),
+            'monthly_cost_cents' => $targetMonthly,
+            'delta_cents' => $delta,
+        ]);
+        $this->maybeLowBalance($workspaceId);
+    }
+
     /** @return array<string,mixed> */
     private function requireActivePlan(string $workspaceId): array
     {
@@ -243,5 +303,16 @@ final class PlanComposer
     private function sql(int $nowTs): string
     {
         return gmdate('Y-m-d H:i:s', $nowTs);
+    }
+
+    /** Parse a stored UTC SQL datetime into a Unix timestamp (null when absent/invalid). */
+    private function ts(mixed $sqlDatetime): ?int
+    {
+        if ($sqlDatetime === null || $sqlDatetime === '') {
+            return null;
+        }
+        $ts = strtotime((string) $sqlDatetime . ' UTC');
+
+        return $ts === false ? null : $ts;
     }
 }

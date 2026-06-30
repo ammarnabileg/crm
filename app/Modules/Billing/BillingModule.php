@@ -79,6 +79,7 @@ final class BillingModule implements Module
         $router->get('/billing/topup/simulate/{paymentId}', [BillingController::class, 'topupSimulate']);
         $router->post('/billing/topup/simulate/{paymentId}', [BillingController::class, 'topupSimulate']);
         $router->post('/billing/compose', [BillingController::class, 'compose']);
+        $router->post('/billing/change-plan', [BillingController::class, 'changePlan']);
         $router->post('/billing/seats', [BillingController::class, 'addSeat']);
         $router->post('/billing/addons', [BillingController::class, 'addAddon']);
         $router->post('/billing/auto-renew', [BillingController::class, 'autoRenew']);

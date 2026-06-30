@@ -78,6 +78,19 @@ final class AvatarService
         );
     }
 
+    /**
+     * Active avatars only — the pickable set when linking an avatar to a job.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function listActive(string $workspaceId): array
+    {
+        return $this->connection->select(
+            "SELECT * FROM ai_avatars WHERE workspace_id = ? AND status = 'active' AND deleted_at IS NULL ORDER BY name ASC, created_at DESC",
+            [$workspaceId],
+        );
+    }
+
     /** @return array<string,mixed>|null */
     public function find(string $workspaceId, string $avatarId): ?array
     {

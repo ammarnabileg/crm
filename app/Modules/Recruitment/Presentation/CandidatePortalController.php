@@ -19,11 +19,13 @@ use HaHireAI\Modules\Recruitment\Application\InterviewRoomService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\JobService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
+use HaHireAI\Modules\Recruitment\Application\ScreeningService;
 use HaHireAI\Core\Contracts\UserDirectory;
 use HaHireAI\Core\Contracts\FileStorage;
 use HaHireAI\Modules\AiEngine\Contracts\AiCapabilities;
 use HaHireAI\Modules\AiEngine\Contracts\SpeechToText;
 use HaHireAI\Modules\Recruitment\Domain\ApplicationStatus;
+use HaHireAI\Modules\Recruitment\Domain\CvScreening;
 
 /**
  * The Candidate Portal — the User's view of a Workspace *as an applicant* (the
@@ -41,6 +43,7 @@ final class CandidatePortalController
         private readonly JobService $jobs,
         private readonly ApplicationService $applications,
         private readonly OfferService $offers,
+        private readonly ScreeningService $screening,
         private readonly InterviewService $interviews,
         private readonly InterviewRoomService $room,
         private readonly AssessmentService $assessments,
@@ -97,8 +100,17 @@ final class CandidatePortalController
             return Response::redirect('/open-jobs');
         }
 
+        // Closed for new applications once the deadline has passed.
+        if (CvScreening::deadlinePassed($job['deadline_at'] ?? null)) {
+            $this->session->flash('status', 'The application deadline for this role has passed.');
+
+            return Response::redirect('/open-jobs');
+        }
+
+        $coverNote = trim((string) $request->input('cover_note', ''));
+
         try {
-            $appId = $this->applications->apply($ws, $jobId, $uid, trim((string) $request->input('cover_note', '')) ?: null);
+            $appId = $this->applications->apply($ws, $jobId, $uid, $coverNote ?: null, trim((string) $request->input('available_from', '')) ?: null);
         } catch (ApplicationException $e) {
             $this->session->flash('status', $e->getMessage());
 
@@ -115,13 +127,12 @@ final class CandidatePortalController
             }
         }
 
-        // Schedule the AI screening interview only when this workspace has its AI
-        // configured (OpenAI key). Without it, AI interviews are off and the
-        // application simply proceeds for the team to handle manually.
+        // Credit-saving gate: schedule the AI interview only when the per-job
+        // toggle, the workspace AI key and the keyword pre-screen all agree.
         $interviewId = null;
-        if ($this->ai->interviewsEnabled($ws)) {
+        if ($this->screening->shouldRunAiInterview($ws, $job, $uid, $coverNote)) {
             try {
-                $interviewId = $this->interviews->schedule($ws, $appId, 'ai', ['mode' => 'text', 'created_by' => $uid]);
+                $interviewId = $this->interviews->schedule($ws, $appId, 'ai', ['mode' => $this->interviewMode($ws, $job), 'created_by' => $uid]);
             } catch (ApplicationException) {
                 // Non-fatal: the application stands even if scheduling fails.
             }
@@ -134,14 +145,44 @@ final class CandidatePortalController
             'entity_id' => $appId,
         ]);
 
-        if ($interviewId !== null) {
-            $this->session->flash('status', 'Application submitted. Your AI interview is ready — start now or later.');
+        return $this->afterApply($job, $appId, $interviewId);
+    }
+
+    /**
+     * Where the candidate lands after applying, honouring the job's start mode:
+     * 'immediate' goes straight into the room; 'later'/'choice' send them to their
+     * application, from where they can start the AI interview anytime before the
+     * deadline. With no AI interview they just track the application.
+     *
+     * @param array<string,mixed> $job
+     */
+    private function afterApply(array $job, string $appId, ?string $interviewId): Response
+    {
+        if ($interviewId === null) {
+            $this->session->flash('status', 'Application submitted. Track it here.');
+
+            return Response::redirect('/my-applications/' . $appId);
+        }
+
+        if ((string) ($job['interview_start_mode'] ?? 'choice') === 'immediate') {
+            $this->session->flash('status', 'Application submitted — your AI interview starts now.');
 
             return Response::redirect('/interview/' . $interviewId);
         }
-        $this->session->flash('status', 'Application submitted. Track it here.');
+
+        $this->session->flash('status', 'Application submitted. Your AI interview is ready — start now or anytime before the deadline.');
 
         return Response::redirect('/my-applications/' . $appId);
+    }
+
+    /** The interview mode to schedule, with avatar→video only when HeyGen is configured (else text). */
+    private function interviewMode(string $workspaceId, array $job): string
+    {
+        if ((string) ($job['interview_type'] ?? 'text') === 'avatar' && $this->ai->videoEnabled($workspaceId)) {
+            return 'video';
+        }
+
+        return 'text';
     }
 
     /** The AI interview room (start or resume). */
@@ -156,9 +197,35 @@ final class CandidatePortalController
             return Response::redirect('/my-applications');
         }
 
+        $ws = (string) $this->context->workspaceId();
+        $uid = (string) $this->context->userId();
+
+        // Deadline guard: a not-yet-started interview cannot be entered after the
+        // job's application deadline (resuming an in-progress one still works).
+        if ((string) $iv['status'] !== 'completed' && empty($iv['started_at'])) {
+            $job = $this->jobs->find($ws, (string) $iv['job_id']);
+            if ($job !== null && CvScreening::deadlinePassed($job['deadline_at'] ?? null)) {
+                $this->session->flash('status', 'The deadline for this role has passed — the interview is now closed.');
+
+                return Response::redirect('/my-applications/' . (string) $iv['application_id']);
+            }
+        }
+
+        // CV gate (spec): a CV must be on record before the live interview — the
+        // candidate either picks one from their library or uploads a new one.
+        if ($this->room->needsCv($ws, $interviewId)) {
+            return $this->shell->render($this->context, 'portal.interview_cv', [
+                'interview' => $iv,
+                'cvs' => $this->files->listForEntity($ws, 'cv', $uid),
+                'applicationId' => (string) $iv['application_id'],
+                'workspaceName' => $this->context->workspace()['name'] ?? '',
+                'status' => $this->session->pullFlash('status'),
+            ]);
+        }
+
         $state = (string) $iv['status'] === 'completed'
-            ? $this->room->state((string) $this->context->workspaceId(), $interviewId)
-            : $this->room->begin((string) $this->context->workspaceId(), $interviewId, (string) $this->context->userId());
+            ? $this->room->state($ws, $interviewId)
+            : $this->room->begin($ws, $interviewId, $uid);
 
         return $this->shell->render($this->context, 'portal.interview', [
             'interview' => $iv,
@@ -166,6 +233,50 @@ final class CandidatePortalController
             'applicationId' => (string) $iv['application_id'],
             'workspaceName' => $this->context->workspace()['name'] ?? '',
         ]);
+    }
+
+    /**
+     * CV gate submission: record the chosen library CV or a freshly uploaded one
+     * against the interview, then enter the room. Stays on the gate (with a hint)
+     * until a real CV is provided.
+     */
+    public function roomCv(Request $request, string $interviewId): Response
+    {
+        if (($r = $this->gate($request)) !== null) {
+            return $r;
+        }
+
+        $iv = $this->ownedInterview($interviewId);
+        if ($iv === null) {
+            return Response::redirect('/my-applications');
+        }
+
+        $ws = (string) $this->context->workspaceId();
+        $uid = (string) $this->context->userId();
+        $fileId = trim((string) $request->input('cv_file_id', ''));
+
+        // A freshly uploaded CV joins the candidate's library and is used here.
+        $cv = $request->file('cv');
+        if ($cv !== null && ($cv['tmp_name'] ?? '') !== '') {
+            try {
+                $fileId = $this->files->store($ws, $uid, 'cv', $uid, $cv['tmp_name'], $cv['name'], $cv['size'] ?? null);
+            } catch (\Throwable $e) {
+                $this->session->flash('status', $e->getMessage());
+
+                return Response::redirect('/interview/' . $interviewId);
+            }
+        }
+
+        // Must end up with a real CV — a picked library file or a new upload.
+        if ($fileId === '' || $this->files->find($ws, $fileId) === null) {
+            $this->session->flash('status', 'Please choose one of your CVs or upload a new one to begin.');
+
+            return Response::redirect('/interview/' . $interviewId);
+        }
+
+        $this->room->attachCv($ws, $interviewId, $fileId);
+
+        return Response::redirect('/interview/' . $interviewId);
     }
 
     public function roomAnswer(Request $request, string $interviewId): Response
@@ -184,6 +295,7 @@ final class CandidatePortalController
             $interviewId,
             (string) $request->input('answer', ''),
             (string) $this->context->userId(),
+            (string) $request->input('action', '') === 'change', // "ask me a different question"
         );
 
         // Post/Redirect/Get — the room page renders the updated conversation.
@@ -295,13 +407,23 @@ final class CandidatePortalController
         }
 
         $assessment = $this->assessments->latestForCandidate($ws, $uid);
+        $interviews = $this->interviews->forApplication($ws, $applicationId);
+        $pendingInterview = null;
+        foreach ($interviews as $iv) {
+            if ((string) $iv['type'] === 'ai' && (string) $iv['status'] !== 'completed') {
+                $pendingInterview = $iv;
+                break;
+            }
+        }
 
         return $this->shell->render($this->context, 'portal.application', [
             'application' => $application,
             'stages' => ApplicationStatus::STATUSES,
             'currentStatus' => (string) $application['status'],
             'nextStep' => $this->nextStep((string) $application['status']),
-            'interviews' => $this->interviews->forApplication($ws, $applicationId),
+            'interviews' => $interviews,
+            'pendingInterview' => $pendingInterview,
+            'deadlinePassed' => CvScreening::deadlinePassed($application['deadline_at'] ?? null),
             'offers' => $this->offers->forApplication($ws, $applicationId),
             'assessment' => $assessment,
             'workspaceName' => $this->context->workspace()['name'] ?? '',

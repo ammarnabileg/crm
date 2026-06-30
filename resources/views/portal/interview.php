@@ -29,7 +29,7 @@ $remaining = (int) $state['seconds_remaining'];
                 <p class="text-xs text-slate-400">Answer in your own words. You can pause and resume within the time window.</p>
             </div>
             <div class="text-right">
-                <div class="text-xs text-slate-400">Question <span class="font-semibold text-slate-700"><?= e(min($asked, $max)) ?></span> / <?= e($max) ?></div>
+                <div class="text-xs text-slate-400">Question <span class="font-semibold text-slate-700"><?= e(min($asked + 1, $max)) ?></span> / <?= e($max) ?></div>
                 <div class="text-sm font-semibold text-slate-700" data-timer data-remaining="<?= e($remaining) ?>">--:--</div>
             </div>
         </div>
@@ -60,10 +60,11 @@ $remaining = (int) $state['seconds_remaining'];
                         </button>
                     </div>
                     <div class="ml-auto flex gap-2">
+                        <button type="submit" name="action" value="change" formnovalidate class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50" title="Skip this question without answering — it won't count, and the interviewer will ask a different one.">Ask a different question</button>
                         <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Send answer</button>
                     </div>
                 </div>
-                <p class="mt-2 text-xs text-slate-400">This AI interview is advisory — a human always makes the final decision.</p>
+                <p class="mt-2 text-xs text-slate-400">Answer in your own words. If a question doesn’t fit, ask for a different one — unanswered questions never count against you. This AI interview is advisory — a human always makes the final decision.</p>
             </form>
         </div>
     <?php endif; ?>

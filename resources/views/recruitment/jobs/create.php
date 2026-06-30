@@ -1,4 +1,10 @@
-<?php /** @var string|null $error */ ?>
+<?php
+/** @var string|null $error */
+/** @var list<array<string,mixed>> $avatars */
+/** @var list<array<string,mixed>> $stages */
+/** @var array<string,bool> $aiStatus */
+$job = [];           // new job — the config partial reads $job[...] ?? defaults
+?>
 <div class="mb-6">
     <h1 class="text-2xl font-semibold text-slate-900">New job</h1>
     <p class="mt-1 text-sm text-slate-500">Create a draft, then publish to get a public application link.</p>
@@ -48,6 +54,9 @@
         <label class="mb-1 block text-sm font-medium text-slate-700">Description</label>
         <textarea name="description" rows="6" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" placeholder="Role, responsibilities, requirements…"></textarea>
     </div>
+
+    <?php require __DIR__ . '/_config_form.php'; ?>
+
     <div class="flex gap-2">
         <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Create draft</button>
         <a href="/jobs" class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Cancel</a>

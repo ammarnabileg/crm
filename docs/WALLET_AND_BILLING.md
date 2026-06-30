@@ -1,6 +1,6 @@
 # WALLET & WORKSPACE BILLING — HaHireAI
 
-> **Status:** Adopted · **Version:** 1.0.0 · **Last updated:** 2026-06-29
+> **Status:** Adopted · **Version:** 1.1.0 · **Last updated:** 2026-06-30
 > **Defers to:** `PROJECT_CONSTITUTION.md`, `BILLING_PLATFORM.md`.
 > **ADR:** `adr/0002-workspace-wallet-billing.md`.
 
@@ -233,7 +233,7 @@ Billing publishes domain events on the Event Bus so the **Workflow product** can
 react (notify, create a task, email) without Billing knowing Workflow exists:
 
 `wallet.credited` · `wallet.low_balance` · `plan.activated` · `plan.renewed` ·
-`plan.lapsed` · `plan.locked` · `seat.added` · `addon.activated`.
+`plan.changed` · `plan.lapsed` · `plan.locked` · `seat.added` · `addon.activated`.
 
 See `WORKFLOW_EVENTS.md`.
 
@@ -247,6 +247,35 @@ See `WORKFLOW_EVENTS.md`.
 3. **Multi-tenant** — wallet, plan, invoices all `workspace_id`-scoped. ✔
 4. **Permissions, not roles** — every gate checks a key. ✔
 5. **A non-technical HR person** — top up → pick seats/features → review → activate. ✔
+
+---
+
+## 14. Mid-term plan changes (proration)
+
+Composing a plan (§4) starts a one-month term at a full month's price; renewal
+(§7) recomputes it. Between those two, an Owner can **upgrade or downgrade** the
+plan — change seats and/or features — and only the **remaining slice of the
+current term** is settled now, pro-rata.
+
+- **Calculation.** `ProrationCalculator` (pure domain, integer cents) takes the
+  fraction of the term still remaining (`(period_end − now) / (period_end −
+  period_start)`, clamped to `[0,1]`) and applies it to the **difference** between
+  the old and new monthly price. Rounding is half-away-from-zero.
+- **Upgrade** (`delta > 0`): the prorated difference is **debited** from the
+  wallet (rejected with "top up first" when short) and a **paid invoice** is
+  issued for it.
+- **Downgrade** (`delta < 0`): the prorated difference is **credited back** to the
+  wallet (ledger `source = system`, `type = refund`).
+- **Going forward.** The new **full monthly price** and the new base
+  seats/features take effect immediately and carry into the **next renewal**; the
+  term's `period_end` is unchanged. Seats are clamped up to current staff so
+  existing members stay covered (same rule as compose).
+- **Surface.** `POST /billing/change-plan` (`billing.plan.compose`), reachable
+  from the billing page's "Apply changes (prorated)" action whenever a plan is
+  active. Audited as `billing.plan.changed`; emits the `plan.changed` domain
+  event (§12) for the Workflow product. Add-ons (§6) remain the full-price,
+  expires-with-the-term path for one-off additions; this is the path for changing
+  the **base** plan itself.
 
 ---
 

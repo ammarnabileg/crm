@@ -79,12 +79,14 @@ final class InstallerController
             $this->installer->testDatabase($db);
             $this->installer->writeDatabaseConfig($db);
 
-            // Reconnect this request to the buyer's database, then resolve a fresh
-            // Installer so migrations/seeding/owner-creation all use it.
-            $this->container->instance(Connection::class, new Connection($db + ['charset' => 'utf8mb4']));
-            /** @var Installer $installer */
-            $installer = $this->container->make(Installer::class);
-            $installer->install($owner, static function (string $line) use (&$log): void {
+            // Point the shared connection at the buyer's database for the rest of
+            // this request. The migration runner, schema builder, permission seeder
+            // and user registrar all hold this same singleton instance, so they all
+            // switch to it at once — rebinding the container key would leave those
+            // already-built singletons stranded on the default (pre-.env) config.
+            $this->container->make(Connection::class)->reconfigure($db + ['charset' => 'utf8mb4']);
+
+            $this->installer->install($owner, static function (string $line) use (&$log): void {
                 $log[] = $line;
             });
         } catch (Throwable $e) {
