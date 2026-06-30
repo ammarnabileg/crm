@@ -88,6 +88,8 @@ final class RecruitmentModule implements Module
         $router->post('/jobs/{id}/questions/{questionId}/delete', [JobsController::class, 'removeQuestion']);
         $router->post('/jobs/{id}/criteria', [JobsController::class, 'addCriterion']);
         $router->post('/jobs/{id}/criteria/{criterionId}/delete', [JobsController::class, 'removeCriterion']);
+        $router->post('/jobs/{id}/avatar', [JobsController::class, 'linkAvatar']);
+        $router->post('/jobs/{id}/avatar/remove', [JobsController::class, 'unlinkAvatar']);
         $router->get('/pipeline', [PipelineController::class, 'board']);
         $router->post('/pipeline/bulk-status', [PipelineController::class, 'bulkStatus']);
         $router->post('/applications/{applicationId}/status', [PipelineController::class, 'setStatus']);
