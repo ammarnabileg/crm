@@ -6,13 +6,21 @@ namespace HaHireAI\Modules\Recruitment;
 
 use HaHireAI\Core\Contracts\CandidateDirectory;
 use HaHireAI\Core\Contracts\Container;
+use HaHireAI\Core\Contracts\EventDispatcher;
 use HaHireAI\Core\Contracts\RecruitmentActions;
 use HaHireAI\Core\Contracts\RecruitmentSnapshot;
+use HaHireAI\Core\Contracts\SocialProfileProbe;
+use HaHireAI\Core\Database\Connection;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Recruitment\Application\CandidateDirectoryAdapter;
 use HaHireAI\Modules\Recruitment\Application\DashboardService;
+use HaHireAI\Modules\Recruitment\Application\FirstImpressionService;
 use HaHireAI\Modules\Recruitment\Application\RecruitmentActionsAdapter;
+use HaHireAI\Modules\Recruitment\Application\UserResumeService;
+use HaHireAI\Modules\Recruitment\Domain\FirstImpression\ResumeAnalysisEngine;
+use HaHireAI\Modules\Recruitment\Domain\Resume\ResumeStructurer;
+use HaHireAI\Modules\Recruitment\Infrastructure\Resume\ResumeParserManager;
 use HaHireAI\Modules\Recruitment\Presentation\AvatarController;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatePortalController;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatesController;
@@ -50,6 +58,27 @@ final class RecruitmentModule implements Module
         $container->singleton(RecruitmentSnapshot::class, DashboardService::class);
         // The write-surface the Workflow Engine uses to act on applications.
         $container->singleton(RecruitmentActions::class, RecruitmentActionsAdapter::class);
+
+        // --- First Impression Engine (zero-AI gate) ---------------------------
+        // The résumé parsing layer (PDF/DOCX/TXT registry).
+        $container->singleton(ResumeParserManager::class, static fn (): ResumeParserManager => new ResumeParserManager());
+        // The candidate's GLOBAL CV library (bytes outside the web root).
+        $container->singleton(UserResumeService::class, static fn (Container $c): UserResumeService => new UserResumeService(
+            $c->make(Connection::class),
+            $c->make(ResumeParserManager::class),
+            storage_path('resumes'),
+        ));
+        // The orchestrator. Social probing is OPTIONAL: when the Integration
+        // Platform is enabled it binds SocialProfileProbe; otherwise the gate runs
+        // résumé-only (still fully functional, no penalty for missing social).
+        $container->singleton(FirstImpressionService::class, static fn (Container $c): FirstImpressionService => new FirstImpressionService(
+            $c->make(Connection::class),
+            $c->make(ResumeStructurer::class),
+            $c->make(ResumeAnalysisEngine::class),
+            $c->make(UserResumeService::class),
+            $c->make(EventDispatcher::class),
+            $c->has(SocialProfileProbe::class) ? $c->make(SocialProfileProbe::class) : null,
+        ));
     }
 
     public function boot(Container $container): void
