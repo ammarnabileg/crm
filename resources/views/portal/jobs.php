@@ -49,10 +49,12 @@ $hasFilters = $filters['q'] !== '' || $filters['employment_type'] !== '' || $fil
                 <div class="flex items-start justify-between gap-4">
                     <div class="min-w-0">
                         <h2 class="text-base font-semibold text-slate-900"><?= e($j['title']) ?></h2>
+                        <?php $dl = ! empty($j['deadline_at']) ? strtotime((string) $j['deadline_at'] . ' UTC') : null; ?>
                         <div class="mt-1 text-xs text-slate-400">
                             <?php if (! empty($j['location'])): ?><?= e($j['location']) ?><?php endif; ?>
                             <?php if (! empty($j['employment_type'])): ?> · <?= e($j['employment_type']) ?><?php endif; ?>
                             <?php if (! empty($j['seniority'])): ?> · <?= e($j['seniority']) ?><?php endif; ?>
+                            <?php if ($dl): ?> · <span class="font-medium text-amber-600">closes in <span data-countdown="<?= e((string) max(0, $dl - time())) ?>">…</span></span><?php endif; ?>
                         </div>
                         <?php if (! empty($j['description'])): ?>
                             <p class="mt-2 line-clamp-3 text-sm text-slate-600"><?= e(mb_substr((string) $j['description'], 0, 240)) ?><?= mb_strlen((string) $j['description']) > 240 ? '…' : '' ?></p>
@@ -62,13 +64,18 @@ $hasFilters = $filters['q'] !== '' || $filters['employment_type'] !== '' || $fil
                         <?php if ((int) ($j['has_applied'] ?? 0) > 0): ?>
                             <span class="inline-block rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-500">Applied ✓</span>
                         <?php else: ?>
-                            <form method="post" action="/open-jobs/<?= e($j['id']) ?>/apply" enctype="multipart/form-data" class="space-y-2 text-left">
-                                <?= csrf_field() ?>
-                                <label class="block text-xs font-medium text-slate-500">Attach a CV (optional, PDF/Word)
-                                    <input name="cv" type="file" accept=".pdf,.doc,.docx" class="mt-1 block w-full text-xs text-slate-500 file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs">
-                                </label>
-                                <button class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Apply &amp; start interview</button>
-                            </form>
+                            <?php if ($dl !== null && $dl <= time()): ?>
+                                <span class="inline-block rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-500">Applications closed</span>
+                            <?php else: ?>
+                                <form method="post" action="/open-jobs/<?= e($j['id']) ?>/apply" enctype="multipart/form-data" class="w-56 space-y-2 text-left">
+                                    <?= csrf_field() ?>
+                                    <label class="block text-xs font-medium text-slate-500">Attach a CV (optional, PDF/Word)
+                                        <input name="cv" type="file" accept=".pdf,.doc,.docx" class="mt-1 block w-full text-xs text-slate-500 file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs">
+                                    </label>
+                                    <input name="available_from" type="text" maxlength="255" placeholder="When can you start?" class="block w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-indigo-500 focus:outline-none">
+                                    <button class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Apply</button>
+                                </form>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -76,3 +83,15 @@ $hasFilters = $filters['q'] !== '' || $filters['employment_type'] !== '' || $fil
         <?php endforeach; ?>
     </div>
 <?php endif; ?>
+
+<script>
+document.querySelectorAll('[data-countdown]').forEach(function (el) {
+    var s = parseInt(el.getAttribute('data-countdown'), 10) || 0;
+    function fmt(t) {
+        if (t <= 0) return 'closed';
+        var d = Math.floor(t / 86400), h = Math.floor((t % 86400) / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+        return (d > 0 ? d + 'd ' : '') + h + 'h ' + m + 'm ' + sec + 's';
+    }
+    (function tick() { el.textContent = fmt(s); if (s > 0) { s--; setTimeout(tick, 1000); } })();
+});
+</script>
