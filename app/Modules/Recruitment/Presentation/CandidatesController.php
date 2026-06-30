@@ -18,7 +18,10 @@ use HaHireAI\Modules\Recruitment\Application\ResumeParser;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
 use HaHireAI\Modules\Recruitment\Application\CandidateTimelineService;
 use HaHireAI\Modules\Recruitment\Application\ComparisonService;
+use HaHireAI\Modules\Recruitment\Application\FirstImpressionReportService;
+use HaHireAI\Modules\Recruitment\Application\FirstImpressionService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
+use HaHireAI\Modules\Recruitment\Application\JobService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
 use HaHireAI\Modules\Recruitment\Application\TalentPoolService;
 use HaHireAI\Modules\Recruitment\Domain\ApplicationStatus;
@@ -50,6 +53,9 @@ final class CandidatesController
         private readonly AiCapabilities $ai,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
+        private readonly FirstImpressionReportService $fiReports,
+        private readonly FirstImpressionService $firstImpression,
+        private readonly JobService $jobs,
     ) {
     }
 
@@ -134,7 +140,13 @@ final class CandidatesController
         $applications = $this->candidates->applications($workspaceId, $userId);
         $latestAppId = $applications[0]['id'] ?? null;
 
+        // First Impression report (zero-AI gate) — the most recent for this candidate.
+        $fiReport = $this->fiReports->latestForCandidate($workspaceId, $userId);
+        $fiFull = $fiReport !== null ? $this->fiReports->full($workspaceId, (string) $fiReport['id']) : null;
+
         return $this->shell->render($this->context, 'recruitment.candidates.show', [
+            'firstImpression' => $fiFull,
+            'canOverrideFi' => $this->context->can('pipeline.manage'),
             'profile' => $profile,
             'details' => $this->candidates->details($workspaceId, $userId),
             'statusHistory' => $latestAppId !== null ? $this->applications->statusHistory($workspaceId, (string) $latestAppId) : [],
@@ -166,6 +178,53 @@ final class CandidatesController
             'canEvaluate' => $this->context->can('interview.evaluate'),
             'status' => $this->session->pullFlash('status'),
         ]);
+    }
+
+    /**
+     * HR override of a "Filtered Before AI" first-impression decision: the report
+     * is preserved (flagged overridden), the application is un-filtered, and — when
+     * the workspace has an AI key — an AI interview is scheduled so the candidate
+     * can proceed manually (spec: HR can override and allow the AI interview).
+     */
+    public function overrideFirstImpression(Request $request, string $reportId): Response
+    {
+        if (($r = $this->gate('pipeline.manage', $request)) !== null) {
+            return $r;
+        }
+
+        $ws = (string) $this->context->workspaceId();
+        $report = $this->fiReports->find($ws, $reportId);
+        if ($report === null) {
+            return Response::redirect('/candidates');
+        }
+
+        $this->firstImpression->override($ws, $reportId, (string) $this->context->userId());
+
+        $appId = (string) ($report['application_id'] ?? '');
+        $candidateUserId = (string) ($report['candidate_user_id'] ?? '');
+        if ($appId !== '') {
+            // Un-filter so it re-enters the normal flow.
+            $this->applications->setStatus($ws, $appId, 'applied', (string) $this->context->userId());
+            $job = $this->jobs->find($ws, (string) ($report['job_id'] ?? ''));
+            if ($job !== null && $this->ai->interviewsEnabled($ws)) {
+                try {
+                    $mode = ((string) ($job['interview_type'] ?? 'text') === 'avatar' && $this->ai->videoEnabled($ws)) ? 'video' : 'text';
+                    $this->interviews->schedule($ws, $appId, 'ai', ['mode' => $mode, 'created_by' => (string) $this->context->userId()]);
+                } catch (\Throwable) {
+                    // Non-fatal: the override stands even if scheduling fails.
+                }
+            }
+        }
+
+        $this->audit->record('recruitment.first_impression.overridden', [
+            'workspace_id' => $ws,
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'application',
+            'entity_id' => $appId !== '' ? $appId : $reportId,
+        ]);
+        $this->session->flash('status', 'First impression overridden — the candidate can now take the AI interview.');
+
+        return Response::redirect($candidateUserId !== '' ? '/candidates/' . $candidateUserId : '/candidates');
     }
 
     /** Generate an AI summary for the candidate via the central AI Engine. */

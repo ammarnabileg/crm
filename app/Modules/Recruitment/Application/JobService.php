@@ -72,7 +72,8 @@ final class JobService
         $allowed = [
             'title', 'description', 'location', 'employment_type', 'seniority', 'salary_min', 'salary_max', 'currency',
             // Per-job hiring configuration.
-            'deadline_at', 'ai_screening_enabled', 'screening_keywords', 'interview_required', 'interview_type',
+            'deadline_at', 'first_impression_enabled', 'min_first_impression_score',
+            'ai_screening_enabled', 'screening_keywords', 'interview_required', 'interview_type',
             'avatar_id', 'required_skills', 'experience_min', 'experience_max', 'passing_score', 'auto_reject_score',
             'auto_advance_stage_id', 'interview_expiration_days', 'max_attempts', 'interview_duration_minutes',
             'questions_limit', 'interview_start_mode',

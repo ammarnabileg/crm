@@ -133,6 +133,7 @@ final class RecruitmentModule implements Module
         $router->post('/candidates/{userId}/tags', [CandidatesController::class, 'addTag']);
         $router->post('/candidates/{userId}/parse-cv', [CandidatesController::class, 'parseCv']);
         $router->post('/candidates/{userId}/ai-summary', [CandidatesController::class, 'aiSummary']);
+        $router->post('/first-impression/{reportId}/override', [CandidatesController::class, 'overrideFirstImpression']);
         $router->post('/candidates/{userId}/offer', [OffersController::class, 'make']);
         $router->get('/offers', [OffersController::class, 'index']);
         $router->get('/offers/{offerId}/print', [OffersController::class, 'print']);

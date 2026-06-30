@@ -406,8 +406,11 @@ final class JobsController
         $passing = $int('passing_score');
         $reject = $int('auto_reject_score');
         $maxAttempts = $int('max_attempts');
+        $minFi = $int('min_first_impression_score');
 
         return [
+            'first_impression_enabled' => $request->input('first_impression_enabled') !== null ? 1 : 0,
+            'min_first_impression_score' => $minFi !== null ? max(0, min(100, $minFi)) : 65,
             'ai_screening_enabled' => $request->input('ai_screening_enabled') !== null ? 1 : 0,
             'interview_required' => $request->input('interview_required') !== null ? 1 : 0,
             'interview_type' => $enum('interview_type', ['text', 'voice', 'avatar'], 'text'),
