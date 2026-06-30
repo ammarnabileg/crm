@@ -29,6 +29,7 @@ final class InterviewRoomService
         private readonly Connection $connection,
         private readonly AiEngine $ai,
         private readonly AssessmentService $assessments,
+        private readonly ApplicationService $applications,
     ) {
     }
 
@@ -60,7 +61,7 @@ final class InterviewRoomService
 
             $name = (string) ($iv['candidate_name'] ?? 'there');
             $title = (string) ($iv['job_title'] ?? 'this role');
-            $minutes = self::DURATION_MINUTES;
+            $minutes = $this->durationMinutes($iv);
             $this->append($workspaceId, $interviewId, 'ai', "Hi {$name}, thanks for joining. I'm your AI interviewer for the {$title} position. I'll ask a few questions — answer in your own words, and take your time. You can pause and come back within {$minutes} minutes. Let's begin.");
             // First question: AI-generated from the CV + job when a real provider is
             // configured; otherwise the planned/static opener.
@@ -101,7 +102,8 @@ final class InterviewRoomService
         }
 
         $questions = $this->details($iv)['questions'] ?? [];
-        $budget = max(1, min(self::MAX_QUESTIONS, count($questions) ?: self::MAX_QUESTIONS));
+        $limit = $this->questionsLimit($iv);
+        $budget = max(1, min($limit, count($questions) ?: $limit));
         $answered = $this->countAnswered($interviewId);    // questions the candidate actually ANSWERED
         $timeUp = $this->secondsRemaining($iv) <= 0;
 
@@ -134,7 +136,7 @@ final class InterviewRoomService
         return [
             'messages' => $messages,
             'asked' => $this->countAnswered($interviewId), // progress = answered questions
-            'max_questions' => self::MAX_QUESTIONS,
+            'max_questions' => $this->questionsLimit($iv),
             'seconds_remaining' => $this->secondsRemaining($iv),
             'done' => (string) $iv['status'] === 'completed',
             'score' => isset($iv['score']) && $iv['score'] !== null ? (int) $iv['score'] : null,
@@ -165,8 +167,43 @@ final class InterviewRoomService
                 'UPDATE interviews SET score = ?, recommendation = ?, ai_provider = COALESCE(ai_provider, ?), updated_at = ? WHERE id = ? AND workspace_id = ?',
                 [(int) ($assessment['fit_score'] ?? 0), (string) ($assessment['recommendation'] ?? 'hold'), (string) ($assessment['ai_provider'] ?? null), $now, $interviewId, $workspaceId],
             );
+
+            // Auto-qualification / auto-rejection / auto-move per the job's configured
+            // thresholds (the AI recommendation drives the pipeline; a human overrides).
+            $this->applyAutoRules($workspaceId, $iv, (int) ($assessment['fit_score'] ?? 0), $actorUserId);
         } catch (\Throwable) {
-            // Assessment is best-effort.
+            // Assessment + automation are best-effort.
+        }
+    }
+
+    /**
+     * Auto-qualify / auto-reject / auto-move based on the job's configured score
+     * thresholds and the advisory fit score. Best-effort; a human can override.
+     *
+     * @param array<string,mixed> $iv
+     */
+    private function applyAutoRules(string $workspaceId, array $iv, int $fit, ?string $actorUserId): void
+    {
+        $appId = (string) ($iv['application_id'] ?? '');
+        if ($appId === '') {
+            return;
+        }
+        $reject = ($iv['auto_reject_score'] ?? null) !== null ? (int) $iv['auto_reject_score'] : null;
+        $passing = ($iv['passing_score'] ?? null) !== null ? (int) $iv['passing_score'] : null;
+        $stageId = trim((string) ($iv['auto_advance_stage_id'] ?? ''));
+
+        try {
+            if ($reject !== null && $fit < $reject) {
+                $this->applications->setStatus($workspaceId, $appId, 'disqualified', $actorUserId);
+            } elseif ($passing !== null && $fit >= $passing) {
+                if ($stageId !== '') {
+                    $this->applications->moveStage($workspaceId, $appId, $stageId, $actorUserId);
+                } else {
+                    $this->applications->setStatus($workspaceId, $appId, 'qualified', $actorUserId);
+                }
+            }
+        } catch (\Throwable) {
+            // Best-effort automation — never breaks interview completion.
         }
     }
 
@@ -306,7 +343,7 @@ final class InterviewRoomService
      * The interviewer's persona. The default is a strong, professional senior-HR
      * voice. When the workspace links an AI Avatar (with its own personality) to
      * the job, that personality replaces this default; removing the link restores
-     * the default. (The avatar↔job link is wired separately.)
+     * the default.
      *
      * @param  array<string,mixed>  $iv
      */
@@ -318,19 +355,28 @@ final class InterviewRoomService
             $avatarId = (string) ($iv['avatar_id'] ?? '');
             if ($avatarId !== '') {
                 $avatar = $this->connection->selectOne(
-                    'SELECT name, persona, personality FROM ai_avatars WHERE id = ? AND workspace_id = ?',
+                    'SELECT name, persona, style_notes, prompt, greeting FROM ai_avatars WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL',
                     [$avatarId, $workspaceId],
                 );
                 if ($avatar !== null) {
-                    $traits = trim((string) ($avatar['personality'] ?? $avatar['persona'] ?? ''));
+                    // The avatar's personality lives in style_notes (free text), with
+                    // its custom prompt and named persona as fallbacks.
+                    $traits = trim((string) ($avatar['style_notes'] ?? ''));
+                    if ($traits === '') {
+                        $traits = trim((string) ($avatar['prompt'] ?? ''));
+                    }
+                    $persona = trim((string) ($avatar['persona'] ?? ''));
                     $name = trim((string) ($avatar['name'] ?? ''));
-                    if ($traits !== '') {
-                        return 'You are "' . ($name !== '' ? $name : 'the interviewer') . '", the company\'s AI interviewer. Stay fully in character: ' . $traits;
+                    $who = $name !== '' ? $name : 'the interviewer';
+                    if ($traits !== '' || $persona !== '') {
+                        $desc = $traits !== '' ? $traits : ('a ' . $persona . ' interviewer');
+
+                        return 'You are "' . $who . '", the company\'s AI interviewer. Stay fully in character: ' . $desc . ' Remain professional, fair and rigorous throughout.';
                     }
                 }
             }
         } catch (\Throwable) {
-            // No avatar link (or column not present yet) — use the default persona.
+            // No avatar link (or columns not present yet) — use the default persona.
         }
 
         return $default;
@@ -486,12 +532,29 @@ final class InterviewRoomService
 
     private function secondsRemaining(array $iv): int
     {
+        $minutes = $this->durationMinutes($iv);
         if (empty($iv['started_at'])) {
-            return self::DURATION_MINUTES * 60;
+            return $minutes * 60;
         }
         $elapsed = time() - strtotime((string) $iv['started_at'] . ' UTC');
 
-        return max(0, self::DURATION_MINUTES * 60 - $elapsed);
+        return max(0, $minutes * 60 - $elapsed);
+    }
+
+    /** The interview duration in minutes — the job override, else the default. */
+    private function durationMinutes(array $iv): int
+    {
+        $override = (int) ($iv['interview_duration_minutes'] ?? 0);
+
+        return $override > 0 ? min(180, $override) : self::DURATION_MINUTES;
+    }
+
+    /** The question budget — the job override, else the default. */
+    private function questionsLimit(array $iv): int
+    {
+        $override = (int) ($iv['questions_limit'] ?? 0);
+
+        return $override > 0 ? min(30, $override) : self::MAX_QUESTIONS;
     }
 
     private function transcript(string $workspaceId, string $interviewId): string
@@ -525,7 +588,10 @@ final class InterviewRoomService
         $iv = $this->connection->selectOne(
             'SELECT i.*, u.name AS candidate_name, u.years_experience AS candidate_experience,
                     j.title AS job_title, j.description AS job_description,
-                    j.employment_type AS job_employment_type, j.location AS job_location
+                    j.employment_type AS job_employment_type, j.location AS job_location,
+                    j.avatar_id AS avatar_id, j.interview_duration_minutes, j.questions_limit,
+                    j.passing_score, j.auto_reject_score, j.auto_advance_stage_id,
+                    j.interview_expiration_days, j.max_attempts, j.deadline_at AS job_deadline_at
                FROM interviews i
                JOIN users u ON u.id = i.candidate_user_id
                JOIN jobs j ON j.id = i.job_id
