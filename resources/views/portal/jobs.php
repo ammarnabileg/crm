@@ -66,6 +66,9 @@ $hasFilters = $filters['q'] !== '' || $filters['employment_type'] !== '' || $fil
                         <?php else: ?>
                             <?php if ($dl !== null && $dl <= time()): ?>
                                 <span class="inline-block rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-500">Applications closed</span>
+                            <?php elseif ((int) ($j['first_impression_enabled'] ?? 0) === 1): ?>
+                                <a href="/open-jobs/<?= e($j['id']) ?>/prepare" class="inline-block w-56 rounded-lg bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-indigo-700">Start application</a>
+                                <p class="mt-1 w-56 text-[11px] text-slate-400">Add your CV &amp; profiles on the next step.</p>
                             <?php else: ?>
                                 <form method="post" action="/open-jobs/<?= e($j['id']) ?>/apply" enctype="multipart/form-data" class="w-56 space-y-2 text-left">
                                     <?= csrf_field() ?>

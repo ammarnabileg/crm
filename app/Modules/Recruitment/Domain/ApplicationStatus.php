@@ -14,6 +14,7 @@ final class ApplicationStatus
     /** @var array<string, string> value => label, in pipeline order */
     public const STATUSES = [
         'applied' => 'Applied',
+        'filtered_pre_ai' => 'Filtered Before AI',
         'ai_screening' => 'AI Screening',
         'qualified' => 'Qualified',
         'disqualified' => 'Disqualified',

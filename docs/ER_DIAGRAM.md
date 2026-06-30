@@ -629,6 +629,109 @@ erDiagram
 `workspace_id` is nullable, so a row is either platform-level (NULL) or scoped to a
 tenant. `metrics`, `health_checks`, `backups` are purely global infra.
 
+### 2.9 First Impression Engine (zero-AI gate)
+
+The rule-based gate that runs before any paid AI interview
+(`FIRST_IMPRESSION_ENGINE.md`). The CV library and social links are **global**
+(owned by `users`, reused in any workspace); the report and its children are
+**workspace-scoped**. The data is normalised — no JSON blobs.
+
+```mermaid
+erDiagram
+    users ||--o{ user_resumes : "owns (global CV library)"
+    users ||--o{ user_social_profiles : "owns (global links)"
+    workspaces ||--o{ first_impression_reports : "scopes"
+    jobs ||--o{ first_impression_reports : "for"
+    users ||--o{ first_impression_reports : "candidate"
+    user_resumes ||--o{ first_impression_reports : "evaluated"
+    first_impression_reports ||--|| resume_analysis : "has"
+    resume_analysis ||--o{ resume_analysis_details : "evidence (kind/label)"
+    first_impression_reports ||--o| social_analysis : "optional"
+    social_analysis ||--o{ social_profiles_snapshot : "per source"
+    social_profiles_snapshot ||--o{ social_signals_snapshot : "metrics"
+
+    user_resumes {
+        char26 id PK
+        char26 user_id FK
+        string original_name
+        string stored_path
+        longtext extracted_text "cached parse"
+        int parse_confidence
+    }
+    user_social_profiles {
+        char26 id PK
+        char26 user_id FK
+        string platform
+        string url
+    }
+    first_impression_reports {
+        char26 id PK
+        char26 workspace_id FK
+        char26 application_id "nullable"
+        char26 candidate_user_id
+        char26 job_id
+        char26 resume_id "nullable"
+        int overall_score
+        int core_score
+        int resume_score
+        int job_match_score
+        int social_score "nullable"
+        int social_boost
+        int threshold
+        bool passed
+        string decision "passed|filtered"
+        bool overridden
+        int confidence
+    }
+    resume_analysis {
+        char26 id PK
+        char26 report_id FK
+        int score
+        int skill_match
+        int experience_match
+        int seniority_match
+        int keyword_density
+        int education_match
+        int language_match
+        int completeness
+        int formatting_quality
+        int employment_stability
+        int confidence
+    }
+    resume_analysis_details {
+        char26 id PK
+        char26 analysis_id FK
+        char26 report_id
+        string kind "skill_matched|skill_missing|rule_match|strength|…"
+        string label
+        int position
+    }
+    social_analysis {
+        char26 id PK
+        char26 report_id FK
+        int score
+        int boost
+        int sources_total
+        int sources_reachable
+        int confidence
+    }
+    social_profiles_snapshot {
+        char26 id PK
+        char26 social_analysis_id FK
+        string platform
+        string url
+        bool reachable
+        int score "nullable"
+    }
+    social_signals_snapshot {
+        char26 id PK
+        char26 snapshot_id FK
+        string signal_key
+        string string_value
+        bigint numeric_value
+    }
+```
+
 ---
 
 ## 3. The spine — `workspaces` (tenant hub) and `users` (identity hub)

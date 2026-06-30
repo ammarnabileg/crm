@@ -11,6 +11,32 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added — First Impression Engine (zero-AI gate before any paid AI interview)
+- A **fully rule-based, no-AI** gate between Apply and the AI interview, so AI
+  credits are never spent on applicants far from the job. **Opt-in per job**
+  (`jobs.first_impression_enabled`, default off) — existing jobs/flows unchanged.
+- **Resume Parsing Layer** (extensible, interface-based): `PdfResumeParser`
+  (smalot/pdfparser + native fallback), `DocxResumeParser` (native ZipArchive),
+  `TxtResumeParser`, `ResumeParserManager`; the Analysis Engine only ever sees
+  normalised text + a structured `ParsedResume`.
+- **Engine 1 — ResumeAnalysisEngine** (pure): job-aware skill/experience/
+  seniority/keyword/education/language match + completeness/formatting/stability,
+  with an alias-aware `SkillOntology`. The basis is closeness to the job.
+- **Engine 2 — Social Credibility** via **Integration-Platform adapters**
+  (`SocialProfileProbe` Core contract; GitHub/StackOverflow/website + a neutral
+  recogniser for login-walled platforms). A bounded **±30% boost**; absent /
+  empty / unreachable social is strictly neutral — **never a penalty**.
+- **Normalised** schema: `first_impression_reports`, `resume_analysis`,
+  `resume_analysis_details`, `social_analysis`, `social_profiles_snapshot`,
+  `social_signals_snapshot`, plus the **global per-user** `user_resumes` CV
+  library and `user_social_profiles`. New status `filtered_pre_ai`.
+- Surfaces: Application Preparation, candidate **My Insights** (read-only,
+  refreshes each application), Decision-Center **First Impression** tab + HR
+  **override**, **First Impression Analytics** (incl. AI credits saved), and
+  Workflow triggers (Completed/Passed/Failed/Override).
+- Tests: `FirstImpressionTest` (live MySQL) + 49 unit tests (all green). Docs:
+  `FIRST_IMPRESSION_ENGINE.md`, `ER_DIAGRAM.md` §2.9.
+
 ### Fixed — Zero-touch installer database connection
 - **Installer ran migrations on the wrong (default) credentials.** The migration
   runner, schema builder and seeders are built holding the shared `Connection`

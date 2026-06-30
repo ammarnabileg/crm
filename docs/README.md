@@ -279,6 +279,19 @@ Logger/ErrorHandler/event-bus/Audit infrastructure:
   applications-by-status + interview avg score + AI usage, with CSV export.
   `ReportTest` green.
 
+- **First Impression Engine** (`FIRST_IMPRESSION_ENGINE.md`): a **zero-AI**,
+  fully rule-based gate that runs **before** any paid AI interview, so AI credits
+  are never spent on applicants far from the job. An extensible **Resume Parsing
+  Layer** (PDF/DOCX/TXT) → a deterministic **Resume Analysis Engine** (the basis:
+  closeness to the job) + an optional **Social Credibility** layer of pluggable
+  **Integration-Platform adapters** (GitHub/StackOverflow/website; LinkedIn/X
+  recorded but neutral). Social is a bounded ±30% helper that **never penalises a
+  candidate with no social presence**. Opt-in per job; filtered applicants are
+  still saved as candidates with a full, explainable report HR can **override**.
+  Surfaces: Application Preparation, the candidate's read-only **My Insights**, a
+  Decision-Center tab, **First Impression Analytics** (incl. AI credits saved),
+  and Workflow triggers. `FirstImpressionTest` + 49 unit tests green.
+
 ### Verifying the build
 ```
 php bin/console.php migrate && php bin/console.php db:seed

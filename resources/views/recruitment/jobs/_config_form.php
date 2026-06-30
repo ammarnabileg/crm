@@ -19,6 +19,22 @@ $inputCls = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:b
 <fieldset class="space-y-5 rounded-xl border border-slate-200 bg-slate-50/60 p-5">
     <legend class="px-2 text-sm font-semibold text-slate-900">Hiring automation &amp; AI configuration</legend>
 
+    <!-- First Impression filter (zero-AI gate BEFORE any paid AI interview) -->
+    <div class="rounded-xl border border-indigo-100 bg-white p-4">
+        <label class="flex items-start gap-3">
+            <input type="checkbox" name="first_impression_enabled" value="1" <?= $jon('first_impression_enabled', false) ? 'checked' : '' ?> class="mt-0.5 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500">
+            <span>
+                <span class="block text-sm font-medium text-slate-800">Enable First Impression filter</span>
+                <span class="block text-xs text-slate-400">A rule-based review (CV + job match + optional social) runs before any AI interview. Applicants below the minimum are saved as candidates but skip the AI step — <strong>no AI credits spent</strong>.</span>
+            </span>
+        </label>
+        <div class="mt-3 flex items-center gap-3 pl-7">
+            <label class="text-xs font-medium text-slate-600" for="min_fi">Minimum score to reach the AI interview</label>
+            <input id="min_fi" type="number" name="min_first_impression_score" min="0" max="100" value="<?= (int) $jval('min_first_impression_score', 65) ?>" class="w-20 rounded-lg border border-slate-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none">
+            <span class="text-xs text-slate-400">%</span>
+        </div>
+    </div>
+
     <!-- Provider status -->
     <div class="flex flex-wrap gap-2 text-xs">
         <span class="rounded-full px-2.5 py-0.5 font-medium <?= $aiReady ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-200 text-slate-500' ?>">

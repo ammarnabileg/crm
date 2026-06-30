@@ -4,6 +4,14 @@
 /** @var bool $authenticated */
 /** @var string|null $status */
 /** @var string|null $error */
+$firstImpression = $firstImpression ?? false;
+$socialFields = $socialFields ?? [];
+$savedLinks = $savedLinks ?? [];
+$resumes = $resumes ?? [];
+$byPlatform = [];
+foreach ($savedLinks as $l) {
+    $byPlatform[(string) $l['platform']] = (string) $l['url'];
+}
 ?>
 <?php $deadlineTs = ! empty($job['deadline_at']) ? strtotime((string) $job['deadline_at'] . ' UTC') : null; ?>
 <h1 class="mb-1 text-xl font-semibold text-slate-900"><?= e($job['title']) ?></h1>
@@ -25,8 +33,32 @@
     <?php if ($deadlineTs !== null && $deadlineTs <= time()): ?>
         <div class="rounded-lg bg-slate-100 px-4 py-3 text-center text-sm text-slate-500">Applications for this role are closed.</div>
     <?php else: ?>
-        <form method="post" action="/jobs/public/<?= e($token) ?>/apply" class="space-y-3">
+        <form method="post" action="/jobs/public/<?= e($token) ?>/apply" enctype="multipart/form-data" class="space-y-3">
             <?= csrf_field() ?>
+            <?php if ($firstImpression): ?>
+                <div class="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-indigo-700">
+                    A quick automated review (no AI, no cost) checks your fit for this role after you apply.
+                </div>
+                <div class="rounded-xl border border-slate-200 p-3">
+                    <p class="mb-2 text-xs font-semibold text-slate-700">Résumé <span class="text-rose-500">*</span></p>
+                    <?php foreach ($resumes as $i => $r): ?>
+                        <label class="mb-1 flex items-center gap-2 text-xs text-slate-600">
+                            <input type="radio" name="resume_id" value="<?= e((string) $r['id']) ?>" <?= $i === 0 ? 'checked' : '' ?>>
+                            <span class="truncate"><?= e((string) $r['original_name']) ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                    <input name="cv" type="file" accept=".pdf,.doc,.docx,.txt,.rtf,.odt" class="mt-1 block w-full text-xs text-slate-500 file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs">
+                    <?php if ($resumes !== []): ?><p class="mt-1 text-[11px] text-slate-400">Pick one above or upload a new CV.</p><?php endif; ?>
+                </div>
+                <details class="rounded-xl border border-slate-200 p-3">
+                    <summary class="cursor-pointer text-xs font-semibold text-slate-700">Social profiles (optional)</summary>
+                    <div class="mt-2 grid gap-2">
+                        <?php foreach ($socialFields as $key => $label): ?>
+                            <input name="social_<?= e($key) ?>" value="<?= e($byPlatform[$key === 'portfolio' ? 'website' : $key] ?? '') ?>" placeholder="<?= e($label) ?> URL" class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs focus:border-indigo-500 focus:outline-none">
+                        <?php endforeach; ?>
+                    </div>
+                </details>
+            <?php endif; ?>
             <textarea name="cover_note" rows="3" placeholder="Add a short note (optional)…" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"></textarea>
             <input name="available_from" type="text" maxlength="255" placeholder="When can you start? (e.g. Immediately, 2 weeks' notice)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
             <button type="submit" class="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Apply now</button>

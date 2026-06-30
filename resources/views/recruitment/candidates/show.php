@@ -22,6 +22,7 @@ $bandMeta = [
 $initial = mb_strtoupper(mb_substr(trim((string) $profile['name']) ?: '?', 0, 1));
 $tabs = [
     'overview' => 'Overview',
+    'first_impression' => 'First Impression',
     'assessment' => 'Assessment',
     'applications' => 'Applications & Interviews',
     'profile' => 'Profile & CV',
@@ -131,6 +132,32 @@ $lbl = 'text-xs font-semibold uppercase tracking-wide text-slate-400';
                         <?php endforeach; ?>
                     </ol>
                 </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- ── First Impression (zero-AI gate) ─────────────────────── -->
+        <div <?= $panel('first_impression') ?>>
+            <?php $fi = $firstImpression ?? null; ?>
+            <?php if ($fi === null): ?>
+                <div class="<?= $card ?> text-sm text-slate-400">No first-impression report — this candidate applied to a role without the First Impression filter enabled.</div>
+            <?php else: ?>
+                <?php $fr = $fi['report'] ?? []; ?>
+                <?php if ((string) ($fr['decision'] ?? '') === 'filtered' && (int) ($fr['overridden'] ?? 0) === 0 && ($canOverrideFi ?? false)): ?>
+                    <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                        <p class="text-sm text-amber-800">This candidate was <strong>filtered before the AI interview</strong>. You can override and let them proceed to the AI interview.</p>
+                        <form method="post" action="/first-impression/<?= e((string) $fr['id']) ?>/override">
+                            <?= csrf_field() ?>
+                            <button class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700">Override → allow AI interview</button>
+                        </form>
+                    </div>
+                <?php endif; ?>
+                <?php
+                // Render the shared report partial in an ISOLATED scope so its
+                // locals (e.g. $details) never clobber this view's variables.
+                (static function (array $full, bool $readonly): void {
+                    include __DIR__ . '/../_first_impression.php';
+                })($fi, false);
+                ?>
             <?php endif; ?>
         </div>
 

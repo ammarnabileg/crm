@@ -9,6 +9,7 @@ use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
 use HaHireAI\Core\View\View;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
+use HaHireAI\Modules\Recruitment\Application\FirstImpressionAnalyticsService;
 use HaHireAI\Modules\Recruitment\Application\ReportService;
 use HaHireAI\Modules\Workspaces\Application\WorkspaceContext;
 use HaHireAI\Modules\Workspaces\Presentation\WorkspaceShell;
@@ -24,7 +25,28 @@ final class ReportsController
         private readonly ReportService $reports,
         private readonly View $view,
         private readonly Session $session,
+        private readonly FirstImpressionAnalyticsService $fiAnalytics,
     ) {
+    }
+
+    /**
+     * First Impression Analytics — the credit-saving dashboard: applicants,
+     * passed/filtered, average score, score distribution, top & missing skills,
+     * common weaknesses, the funnel, conversion rate, and AI credits saved.
+     */
+    public function firstImpression(Request $request): Response
+    {
+        if (($r = $this->gate('report.view')) !== null) {
+            return $r;
+        }
+
+        $jobId = trim((string) $request->query('job_id', '')) ?: null;
+
+        return $this->shell->render($this->context, 'reports.first_impression', [
+            // NB: not keyed 'data' — View::render()'s extract(EXTR_SKIP) would skip
+            // it (its own $data parameter shadows the key).
+            'fi' => $this->fiAnalytics->summary((string) $this->context->workspaceId(), $jobId),
+        ]);
     }
 
     public function index(): Response

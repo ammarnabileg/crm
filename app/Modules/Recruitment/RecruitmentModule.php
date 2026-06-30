@@ -6,13 +6,21 @@ namespace HaHireAI\Modules\Recruitment;
 
 use HaHireAI\Core\Contracts\CandidateDirectory;
 use HaHireAI\Core\Contracts\Container;
+use HaHireAI\Core\Contracts\EventDispatcher;
 use HaHireAI\Core\Contracts\RecruitmentActions;
 use HaHireAI\Core\Contracts\RecruitmentSnapshot;
+use HaHireAI\Core\Contracts\SocialProfileProbe;
+use HaHireAI\Core\Database\Connection;
 use HaHireAI\Core\Modules\Module;
 use HaHireAI\Core\Routing\Router;
 use HaHireAI\Modules\Recruitment\Application\CandidateDirectoryAdapter;
 use HaHireAI\Modules\Recruitment\Application\DashboardService;
+use HaHireAI\Modules\Recruitment\Application\FirstImpressionService;
 use HaHireAI\Modules\Recruitment\Application\RecruitmentActionsAdapter;
+use HaHireAI\Modules\Recruitment\Application\UserResumeService;
+use HaHireAI\Modules\Recruitment\Domain\FirstImpression\ResumeAnalysisEngine;
+use HaHireAI\Modules\Recruitment\Domain\Resume\ResumeStructurer;
+use HaHireAI\Modules\Recruitment\Infrastructure\Resume\ResumeParserManager;
 use HaHireAI\Modules\Recruitment\Presentation\AvatarController;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatePortalController;
 use HaHireAI\Modules\Recruitment\Presentation\CandidatesController;
@@ -50,6 +58,27 @@ final class RecruitmentModule implements Module
         $container->singleton(RecruitmentSnapshot::class, DashboardService::class);
         // The write-surface the Workflow Engine uses to act on applications.
         $container->singleton(RecruitmentActions::class, RecruitmentActionsAdapter::class);
+
+        // --- First Impression Engine (zero-AI gate) ---------------------------
+        // The résumé parsing layer (PDF/DOCX/TXT registry).
+        $container->singleton(ResumeParserManager::class, static fn (): ResumeParserManager => new ResumeParserManager());
+        // The candidate's GLOBAL CV library (bytes outside the web root).
+        $container->singleton(UserResumeService::class, static fn (Container $c): UserResumeService => new UserResumeService(
+            $c->make(Connection::class),
+            $c->make(ResumeParserManager::class),
+            storage_path('resumes'),
+        ));
+        // The orchestrator. Social probing is OPTIONAL: when the Integration
+        // Platform is enabled it binds SocialProfileProbe; otherwise the gate runs
+        // résumé-only (still fully functional, no penalty for missing social).
+        $container->singleton(FirstImpressionService::class, static fn (Container $c): FirstImpressionService => new FirstImpressionService(
+            $c->make(Connection::class),
+            $c->make(ResumeStructurer::class),
+            $c->make(ResumeAnalysisEngine::class),
+            $c->make(UserResumeService::class),
+            $c->make(EventDispatcher::class),
+            $c->has(SocialProfileProbe::class) ? $c->make(SocialProfileProbe::class) : null,
+        ));
     }
 
     public function boot(Container $container): void
@@ -104,6 +133,7 @@ final class RecruitmentModule implements Module
         $router->post('/candidates/{userId}/tags', [CandidatesController::class, 'addTag']);
         $router->post('/candidates/{userId}/parse-cv', [CandidatesController::class, 'parseCv']);
         $router->post('/candidates/{userId}/ai-summary', [CandidatesController::class, 'aiSummary']);
+        $router->post('/first-impression/{reportId}/override', [CandidatesController::class, 'overrideFirstImpression']);
         $router->post('/candidates/{userId}/offer', [OffersController::class, 'make']);
         $router->get('/offers', [OffersController::class, 'index']);
         $router->get('/offers/{offerId}/print', [OffersController::class, 'print']);
@@ -130,6 +160,7 @@ final class RecruitmentModule implements Module
 
         // Recruitment analytics.
         $router->get('/reports', [ReportsController::class, 'index']);
+        $router->get('/reports/first-impression', [ReportsController::class, 'firstImpression']);
         $router->get('/reports/print', [ReportsController::class, 'print']);
         $router->get('/reports/export', [ReportsController::class, 'export']);
 
@@ -151,6 +182,7 @@ final class RecruitmentModule implements Module
         // /dashboard (context-aware) → /my-applications.
         $router->post('/candidacy/{workspaceId}/switch', [CandidatePortalController::class, 'switchWorkspace']);
         $router->get('/open-jobs', [CandidatePortalController::class, 'jobs']);
+        $router->get('/open-jobs/{jobId}/prepare', [CandidatePortalController::class, 'prepare']);
         $router->post('/open-jobs/{jobId}/apply', [CandidatePortalController::class, 'apply']);
         $router->get('/interview/{interviewId}', [CandidatePortalController::class, 'room']);
         $router->post('/interview/{interviewId}/cv', [CandidatePortalController::class, 'roomCv']);
@@ -165,6 +197,10 @@ final class RecruitmentModule implements Module
         $router->get('/my-profile', [CandidatePortalController::class, 'profile']);
         $router->post('/my-profile', [CandidatePortalController::class, 'updateProfile']);
         $router->post('/my-profile/cv', [CandidatePortalController::class, 'uploadCv']);
+        // The candidate's own First Impression insights (read-only; refreshed on
+        // each new application).
+        $router->get('/my-insights', [CandidatePortalController::class, 'insights']);
+        $router->get('/my-insights/{reportId}', [CandidatePortalController::class, 'insight']);
 
         // Talent pool.
         $router->get('/talent-pool', [TalentPoolController::class, 'index']);

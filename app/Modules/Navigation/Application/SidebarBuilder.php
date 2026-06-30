@@ -28,6 +28,7 @@ final class SidebarBuilder
         ['label' => 'Avatars', 'route' => '/avatars', 'permission' => 'avatar.view'],
         ['label' => 'Offers', 'route' => '/offers', 'permission' => 'offer.view'],
         ['label' => 'Reports', 'route' => '/reports', 'permission' => 'report.view'],
+        ['label' => 'First Impression', 'route' => '/reports/first-impression', 'permission' => 'report.view'],
         ['label' => 'Members', 'route' => '/members', 'permission' => 'member.view'],
         ['label' => 'Roles', 'route' => '/roles', 'permission' => 'role.view'],
         ['label' => 'Activity', 'route' => '/activity', 'permission' => 'audit.view'],
@@ -51,6 +52,7 @@ final class SidebarBuilder
     private const CANDIDATE_ITEMS = [
         ['label' => 'My Applications', 'route' => '/my-applications', 'permission' => '*'],
         ['label' => 'Available Jobs', 'route' => '/open-jobs', 'permission' => '*'],
+        ['label' => 'My Insights', 'route' => '/my-insights', 'permission' => '*'],
         ['label' => 'My Profile', 'route' => '/my-profile', 'permission' => '*'],
     ];
 

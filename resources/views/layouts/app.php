@@ -85,6 +85,7 @@ $notifications ??= [];
 $unreadCount ??= 0;
 $platformTheme ??= false;
 $switcher ??= null;
+$careersUrl ??= null;
 $fullBleed ??= false; // full-height, zero-padding content area (e.g. the workflow canvas)
 /** @var array{name:string,initial:string,logoUrl:?string,style:string}|null $brand */
 $brand ??= null; // per-workspace white-label branding (null on the platform context)
@@ -238,6 +239,13 @@ $partial = ($_SERVER['HTTP_X_PARTIAL'] ?? '') === '1';
                 <h1 class="text-lg font-semibold text-slate-900"><?= e($pageTitle) ?></h1>
             <?php endif; ?>
             <div class="flex items-center gap-1.5">
+                <?php if ($careersUrl !== null): ?>
+                    <!-- Public careers page (opens standalone in a new tab) -->
+                    <a href="<?= e($careersUrl) ?>" target="_blank" rel="noopener" title="View your public careers page" aria-label="View your public careers page"
+                       class="relative flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                    </a>
+                <?php endif; ?>
                 <!-- Notifications bell -->
                 <details class="group relative">
                     <summary class="relative flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">

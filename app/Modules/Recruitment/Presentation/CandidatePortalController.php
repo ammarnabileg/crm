@@ -15,17 +15,22 @@ use HaHireAI\Modules\Recruitment\Application\CandidacyService;
 use HaHireAI\Modules\Recruitment\Application\CandidateContext;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
 use HaHireAI\Modules\Recruitment\Application\Exceptions\ApplicationException;
+use HaHireAI\Modules\Recruitment\Application\FirstImpressionReportService;
+use HaHireAI\Modules\Recruitment\Application\FirstImpressionService;
 use HaHireAI\Modules\Recruitment\Application\InterviewRoomService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\JobService;
 use HaHireAI\Modules\Recruitment\Application\OfferService;
 use HaHireAI\Modules\Recruitment\Application\ScreeningService;
+use HaHireAI\Modules\Recruitment\Application\UserResumeService;
+use HaHireAI\Modules\Recruitment\Application\UserSocialProfileService;
 use HaHireAI\Core\Contracts\UserDirectory;
 use HaHireAI\Core\Contracts\FileStorage;
 use HaHireAI\Modules\AiEngine\Contracts\AiCapabilities;
 use HaHireAI\Modules\AiEngine\Contracts\SpeechToText;
 use HaHireAI\Modules\Recruitment\Domain\ApplicationStatus;
 use HaHireAI\Modules\Recruitment\Domain\CvScreening;
+use HaHireAI\Modules\Recruitment\Domain\FirstImpression\SocialLink;
 
 /**
  * The Candidate Portal — the User's view of a Workspace *as an applicant* (the
@@ -54,6 +59,10 @@ final class CandidatePortalController
         private readonly AiCapabilities $ai,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
+        private readonly FirstImpressionService $firstImpression,
+        private readonly FirstImpressionReportService $fiReports,
+        private readonly UserResumeService $userResumes,
+        private readonly UserSocialProfileService $userSocial,
     ) {
     }
 
@@ -84,6 +93,43 @@ final class CandidatePortalController
         ]);
     }
 
+    /**
+     * Application Preparation (spec) — shown for jobs with the First Impression
+     * filter enabled, BEFORE the application is created. Auto-fills the
+     * candidate's saved social links and lists their global CV library so they
+     * can select an existing CV or upload a new one. Jobs without the filter keep
+     * the original one-step apply, untouched.
+     */
+    public function prepare(Request $request, string $jobId): Response
+    {
+        if (($r = $this->gate()) !== null) {
+            return $r;
+        }
+
+        $ws = (string) $this->context->workspaceId();
+        $uid = (string) $this->context->userId();
+        $job = $this->jobs->find($ws, $jobId);
+        if ($job === null || (string) $job['status'] !== 'published') {
+            $this->session->flash('status', 'That job is no longer open.');
+
+            return Response::redirect('/open-jobs');
+        }
+        if (CvScreening::deadlinePassed($job['deadline_at'] ?? null)) {
+            $this->session->flash('status', 'The application deadline for this role has passed.');
+
+            return Response::redirect('/open-jobs');
+        }
+
+        return $this->shell->render($this->context, 'portal.prepare', [
+            'job' => $job,
+            'socialFields' => SocialLink::FIELDS,
+            'savedLinks' => $this->userSocial->list($uid),
+            'resumes' => $this->userResumes->list($uid),
+            'workspaceName' => $this->context->workspace()['name'] ?? '',
+            'status' => $this->session->pullFlash('status'),
+        ]);
+    }
+
     /** Apply to a job from inside the portal. */
     public function apply(Request $request, string $jobId): Response
     {
@@ -108,6 +154,12 @@ final class CandidatePortalController
         }
 
         $coverNote = trim((string) $request->input('cover_note', ''));
+
+        // First Impression gate (opt-in per job): the zero-AI engine decides
+        // whether this application reaches the (paid) AI interview at all.
+        if ((int) ($job['first_impression_enabled'] ?? 0) === 1) {
+            return $this->applyWithFirstImpression($request, $ws, $uid, $job, $jobId, $coverNote);
+        }
 
         try {
             $appId = $this->applications->apply($ws, $jobId, $uid, $coverNote ?: null, trim((string) $request->input('available_from', '')) ?: null);
@@ -146,6 +198,176 @@ final class CandidatePortalController
         ]);
 
         return $this->afterApply($job, $appId, $interviewId);
+    }
+
+    /**
+     * The First-Impression-gated apply path. The application + candidate + CV +
+     * report are ALWAYS created (nothing is thrown away). The zero-AI engine then
+     * decides: pass → continue to the existing AI-screening gate; fail → the
+     * application is saved as "Filtered Before AI" and NO AI credits are spent.
+     *
+     * @param  array<string,mixed>  $job
+     */
+    private function applyWithFirstImpression(Request $request, string $ws, string $uid, array $job, string $jobId, string $coverNote): Response
+    {
+        // Résumé is mandatory: a chosen library CV or a fresh upload.
+        $resumeId = $this->resolveResume($request, $uid);
+        if ($resumeId === null) {
+            $this->session->flash('status', 'Please select an existing CV or upload one to continue.');
+
+            return Response::redirect('/open-jobs/' . $jobId . '/prepare');
+        }
+
+        // Social links are optional; save them onto the candidate's global profile.
+        $links = $this->userSocial->save($uid, $this->collectLinks($request));
+
+        try {
+            $appId = $this->applications->apply($ws, $jobId, $uid, $coverNote ?: null, trim((string) $request->input('available_from', '')) ?: null);
+        } catch (ApplicationException $e) {
+            $this->session->flash('status', $e->getMessage());
+
+            return Response::redirect('/open-jobs');
+        }
+
+        // Make the evaluated CV available to the recruiter on this application.
+        $this->attachResumeToApplication($ws, $uid, $appId, $resumeId);
+
+        $this->audit->record('recruitment.application.submitted', [
+            'workspace_id' => $ws, 'actor_user_id' => $uid, 'entity_type' => 'application', 'entity_id' => $appId,
+        ]);
+
+        // Run the zero-AI First Impression Engine (no provider, no credits).
+        $outcome = $this->firstImpression->run($ws, $job, $appId, $uid, $resumeId, $links, $coverNote);
+
+        if (! $outcome['passed']) {
+            // Saved as a candidate, visible in the pipeline, but NOT sent to AI.
+            $this->applications->setStatus($ws, $appId, 'filtered_pre_ai', $uid);
+            $this->session->flash('status', sprintf(
+                'Application received. A first-impression review scored %d%% (the role asks for %d%%), so it will not proceed to the AI interview now — the hiring team can still review your full report.',
+                (int) $outcome['overall'],
+                (int) $outcome['threshold'],
+            ));
+
+            return Response::redirect('/my-applications/' . $appId);
+        }
+
+        // Passed the gate → the existing AI-screening gate decides the interview.
+        $interviewId = null;
+        if ($this->screening->shouldRunAiInterview($ws, $job, $uid, $coverNote)) {
+            try {
+                $interviewId = $this->interviews->schedule($ws, $appId, 'ai', ['mode' => $this->interviewMode($ws, $job), 'created_by' => $uid]);
+            } catch (ApplicationException) {
+                // Non-fatal.
+            }
+        }
+
+        return $this->afterApply($job, $appId, $interviewId);
+    }
+
+    /**
+     * Resolve the chosen résumé to a global CV-library id: a freshly uploaded
+     * file is stored into the library first; otherwise a picked library id is
+     * validated. Returns null when neither is available.
+     */
+    private function resolveResume(Request $request, string $uid): ?string
+    {
+        $cv = $request->file('cv');
+        if ($cv !== null && ($cv['tmp_name'] ?? '') !== '') {
+            try {
+                return $this->userResumes->store($uid, $cv['tmp_name'], (string) $cv['name'], $cv['type'] ?? null);
+            } catch (\Throwable $e) {
+                $this->session->flash('status', $e->getMessage());
+
+                return null;
+            }
+        }
+        $resumeId = trim((string) $request->input('resume_id', ''));
+
+        return ($resumeId !== '' && $this->userResumes->find($uid, $resumeId) !== null) ? $resumeId : null;
+    }
+
+    /** Copy the evaluated library CV onto the application so the recruiter can read it. */
+    private function attachResumeToApplication(string $ws, string $uid, string $appId, string $resumeId): void
+    {
+        $row = $this->userResumes->find($uid, $resumeId);
+        $bytes = $row !== null ? $this->userResumes->readBytes($uid, $resumeId) : null;
+        if ($row === null || $bytes === null) {
+            return;
+        }
+        $tmp = tempnam(sys_get_temp_dir(), 'cv');
+        if ($tmp === false) {
+            return;
+        }
+        try {
+            file_put_contents($tmp, $bytes);
+            $this->files->store($ws, $uid, 'application', $appId, $tmp, (string) $row['original_name'], (int) ($row['size_bytes'] ?? null), false);
+        } catch (\Throwable) {
+            // Non-fatal.
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
+    /**
+     * Collect the candidate's social links from the Preparation form: the named
+     * platform fields plus any free-form extra links.
+     *
+     * @return list<string>
+     */
+    private function collectLinks(Request $request): array
+    {
+        $links = [];
+        foreach (array_keys(SocialLink::FIELDS) as $field) {
+            $val = trim((string) $request->input('social_' . $field, ''));
+            if ($val !== '') {
+                $links[] = $val;
+            }
+        }
+        $extra = $request->input('social_extra', '');
+        if (is_string($extra) && trim($extra) !== '') {
+            foreach (preg_split('/[\s,]+/', $extra) ?: [] as $u) {
+                if (trim($u) !== '') {
+                    $links[] = trim($u);
+                }
+            }
+        }
+
+        return $links;
+    }
+
+    /**
+     * The candidate's OWN First Impression insights — read-only, across every
+     * workspace they applied to. They can view but never edit it, and it refreshes
+     * with each new application (spec).
+     */
+    public function insights(): Response
+    {
+        if (($r = $this->gate()) !== null) {
+            return $r;
+        }
+
+        return $this->shell->render($this->context, 'portal.insights', [
+            'reports' => $this->fiReports->forCandidateGlobal((string) $this->context->userId()),
+            'workspaceName' => $this->context->workspace()['name'] ?? '',
+            'status' => $this->session->pullFlash('status'),
+        ]);
+    }
+
+    /** One of the candidate's own reports in full — read-only. */
+    public function insight(string $reportId): Response
+    {
+        if (($r = $this->gate()) !== null) {
+            return $r;
+        }
+        $full = $this->fiReports->fullForCandidate((string) $this->context->userId(), $reportId);
+        if ($full === null) {
+            return Response::redirect('/my-insights');
+        }
+
+        return $this->shell->render($this->context, 'portal.insight', [
+            'full' => $full,
+            'workspaceName' => $this->context->workspace()['name'] ?? '',
+        ]);
     }
 
     /**
