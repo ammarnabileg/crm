@@ -62,7 +62,9 @@ final class InterviewRoomService
             $title = (string) ($iv['job_title'] ?? 'this role');
             $minutes = self::DURATION_MINUTES;
             $this->append($workspaceId, $interviewId, 'ai', "Hi {$name}, thanks for joining. I'm your AI interviewer for the {$title} position. I'll ask a few questions — answer in your own words, and take your time. You can pause and come back within {$minutes} minutes. Let's begin.");
-            $this->append($workspaceId, $interviewId, 'ai', $questions[0]);
+            // First question: AI-generated from the CV + job when a real provider is
+            // configured; otherwise the planned/static opener.
+            $this->append($workspaceId, $interviewId, 'ai', $this->nextQuestion($workspaceId, $iv, $questions, 0, $actorUserId));
         }
 
         return $this->state($workspaceId, $interviewId);
@@ -97,7 +99,8 @@ final class InterviewRoomService
         if ($asked >= count($questions) || $asked >= self::MAX_QUESTIONS || $timeUp) {
             $this->finalize($workspaceId, $interviewId, $actorUserId);
         } else {
-            $this->append($workspaceId, $interviewId, 'ai', (string) $questions[$asked]);
+            // Adaptive follow-up: built on the candidate's answers + CV + the job.
+            $this->append($workspaceId, $interviewId, 'ai', $this->nextQuestion($workspaceId, $iv, $questions, $asked, $actorUserId));
         }
 
         return $this->state($workspaceId, $interviewId);
@@ -155,7 +158,7 @@ final class InterviewRoomService
         }
     }
 
-    // ── internals ────────────────────────────────────────────────────────────
+    // ── internals ───────────────────────────────────────────────────
 
     /** @return list<string> */
     private function planQuestions(string $workspaceId, string $jobId, string $jobTitle, ?string $actorUserId): array
@@ -215,6 +218,167 @@ final class InterviewRoomService
         return $out;
     }
 
+    /**
+     * The next interviewer turn. When a real AI provider is configured this is
+     * generated LIVE from the candidate's answers so far + their CV/profile + the
+     * job's description, requirements and criteria — a genuine, adaptive follow-up
+     * that builds on what was said. With only the offline echo provider (no usable
+     * question comes back) it falls back to the planned/static question, so the
+     * room still works without an AI key.
+     *
+     * @param  array<string,mixed>  $iv
+     * @param  list<string>  $planned
+     */
+    private function nextQuestion(string $workspaceId, array $iv, array $planned, int $asked, ?string $actorUserId): string
+    {
+        $fallback = (string) ($planned[$asked] ?? ($planned !== [] ? end($planned) : "Is there anything else you'd like us to know?"));
+
+        try {
+            $remaining = max(1, min(self::MAX_QUESTIONS, max(1, count($planned))) - $asked);
+            $result = $this->ai->run($workspaceId, 'interview_turn', [
+                'title' => (string) ($iv['job_title'] ?? 'this role'),
+                'job_context' => $this->jobContext($workspaceId, $iv, $planned),
+                'cv' => $this->candidateContext($workspaceId, $iv),
+                'transcript' => $this->recentTranscript($workspaceId, (string) $iv['id']),
+                'remaining' => $remaining,
+            ], $actorUserId);
+
+            $q = $this->cleanQuestion($result->text);
+            if ($q !== '' && ! $this->alreadyAsked($workspaceId, (string) $iv['id'], $q)) {
+                return $q;
+            }
+        } catch (\Throwable) {
+            // fall through to the planned question
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * The job side of the interview context: description/requirements, employment
+     * details, the weighted evaluation criteria, and the question-bank topics.
+     *
+     * @param  array<string,mixed>  $iv
+     * @param  list<string>  $planned
+     */
+    private function jobContext(string $workspaceId, array $iv, array $planned): string
+    {
+        $parts = [];
+        $desc = trim((string) ($iv['job_description'] ?? ''));
+        if ($desc !== '') {
+            $parts[] = "Job description & requirements:\n" . mb_substr($desc, 0, 1500);
+        }
+
+        $meta = [];
+        if (! empty($iv['job_employment_type'])) {
+            $meta[] = (string) $iv['job_employment_type'];
+        }
+        if (! empty($iv['job_location'])) {
+            $meta[] = (string) $iv['job_location'];
+        }
+        if ($meta !== []) {
+            $parts[] = 'Employment: ' . implode(' · ', $meta);
+        }
+
+        $criteria = $this->connection->select(
+            'SELECT label, weight FROM job_criteria WHERE workspace_id = ? AND job_id = ? ORDER BY position ASC, created_at ASC',
+            [$workspaceId, (string) ($iv['job_id'] ?? '')],
+        );
+        if ($criteria !== []) {
+            $lines = array_map(static fn (array $c): string => '- ' . (string) $c['label'] . ' (weight ' . (int) $c['weight'] . ')', $criteria);
+            $parts[] = "What the hiring team is evaluating:\n" . implode("\n", $lines);
+        }
+
+        if ($planned !== []) {
+            $topics = array_map(static fn ($q): string => '- ' . (string) $q, array_slice($planned, 0, self::MAX_QUESTIONS));
+            $parts[] = "Topics / question bank to make sure you cover:\n" . implode("\n", $topics);
+        }
+
+        return $parts === [] ? 'A general screening interview for this role.' : implode("\n\n", $parts);
+    }
+
+    /**
+     * The candidate side of the context: their stated experience and their
+     * workspace CV profile (summary + structured skills/education/etc.).
+     *
+     * @param  array<string,mixed>  $iv
+     */
+    private function candidateContext(string $workspaceId, array $iv): string
+    {
+        $parts = ['Name: ' . (string) ($iv['candidate_name'] ?? 'the candidate') . '.'];
+        if (! empty($iv['candidate_experience'])) {
+            $parts[] = 'Stated experience: ' . (int) $iv['candidate_experience'] . ' year(s).';
+        }
+
+        $prof = $this->connection->selectOne(
+            'SELECT summary, details FROM candidate_profiles WHERE workspace_id = ? AND user_id = ?',
+            [$workspaceId, (string) ($iv['candidate_user_id'] ?? '')],
+        );
+        if ($prof !== null) {
+            $summary = trim((string) ($prof['summary'] ?? ''));
+            if ($summary !== '') {
+                $parts[] = 'CV summary: ' . mb_substr($summary, 0, 900);
+            }
+            $details = $prof['details'] ?? null;
+            $details = is_array($details) ? $details : (is_string($details) ? (json_decode($details, true) ?: []) : []);
+            foreach (['skills' => 'Skills', 'education' => 'Education', 'certifications' => 'Certifications', 'languages' => 'Languages', 'location' => 'Location'] as $key => $label) {
+                $v = trim((string) ($details[$key] ?? ''));
+                if ($v !== '') {
+                    $parts[] = $label . ': ' . mb_substr($v, 0, 300);
+                }
+            }
+        }
+
+        return implode("\n", $parts);
+    }
+
+    /** The recent conversation, oldest→newest, bounded so the prompt stays small. */
+    private function recentTranscript(string $workspaceId, string $interviewId): string
+    {
+        $rows = $this->connection->select(
+            'SELECT role, content FROM interview_messages WHERE interview_id = ? AND workspace_id = ? ORDER BY position ASC',
+            [$interviewId, $workspaceId],
+        );
+        $rows = array_slice($rows, -16);
+        $lines = [];
+        foreach ($rows as $r) {
+            $who = (string) $r['role'] === 'candidate' ? 'Candidate' : 'Interviewer';
+            $lines[] = $who . ': ' . mb_substr((string) $r['content'], 0, 700);
+        }
+
+        return $lines === [] ? '(the interview is just starting)' : implode("\n", $lines);
+    }
+
+    /** Pull the first real question out of a model reply (strip numbering/preamble). */
+    private function cleanQuestion(string $text): string
+    {
+        foreach (preg_split('/\r?\n/', trim($text)) ?: [] as $line) {
+            $line = trim((string) preg_replace('/^\s*(?:\d+[\.\)]|[-*•])\s*/', '', $line));
+            if (mb_strlen($line) >= 8 && str_contains($line, '?')) {
+                return mb_substr($line, 0, 500);
+            }
+        }
+
+        return '';
+    }
+
+    /** Guard against the model repeating a question already posed. */
+    private function alreadyAsked(string $workspaceId, string $interviewId, string $question): bool
+    {
+        $norm = mb_strtolower(trim($question));
+        $rows = $this->connection->select(
+            "SELECT content FROM interview_messages WHERE interview_id = ? AND workspace_id = ? AND role = 'ai'",
+            [$interviewId, $workspaceId],
+        );
+        foreach ($rows as $r) {
+            if (mb_strtolower(trim((string) $r['content'])) === $norm) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function append(string $workspaceId, string $interviewId, string $role, string $content): void
     {
         $position = (int) (($this->connection->selectOne('SELECT COALESCE(MAX(position), -1) AS p FROM interview_messages WHERE interview_id = ?', [$interviewId])['p']) ?? -1) + 1;
@@ -271,7 +435,9 @@ final class InterviewRoomService
     private function load(string $workspaceId, string $interviewId): array
     {
         $iv = $this->connection->selectOne(
-            'SELECT i.*, u.name AS candidate_name, j.title AS job_title
+            'SELECT i.*, u.name AS candidate_name, u.years_experience AS candidate_experience,
+                    j.title AS job_title, j.description AS job_description,
+                    j.employment_type AS job_employment_type, j.location AS job_location
                FROM interviews i
                JOIN users u ON u.id = i.candidate_user_id
                JOIN jobs j ON j.id = i.job_id
