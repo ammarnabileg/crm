@@ -4,6 +4,8 @@
 /** @var string $currentStatus */
 /** @var string $nextStep */
 /** @var list<array<string,mixed>> $interviews */
+/** @var array<string,mixed>|null $pendingInterview */
+/** @var bool $deadlinePassed */
 /** @var list<array<string,mixed>> $offers */
 /** @var array<string,mixed>|null $assessment */
 /** @var string $workspaceName */
@@ -14,6 +16,7 @@ $happyPath = ['applied', 'ai_screening', 'qualified', 'tech_interview', 'manager
 $negatives = ['disqualified', 'rejected', 'withdrawn'];
 $currentIndex = array_search($currentStatus, $happyPath, true);
 $pendingOffers = array_values(array_filter($offers, static fn (array $o): bool => (string) $o['status'] === 'sent'));
+$deadlineTs = ! empty($application['deadline_at']) ? strtotime((string) $application['deadline_at'] . ' UTC') : null;
 ?>
 <div class="mb-6">
     <a href="/my-applications" class="text-xs text-slate-400 hover:text-slate-600">← My applications</a>
@@ -21,10 +24,32 @@ $pendingOffers = array_values(array_filter($offers, static fn (array $o): bool =
     <p class="mt-1 text-sm text-slate-500">
         <?php if (! empty($application['location'])): ?><?= e($application['location']) ?> · <?php endif; ?>
         Applied <?= e($application['applied_at']) ?> · at <?= e($workspaceName) ?>
+        <?php if (! empty($application['available_from'])): ?> · Can start: <?= e((string) $application['available_from']) ?><?php endif; ?>
     </p>
 </div>
 
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>
+
+<?php if ($pendingInterview !== null): ?>
+    <?php if ($deadlinePassed): ?>
+        <div class="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500 shadow-sm">
+            The deadline for this role has passed — the AI interview is now closed.
+        </div>
+    <?php else: ?>
+        <div class="mb-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-5 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <div class="text-sm font-semibold text-indigo-900"><?= (string) $pendingInterview['status'] === 'in_progress' ? 'Resume your AI interview' : 'Your AI interview is ready' ?></div>
+                    <p class="mt-0.5 text-xs text-indigo-700">
+                        Start now, or anytime before the deadline — you can pause and resume.
+                        <?php if ($deadlineTs): ?><span class="font-medium">Closes in <span data-countdown="<?= e((string) max(0, $deadlineTs - time())) ?>">…</span> (<?= e(gmdate('Y-m-d H:i', $deadlineTs)) ?> UTC).</span><?php endif; ?>
+                    </p>
+                </div>
+                <a href="/interview/<?= e($pendingInterview['id']) ?>" class="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"><?= (string) $pendingInterview['status'] === 'in_progress' ? 'Continue →' : 'Start now →' ?></a>
+            </div>
+        </div>
+    <?php endif; ?>
+<?php endif; ?>
 
 <div class="grid gap-6 lg:grid-cols-3">
     <div class="lg:col-span-2 space-y-6">
@@ -159,3 +184,17 @@ $pendingOffers = array_values(array_filter($offers, static fn (array $o): bool =
         <?php endif; ?>
     </div>
 </div>
+
+<?php if ($deadlineTs): ?>
+<script>
+document.querySelectorAll('[data-countdown]').forEach(function (el) {
+    var s = parseInt(el.getAttribute('data-countdown'), 10) || 0;
+    function fmt(t) {
+        if (t <= 0) return 'closed';
+        var d = Math.floor(t / 86400), h = Math.floor((t % 86400) / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+        return (d > 0 ? d + 'd ' : '') + h + 'h ' + m + 'm ' + sec + 's';
+    }
+    (function tick() { el.textContent = fmt(s); if (s > 0) { s--; setTimeout(tick, 1000); } })();
+});
+</script>
+<?php endif; ?>
