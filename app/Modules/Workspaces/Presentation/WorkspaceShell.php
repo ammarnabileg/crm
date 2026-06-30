@@ -123,6 +123,10 @@ final class WorkspaceShell
             'switcher' => $this->switcher->model('staff'),
             'fullBleed' => ($options['fullBleed'] ?? false) === true,
             'brand' => $this->brand($wsId !== '' ? $wsId : null, $context->workspace(), $features),
+            // The company's public careers page (opened standalone from the header).
+            'careersUrl' => (string) ($context->workspace()['slug'] ?? '') !== ''
+                ? '/view/' . rawurlencode((string) $context->workspace()['slug'])
+                : null,
         ]);
 
         return Response::html($html);
