@@ -10,10 +10,13 @@ use HaHireAI\Core\Http\Response;
 use HaHireAI\Core\Http\Session;
 use HaHireAI\Core\View\View;
 use HaHireAI\Core\Contracts\AuditRecorder;
+use HaHireAI\Modules\AiEngine\Contracts\AiCapabilities;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Recruitment\Application\ApplicationService;
 use HaHireAI\Modules\Recruitment\Application\InterviewService;
 use HaHireAI\Modules\Recruitment\Application\JobService;
+use HaHireAI\Modules\Recruitment\Application\ScreeningService;
+use HaHireAI\Modules\Recruitment\Domain\CvScreening;
 use Throwable;
 
 /** The public job page + apply (no login to view; login required to apply). */
@@ -24,7 +27,9 @@ final class PublicJobController
         private readonly AuthContext $auth,
         private readonly JobService $jobs,
         private readonly ApplicationService $applications,
+        private readonly ScreeningService $screening,
         private readonly InterviewService $interviews,
+        private readonly AiCapabilities $ai,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
         private readonly EventDispatcher $events,
@@ -66,12 +71,22 @@ final class PublicJobController
             return Response::redirect('/jobs/public/' . $token);
         }
 
+        // Closed for new applications once the deadline has passed.
+        if (CvScreening::deadlinePassed($job['deadline_at'] ?? null)) {
+            $this->session->flash('error', 'The application deadline for this role has passed.');
+
+            return Response::redirect('/jobs/public/' . $token);
+        }
+
+        $coverNote = trim((string) $request->input('cover_note', ''));
+
         try {
             $applicationId = $this->applications->apply(
                 (string) $job['workspace_id'],
                 (string) $job['id'],
                 (string) $this->auth->id(),
-                (string) $request->input('cover_note', ''),
+                $coverNote ?: null,
+                trim((string) $request->input('available_from', '')) ?: null,
             );
         } catch (Throwable $e) {
             $this->session->flash('error', $e->getMessage());
@@ -105,16 +120,27 @@ final class PublicJobController
         $this->auth->setContextType('candidate');
         $this->auth->setCurrentWorkspace((string) $job['workspace_id']);
 
-        // Both entry paths converge on the same conversational room: schedule the
-        // AI screening interview and take the (now authenticated) candidate to it.
-        try {
-            $interviewId = $this->interviews->schedule((string) $job['workspace_id'], $applicationId, 'ai', ['mode' => 'text', 'created_by' => (string) $this->auth->id()]);
-
-            return Response::redirect('/interview/' . $interviewId);
-        } catch (Throwable) {
-            $this->session->flash('status', 'Your application has been submitted. Good luck!');
-
-            return Response::redirect('/my-applications/' . $applicationId);
+        // Credit-saving gate: only run the AI interview when the per-job toggle,
+        // the workspace AI key and the keyword pre-screen all agree.
+        $interviewId = null;
+        if ($this->screening->shouldRunAiInterview((string) $job['workspace_id'], $job, (string) $this->auth->id(), $coverNote)) {
+            try {
+                $mode = ((string) ($job['interview_type'] ?? 'text') === 'avatar' && $this->ai->videoEnabled((string) $job['workspace_id'])) ? 'video' : 'text';
+                $interviewId = $this->interviews->schedule((string) $job['workspace_id'], $applicationId, 'ai', ['mode' => $mode, 'created_by' => (string) $this->auth->id()]);
+            } catch (Throwable) {
+                // Non-fatal: the application stands even if scheduling fails.
+            }
         }
+
+        // 'immediate' start mode drops the candidate straight into the room; every
+        // other case sends them to their application to start before the deadline.
+        if ($interviewId !== null && (string) ($job['interview_start_mode'] ?? 'choice') === 'immediate') {
+            return Response::redirect('/interview/' . $interviewId);
+        }
+        $this->session->flash('status', $interviewId !== null
+            ? 'Your application has been submitted — your AI interview is ready. Start now or anytime before the deadline.'
+            : 'Your application has been submitted. Good luck!');
+
+        return Response::redirect('/my-applications/' . $applicationId);
     }
 }
