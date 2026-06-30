@@ -160,6 +160,7 @@ final class RecruitmentModule implements Module
 
         // Recruitment analytics.
         $router->get('/reports', [ReportsController::class, 'index']);
+        $router->get('/reports/first-impression', [ReportsController::class, 'firstImpression']);
         $router->get('/reports/print', [ReportsController::class, 'print']);
         $router->get('/reports/export', [ReportsController::class, 'export']);
 

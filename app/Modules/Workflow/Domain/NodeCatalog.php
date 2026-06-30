@@ -91,6 +91,13 @@ final class NodeCatalog
             $t('trigger.user_joined', 'User Joined Workspace', 'A member joins a workspace', 'audit.memberships.invitation.accepted', ['workspace_id', 'user_id']),
             $t('trigger.subscription_renewed', 'Subscription Renewed', 'A subscription renews', 'audit.billing.subscription.renewed', ['workspace_id']),
             $t('trigger.payment_failed', 'Payment Failed', 'A payment attempt fails', 'audit.billing.payment.failed', ['workspace_id', 'amount', 'reason']),
+            // First Impression Engine (zero-AI gate). The orchestrator publishes
+            // these directly on the bus with the full report headline as outputs,
+            // so a workflow can react / notify / route on the result with no AI.
+            $t('trigger.first_impression_completed', 'First Impression Completed', 'The zero-AI first-impression review finishes', 'first_impression.completed', $fiOut = ['overall_score', 'threshold', 'passed', 'decision', 'job_id', 'report_id', 'application_id', 'candidate_user_id']),
+            $t('trigger.first_impression_passed', 'First Impression Passed', 'An applicant reaches the minimum score (continues to AI)', 'first_impression.passed', $fiOut),
+            $t('trigger.first_impression_failed', 'First Impression Failed', 'An applicant is filtered before the AI interview', 'first_impression.failed', $fiOut),
+            $t('trigger.first_impression_override', 'First Impression Override', 'HR overrides a filtered decision to allow the AI interview', 'first_impression.override', ['report_id', 'application_id', 'job_id', 'candidate_user_id']),
             [
                 'type' => 'trigger.schedule', 'category' => 'Triggers', 'kind' => 'trigger',
                 'label' => 'Schedule', 'description' => 'Run on a schedule', 'icon' => 'clock',

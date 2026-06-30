@@ -28,6 +28,7 @@ final class SidebarBuilder
         ['label' => 'Avatars', 'route' => '/avatars', 'permission' => 'avatar.view'],
         ['label' => 'Offers', 'route' => '/offers', 'permission' => 'offer.view'],
         ['label' => 'Reports', 'route' => '/reports', 'permission' => 'report.view'],
+        ['label' => 'First Impression', 'route' => '/reports/first-impression', 'permission' => 'report.view'],
         ['label' => 'Members', 'route' => '/members', 'permission' => 'member.view'],
         ['label' => 'Roles', 'route' => '/roles', 'permission' => 'role.view'],
         ['label' => 'Activity', 'route' => '/activity', 'permission' => 'audit.view'],
