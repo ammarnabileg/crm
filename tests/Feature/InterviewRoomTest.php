@@ -75,7 +75,7 @@ final class InterviewRoomTest extends TestCase
 
         $this->assertCount(2, $state['messages']);            // greeting + Q1
         $this->assertSame('ai', $state['messages'][0]['role']);
-        $this->assertSame(1, $state['asked']);
+        $this->assertSame(0, $state['asked']);                // progress counts ANSWERED questions; none yet
         $this->assertFalse($state['done']);
         $this->assertGreaterThan(0, $state['seconds_remaining']);
     }
@@ -95,7 +95,7 @@ final class InterviewRoomTest extends TestCase
         $this->room->begin($ws, $iv);
 
         $state = $this->room->answer($ws, $iv, 'My first answer.');
-        $this->assertSame(2, $state['asked']);                // Q2 posed
+        $this->assertSame(1, $state['asked']);                // one question answered
         $this->assertFalse($state['done']);
         // greeting + Q1 + answer + Q2 = 4
         $this->assertCount(4, $state['messages']);

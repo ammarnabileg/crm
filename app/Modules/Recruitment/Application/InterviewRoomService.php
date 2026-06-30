@@ -29,7 +29,6 @@ final class InterviewRoomService
         private readonly Connection $connection,
         private readonly AiEngine $ai,
         private readonly AssessmentService $assessments,
-        private readonly ApplicationService $applications,
     ) {
     }
 
@@ -192,19 +191,59 @@ final class InterviewRoomService
         $passing = ($iv['passing_score'] ?? null) !== null ? (int) $iv['passing_score'] : null;
         $stageId = trim((string) ($iv['auto_advance_stage_id'] ?? ''));
 
+        $app = $this->connection->selectOne(
+            'SELECT status, current_stage_id FROM applications WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL',
+            [$appId, $workspaceId],
+        );
+        if ($app === null) {
+            return;
+        }
+        $now = gmdate('Y-m-d H:i:s');
+
         try {
             if ($reject !== null && $fit < $reject) {
-                $this->applications->setStatus($workspaceId, $appId, 'disqualified', $actorUserId);
+                $this->setAppStatus($workspaceId, $appId, (string) ($app['status'] ?? ''), 'disqualified', $actorUserId, $now);
             } elseif ($passing !== null && $fit >= $passing) {
                 if ($stageId !== '') {
-                    $this->applications->moveStage($workspaceId, $appId, $stageId, $actorUserId);
+                    $stage = $this->connection->selectOne('SELECT id, type FROM pipeline_stages WHERE id = ? AND workspace_id = ?', [$stageId, $workspaceId]);
+                    if ($stage !== null) {
+                        $status = match ((string) $stage['type']) {
+                            'hired' => 'hired',
+                            'rejected' => 'rejected',
+                            default => 'in_pipeline',
+                        };
+                        $this->connection->statement(
+                            'UPDATE applications SET current_stage_id = ?, status = ?, updated_at = ? WHERE id = ? AND workspace_id = ?',
+                            [$stageId, $status, $now, $appId, $workspaceId],
+                        );
+                        $this->connection->statement(
+                            'INSERT INTO application_stage_history (id, workspace_id, application_id, from_stage_id, to_stage_id, moved_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                            [Ulid::generate(), $workspaceId, $appId, $app['current_stage_id'] ?? null, $stageId, $actorUserId, $now],
+                        );
+                    }
                 } else {
-                    $this->applications->setStatus($workspaceId, $appId, 'qualified', $actorUserId);
+                    $this->setAppStatus($workspaceId, $appId, (string) ($app['status'] ?? ''), 'qualified', $actorUserId, $now);
                 }
             }
         } catch (\Throwable) {
             // Best-effort automation — never breaks interview completion.
         }
+    }
+
+    /** Same-module application status change + history trail (mirrors ApplicationService::setStatus). */
+    private function setAppStatus(string $workspaceId, string $appId, string $from, string $to, ?string $actorUserId, string $now): void
+    {
+        if ($from === $to) {
+            return;
+        }
+        $this->connection->statement(
+            'UPDATE applications SET status = ?, updated_at = ? WHERE id = ? AND workspace_id = ?',
+            [$to, $now, $appId, $workspaceId],
+        );
+        $this->connection->statement(
+            'INSERT INTO application_status_history (id, workspace_id, application_id, from_status, to_status, changed_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [Ulid::generate(), $workspaceId, $appId, $from !== '' ? $from : null, $to, $actorUserId, $now],
+        );
     }
 
     /**
