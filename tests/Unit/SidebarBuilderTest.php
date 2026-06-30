@@ -60,7 +60,7 @@ final class SidebarBuilderTest extends TestCase
         // A candidate holds no role/permissions — the menu is context-driven.
         $labels = (new SidebarBuilder())->labels('candidate', []);
 
-        $this->assertSame(['My Applications', 'Available Jobs', 'My Profile'], $labels);
+        $this->assertSame(['My Applications', 'Available Jobs', 'My Insights', 'My Profile'], $labels);
     }
 
     public function test_workspace_split_ai_and_human_interviews(): void
