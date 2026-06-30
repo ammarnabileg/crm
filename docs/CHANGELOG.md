@@ -11,6 +11,19 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Fixed — Zero-touch installer database connection
+- **Installer ran migrations on the wrong (default) credentials.** The migration
+  runner, schema builder and seeders are built holding the shared `Connection`
+  singleton before the buyer submits anything (no `.env` yet, so it defaults to
+  `root` with no password). The installer rebound only the container key, leaving
+  those already-built singletons stranded — so a correct database form still
+  failed with `Access denied for user 'root'@'localhost' (using password: NO)`.
+  The installer now **reconfigures the shared connection in place**
+  (`Connection::reconfigure()`), switching every collaborator to the buyer's
+  database at once. Covered by a unit test (state swap) and a MySQL feature test
+  (a runner built on the default connection works after reconfigure). Docs:
+  `INSTALLER_ARCHITECTURE.md` §6.1.1.
+
 ### Added — Workspace Wallet Billing (v2)
 - **Per-workspace prepaid wallet + composed monthly plan.** Billing now belongs to
   the Workspace (a company), not the user: each workspace owns a **wallet** (USD

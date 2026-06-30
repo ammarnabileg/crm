@@ -2,7 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [ "claude/project-bootstrap-mindset-4v7gms" ]
+    branches:
+      - "claude/project-bootstrap-mindset-4v7gms"
+      - "claude/project-bootstrap-mindset-pavxm6"
+  pull_request:
   workflow_dispatch:
 
 jobs:

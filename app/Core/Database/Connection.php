@@ -18,13 +18,29 @@ final class Connection
     private ?PDO $pdo = null;
 
     /** @param array<string, mixed> $config */
-    public function __construct(private readonly array $config)
+    public function __construct(private array $config)
     {
     }
 
     public function pdo(): PDO
     {
         return $this->pdo ??= $this->connect();
+    }
+
+    /**
+     * Swap the connection's credentials at runtime and drop any open handle so the
+     * next query connects with the new config. The installer uses this to point
+     * the shared connection at the buyer's database: the migration runner, schema
+     * builder, seeders and user registrar all hold this same instance, so they
+     * switch together — rebinding the container key alone would leave those
+     * already-built singletons on the old connection.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public function reconfigure(array $config): void
+    {
+        $this->config = $config;
+        $this->pdo = null;
     }
 
     /**

@@ -258,6 +258,23 @@ before any write** (`FEATURE_SPECIFICATIONS/Installer.md` §4; `INSTALLATION.md`
 `DATABASE_GUIDE.md` §6.2). Only after this passes does the installer open a
 working connection for migrations.
 
+The connection test uses a **throwaway** connection built from the submitted
+credentials, so a bad attempt never touches shared state.
+
+#### 6.1.1 Pointing the shared connection at the buyer's database
+
+Before the buyer submits anything there is no `.env`, so the shared `Connection`
+singleton is constructed from the **defaults** (`root`, empty password). The
+migration runner, schema builder, permission seeder and user registrar are all
+wired to that **same** singleton instance. Once the credentials pass the test,
+the installer **reconfigures that shared instance in place**
+(`Connection::reconfigure()`) — it swaps the credentials and drops the lazy PDO
+handle, so every collaborator that already holds the connection switches to the
+buyer's database together. Rebinding only the container key would leave those
+already-built singletons stranded on the default credentials, surfacing as
+`Access denied for user 'root'@'localhost'` even when the buyer's inputs are
+correct.
+
 ### 6.2 Migrations (build-from-zero)
 
 - The installer invokes the bespoke **migration engine** to apply the full,
