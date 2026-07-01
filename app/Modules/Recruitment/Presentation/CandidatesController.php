@@ -16,6 +16,7 @@ use HaHireAI\Modules\AiEngine\Contracts\AiCapabilities;
 use HaHireAI\Modules\Recruitment\Application\AssessmentService;
 use HaHireAI\Modules\Recruitment\Application\ResumeParser;
 use HaHireAI\Modules\Recruitment\Application\CandidateProfileService;
+use HaHireAI\Modules\Recruitment\Application\CandidateHealthService;
 use HaHireAI\Modules\Recruitment\Application\CandidateTimelineService;
 use HaHireAI\Modules\Recruitment\Application\ComparisonService;
 use HaHireAI\Modules\Recruitment\Application\FirstImpressionReportService;
@@ -56,6 +57,7 @@ final class CandidatesController
         private readonly FirstImpressionReportService $fiReports,
         private readonly FirstImpressionService $firstImpression,
         private readonly JobService $jobs,
+        private readonly CandidateHealthService $health,
     ) {
     }
 
@@ -158,6 +160,7 @@ final class CandidatesController
             'score' => $this->interviews->averageScore($workspaceId, $userId),
             'files' => $this->files->listForEntity($workspaceId, 'candidate_profile', (string) $profile['profile_id']),
             'timeline' => $this->timeline->timeline($workspaceId, $userId, (string) $profile['profile_id']),
+            'health' => $this->health->forCandidate($workspaceId, $userId),
             'assessment' => $this->assessments->latestForCandidate($workspaceId, $userId),
             'skillCatalog' => SkillCatalog::SKILLS,
             'statuses' => ApplicationStatus::STATUSES,

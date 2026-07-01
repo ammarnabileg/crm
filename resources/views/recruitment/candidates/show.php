@@ -7,6 +7,7 @@
 /** @var list<string> $tags */
 /** @var list<array<string,mixed>> $interviews */
 /** @var array<string,mixed>|null $assessment */
+/** @var array{score:int,band:string,components:list<array<string,mixed>>} $health */
 /** @var array<string,array{label:string,weight:int}> $skillCatalog */
 /** @var int|null $score */
 
@@ -103,6 +104,50 @@ $lbl = 'text-xs font-semibold uppercase tracking-wide text-slate-400';
     <div class="mt-6">
         <!-- ── Overview ─────────────────────────────────────────────── -->
         <div <?= $panel('overview') ?>>
+            <?php if (! empty($health)):
+                $hs = (int) $health['score'];
+                $hb = (string) $health['band'];
+                $bandTone = match ($hb) {
+                    'Excellent' => ['#10b981', 'bg-emerald-50 text-emerald-700'],
+                    'Strong' => ['#22c55e', 'bg-emerald-50 text-emerald-700'],
+                    'Moderate' => ['#f59e0b', 'bg-amber-50 text-amber-700'],
+                    default => ['#f43f5e', 'bg-rose-50 text-rose-700'],
+                };
+            ?>
+                <div class="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm">
+                    <div class="flex flex-wrap items-center gap-6">
+                        <div class="relative h-24 w-24 shrink-0" title="Candidate Health Score">
+                            <svg viewBox="0 0 36 36" class="h-24 w-24 -rotate-90">
+                                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e2e8f0" stroke-width="3.2"></circle>
+                                <circle cx="18" cy="18" r="15.9" fill="none" stroke="<?= $bandTone[0] ?>" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="0, 100" style="transition:stroke-dasharray 1s ease-out" data-health-ring data-target="<?= $hs ?>"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span class="text-2xl font-bold text-slate-900"><?= $hs ?></span>
+                                <span class="text-[9px] uppercase tracking-wide text-slate-400">health</span>
+                            </div>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                                <h2 class="text-sm font-semibold text-slate-900">Candidate Health Score</h2>
+                                <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold <?= $bandTone[1] ?>"><?= e($hb) ?></span>
+                            </div>
+                            <p class="mb-3 mt-0.5 text-xs text-slate-400">Unified blend of everything already known — no extra AI spend.</p>
+                            <div class="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+                                <?php foreach ($health['components'] as $c): ?>
+                                    <div class="flex items-center gap-2 <?= $c['contributing'] ? '' : 'opacity-40' ?>">
+                                        <span class="w-28 shrink-0 truncate text-xs text-slate-500"><?= e($c['label']) ?></span>
+                                        <span class="relative h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                                            <span class="absolute inset-y-0 left-0 rounded-full bg-indigo-500 transition-all duration-700" style="width: <?= $c['value'] === null ? 0 : (int) $c['value'] ?>%"></span>
+                                        </span>
+                                        <span class="w-8 shrink-0 text-right text-xs font-medium text-slate-600"><?= $c['value'] === null ? '—' : (int) $c['value'] ?></span>
+                                        <span class="w-8 shrink-0 text-right text-[10px] text-slate-300" title="weight"><?= (int) $c['weight'] ?>%</span>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
             <div class="grid gap-4 sm:grid-cols-3">
                 <div class="<?= $card ?>"><div class="<?= $lbl ?>">Applications</div><div class="mt-1 text-2xl font-semibold text-slate-900"><?= count($applications) ?></div></div>
                 <div class="<?= $card ?>"><div class="<?= $lbl ?>">Interviews</div><div class="mt-1 text-2xl font-semibold text-slate-900"><?= count($interviews ?? []) ?></div></div>
@@ -519,6 +564,13 @@ $lbl = 'text-xs font-semibold uppercase tracking-wide text-slate-400';
     var root = document.getElementById('cand-profile');
     if (!root || root.__tabs) return;
     root.__tabs = true;
+    // Animate the Health ring from 0 → target on first paint.
+    var ring = root.querySelector('[data-health-ring]');
+    if (ring) {
+        requestAnimationFrame(function () {
+            ring.setAttribute('stroke-dasharray', (parseInt(ring.getAttribute('data-target'), 10) || 0) + ', 100');
+        });
+    }
     var tabs = root.querySelectorAll('.wf-tab');
     var panels = root.querySelectorAll('[data-panel]');
     tabs.forEach(function (t) {

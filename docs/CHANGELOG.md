@@ -11,6 +11,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added — unified Candidate Health Score (reuses existing analyses, zero extra AI)
+- One 0-100 score per candidate blending the signals the platform has **already
+  computed** — Job Match (heaviest), Resume Quality, Experience, Skills, Learning,
+  Certifications, Interview Score, Human Evaluation, Social Credibility (small
+  weight), Activity. Pure `CandidateHealthScore` domain does the weighting and
+  **re-normalises over only the available components** (a candidate with no
+  interview yet is still scored fairly); bands mirror the AI recommendation bands
+  (Excellent/Strong/Moderate/Weak). `CandidateHealthService` gathers each signal
+  from the First Impression report (job-match/resume/social sub-scores), AI
+  assessments (fit + per-skill), AI interview scores, human interview ratings,
+  learning progress, normalised profile fields and platform activity — **no fresh
+  AI spend**, fully workspace-scoped. Surfaced as an animated Health card on the
+  candidate Overview. Tests: +6 unit (weighting/renormalise/clamp/bands) +3
+  feature (gather-and-blend, empty, workspace isolation).
+
 ### Added — Candidate Timeline mini-CRM (manual activity log + richer aggregation)
 - The candidate Timeline now merges **manual entries** a recruiter logs by hand —
   a **call / message / meeting / note / update** with the date it happened and the
