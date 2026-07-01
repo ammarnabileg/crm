@@ -2,25 +2,39 @@
 
 > The authoritative snapshot of what exists, what is decided, and what remains — the single place to answer "where is this project right now?"
 
-**Status:** Approved (Phase 1) | **Version:** 1.0.0 | **Last updated:** 2026-07-01 | **Owner:** Architecture (Nizam Core)
+**Status:** Active incremental build — Phase 2 in progress | **Version:** 2.0.0 | **Last updated:** 2026-07-01 | **Owner:** Architecture (Nizam Core)
+
+> **Summary update (v2.0.0):** The project has moved from **Phase 1 (docs-only)** into an
+> **active, incremental build** governed by the ratified [Constitution](./CONSTITUTION.md), which
+> is now the supreme governing document. The delivery plan is the **12-phase program** in
+> [15-Project-Roadmap.md](./15-Project-Roadmap.md); the stack is a **self-built native PHP 8.4
+> platform** ([ADR-0015](./16-ADR.md#adr-0015)). **Phase 1 is complete; Phase 2 (Core
+> Infrastructure Platform) is in progress with its foundation spine implemented and test-green.**
+> The executive snapshot is the root [PROJECT_STATE.md](../PROJECT_STATE.md); this document retains
+> the detailed Phase-1 deliverable inventory below. Where the two differ in framing, the root
+> PROJECT_STATE and the Constitution take precedence.
 
 ---
 
 ## 1. Current Phase
 
-**Phase 1 — Foundation & Enterprise Architecture: COMPLETE.**
+**Phase 1 — Architecture Foundation: COMPLETE. Phase 2 — Core Infrastructure Platform: IN PROGRESS.**
 
-This phase produced **architecture and documentation only**. Zero application,
-business, or product code was written, by design and per the Project Constitution.
-The project is now **paused at the Phase 1 gate, awaiting explicit approval** before
-any Phase 2 (build) work begins.
+Phase 1 produced **architecture and documentation only** (inventoried in §2 below). The project has
+since entered Phase 2 build under the [Constitution](./CONSTITUTION.md): the self-built native
+PHP 8.4 platform's **foundation spine** (Support, Exception, Container, Config, Event, Logging, the
+DDD Kernel, command/query buses, `TenantContext`, and the `Bootstrap\Application` composition root)
+is **implemented and test-green** (76 tests / 151 assertions on PHP 8.4.19 + PHPUnit 11). The
+remaining Phase-2 platform infrastructure and Phases 3–12 are the forward plan.
 
-- Product: **Nizam — the Bayan AI Operating System** (the execution OS between the
-  Bayan brain and n8n / external systems).
-- Scope delivered: complete strategic and technical architecture, domain model,
+- Product: **Nizam — the Bayan AI Operating System** — the execution OS that lets a business build
+  an **AI Workforce without programming**, running intents from the external Bayan brain.
+- Scope delivered in Phase 1: complete strategic and technical architecture, domain model,
   bounded-context map, cross-cutting strategies, database design, security &
   multi-tenancy strategy, engineering standards, roadmap, decision log, and the
   Phase-1 audit.
+- Scope in progress in Phase 2: the self-built native-PHP platform (foundation spine done); see the
+  root [PROJECT_STATE.md](../PROJECT_STATE.md) for the delivered-package detail.
 
 ## 2. Deliverables Status
 
@@ -92,17 +106,25 @@ phase must obey.
 - **UX:** Non-technical-first; Basic/Advanced mode; Wizards; mandatory Help Popups;
   bilingual AR/EN RTL/LTR.
 
-## 4. What Does NOT Exist Yet (by design)
+## 4. What Does NOT Exist Yet
 
-- No application code, services, migrations, or runnable schema.
-- No infrastructure provisioning (Kubernetes/Helm manifests are described, not created).
-- No CI/CD pipelines.
-- No Bayan intent-contract implementation (contract shape is an open question — see
-  `19-Assumptions.md`, Q-01).
-- No product UI screens (only the UX rules and templates in `22-UIUX-Guidelines.md`).
+Beyond the delivered Phase-2 **foundation spine** (Support, Exception, Container, Config, Event,
+Logging, the DDD Kernel, command/query buses, `TenantContext`, and the `Bootstrap\Application`
+composition root — all test-green), the following are the **forward plan**, built in verified,
+dependency-ordered increments per the [12-phase roadmap](./15-Project-Roadmap.md):
 
-These are intentional: they are Phase 2+ scope. Building any of them now would violate
-the Phase 1 boundary.
+- The remaining Phase-2 platform infrastructure — HTTP/routing/middleware/HTTP kernel, the database
+  layer (connection, query builder, schema/migrations, repositories, unit of work, tenant/RLS
+  session), cache, queue, scheduler, validation, storage, localization, notifications, monitoring.
+- All of Phases 3–12 (AI Runtime + plugins + Master Orchestrator, identity/tenancy/capability,
+  tools, integrations/automation + n8n adapter, departments, the AI Organization Designer,
+  providers/knowledge/memory, the enterprise platform/marketplace/billing, business intelligence,
+  and the digital employee framework).
+- Infrastructure provisioning (Kubernetes/Helm are described, not created), CI/CD, the Bayan
+  intent-contract implementation (shape open — `19-Assumptions.md`, Q-01), and product UI screens.
+
+Each is sequenced by dependency and shipped only when compiled, test-green, and documented in the
+same change (Constitution §10).
 
 ## 5. Open Items Carried Forward
 

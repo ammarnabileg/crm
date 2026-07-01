@@ -3,69 +3,106 @@
 > Executive, top-level snapshot of where the project stands. For the detailed
 > deliverable-by-deliverable status, see [docs/20-Project-State.md](./docs/20-Project-State.md).
 
-**Status:** Phase 1 (Architecture) — **COMPLETE & AUDITED** | **Version:** 1.0.0 | **Last updated:** 2026-07-01 | **Owner:** Architecture (Nizam Core)
+**Status:** Active incremental build — Phase 2 (Core Infrastructure Platform) in progress | **Version:** 2.0.0 | **Last updated:** 2026-07-01 | **Owner:** Architecture (Nizam Core)
 
 ---
 
 ## Where we are
 
-**Phase 1 — Foundation & Enterprise Architecture is 100% complete.** This phase produced
-**architecture and documentation only** — zero application code, by constitutional
-mandate. The project is **paused at the Phase 1 gate, awaiting explicit approval** before
-any Phase 2 (build) work begins.
+The project has moved from **Phase 1 (architecture, docs-only)** into an **active, incremental
+build** governed by the ratified [Constitution](./docs/CONSTITUTION.md). Work is delivered as
+**verified, dependency-ordered increments**: each slice ships only when it is real, compiling,
+test-green, and documented in the same change (Constitution §10). We favor a smaller
+*fully-finished* slice over a larger *unfinished* one.
 
-- **Product:** Nizam — the execution AI Operating System that runs decisions made by the
-  external **Bayan** brain. It is *not* a chatbot, *not* a RAG, and does *not* build the brain.
-- **Internal execution chain:**
-  `Bayan → Nizam → Department Manager Agent → Worker Agents → Tool Registry → Automation Selector → n8n → Results → Manager Audit → Return Response`
-- **Deliverables:** 30 documents (README, `docs/00`–`docs/23`, `NEXT_PHASE.md`, this file,
-  and 3 audit reports). All cross-links resolve; no code; no TODO/placeholder.
+- **Product:** Nizam — the execution AI Operating System that lets a business build an **AI
+  Workforce without programming**. It runs intents from the external **Bayan** brain; it is *not*
+  a chatbot, *not* a RAG, and does *not* replace the brain.
+- **Governing document:** the [Constitution](./docs/CONSTITUTION.md) sits above every ADR and
+  document; non-technical stakeholders read [docs/PRODUCT_PRINCIPLES.md](./docs/PRODUCT_PRINCIPLES.md).
+- **Stack:** a **self-built, framework-independent native PHP 8.4 platform** — no Laravel, no
+  Symfony, no micro-framework on the runtime spine; only PSR **interface** packages, with every
+  cross-cutting concern behind a PSR contract we own ([ADR-0015](./docs/16-ADR.md#adr-0015)).
+- **Program:** a **12-phase**, dependency-ordered plan — see
+  [docs/15-Project-Roadmap.md](./docs/15-Project-Roadmap.md).
 
-## What was decided (canonical)
+## The 12-phase program (at a glance)
 
-- Modular monolith (service-extractable), Clean Architecture + DDD + Hexagonal per module,
-  Event-Driven by default.
-- PostgreSQL 16 with shared-schema **RLS** multi-tenancy (Pool/Bridge/Silo tiers), UUID v7,
-  soft delete, audit + event sourcing for critical aggregates.
-- Transactional Outbox → **NATS JetStream**; **n8n** as automation substrate behind an
-  Automation Engine + **Automation Selector**; Bayan reached via an Anti-Corruption Layer.
-- **Two-tier agent hierarchy**: Department Manager Agents (HR, Marketing, Sales, Finance,
-  Support, Developer, CEO) → Worker Agents, governed by the **Manager Audit** loop
-  (Approve / Reject / Retry / Request More Information / Run Another Worker). Only a Manager
-  returns the final result upward.
-- 12 bounded contexts; RBAC+ABAC; OpenAPI 3.1 REST + AsyncAPI events; non-technical-first
-  UX (Basic/Advanced mode, Wizards, mandatory Help Popups), bilingual AR/EN.
+1. Architecture Foundation — **complete**.
+2. Core Infrastructure Platform (self-built native-PHP framework) — **in progress**.
+3. AI Runtime Engine + Plugin Architecture + Master Orchestrator.
+4. Identity + Multi-Tenancy + Capability Engine.
+5. Tool Platform / SDK.
+6. Integration + Automation Platforms + n8n adapter.
+7. Department Framework (SDK + empty templates).
+8. AI Organization Designer (Manual / Suggestions / Assisted / Autonomous).
+9. AI Providers + Knowledge Platform + Memory Engine.
+10. Enterprise Platform + Marketplace + Billing + Observability + Release v1.0.
+11. Business Operating System Intelligence (observe/recommend only).
+12. Digital Employee Framework.
 
-Full rationale is recorded as ADRs in [docs/16-ADR.md](./docs/16-ADR.md).
+Full goals, deliverables, exit criteria, and dependencies are in
+[docs/15-Project-Roadmap.md](./docs/15-Project-Roadmap.md).
 
-## What does NOT exist yet (by design)
+## Current status
 
-Application code, runnable schema/migrations, service implementations, CI/CD, IaC, product
-UI screens, and the Bayan intent-contract implementation are all **Phase 2+** scope.
-Building any of them now would violate the Phase 1 boundary.
+**Phase 1 — Architecture Foundation: COMPLETE.** The Constitution is ratified; the full document
+set (`docs/00`–`docs/23`, plus the Constitution, product principles, roadmap, ADRs, and audits) is
+approved. Rationale is recorded as ADRs in [docs/16-ADR.md](./docs/16-ADR.md).
 
-## Open items for Phase 2 entry
+**Phase 2 — Core Infrastructure Platform: IN PROGRESS. The foundation spine is implemented and
+verified.** Delivered and test-green under `Nizam\Platform\*` and `Nizam\Kernel\*`:
 
-Bayan intent-contract schema (Q-01), secrets backend (Q-05), concrete SLO numbers, and
-data-residency regions — tracked in [docs/19-Assumptions.md](./docs/19-Assumptions.md).
+- **Support** — `Result` (typed success/failure), `Uuid` (v7), `SystemClock`, `Assert`, `Str`, `Json`, helpers.
+- **Exception** — typed exception hierarchy (`PlatformException` base, `ConfigException`, `InvalidArgumentException`).
+- **Container** — PSR-11 container with constructor autowiring.
+- **Config** — dot-access `Config` repository + `Env`.
+- **Event** — PSR-14 `EventDispatcher` + `ListenerProvider` (priority, stoppable).
+- **Logging** — PSR-3 `LogManager` + `Logger` with JSON-line handlers.
+- **Kernel/Domain** — DDD base: `Identifier` (UUID v7), `TenantId`, `UserId`, `AggregateRoot`, `Entity`, `ValueObject`, `DomainEvent`, `RecordsDomainEvents`, `Clock` port.
+- **Kernel/Application** — CQRS command/query buses (`SimpleCommandBus`, `SimpleQueryBus`).
+- **Kernel/Tenancy** — `TenantContext` (+ `RequestContext`).
+- **Bootstrap** — `Application` composition root wiring the foundation singletons via `CoreServiceProvider`.
+
+**Verification (this snapshot):** the unit suite is **green — 76 tests, 151 assertions passing on
+PHP 8.4.19 with PHPUnit 11.5.55** (`vendor/bin/phpunit`); `composer` PSR-4 autoload is clean; every
+`src/`/`tests/` folder carries a `README.md`.
+
+## What is the forward plan
+
+The remaining Phase-2 platform infrastructure — HTTP (PSR-7/17) + routing + middleware + HTTP
+kernel (PSR-15), the database layer (connection, query builder, schema/migrations, repositories,
+unit of work, tenant/RLS session), cache (PSR-16), queue, scheduler, validation, storage,
+localization, notifications, and monitoring — plus **Phases 3–12**, are the forward work, built in
+the same verified, dependency-ordered, test-green increments.
+
+## What does NOT exist yet
+
+Beyond the delivered foundation spine, the rest of the platform infrastructure and all of Phases
+3–12 (AI Runtime, plugins, Orchestrator, identity/tenancy, tools, integrations/automation,
+departments, the organization designer, providers/knowledge/memory, the enterprise
+platform/marketplace/billing, business intelligence, and the digital employee framework) are the
+forward plan — sequenced by dependency, each shipped only when compiled, test-green, and documented.
 
 ## Quality gate
 
-Cross-document consistency audit **passed** — see
+Every increment must satisfy Constitution §10: it compiles (`php -l`), its tests are green
+(`vendor/bin/phpunit`), each new folder has a `README.md`, and its documents are updated in the same
+change. The Phase-1 cross-document consistency audit passed — see
 [docs/audit/Architecture-Audit-Report.md](./docs/audit/Architecture-Audit-Report.md).
-
-> **STOP.** Phase 1 is complete. Await explicit approval before starting Phase 2
-> ([docs/NEXT_PHASE.md](./docs/NEXT_PHASE.md)).
 
 ## Related Documents
 
 - [README.md](./README.md) — Entry point and full index
+- [docs/CONSTITUTION.md](./docs/CONSTITUTION.md) — Supreme governing document
+- [docs/PRODUCT_PRINCIPLES.md](./docs/PRODUCT_PRINCIPLES.md) — Product/UX principles (non-technical)
+- [docs/15-Project-Roadmap.md](./docs/15-Project-Roadmap.md) — The 12-phase program
+- [docs/16-ADR.md](./docs/16-ADR.md) — Architecture Decision Records
 - [docs/20-Project-State.md](./docs/20-Project-State.md) — Detailed state
-- [docs/NEXT_PHASE.md](./docs/NEXT_PHASE.md) — Phase 2 plan
-- [docs/15-Project-Roadmap.md](./docs/15-Project-Roadmap.md) — All phases
 
 ## Change Log
 
 | Version | Date | Author | Change |
 |---------|------|--------|--------|
 | 1.0.0 | 2026-07-01 | Architecture (Nizam Core) | Initial top-level project state |
+| 2.0.0 | 2026-07-01 | Architecture (Nizam Core) | Moved from Phase 1 (docs-only, STOP gate) to active incremental build under the Constitution; recorded the 12-phase program, the self-built native PHP 8.4 stack (ADR-0015), and Phase-2 foundation spine implemented and verified (76 tests / 151 assertions green on PHP 8.4.19 + PHPUnit 11). |
