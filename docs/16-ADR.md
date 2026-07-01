@@ -27,7 +27,11 @@ Each record follows a standard ADR format: **Title, Status, Context, Decision, C
 | ADR-0011 | Soft delete + audit columns + event sourcing for critical aggregates | Accepted |
 | ADR-0012 | Basic/Advanced mode + Wizard-driven UX | Accepted |
 | ADR-0013 | Tenant tiers: Pool / Bridge / Silo | Accepted |
-| ADR-0014 | Native PHP on PSR standards (framework-agnostic) | Accepted |
+| ADR-0014 | Native PHP on PSR standards (framework-agnostic) | Superseded by ADR-0015 |
+| ADR-0015 | Self-built Native PHP 8.4 platform framework (no Laravel/Symfony) | Accepted |
+| ADR-0016 | Plugin-based Agent architecture (Managers/Workers/Tools as plugins) | Accepted |
+| ADR-0017 | Single Master Orchestrator as the sole execution entry point | Accepted |
+| ADR-0018 | AI Runtime Execution Engine with an explicit execution state machine | Accepted |
 
 ---
 
@@ -339,6 +343,95 @@ The operator console remains a **decoupled Next.js SPA** over the REST API; fron
 
 ---
 
+## ADR-0015 — Self-Built Native PHP 8.4 Platform Framework (No Laravel/Symfony)
+
+**Status:** Accepted
+
+**Context.** ADR-0014 fixed native PHP on PSR standards and permitted select Composer libraries (including Symfony *components*) behind ports. The owner has since mandated a stronger posture: a **framework-independent Native PHP 8.4 enterprise platform** in which **no framework lives inside the core** — no Laravel, no Symfony full-stack, and no micro-framework acting as the runtime spine. The platform itself *is* our framework. The AI Runtime (ADR-0018) needs full control over the execution model — request lifecycle, middleware ordering, container wiring, event dispatch, queueing, and scheduling — which a third-party framework's opinions would constrain. The team standardizes on **PSR interface packages only** (PSR-1, PSR-4, PSR-7, PSR-11, PSR-12, PSR-14, PSR-15, PSR-16, plus PSR-3 logging and PSR-20 clock), with **Composer used for dependency management only**. This decision **supersedes ADR-0014**: rather than assembling cross-cutting infrastructure from external framework pieces, we build our own HTTP, Routing, Middleware, DI Container, Events, Queue, Scheduler, Database/ORM layer, Configuration, Service Container, and Module/Plugin Loader.
+
+**Decision.** Build **all** cross-cutting infrastructure ourselves under `Nizam\Platform\*` (HTTP kernel, router, middleware pipeline, DI/service container, event dispatcher, queue, scheduler, database/ORM layer, configuration, and the module/plugin loader), depending only on **`psr/*` INTERFACE packages** so every component sits behind a PSR contract and is replaceable. The **domain and application layers depend on nothing but PHP and our Kernel**; concrete libraries, where genuinely warranted, are confined to `Infrastructure/` adapters behind ports (ADR-0007). Every Platform component implements or exposes the relevant PSR interface (e.g., the container is `Psr\Container`, HTTP is `Psr\Http\Message` + `Psr\Http\Server`, events are `Psr\EventDispatcher`, caching is `Psr\SimpleCache`, the clock is `Psr\Clock`) so an alternative implementation can be substituted without touching callers.
+
+**Consequences.**
+- (+) Zero framework lock-in and total replaceability: every cross-cutting concern lives behind a PSR contract we own.
+- (+) Honors Clean/Hexagonal purity — the domain depends only on PHP and the Kernel, giving the AI Runtime the execution-model control it requires.
+- (+) Full authority over lifecycle, dispatch, and scheduling, unconstrained by a third party's conventions or release cadence.
+- (−) We own more code and must build and maintain our own HTTP, DB, queue, and scheduler layers — a higher initial cost than adopting a framework.
+- (−) Correctness now rests on us: mandates rigorous testing (**PHPUnit**) and static analysis (**PHPStan max**), plus disciplined review gates to keep the hand-built platform sound.
+
+**Alternatives considered.**
+- **Laravel (full framework):** rejected — framework coupling (Eloquent active-record, facades, service-provider conventions) contradicts Clean Architecture; the owner explicitly forbade it.
+- **Symfony full-stack:** rejected — same coupling and lock-in concerns; the owner's mandate excludes any full-stack framework in the core.
+- **Slim / Mezzio (PSR micro-frameworks):** rejected — still an external framework dependency on the core's execution path; individual PSR-compatible libraries MAY be used, but only behind ports in `Infrastructure/`, never as the runtime spine.
+
+This ADR **supersedes ADR-0014** and **reaffirms and extends ADR-0007** (Clean Architecture + DDD + Hexagonal): the "framework-agnostic" intent of ADR-0014 is strengthened into "framework-independent," with the platform itself as the framework.
+
+---
+
+## ADR-0016 — Plugin-Based Agent Architecture (Managers, Workers, Tools, Integrations, Automations, Departments are Plugins)
+
+**Status:** Accepted
+
+**Context.** Future companies must **install, disable, replace, and upgrade** Agents and capabilities **without modifying the Core**, and the Core must never hardcode any business agent. A hardcoded set of managers, workers, and tools would force a core release for every new capability, block third-party and marketplace extension, and violate the open/closed principle. The platform needs a uniform way to discover executable capabilities, validate them, resolve their dependencies, govern their permissions, and manage their lifecycle at runtime.
+
+**Decision.** Make **everything extensible a versioned Plugin** with a **Manifest**, discovered and loaded by a **Plugin Loader/Registry**. The plugin subsystem provides: discovery, manifest validation, **SemVer** versioning, dependency resolution, permission/capability declarations, lifecycle management (**install / enable / disable / update / uninstall**), health checks, and isolation. **Managers, Workers, Tools, Integrations, Automations, and Departments are all plugin *kinds***, each implementing a typed contract from a stable **Plugin SDK**. The Core depends only on those contracts, never on concrete plugin implementations; capabilities are wired in at load time through the Registry.
+
+**Consequences.**
+- (+) An open/closed Core — new capabilities arrive as plugins, never as core edits.
+- (+) Marketplace-ready and third-party-extensible: capabilities are hot-swappable and independently upgradeable via SemVer.
+- (+) Uniform governance — every capability declares its permissions/capabilities and passes the same validation and lifecycle gates.
+- (−) Plugin isolation and validation are **security-critical**: an untrusted plugin is an attack surface that must be sandboxed and permission-scoped.
+- (−) Versioning and dependency resolution add real complexity, and the whole model depends on keeping the **Plugin SDK contract stable**.
+
+**Alternatives considered.**
+- **Hardcoded modules:** rejected — violates open/closed; no capability can be added or upgraded without a core change and release.
+- **Config-only extension:** rejected — configuration can toggle behavior but cannot supply new executable behavior (a Worker's or Tool's logic), which agents fundamentally require.
+- **Microkernel-with-services (distributed):** deferred — the plugin model delivers the needed extensibility without premature distribution; revisitable if isolation or scaling demands out-of-process plugins.
+
+---
+
+## ADR-0017 — Single Master Orchestrator as the Sole Execution Entry Point
+
+**Status:** Accepted
+
+**Context.** Every execution must be **uniformly validated, authorized, tenant-scoped, audited, metered, and observable**. If executions could enter the Runtime through ad-hoc paths — a controller here, an event consumer there, a worker invoking another worker directly — those guarantees would fragment: some paths would skip authorization, others would miss metering or audit, and reasoning about "what actually ran and who allowed it" would become intractable. A single, uniform choke point is required to make governance total rather than best-effort.
+
+**Decision.** Route **every** execution request through **ONE central Master Orchestrator**, the **only** path into the Runtime. For each request it: validates the request; loads tenant/user/permissions/department context; loads the appropriate **Manager plugin**; dispatches **Worker plugins**; coordinates them; collects and merges their results; evaluates confidence; triggers retries or additional workers as needed; and returns the Manager's decision. **Workers never talk to users, to each other, or to automation engines directly** — all communication passes through the Orchestrator and the Runtime. **Only Managers communicate back to Bayan** (via the Bayan Gateway, ADR-0006).
+
+**Consequences.**
+- (+) A single choke point for security, authorization, audit, cost/metering, and consistency — every execution is governed identically.
+- (+) Simpler reasoning about execution: there is exactly one entry point and one decision authority per request.
+- (−) The Orchestrator must not become a **god-object**; this is mitigated by delegating heavy lifting to Runtime services and the execution state machine (ADR-0018) rather than absorbing logic itself.
+- (−) As the sole entry point it must be **horizontally scalable** and engineered so it is not a throughput bottleneck or a single point of failure.
+
+**Alternatives considered.**
+- **Direct worker invocation:** rejected — no uniform governance; each caller would re-implement (and inconsistently) validation, authorization, audit, and metering.
+- **Choreographed agents via events only:** rejected as the control spine — harder to audit and to guarantee a single decision authority; events remain in use for side effects, but not as the mechanism that controls and decides an execution.
+- **Per-department orchestrators:** rejected for now — duplicates governance across many orchestrators and risks drift; **departments plug into the one Orchestrator** (ADR-0016) instead of each owning its own.
+
+---
+
+## ADR-0018 — AI Runtime Execution Engine with an Explicit Execution State Machine
+
+**Status:** Accepted
+
+**Context.** Executions are **long-running, multi-step, and failure-prone**. They must be **retryable, recoverable, replayable, auditable, cost- and performance-tracked, and observable**. Encoding execution progress in implicit status flags scattered across tables makes state transitions ambiguous, race-prone, and impossible to audit or replay. The Runtime that the Master Orchestrator (ADR-0017) drives needs a rigorous, explicit model of *where an execution is* and *which transitions are legal*, so that failures can be recovered and histories can be reconstructed exactly.
+
+**Decision.** Build a **Runtime Execution Engine** driven by an **explicit, persisted state machine** with the states **Pending, Planning, Assigned, Waiting, Running, Retrying, Review, Approved, Rejected, Cancelled, Completed, Failed, Recovered** and **only legal transitions** between them. Each execution carries a **Context, Session, Pipeline, Timeline, Metadata, and History**, backed by a **persisted store**, with **cost and performance trackers** and **retry/timeout/lock managers**, plus **recovery and replay**. **Every transition emits an event on the Event Bus** (ADR-0004). Execution history is **event-sourced**, enabling **replay and audit** in line with ADR-0011 (event sourcing for critical aggregates).
+
+**Consequences.**
+- (+) Deterministic, auditable, recoverable executions: legal transitions and a persisted store make state unambiguous.
+- (+) Replay of event-sourced history enables debugging and exact reconstruction; transition events provide natural metering and monitoring hooks.
+- (+) Retry, timeout, lock, and recovery managers make long-running, failure-prone executions robust rather than fragile.
+- (−) More moving parts and persistence overhead than implicit status flags.
+- (−) State-machine **legality and idempotency** must be rigorously tested — unit, replay, recovery, and concurrency tests — since illegal transitions or non-idempotent steps would corrupt execution state.
+
+**Alternatives considered.**
+- **Implicit/ad-hoc status flags:** rejected — unauditable and race-prone; transitions become implicit and impossible to replay or recover deterministically.
+- **External workflow engine for internal execution:** rejected — that is **n8n's role for *automations*** (ADR-0005), not for the Runtime's own control spine; the Runtime **owns its execution** and must not delegate its control to an external engine.
+- **Full event-sourcing of all state everywhere:** rejected — excessive complexity for CRUD-style state; event sourcing is **scoped to executions** (and other critical aggregates) per ADR-0011.
+
+---
+
 ## Related Documents
 
 - `docs/00-Vision.md` — Product vision.
@@ -355,3 +448,4 @@ The operator console remains a **decoupled Next.js SPA** over the REST API; fron
 | Version | Date | Author | Change |
 |---------|------|--------|--------|
 | 1.0.0 | 2026-07-01 | Architecture (Nizam Core) | Initial ADR log: ADR-0001 through ADR-0013 recorded and Accepted. |
+| 2.0.0 | 2026-07-01 | Architecture (Nizam Core) | Added ADR-0015 (self-built Native PHP 8.4 platform framework), ADR-0016 (plugin-based Agent architecture), ADR-0017 (single Master Orchestrator entry point), and ADR-0018 (AI Runtime Execution Engine with explicit state machine), all Accepted; ADR-0014 superseded by ADR-0015. |

@@ -1,0 +1,28 @@
+# Dependencies (restored via `composer install`)
+/vendor/
+
+# PHPUnit
+/.phpunit.cache/
+/.phpunit.result.cache
+/coverage/
+
+# Tooling caches
+/.php-cs-fixer.cache
+/.phpstan.cache/
+
+# Environment / secrets — never commit real secrets
+/.env
+/.env.*.local
+
+# Local storage / runtime artifacts
+/storage/framework/cache/*
+/storage/framework/tmp/*
+/storage/logs/*
+!/storage/**/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
