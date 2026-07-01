@@ -20,6 +20,9 @@
 /storage/logs/*
 !/storage/**/.gitkeep
 
+# Local workflow scripts (orchestration only, not product code)
+/scratch-*.js
+
 # OS / editor
 .DS_Store
 Thumbs.db
