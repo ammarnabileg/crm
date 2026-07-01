@@ -8,6 +8,7 @@
 /** @var list<array<string,mixed>> $interviews */
 /** @var array<string,mixed>|null $assessment */
 /** @var array{score:int,band:string,components:list<array<string,mixed>>} $health */
+/** @var array<string,mixed> $intelligence */
 /** @var array<string,array{label:string,weight:int}> $skillCatalog */
 /** @var int|null $score */
 
@@ -23,6 +24,7 @@ $bandMeta = [
 $initial = mb_strtoupper(mb_substr(trim((string) $profile['name']) ?: '?', 0, 1));
 $tabs = [
     'overview' => 'Overview',
+    'intelligence' => 'Intelligence',
     'first_impression' => 'First Impression',
     'assessment' => 'Assessment',
     'applications' => 'Applications & Interviews',
@@ -176,6 +178,96 @@ $lbl = 'text-xs font-semibold uppercase tracking-wide text-slate-400';
                             </li>
                         <?php endforeach; ?>
                     </ol>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- ── Intelligence (360° brief, reuses prior analysis — zero AI) ─ -->
+        <div <?= $panel('intelligence') ?>>
+            <?php $iq = $intelligence ?? []; ?>
+            <?php if (empty($iq['has_data'])): ?>
+                <div class="<?= $card ?> text-sm text-slate-400">Not enough data yet — the 360° brief fills in from CV analysis, AI/human interviews, and platform activity as they happen.</div>
+            <?php else:
+                $chip = 'inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600';
+                $prob = $iq['probability_of_success'];
+                $probTone = $prob['percent'] >= 68 ? 'text-emerald-600' : ($prob['percent'] >= 50 ? 'text-amber-600' : 'text-rose-600');
+                $list = static function (array $items, string $tone) {
+                    if ($items === []) { echo '<p class="text-sm text-slate-400">—</p>'; return; }
+                    echo '<ul class="space-y-1 text-sm ' . $tone . '">';
+                    foreach ($items as $i) { echo '<li class="flex gap-2"><span class="select-none">•</span><span>' . e($i) . '</span></li>'; }
+                    echo '</ul>';
+                };
+            ?>
+                <div class="space-y-4">
+                    <!-- Executive summary + probability -->
+                    <div class="<?= $card ?>">
+                        <div class="flex flex-wrap items-start justify-between gap-4">
+                            <div class="min-w-0 flex-1">
+                                <h2 class="<?= $h2 ?>">Executive Summary</h2>
+                                <p class="text-sm text-slate-600"><?= e($iq['executive_summary']) ?></p>
+                            </div>
+                            <div class="shrink-0 text-center">
+                                <div class="text-3xl font-bold <?= $probTone ?>"><?= (int) $prob['percent'] ?>%</div>
+                                <div class="text-[11px] uppercase tracking-wide text-slate-400">Probability of success</div>
+                                <div class="text-xs font-medium text-slate-500"><?= e($prob['band']) ?></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div class="<?= $card ?>"><h2 class="<?= $h2 ?>">Strengths</h2><?php $list($iq['strengths'], 'text-emerald-700'); ?></div>
+                        <div class="<?= $card ?>"><h2 class="<?= $h2 ?>">Weaknesses</h2><?php $list($iq['weaknesses'], 'text-amber-700'); ?></div>
+                        <div class="<?= $card ?>"><h2 class="<?= $h2 ?>">Risks</h2><?php $list($iq['risks'], 'text-rose-700'); ?></div>
+                        <div class="<?= $card ?>"><h2 class="<?= $h2 ?>">Interview Focus Areas</h2><?php $list($iq['interview_focus_areas'], 'text-slate-600'); ?></div>
+                    </div>
+
+                    <div class="grid gap-4 md:grid-cols-3">
+                        <div class="<?= $card ?>"><h2 class="<?= $h2 ?>">Culture Fit</h2><p class="text-sm text-slate-600"><?= e($iq['culture_fit']) ?></p></div>
+                        <div class="<?= $card ?>"><h2 class="<?= $h2 ?>">Leadership</h2><p class="text-sm text-slate-600"><?= e($iq['leadership']) ?></p></div>
+                        <div class="<?= $card ?>"><h2 class="<?= $h2 ?>">Communication</h2><p class="text-sm text-slate-600"><?= e($iq['communication']) ?></p></div>
+                    </div>
+
+                    <!-- Technical depth -->
+                    <div class="<?= $card ?>">
+                        <h2 class="<?= $h2 ?>">Technical Depth <span class="font-normal text-slate-400">— <?= e($iq['technical_depth']['label']) ?></span></h2>
+                        <?php if ($iq['technical_depth']['top_skills'] !== []): ?>
+                            <div class="mb-2 flex flex-wrap gap-1.5">
+                                <?php foreach ($iq['technical_depth']['top_skills'] as $sk): ?><span class="<?= $chip ?>"><?= e($sk) ?></span><?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                        <?php if ($iq['technical_depth']['stacks'] !== []): ?>
+                            <p class="text-xs text-slate-400">Stacks: <?= e(implode(', ', $iq['technical_depth']['stacks'])) ?></p>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div class="<?= $card ?>">
+                            <h2 class="<?= $h2 ?>">Recommended Jobs</h2>
+                            <?php if ($iq['recommended_jobs'] === []): ?>
+                                <p class="text-sm text-slate-400">No strong matches among open roles.</p>
+                            <?php else: ?>
+                                <ul class="space-y-2">
+                                    <?php foreach ($iq['recommended_jobs'] as $j): ?>
+                                        <li class="flex items-center justify-between text-sm">
+                                            <a href="/jobs/<?= e($j['job_id']) ?>" class="font-medium text-indigo-600 hover:underline"><?= e($j['title']) ?></a>
+                                            <span class="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700"><?= (int) $j['match'] ?>% match</span>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php endif; ?>
+                        </div>
+                        <div class="<?= $card ?>">
+                            <h2 class="<?= $h2 ?>">Recommended Salary</h2>
+                            <?php if ($iq['recommended_salary'] === null): ?>
+                                <p class="text-sm text-slate-400">Not enough salary signal yet.</p>
+                            <?php else: ?>
+                                <p class="text-lg font-semibold text-slate-900"><?= e($iq['recommended_salary']['range']) ?></p>
+                                <p class="text-xs text-slate-400">Basis: <?= e($iq['recommended_salary']['basis']) ?></p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-400">Assembled from existing analysis (CV, interviews, activity) — advisory only, a human decides. No additional AI was spent.</p>
                 </div>
             <?php endif; ?>
         </div>

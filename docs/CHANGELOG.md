@@ -11,6 +11,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added — Candidate 360° Intelligence brief (reuses prior analysis, zero extra AI)
+- A hiring brief on the candidate page assembling **Executive Summary, Strengths,
+  Weaknesses, Risks, Culture Fit, Leadership, Communication, Technical Depth,
+  Recommended Jobs, Recommended Salary, Probability of Success, and Interview Focus
+  Areas** — all **re-projected from data already gathered**: the latest AI
+  assessment (summary / strengths / weaknesses / red-flags / behaviour / per-skill
+  scores), normalised profile fields, human interview ratings, open jobs, and the
+  unified Health Score (Probability of Success). `CandidateIntelligenceService`
+  spends **no fresh AI**; Recommended Jobs ranks open roles by skill overlap
+  (excluding already-applied), Recommended Salary derives from the candidate's
+  expectation or the workspace's own salary bands, and Interview Focus Areas are
+  built from weaknesses, risks and low-scoring skills. New “Intelligence” tab on the
+  candidate profile. Tests: +3 feature (assemble-all-sections, empty, workspace
+  isolation).
+
 ### Added — unified Candidate Health Score (reuses existing analyses, zero extra AI)
 - One 0-100 score per candidate blending the signals the platform has **already
   computed** — Job Match (heaviest), Resume Quality, Experience, Skills, Learning,
