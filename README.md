@@ -83,11 +83,12 @@ Phase 1 is architecture and documentation only. The full document set:
 | — | [docs/NEXT_PHASE.md](./docs/NEXT_PHASE.md) | Phase 2 plan and entry criteria |
 | 21 | [docs/21-Database-Design.md](./docs/21-Database-Design.md) | ERD, tables, constraints (design only) |
 | 22 | [docs/22-UIUX-Guidelines.md](./docs/22-UIUX-Guidelines.md) | Non-technical UX, wizards, Basic/Advanced mode, AR/EN |
+| 23 | [docs/23-Agent-Hierarchy.md](./docs/23-Agent-Hierarchy.md) | Department Managers, Worker Agents, Automation Selector, Manager Audit loop |
 | A | [docs/audit/Architecture-Audit-Report.md](./docs/audit/Architecture-Audit-Report.md) | Independent architecture audit |
 | A | [docs/audit/Missing-Items-Report.md](./docs/audit/Missing-Items-Report.md) | Gap analysis / missing items |
 | A | [docs/audit/Risks-Report.md](./docs/audit/Risks-Report.md) | Risk register and mitigations |
 
-> All documents listed above (00–22, `NEXT_PHASE.md`, and the three audit reports) are authored and approved as part of the Phase 1 deliverable set. This index is the complete, canonical map of the architecture.
+> All documents listed above (00–23, `NEXT_PHASE.md`, and the three audit reports) are authored and approved as part of the Phase 1 deliverable set. This index is the complete, canonical map of the architecture.
 
 ---
 

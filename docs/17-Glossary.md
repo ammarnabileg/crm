@@ -49,6 +49,8 @@
 
 **Automation Run** — The `AutomationRun` aggregate: one execution of a `WorkflowDefinition`, with run steps, retries, and compensation steps.
 
+**Automation Selector** — A component of the **Automation** context, invoked by a **Worker Agent** through the **Tool Registry**, that chooses the best automation to fulfil a worker task (an n8n workflow, a direct tool adapter, or a composed automation) based on capability match, cost, reliability, and tenant permissions. See `23-Agent-Hierarchy.md`.
+
 **Audit Log** — An append-only record of significant actions (`audit_log` table) complementing domain events. Critical aggregates (agent runs, tool executions, automations) additionally use event sourcing.
 
 ## B
@@ -89,6 +91,10 @@
 
 ## D
 
+**Department** — A first-class grouping in the Agents context (HR, Marketing, Sales, Finance, Support, Developer, CEO). Each department has exactly one **Department Manager Agent** and a set of **Worker Agents**. See `23-Agent-Hierarchy.md`.
+
+**Department Manager Agent** — The single orchestrating agent of a **Department**. It receives the department's intent, decomposes it into worker tasks, dispatches **Worker Agents**, runs the **Manager Audit**, and is the *only* agent allowed to return the final result upward. A Manager-led execution is an `AgentRun` composed of Worker sub-runs.
+
 **Dependency Rule** — Core rule of Clean Architecture: source-code dependencies point *only* inward. The domain depends on nothing; infrastructure/interface depend on application/domain via ports.
 
 **DLQ (Dead-Letter Queue)** — A queue that receives messages/jobs which have exhausted their retries, so failures are inspectable rather than silently lost (used in Notifications and event consumers).
@@ -102,6 +108,8 @@
 **EDA (Event-Driven Architecture)** — The style in which state changes emit events (via the Outbox) and other contexts react asynchronously over the broker. Async by default; synchronous only for direct request/response user actions.
 
 **Entity** — A domain object with a stable identity (`id`, UUID v7) and a lifecycle; compared by identity, not attribute values.
+
+**Evidence (Worker Evidence)** — The structured, auditable proof a **Worker Agent** returns after executing a task (what it did, inputs/outputs, automation used, artifacts). Evidence is what the **Manager Audit** reviews before approving. Modeled as the `WorkerEvidence` value object; see `23-Agent-Hierarchy.md`.
 
 **Event Sourcing** — Persisting an aggregate's state as an ordered sequence of events. Used for critical aggregates: agent runs, tool executions, automations.
 
@@ -132,6 +140,8 @@
 **LlmProvider (port)** — The Core/Gateway port abstracting LLM access for when *Nizam itself* calls a model (e.g., tool-argument synthesis). Default adapter targets the **Anthropic Claude API** (latest Claude models) and is replaceable.
 
 ## M
+
+**Manager Audit** — The review loop a **Department Manager Agent** runs over Worker **Evidence**. The Manager may **Approve**, **Reject**, **Retry**, **Request More Information**, or **Run Another Worker**; only **Approve** releases the final result upward. Every decision is event-sourced (`AuditDecision`). See `23-Agent-Hierarchy.md`.
 
 **Manifest** — The declarative descriptor (metadata + JSON Schema + capability/permission info) that registers a plugin — a Tool, Integration connector, or agent skill — against a stable contract. Versioned via SemVer.
 
@@ -226,6 +236,8 @@
 ## W
 
 **Wizard** — A guided, multi-step UI flow used instead of long forms for complex settings, so non-technical users can complete configuration step-by-step. A UI/UX rule from the canon.
+
+**Worker Agent** — A **Worker Agent** owned by exactly one **Department Manager Agent**. Workers execute tasks independently, may collaborate with peer workers, choose the best automation via the **Automation Selector**, and return **Evidence**. Modeled as an `AgentRun` (a Worker sub-run). See `23-Agent-Hierarchy.md`.
 
 **Workflow** — A `WorkflowDefinition` in the Automation context: triggers plus ordered step bindings executed (via n8n) as an `AutomationRun`.
 

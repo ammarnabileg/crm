@@ -50,12 +50,14 @@ any Phase 2 (build) work begins.
 | 20 | `20-Project-State.md` | ✅ Done | This document |
 | 21 | `21-Database-Design.md` | ✅ Done | ERD, entities, constraints, indexing — design only |
 | 22 | `22-UIUX-Guidelines.md` | ✅ Done | Non-technical UX, Help Popup, Wizard, modes |
+| 23 | `23-Agent-Hierarchy.md` | ✅ Done | Department Managers, Worker Agents, Automation Selector, Manager Audit loop |
+| — | `PROJECT_STATE.md` (root) | ✅ Done | Executive state dashboard (points here for detail) |
 | — | `NEXT_PHASE.md` | ✅ Done | Phase 2 plan and entry criteria |
 | A | `docs/audit/Architecture-Audit-Report.md` | ✅ Done | Independent architecture audit |
 | A | `docs/audit/Missing-Items-Report.md` | ✅ Done | Gap analysis |
 | A | `docs/audit/Risks-Report.md` | ✅ Done | Consolidated risk report |
 
-**Deliverable completion: 28 / 28 (100%).**
+**Deliverable completion: 30 / 30 (100%)** — the original 28 plus `23-Agent-Hierarchy.md` and the root `PROJECT_STATE.md`.
 
 ## 3. Canonical Decisions Locked in Phase 1
 
@@ -73,6 +75,11 @@ phase must obey.
   Automation Engine.
 - **AI access:** Bayan via an Anti-Corruption Layer (Bayan Gateway); Nizam's own LLM
   calls via a replaceable `LlmProvider` port (Claude / Anthropic API, latest models).
+- **Agent organization:** two-tier hierarchy inside the Agents context — one
+  **Department Manager Agent** per department (HR, Marketing, Sales, Finance, Support,
+  Developer, CEO) owning multiple **Worker Agents**; workers pick automations via the
+  **Automation Selector**; the **Manager Audit** loop (Approve/Reject/Retry/Request-More-
+  Info/Run-Another-Worker) gates the final response. See `23-Agent-Hierarchy.md`.
 - **Bounded contexts (12):** Core, Identity & Access, Agents, Tools, Automation,
   Integrations, AI (Bayan Gateway), Billing, Monitoring & Observability, Settings,
   Notifications, Administration.

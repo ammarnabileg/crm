@@ -37,6 +37,33 @@ An agent is best understood as a **typed, permissioned runtime process** that bi
 
 ---
 
+## 2A. Agent Organization: Department Managers & Workers
+
+Agents in Nizam are organized as a **two-tier hierarchy**, not a flat pool. This is the
+governing structure for how intents are executed and audited:
+
+- **Department Manager Agents** — exactly one per department (HR, Marketing, Sales,
+  Finance, Support, Developer, CEO). A Manager receives the intent routed to its
+  department, decomposes it into worker tasks, dispatches Worker Agents, coordinates
+  their collaboration, runs the **Manager Audit**, and is the **only** agent permitted to
+  return the final result upward.
+- **Worker Agents** — each owned by exactly one Manager (e.g., the HR Manager owns CV
+  Screening, Recruitment, Interview, Offer, and Onboarding agents). Workers execute
+  independently, may collaborate, choose the best automation via the **Automation
+  Selector**, and return **evidence** of what they did.
+
+The canonical internal execution chain is therefore:
+
+`Bayan → Nizam → Department Manager Agent → Worker Agents → Tool Registry → Automation Selector → n8n → Results → Manager Audit → Return Response`
+
+The `AgentDefinition`/`AgentRun` model in this document is the substrate: a Manager and a
+Worker are agent **kinds/roles**, and a Manager-led execution is an `AgentRun` composed of
+Worker sub-runs. The full specification of departments, workers, collaboration, the
+Automation Selector, and the Manager Audit state machine lives in
+**[23-Agent-Hierarchy.md](./23-Agent-Hierarchy.md)** — read it alongside this document.
+
+---
+
 ## 3. Agent Anatomy
 
 An agent is defined by six declarative facets. Together they form the `AgentDefinition` aggregate (see §6).
@@ -322,6 +349,7 @@ Agent capabilities are extended through **skills** registered as plugins against
 
 ## Related Documents
 
+- **[23-Agent-Hierarchy.md](23-Agent-Hierarchy.md)** — Department Managers, Worker Agents, Automation Selector, and the Manager Audit loop (deepens this doc).
 - **[00-Vision.md](00-Vision.md)** — Nizam vision and the Bayan/Nizam split.
 - **[05-Bounded-Contexts.md](05-Bounded-Contexts.md)** — Intent contract & the ACL that feeds this context (intent intake).
 - **[07-Tool-Architecture.md](07-Tool-Architecture.md)** — the Tool Registry that agent steps invoke.

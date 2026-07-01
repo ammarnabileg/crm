@@ -8,8 +8,8 @@
 
 ## 1. Scope of Audit
 
-This audit covers the complete Phase 1 deliverable set: `README.md`, `docs/00`–`docs/22`,
-`docs/NEXT_PHASE.md`, and this `docs/audit/` set. It checks:
+This audit covers the complete Phase 1 deliverable set: `README.md`, `PROJECT_STATE.md`,
+`docs/00`–`docs/23`, `docs/NEXT_PHASE.md`, and this `docs/audit/` set. It checks:
 
 - Completeness against the mandated deliverables list.
 - Compliance with the Project Constitution (no code, no TODO/placeholder, docs-only).
@@ -29,7 +29,7 @@ This audit covers the complete Phase 1 deliverable set: `README.md`, `docs/00`�
 
 ## 3. Summary Verdict
 
-**PASS.** The Phase 1 deliverable set is complete (28/28 deliverables), internally
+**PASS.** The Phase 1 deliverable set is complete (30/30 deliverables), internally
 consistent, constitution-compliant, and free of application code. All findings raised
 during the audit were remediated before sign-off. Residual items are limited to
 intentionally deferred decisions, tracked as open questions — not defects.
@@ -39,13 +39,14 @@ intentionally deferred decisions, tracked as open questions — not defects.
 | Area | Required | Present | Result |
 |------|----------|---------|--------|
 | Core docs 00–20 | 21 | 21 | ✅ |
-| Extra design docs (21, 22) | 2 | 2 | ✅ |
-| `README.md`, `NEXT_PHASE.md` | 2 | 2 | ✅ |
+| Extra design docs (21, 22, 23) | 3 | 3 | ✅ |
+| `README.md`, `PROJECT_STATE.md`, `NEXT_PHASE.md` | 3 | 3 | ✅ |
 | Audit reports (3) | 3 | 3 | ✅ |
 | Architecture required sections (03) | 18 | 18 | ✅ |
 | Database design elements | 9 | 9 | ✅ |
 | DDD bounded contexts | 12 | 12 | ✅ |
-| Diagrams (Mermaid) | — | 68 | ✅ |
+| Agent hierarchy (Managers/Workers/Audit/Selector) | 1 doc | `23` | ✅ |
+| Diagrams (Mermaid) | — | 86 | ✅ |
 
 ## 5. Constitution Compliance
 
@@ -69,7 +70,9 @@ intentionally deferred decisions, tracked as open questions — not defects.
 | C-03 | Medium | Security references pointed to non-existent `16-Security.md` / `13-Security.md`. | ✅ Fixed — remapped to `10-Security-Strategy.md`. |
 | C-04 | Low | References to non-existent `15-Deployment.md`, `18-Deployment.md`, `15-Observability.md`, `17-Error-Catalog.md`. | ✅ Fixed — remapped to `03-Architecture.md` (deployment/scaling, monitoring, error-handling strategies live there). |
 | C-05 | Low | Constitution links pointed to non-existent `12-Constitution.md`. | ✅ Fixed — repointed to root `README.md` (where the constitution is published). |
-| C-06 | Info | Header block present in all docs but formatted with bold markers, initially failing a plain-string check. | ✅ Confirmed present and consistent across all 24 docs. |
+| C-06 | Info | Header block present in all docs but formatted with bold markers, initially failing a plain-string check. | ✅ Confirmed present and consistent across all docs. |
+| C-07 | Medium | The `README.md` documentation index initially used an invented doc-numbering scheme (e.g., `05-Domain-Model.md`, `16-Security.md`) that did not match the canonical deliverable filenames — 15 broken index links. | ✅ Fixed — index rewritten to the canonical `00`–`23` filenames; every index link resolves. |
+| C-08 | Info | Second-spec refinement: a two-tier **agent hierarchy** (Department Manager Agents → Worker Agents), a **Manager Audit** loop, and an **Automation Selector** were introduced. | ✅ Incorporated — new `23-Agent-Hierarchy.md`; `01`, `03`, `06`, `17`, `20`, `README` updated for consistency; no contradiction with `06`. |
 
 **Post-remediation link check:** every `.md` cross-link resolves to an existing file.
 No broken links remain.

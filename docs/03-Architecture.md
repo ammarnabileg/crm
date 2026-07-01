@@ -248,13 +248,13 @@ The canonical **9-step execution flow** (reused across sequence and data-flow di
 
 1. **User** speaks/acts → **Bayan** (brain) interprets → emits a structured **Intent**.
 2. **Bayan Gateway** validates the Intent contract and attaches **tenant context**.
-3. **Nizam Kernel** routes the Intent to the **Agent Framework**.
-4. The **Agent** selects a plan; each plan step resolves to a **Tool** from the **Tool Registry** (permission-checked, tenant-scoped).
-5. A Tool call may be a **direct adapter call** OR **delegate to the Automation Engine**.
-6. The **Automation Engine** executes via **n8n**, which talks to **External Systems**.
+3. **Nizam Kernel** routes the Intent to the **Agent Framework**, which dispatches it to the responsible **Department Manager Agent** (HR, Marketing, Sales, Finance, Support, Developer, or CEO).
+4. The **Manager** decomposes the intent into tasks and dispatches **Worker Agents**; each worker resolves its steps to a **Tool** from the **Tool Registry** (permission-checked, tenant-scoped) and picks the best automation via the **Automation Selector**.
+5. A Tool call may be a **direct adapter call** OR **delegate to the Automation Engine** (selected automation).
+6. The **Automation Engine** executes via **n8n**, which talks to **External Systems**; workers collect **evidence** of what was done.
 7. Every step **emits domain/integration events** (outbox → NATS) → **Monitoring**, **Billing** (metering), **Notifications**, **Audit** react asynchronously.
-8. The **result flows back up**: n8n → Automation → Tool → Agent → Gateway → Bayan → User.
-9. **Failures** trigger retries (idempotency keys) and **Saga compensation**; everything is observable.
+8. Workers return evidence to the **Manager**, which runs the **Manager Audit** (Approve / Reject / Retry / Request More Information / Run Another Worker). Only on **Approve** does the **result flow back up**: Manager → Agent Framework → Gateway → Bayan → User.
+9. **Failures** trigger retries (idempotency keys), Manager-driven re-dispatch, and **Saga compensation**; everything is observable. The full hierarchy and audit state machine are specified in [23-Agent-Hierarchy.md](./23-Agent-Hierarchy.md).
 
 ---
 
