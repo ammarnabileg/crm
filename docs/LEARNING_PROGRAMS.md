@@ -129,6 +129,16 @@ subscription re-enables it, at which point every program, enrollment and
 certificate reappears. The architecture leaves room for a free tier / trial
 (the gate is a single check, easily relaxed per plan).
 
+## 6d. Analytics & dashboards
+
+A read-only **`LearningAnalyticsService`** powers a manager/instructor dashboard
+at `/learning/analytics`: a workspace **overview** (programs, published,
+enrollments, completion rate, certificates, active learners), a **per-program**
+roll-up (enrolled / completed / average progress), a **top-learners** leaderboard,
+and an **instructor** view (the programs a user authors/edits, with their
+roll-up). The **employee** dashboard is *My Learning* (enrollments, progress,
+to-dos, certificates). All queries are tenant-scoped aggregates — no writes.
+
 ## 7. Permissions (catalog)
 
 | Key | Grants |

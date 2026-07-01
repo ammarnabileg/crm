@@ -18,7 +18,11 @@ $badge = [
         <h1 class="text-2xl font-semibold text-slate-900">Learning</h1>
         <p class="mt-1 text-sm text-slate-500">Training, onboarding &amp; development programs for your team.</p>
     </div>
-    <a href="/my-learning" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">My Learning →</a>
+    <div class="flex items-center gap-2">
+        <a href="/learning/analytics" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Analytics</a>
+        <a href="/learning-paths" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Paths</a>
+        <a href="/my-learning" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">My Learning →</a>
+    </div>
 </div>
 
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>

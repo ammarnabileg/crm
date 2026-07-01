@@ -13,6 +13,7 @@ use HaHireAI\Core\Http\Session;
 use HaHireAI\Modules\Authentication\Application\AuthContext;
 use HaHireAI\Modules\Learning\Application\CommentService;
 use HaHireAI\Modules\Learning\Application\EnrollmentService;
+use HaHireAI\Modules\Learning\Application\LearningAnalyticsService;
 use HaHireAI\Modules\Learning\Application\PrerequisiteService;
 use HaHireAI\Modules\Learning\Application\ProgramService;
 use HaHireAI\Modules\Learning\Application\QuizService;
@@ -41,6 +42,7 @@ final class LearningController
         private readonly CommentService $comments,
         private readonly QuizService $quizzes,
         private readonly PrerequisiteService $prerequisites,
+        private readonly LearningAnalyticsService $analytics,
         private readonly MemberDirectory $members,
         private readonly Session $session,
         private readonly AuditRecorder $audit,
@@ -67,6 +69,22 @@ final class LearningController
             'statuses' => ProgramStatus::STATUSES,
             'difficulties' => ProgramStatus::DIFFICULTIES,
             'canManage' => $this->context->can('learning.manage'),
+            'status' => $this->session->pullFlash('status'),
+        ]);
+    }
+
+    public function analytics(Request $request): Response
+    {
+        if (($r = $this->gate('learning.view')) !== null) {
+            return $r;
+        }
+        $ws = (string) $this->context->workspaceId();
+
+        return $this->shell->render($this->context, 'learning.analytics', [
+            'overview' => $this->analytics->overview($ws),
+            'perProgram' => $this->analytics->perProgram($ws),
+            'topLearners' => $this->analytics->topLearners($ws),
+            'instructorPrograms' => $this->analytics->instructorPrograms($ws, (string) $this->context->userId()),
             'status' => $this->session->pullFlash('status'),
         ]);
     }

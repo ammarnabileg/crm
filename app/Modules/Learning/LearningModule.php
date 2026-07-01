@@ -47,6 +47,7 @@ final class LearningModule implements Module
     {
         // --- Authoring & management (staff) ---
         $router->get('/learning', [LearningController::class, 'index']);
+        $router->get('/learning/analytics', [LearningController::class, 'analytics']);
         $router->post('/learning', [LearningController::class, 'create']);
         $router->get('/learning/{id}', [LearningController::class, 'show']);
         $router->post('/learning/{id}', [LearningController::class, 'update']);

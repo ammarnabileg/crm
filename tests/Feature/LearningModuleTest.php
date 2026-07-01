@@ -12,6 +12,7 @@ use HaHireAI\Core\Events\Dispatcher;
 use HaHireAI\Modules\Learning\Application\CertificateService;
 use HaHireAI\Modules\Learning\Application\CommentService;
 use HaHireAI\Modules\Learning\Application\EnrollmentService;
+use HaHireAI\Modules\Learning\Application\LearningAnalyticsService;
 use HaHireAI\Modules\Learning\Application\LearningPathService;
 use HaHireAI\Modules\Learning\Application\PrerequisiteService;
 use HaHireAI\Modules\Learning\Application\ProgramService;
@@ -244,6 +245,38 @@ final class LearningModuleTest extends TestCase
         $this->enrollments->setItemStatus($ws, $basics, $learner, $i, 'completed');
 
         $this->assertTrue($this->prerequisites->isSatisfied($ws, $advanced, $learner));
+    }
+
+    public function test_analytics_overview_and_per_program(): void
+    {
+        [$ws, $owner] = $this->workspace();
+        $l1 = $this->user('L1');
+        $l2 = $this->user('L2');
+        $pid = $this->programs->create($ws, $owner, ['title' => 'Onboarding', 'completion_rule' => 'all_items']);
+        $s = $this->programs->addSection($ws, $pid, $owner, 'M', null, true);
+        $i = $this->programs->addItem($ws, $pid, $s, $owner, ['title' => 'X', 'is_required' => true]);
+        $this->programs->setStatus($ws, $pid, 'published', $owner);
+        $this->enrollments->enroll($ws, $pid, $l1);
+        $this->enrollments->enroll($ws, $pid, $l2);
+        $this->enrollments->setItemStatus($ws, $pid, $l1, $i, 'completed'); // l1 completes
+
+        $analytics = new LearningAnalyticsService($this->connection);
+        $ov = $analytics->overview($ws);
+        $this->assertSame(1, $ov['programs']);
+        $this->assertSame(1, $ov['published']);
+        $this->assertSame(2, $ov['enrollments']);
+        $this->assertSame(1, $ov['completed']);
+        $this->assertSame(50, $ov['completion_rate']);
+        $this->assertSame(1, $ov['certificates']);
+
+        $per = $analytics->perProgram($ws);
+        $this->assertCount(1, $per);
+        $this->assertSame(2, (int) $per[0]['enrolled']);
+        $this->assertSame(1, (int) $per[0]['completed']);
+
+        $top = $analytics->topLearners($ws);
+        $this->assertSame($l1, (string) $top[0]['id']);
+        $this->assertCount(1, $analytics->instructorPrograms($ws, $owner));
     }
 
     public function test_learning_path_progress(): void
