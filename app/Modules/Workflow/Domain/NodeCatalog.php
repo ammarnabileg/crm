@@ -221,6 +221,9 @@ final class NodeCatalog
             $n('workspace.create_notification', 'Workspace', 'Create Notification', 'Notify a user in-app', 'bell', [$varField('user_id', 'User'), $text('title', 'Title')]),
             $n('workspace.create_activity', 'Workspace', 'Create Activity', 'Record an activity entry', 'clock', [$text('message', 'Message')]),
 
+            // Learning — enroll a user in a program (e.g. onboarding after hire).
+            $n('learning.enroll', 'Learning', 'Enroll in Program', 'Enroll a user into a learning program', 'book-open', [$varField('program_id', 'Program'), $varField('user_id', 'User')]),
+
             // Users
             $n('users.notify', 'Users', 'Notify User', 'Send an in-app notification', 'bell', [$varField('user_id', 'User'), $text('title', 'Title')]),
 

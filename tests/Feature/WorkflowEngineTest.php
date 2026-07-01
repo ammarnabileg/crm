@@ -78,6 +78,22 @@ final class WorkflowEngineTest extends TestCase
             new NotificationWriterAdapter(new NotificationService($this->connection)),
             new NullRecruitmentActions(),
             new WorkflowCollectionService($this->connection),
+            new class implements \HaHireAI\Core\Contracts\LearningCatalog {
+                public function publishedPrograms(string $workspaceId, int $limit = 50): array
+                {
+                    return [];
+                }
+
+                public function countPrograms(string $workspaceId): int
+                {
+                    return 0;
+                }
+
+                public function enrollUser(string $workspaceId, string $programId, string $userId): bool
+                {
+                    return true;
+                }
+            },
         );
         $this->engine = new WorkflowEngine($this->connection, $this->workflows, $actions, new FormulaEvaluator());
     }
@@ -275,6 +291,7 @@ final class WorkflowEngineTest extends TestCase
         $container->instance(\HaHireAI\Core\Contracts\TaskWriter::class, new NullTaskWriter());
         $container->instance(\HaHireAI\Core\Contracts\NotificationWriter::class, new NullNotificationWriter());
         $container->instance(\HaHireAI\Core\Contracts\RecruitmentActions::class, new NullRecruitmentActions());
+        $container->instance(\HaHireAI\Core\Contracts\LearningCatalog::class, new \HaHireAI\Core\Learning\NullLearningCatalog());
 
         $registry = new ProviderRegistry();
         $registry->register(new EchoProvider());
@@ -354,6 +371,7 @@ final class WorkflowEngineTest extends TestCase
         $container->instance(\HaHireAI\Core\Contracts\TaskWriter::class, new NullTaskWriter());
         $container->instance(\HaHireAI\Core\Contracts\NotificationWriter::class, new NullNotificationWriter());
         $container->instance(\HaHireAI\Core\Contracts\RecruitmentActions::class, new NullRecruitmentActions());
+        $container->instance(\HaHireAI\Core\Contracts\LearningCatalog::class, new \HaHireAI\Core\Learning\NullLearningCatalog());
         $registry = new ProviderRegistry();
         $registry->register(new EchoProvider());
         $prompts = new PromptEngine($this->connection);

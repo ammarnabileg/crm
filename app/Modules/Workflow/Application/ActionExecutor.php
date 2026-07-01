@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HaHireAI\Modules\Workflow\Application;
 
 use HaHireAI\Core\Contracts\AuditRecorder;
+use HaHireAI\Core\Contracts\LearningCatalog;
 use HaHireAI\Core\Contracts\NotificationWriter;
 use HaHireAI\Core\Contracts\RecruitmentActions;
 use HaHireAI\Core\Contracts\TaskWriter;
@@ -28,6 +29,7 @@ final class ActionExecutor
         private readonly NotificationWriter $notifications,
         private readonly RecruitmentActions $recruitment,
         private readonly WorkflowCollectionService $collections,
+        private readonly LearningCatalog $learning,
     ) {
     }
 
@@ -66,6 +68,9 @@ final class ActionExecutor
             'recruitment.reject_candidate' => $this->doSetStatus($context, $params, 'rejected'),
             'recruitment.hire_candidate' => $this->doSetStatus($context, $params, 'hired'),
             'recruitment.archive_candidate' => $this->doSetStatus($context, $params, 'archived'),
+
+            // ── Learning — via the LearningCatalog contract (e.g. onboarding) ──
+            'learning.enroll', 'learning.enroll_program' => $this->doEnrollLearning($context, $params),
 
             // ── Database — Dynamic Collections (no raw SQL) ────────────────────
             'db.create_record' => $this->doCreateRecord($context, $params),
@@ -172,6 +177,27 @@ final class ActionExecutor
         $this->recruitment->setApplicationStatus($context['workspace_id'], $applicationId, $status, $context['actor']);
 
         return 'application ' . $applicationId . ' set ' . $status;
+    }
+
+    /**
+     * Enroll a user into a learning program — the onboarding-after-hire hook.
+     * Uses the LearningCatalog contract only (no Learning-table access).
+     *
+     * @param array{workspace_id:string,payload:array<string,mixed>,actor:?string} $context
+     * @param array<string,mixed> $params
+     */
+    private function doEnrollLearning(array $context, array $params): string
+    {
+        $payload = $context['payload'];
+        $programId = $this->resolve((string) ($params['program_id'] ?? ''), $payload);
+        $userId = $this->resolve((string) ($params['user_id'] ?? $params['candidate_user_id'] ?? ($payload['user_id'] ?? '')), $payload);
+        if ($programId === '' || $userId === '') {
+            return 'skipped: program or user missing';
+        }
+
+        $created = $this->learning->enrollUser($context['workspace_id'], $programId, $userId);
+
+        return $created ? 'enrolled ' . $userId . ' in program ' . $programId : 'already enrolled ' . $userId;
     }
 
     /**

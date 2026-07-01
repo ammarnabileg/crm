@@ -176,8 +176,15 @@ Migration: `database/migrations/2026_06_30_000004_learning_module.php`.
 The `LearningCatalog` contract exposes `publishedPrograms()`, `countPrograms()`
 and `enrollUser()` so a future Employees/Onboarding flow — or Recruitment, after a
 candidate is hired — can enrol a person into onboarding programs **without
-touching the Learning tables**. The seam is in place; the cross-module trigger is
-not wired yet (a deliberate, documented next step).
+touching the Learning tables**. Core binds a permissive `NullLearningCatalog`
+default so consumers work even when Learning is disabled; the module overrides it.
+
+**Onboarding-after-hire is wired via the Workflow Engine:** a new **“Enroll in
+Program”** action (`learning.enroll`, `ActionExecutor`) calls
+`LearningCatalog::enrollUser()`. Combined with the existing *Hire Candidate* action
+and status triggers, an admin can build a no-code automation like *“when an
+application is hired → enroll the candidate in the Onboarding program”* — with no
+code and no cross-module coupling.
 
 ## 11. Quizzes (implemented)
 

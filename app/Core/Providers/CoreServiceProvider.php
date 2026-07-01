@@ -90,5 +90,9 @@ final class CoreServiceProvider extends ServiceProvider
             \HaHireAI\Core\Contracts\RecruitmentActions::class,
             \HaHireAI\Core\Workflow\NullRecruitmentActions::class,
         );
+        $c->singleton(
+            \HaHireAI\Core\Contracts\LearningCatalog::class,
+            \HaHireAI\Core\Learning\NullLearningCatalog::class,
+        );
     }
 }
