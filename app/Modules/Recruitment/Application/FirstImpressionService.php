@@ -356,6 +356,16 @@ final class FirstImpressionService
             ));
         }
 
+        $portfolio = $insights['portfolio'] ?? null;
+        if (is_array($portfolio) && ! empty($portfolio['sources'])) {
+            $groups['insight_portfolio'] = [(string) ($portfolio['label'] ?? '') . ' — ' . implode(', ', array_map('strval', $portfolio['sources']))];
+        }
+
+        $resumeQuality = $insights['resume_quality'] ?? null;
+        if (is_array($resumeQuality) && ($resumeQuality['label'] ?? '') !== '') {
+            $groups['insight_resume_quality'] = [(string) $resumeQuality['label']];
+        }
+
         if (! empty($insights['highlights']) && is_array($insights['highlights'])) {
             $groups['insight_highlight'] = array_values(array_map('strval', $insights['highlights']));
         }

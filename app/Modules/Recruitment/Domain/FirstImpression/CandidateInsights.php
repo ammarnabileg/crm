@@ -56,6 +56,8 @@ final class CandidateInsights
         $stability = self::stability($resume);
         $consistency = self::consistency($resume);
         $skillGaps = self::skillGaps($resume, $job, $haystack);
+        $portfolio = self::portfolio($resume);
+        $resumeQuality = self::resumeQuality($resume);
 
         return [
             'career_progression' => $progression,
@@ -67,8 +69,76 @@ final class CandidateInsights
             'stability' => $stability,
             'consistency' => $consistency,
             'skill_gaps' => $skillGaps,
+            'portfolio' => $portfolio,
+            'resume_quality' => $resumeQuality,
             'highlights' => self::highlights($progression, $seniority, $leadership, $industries, $primaryStack, $stability),
         ];
+    }
+
+    /**
+     * Portfolio quality from the candidate's links — which professional platforms
+     * are present (GitHub/GitLab/portfolio/behance/…). Rule-based, no network.
+     *
+     * @return array{score: int, label: string, sources: list<string>}
+     */
+    private static function portfolio(ParsedResume $resume): array
+    {
+        $hosts = [
+            'github' => 'GitHub', 'gitlab' => 'GitLab', 'bitbucket' => 'Bitbucket',
+            'behance' => 'Behance', 'dribbble' => 'Dribbble', 'kaggle' => 'Kaggle',
+            'medium' => 'Medium', 'dev.to' => 'dev.to', 'stackoverflow' => 'StackOverflow',
+            'linkedin' => 'LinkedIn', 'youtube' => 'YouTube',
+        ];
+        $found = [];
+        $hasSite = false;
+        foreach ($resume->links as $url) {
+            $host = mb_strtolower((string) parse_url($url, PHP_URL_HOST));
+            $matched = false;
+            foreach ($hosts as $needle => $label) {
+                if (str_contains($host, $needle)) {
+                    $found[$label] = true;
+                    $matched = true;
+                }
+            }
+            if (! $matched && $host !== '') {
+                $hasSite = true; // a personal site / other professional link
+            }
+        }
+        $sources = array_keys($found);
+        $count = count($sources) + ($hasSite ? 1 : 0);
+        $score = (int) min(100, $count * 28);
+        $label = match (true) {
+            $count >= 3 => 'Strong online portfolio',
+            $count === 2 => 'Good online presence',
+            $count === 1 => 'Some online presence',
+            default => 'No portfolio links found',
+        };
+        if ($hasSite && ! in_array('Personal site', $sources, true)) {
+            $sources[] = 'Personal site';
+        }
+
+        return ['score' => $score, 'label' => $label, 'sources' => $sources];
+    }
+
+    /**
+     * A plain-language résumé-quality read (parse confidence + structure + contact
+     * completeness). Complements the numeric formatting_quality sub-score.
+     *
+     * @return array{score: int, label: string}
+     */
+    private static function resumeQuality(ParsedResume $resume): array
+    {
+        $sections = count($resume->presentSections());
+        $contact = ($resume->email !== null ? 1 : 0) + ($resume->phone !== null ? 1 : 0) + ($resume->links !== [] ? 1 : 0);
+        $score = (int) round(0.45 * $resume->parseConfidence + 0.35 * min(100, $sections * 14) + 0.20 * min(100, $contact * 34));
+        $label = match (true) {
+            $score >= 80 => 'Well-structured, complete résumé',
+            $score >= 60 => 'Reasonably complete résumé',
+            $score >= 40 => 'Sparse résumé — key sections missing',
+            default => 'Hard-to-parse or very thin résumé',
+        };
+
+        return ['score' => $score, 'label' => $label];
     }
 
     /**

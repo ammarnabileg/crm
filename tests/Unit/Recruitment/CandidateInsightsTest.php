@@ -83,6 +83,26 @@ final class CandidateInsightsTest extends TestCase
         $this->assertNotEmpty($out['consistency']);
     }
 
+    public function test_portfolio_and_resume_quality(): void
+    {
+        $cv = implode("\n", [
+            'Sara Hassan',
+            'sara@example.com  ·  +20 100 123 4567',
+            'GitHub: https://github.com/sara',
+            'Portfolio: https://sara.dev',
+            'Summary',
+            'Experienced engineer.',
+            'Skills',
+            'PHP, Laravel',
+        ]);
+        $out = CandidateInsights::derive($this->resume($cv), $this->job('Engineer', 'PHP'));
+
+        $this->assertContains('GitHub', $out['portfolio']['sources']);
+        $this->assertGreaterThan(0, $out['portfolio']['score']);
+        $this->assertGreaterThan(0, $out['resume_quality']['score']);
+        $this->assertNotSame('', $out['resume_quality']['label']);
+    }
+
     public function test_never_throws_on_empty_resume(): void
     {
         $out = CandidateInsights::derive($this->resume(''), $this->job('Anything', ''));

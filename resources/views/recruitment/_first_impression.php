@@ -184,6 +184,8 @@ $list = static function (string $kind) use ($details): string {
                 echo $insightRow('insight_stack', 'Technical stacks', 'indigo');
                 echo $insightRow('insight_industry', 'Industry experience', 'violet');
                 echo $insightRow('insight_leadership', 'Leadership indicators', 'amber');
+                echo $insightRow('insight_portfolio', 'Portfolio', 'emerald');
+                echo $insightRow('insight_resume_quality', 'Résumé quality', 'slate');
                 echo $insightRow('insight_skill_gap', 'Skill gaps vs the role', 'rose');
                 ?>
             </div>
