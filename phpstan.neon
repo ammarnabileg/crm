@@ -1,0 +1,13 @@
+includes:
+    - phpstan-baseline.neon
+parameters:
+    level: 4
+    paths:
+        - app
+    bootstrapFiles:
+        - app/Support/helpers.php
+    treatPhpDocTypesAsCertain: false
+    # Optional-library code paths (e.g. the PDF parser adapter) carry ignore
+    # annotations that only match when that library is installed; don't fail when
+    # the extension/library is absent in a given environment.
+    reportUnmatchedIgnoredErrors: false

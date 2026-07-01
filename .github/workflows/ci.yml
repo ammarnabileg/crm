@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "claude/project-bootstrap-mindset-4v7gms"
+      - "claude/project-bootstrap-mindset-pavxm6"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: hahireai_test
+          MYSQL_USER: hahireai
+          MYSQL_PASSWORD: hahireai_pw
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_DATABASE: hahireai_test
+      DB_USERNAME: hahireai
+      DB_PASSWORD: hahireai_pw
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, pdo_mysql, openssl, ctype, fileinfo, bcmath
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: PHP lint sweep
+        run: |
+          err=0
+          while IFS= read -r -d '' f; do
+            php -l "$f" >/dev/null || { echo "LINT FAIL: $f"; err=1; }
+          done < <(find app database tests bin config bootstrap public routes resources -name '*.php' -print0)
+          if [ "$err" = 0 ]; then echo "lint clean"; else exit 1; fi
+
+      - name: Static analysis (PHPStan level 4)
+        run: vendor/bin/phpstan analyse --no-progress
+
+      - name: Dependency vulnerability audit
+        run: composer audit --no-dev
+
+      - name: Prepare .env
+        run: |
+          cp .env.example .env
+          php -r '$k="base64:".base64_encode(random_bytes(32)); $e=file_get_contents(".env"); $e=preg_replace("/^APP_KEY=.*/m","APP_KEY=".$k,$e); $e=preg_replace("/^APP_ENV=.*/m","APP_ENV=testing",$e); $e=preg_replace("/^APP_DEBUG=.*/m","APP_DEBUG=true",$e); $e=preg_replace("/^DB_DATABASE=.*/m","DB_DATABASE=hahireai_test",$e); $e=preg_replace("/^DB_USERNAME=.*/m","DB_USERNAME=hahireai",$e); $e=preg_replace("/^DB_PASSWORD=.*/m","DB_PASSWORD=hahireai_pw",$e); file_put_contents(".env",$e);'
+
+      - name: Wait for MySQL
+        run: |
+          for i in $(seq 1 30); do
+            if php -r '$c=@new PDO("mysql:host=127.0.0.1;port=3306","hahireai","hahireai_pw"); exit($c?0:1);'; then echo "mysql up"; break; fi
+            echo "waiting for mysql ($i)"; sleep 2
+          done
+
+      - name: Migrate, seed, tick
+        run: |
+          php bin/console.php migrate
+          php bin/console.php db:seed
+          php bin/console.php billing:tick
+
+      - name: Certify (fresh DB, before any phpunit)
+        run: php bin/certify.php
+
+      - name: Wallet + seat-guard tests (targeted, fast)
+        run: vendor/bin/phpunit --no-coverage --filter 'WalletBillingTest'
+
+      - name: Full test suite
+        run: vendor/bin/phpunit --no-coverage
