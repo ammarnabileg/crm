@@ -208,6 +208,27 @@ final class LearningModuleTest extends TestCase
         $this->assertSame(100, (int) $this->quizzes->bestAttempt($ws, $quizItem, $learner)['percent']);
     }
 
+    public function test_section_item_and_comment_editing(): void
+    {
+        [$ws, $owner] = $this->workspace();
+        $pid = $this->programs->create($ws, $owner, ['title' => 'Editable']);
+        $s = $this->programs->addSection($ws, $pid, $owner, 'Old title', null, true);
+        $item = $this->programs->addItem($ws, $pid, $s, $owner, ['title' => 'Old item']);
+
+        $this->assertTrue($this->programs->updateSection($ws, $s, 'New title', 'desc', false));
+        $this->assertTrue($this->programs->updateItem($ws, $item, ['title' => 'New item', 'body' => 'b']));
+        $tree = $this->programs->structure($ws, $pid);
+        $this->assertSame('New title', $tree[0]['title']);
+        $this->assertSame(0, (int) $tree[0]['is_required']);
+        $this->assertSame('New item', $tree[0]['items'][0]['title']);
+
+        $cid = $this->comments->add($ws, $pid, 'program', $pid, $owner, 'first');
+        $this->assertTrue($this->comments->edit($ws, (string) $cid, $owner, 'edited'));
+        $thread = $this->comments->thread($ws, 'program', $pid);
+        $this->assertSame('edited', $thread[0]['body']);
+        $this->assertNotNull($thread[0]['edited_at']);
+    }
+
     public function test_certificate_issued_on_completion(): void
     {
         [$ws, $owner] = $this->workspace();

@@ -246,6 +246,22 @@ final class LearningController
         return Response::redirect('/learning/' . $id);
     }
 
+    public function updateSection(Request $request, string $id, string $sectionId): Response
+    {
+        if (($r = $this->gate('learning.manage', $request)) !== null) {
+            return $r;
+        }
+        $this->programs->updateSection(
+            (string) $this->context->workspaceId(), $sectionId,
+            (string) $request->input('title', 'Untitled section'),
+            (string) $request->input('description', '') ?: null,
+            (string) $request->input('is_required', '1') === '1',
+        );
+        $this->session->flash('status', 'Section updated.');
+
+        return Response::redirect('/learning/' . $id);
+    }
+
     public function deleteSection(Request $request, string $id, string $sectionId): Response
     {
         if (($r = $this->gate('learning.manage', $request)) !== null) {
@@ -274,6 +290,23 @@ final class LearningController
             'is_required' => (string) $request->input('is_required', '1') === '1',
         ]);
         $this->session->flash('status', 'Content added.');
+
+        return Response::redirect('/learning/' . $id);
+    }
+
+    public function updateItem(Request $request, string $id, string $itemId): Response
+    {
+        if (($r = $this->gate('learning.manage', $request)) !== null) {
+            return $r;
+        }
+        $this->programs->updateItem((string) $this->context->workspaceId(), $itemId, [
+            'title' => (string) $request->input('title', ''),
+            'body' => (string) $request->input('body', '') ?: null,
+            'url' => (string) $request->input('url', '') ?: null,
+            'duration_minutes' => (int) $request->input('duration_minutes', 0),
+            'is_required' => (string) $request->input('is_required', '1') === '1',
+        ]);
+        $this->session->flash('status', 'Content updated.');
 
         return Response::redirect('/learning/' . $id);
     }
@@ -379,6 +412,16 @@ final class LearningController
             (string) $request->input('parent_id', '') ?: null,
             $this->resolveMentions($ws, $body),
         );
+
+        return Response::redirect('/learning/' . $id . '#discussion');
+    }
+
+    public function editComment(Request $request, string $id, string $commentId): Response
+    {
+        if (($r = $this->gate('learning.view', $request)) !== null) {
+            return $r;
+        }
+        $this->comments->edit((string) $this->context->workspaceId(), $commentId, (string) $this->context->userId(), (string) $request->input('body', ''));
 
         return Response::redirect('/learning/' . $id . '#discussion');
     }

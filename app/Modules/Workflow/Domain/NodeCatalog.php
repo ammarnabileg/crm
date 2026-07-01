@@ -18,7 +18,7 @@ final class NodeCatalog
 {
     /** Sidebar order (docs/WORKFLOW_NODES.md). */
     public const CATEGORIES = [
-        'Triggers', 'Actions', 'Conditions', 'AI', 'Recruitment', 'Workspace',
+        'Triggers', 'Actions', 'Conditions', 'AI', 'Recruitment', 'Learning', 'Workspace',
         'Users', 'Notifications', 'Database', 'Files', 'Time', 'Logic',
         'Variables', 'Integrations', 'Utilities',
     ];

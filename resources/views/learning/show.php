@@ -91,7 +91,19 @@ $st = (string) $program['status'];
                                     <?php if ((int) $section['is_required'] === 1): ?><span class="ml-1 text-[11px] text-rose-500">required</span><?php endif; ?>
                                 </div>
                                 <?php if ($canManage): ?>
-                                    <form method="post" action="/learning/<?= e($pid) ?>/sections/<?= e($section['id']) ?>/delete" onsubmit="return confirm('Delete this section and its items?')"><?= csrf_field() ?><button class="text-xs text-rose-500 hover:text-rose-700">Delete</button></form>
+                                    <div class="flex items-center gap-3">
+                                        <details class="relative">
+                                            <summary class="cursor-pointer text-xs text-slate-500 hover:text-slate-700">Edit</summary>
+                                            <form method="post" action="/learning/<?= e($pid) ?>/sections/<?= e($section['id']) ?>" class="absolute right-0 z-10 mt-1 w-64 space-y-1 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                                                <?= csrf_field() ?>
+                                                <input name="title" value="<?= e($section['title']) ?>" class="w-full rounded border border-slate-300 px-2 py-1 text-sm">
+                                                <input name="description" value="<?= e($section['description'] ?? '') ?>" placeholder="Description" class="w-full rounded border border-slate-300 px-2 py-1 text-xs">
+                                                <label class="block text-xs text-slate-500"><input type="checkbox" name="is_required" value="1" <?= (int) $section['is_required'] === 1 ? 'checked' : '' ?>> Required</label>
+                                                <button class="rounded bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Save</button>
+                                            </form>
+                                        </details>
+                                        <form method="post" action="/learning/<?= e($pid) ?>/sections/<?= e($section['id']) ?>/delete" onsubmit="return confirm('Delete this section and its items?')"><?= csrf_field() ?><button class="text-xs text-rose-500 hover:text-rose-700">Delete</button></form>
+                                    </div>
                                 <?php endif; ?>
                             </div>
                             <div class="divide-y divide-slate-50">
@@ -105,7 +117,20 @@ $st = (string) $program['status'];
                                             <?php if ((int) $item['is_required'] === 0): ?><span class="ml-1 text-[11px] text-slate-400">optional</span><?php endif; ?>
                                         </div>
                                         <?php if ($canManage): ?>
-                                            <form method="post" action="/learning/<?= e($pid) ?>/items/<?= e($item['id']) ?>/delete"><?= csrf_field() ?><button class="text-xs text-slate-400 hover:text-rose-600">✕</button></form>
+                                            <div class="flex items-center gap-2">
+                                                <details class="relative">
+                                                    <summary class="cursor-pointer text-xs text-slate-400 hover:text-slate-600">edit</summary>
+                                                    <form method="post" action="/learning/<?= e($pid) ?>/items/<?= e($item['id']) ?>" class="absolute right-0 z-10 mt-1 w-64 space-y-1 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                                                        <?= csrf_field() ?>
+                                                        <input name="title" value="<?= e($item['title']) ?>" class="w-full rounded border border-slate-300 px-2 py-1 text-sm">
+                                                        <?php if (! empty($item['url']) || in_array($type, ['link', 'video'], true)): ?><input name="url" value="<?= e($item['url'] ?? '') ?>" placeholder="URL" class="w-full rounded border border-slate-300 px-2 py-1 text-xs"><?php endif; ?>
+                                                        <textarea name="body" rows="2" placeholder="Content" class="w-full rounded border border-slate-300 px-2 py-1 text-xs"><?= e($item['body'] ?? '') ?></textarea>
+                                                        <label class="block text-xs text-slate-500"><input type="checkbox" name="is_required" value="1" <?= (int) $item['is_required'] === 1 ? 'checked' : '' ?>> Required</label>
+                                                        <button class="rounded bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Save</button>
+                                                    </form>
+                                                </details>
+                                                <form method="post" action="/learning/<?= e($pid) ?>/items/<?= e($item['id']) ?>/delete"><?= csrf_field() ?><button class="text-xs text-slate-400 hover:text-rose-600">✕</button></form>
+                                            </div>
                                         <?php endif; ?>
                                     </div>
                                     <?php if ($type === 'quiz'): ?>
@@ -245,7 +270,17 @@ $st = (string) $program['status'];
                     <p class="mt-1 whitespace-pre-line text-sm text-slate-600 <?= $deleted ? 'italic text-slate-400' : '' ?>"><?= e($c['body']) ?></p>
                     <?php if (! empty($c['mentions'])): ?><p class="mt-1 text-xs text-indigo-500">@ <?= e(implode(', ', $c['mentions'])) ?></p><?php endif; ?>
                     <?php if (! $deleted && ((string) $c['author_user_id'] === $currentUserId || $canManage)): ?>
-                        <form method="post" action="/learning/<?= e($pid) ?>/comments/<?= e($c['id']) ?>/delete" class="mt-1"><?= csrf_field() ?><button class="text-[11px] text-slate-400 hover:text-rose-600">delete</button></form>
+                        <div class="mt-1 flex items-center gap-3">
+                            <?php if ((string) $c['author_user_id'] === $currentUserId): ?>
+                                <details><summary class="cursor-pointer text-[11px] text-slate-400 hover:text-slate-600">edit</summary>
+                                    <form method="post" action="/learning/<?= e($pid) ?>/comments/<?= e($c['id']) ?>" class="mt-1 flex gap-1"><?= csrf_field() ?>
+                                        <input name="body" value="<?= e($c['body']) ?>" class="grow rounded border border-slate-300 px-2 py-1 text-xs">
+                                        <button class="rounded bg-slate-700 px-2 py-1 text-[11px] text-white">Save</button>
+                                    </form>
+                                </details>
+                            <?php endif; ?>
+                            <form method="post" action="/learning/<?= e($pid) ?>/comments/<?= e($c['id']) ?>/delete"><?= csrf_field() ?><button class="text-[11px] text-slate-400 hover:text-rose-600">delete</button></form>
+                        </div>
                     <?php endif; ?>
                     <?php foreach ((array) ($c['replies'] ?? []) as $reply): ?>
                         <div class="mt-2 ml-4 rounded-lg bg-slate-50 p-2">

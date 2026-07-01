@@ -13,7 +13,4 @@ return [
     // Per-token fixed-window rate limit for the API Gateway.
     'api_rate_limit' => (int) (env('API_RATE_LIMIT', 120)),
     'api_rate_window' => 60, // seconds
-
-    // Outbound webhook delivery timeout (seconds).
-    'webhook_timeout' => (int) (env('WEBHOOK_TIMEOUT', 10)),
 ];

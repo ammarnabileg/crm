@@ -83,6 +83,7 @@ final class ReleaseCertificationTest extends TestCase
         $this->container->instance(\HaHireAI\Core\Contracts\TaskWriter::class, new \HaHireAI\Core\Workflow\NullTaskWriter());
         $this->container->instance(\HaHireAI\Core\Contracts\NotificationWriter::class, new \HaHireAI\Core\Workflow\NullNotificationWriter());
         $this->container->instance(\HaHireAI\Core\Contracts\RecruitmentActions::class, new \HaHireAI\Core\Workflow\NullRecruitmentActions());
+        $this->container->instance(\HaHireAI\Core\Contracts\LearningCatalog::class, new \HaHireAI\Core\Learning\NullLearningCatalog());
 
         $registry = new ProviderRegistry();
         $registry->register(new EchoProvider());

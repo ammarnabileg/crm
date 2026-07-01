@@ -56,8 +56,10 @@ final class LearningModule implements Module
         $router->post('/learning/{id}/snapshot', [LearningController::class, 'snapshot']);
 
         $router->post('/learning/{id}/sections', [LearningController::class, 'addSection']);
+        $router->post('/learning/{id}/sections/{sectionId}', [LearningController::class, 'updateSection']);
         $router->post('/learning/{id}/sections/{sectionId}/delete', [LearningController::class, 'deleteSection']);
         $router->post('/learning/{id}/sections/{sectionId}/items', [LearningController::class, 'addItem']);
+        $router->post('/learning/{id}/items/{itemId}', [LearningController::class, 'updateItem']);
         $router->post('/learning/{id}/items/{itemId}/delete', [LearningController::class, 'deleteItem']);
 
         $router->post('/learning/{id}/assign', [LearningController::class, 'assign']);
@@ -67,6 +69,7 @@ final class LearningModule implements Module
         $router->post('/learning/{id}/todos/{todoId}/delete', [LearningController::class, 'deleteTodo']);
 
         $router->post('/learning/{id}/comments', [LearningController::class, 'addComment']);
+        $router->post('/learning/{id}/comments/{commentId}', [LearningController::class, 'editComment']);
         $router->post('/learning/{id}/comments/{commentId}/delete', [LearningController::class, 'deleteComment']);
 
         $router->post('/learning/{id}/items/{itemId}/questions', [LearningController::class, 'addQuestion']);
