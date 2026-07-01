@@ -591,6 +591,34 @@ config. *Empty:* defaults shown; prompt to customize.
         `candidate.view` (PII).
   - [ ] Tenant-scoped; no candidate appears across workspaces.
 
+## B5a. Recruitment ▸ Talent Pool ▸ Smart Segments
+
+- **Purpose:** Named, saved candidate filters — a smarter alternative to one-shot
+  search. A segment is a set of rules combined with **ALL** (AND) or **ANY** (OR);
+  each rule is one normalised criterion: Skill, Language, Score (min), Last
+  interview (within N months), Available, Status, Seniority.
+- **Entry Points:** Talent Pool screen (“Smart Segments →”); `/talent-pool/segments`.
+- **Permissions:** `talent.view` to view/run; `talent.manage` to create / edit /
+  delete / bulk-add. **No new permission** is introduced.
+- **Primary Actions:** Build a segment (name + match type + rules); run it to see
+  matching candidates with the reason each matched; **bulk-add** the results to a
+  Talent Pool (reuses `TalentPoolService::addCandidates`).
+- **Key Widgets/Sections:** Saved-segments list, rule builder (field + value rows,
+  cloneable), results list with per-candidate match reasons, pool picker + bulk-add.
+- **Data sources (all tenant-scoped):** Skill/Language/Seniority/Available from the
+  normalised `candidate_profile_fields` (fallback to `candidate_profiles.details`);
+  Score from `MAX(candidate_assessments.fit_score)`; Last interview from
+  `interviews` (`status='completed'`, `completed_at`/`created_at`).
+- **Dependencies:** Recruitment (Talent Pool). Normalised tables `talent_segments`
+  / `talent_segment_rules`.
+- **States:** *Empty:* “no segments yet” → build one. *No rules:* a segment with no
+  rules matches nobody. *[NP]:* lacks `talent.view`. *Success:* “saved / added N”.
+- **Acceptance Criteria:**
+  - [ ] Screen gated by `talent.view`; management by `talent.manage`.
+  - [ ] Rules combine by ALL/ANY; each returned candidate carries its match reasons.
+  - [ ] Tenant-scoped; a segment and its evaluation never cross workspaces.
+  - [ ] Bulk-add flows into an existing pool via `TalentPoolService`.
+
 ## B6. Recruitment ▸ Pipeline (cross-job)
 
 - **Purpose:** Cross-job Kanban of stages for the whole workspace.

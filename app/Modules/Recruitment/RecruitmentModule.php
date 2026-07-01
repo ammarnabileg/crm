@@ -34,6 +34,7 @@ use HaHireAI\Modules\Recruitment\Presentation\PublicCareersController;
 use HaHireAI\Modules\Recruitment\Presentation\PublicInterviewController;
 use HaHireAI\Modules\Recruitment\Presentation\PublicJobController;
 use HaHireAI\Modules\Recruitment\Presentation\ReportsController;
+use HaHireAI\Modules\Recruitment\Presentation\SegmentController;
 use HaHireAI\Modules\Recruitment\Presentation\TalentPoolController;
 
 /** The Recruitment bounded context (Phase 10). */
@@ -205,9 +206,17 @@ final class RecruitmentModule implements Module
         // Talent pool.
         $router->get('/talent-pool', [TalentPoolController::class, 'index']);
         $router->post('/talent-pool', [TalentPoolController::class, 'create']);
-        $router->get('/talent-pool/{poolId}', [TalentPoolController::class, 'show']);
+        // Smart Segments — named, saved candidate filters. Registered before the
+        // generic /talent-pool/{poolId} so "segments" is not captured as a pool id.
+        $router->get('/talent-pool/segments', [SegmentController::class, 'index']);
+        $router->post('/talent-pool/segments', [SegmentController::class, 'create']);
+        $router->get('/talent-pool/segments/{segmentId}', [SegmentController::class, 'show']);
+        $router->post('/talent-pool/segments/{segmentId}', [SegmentController::class, 'update']);
+        $router->post('/talent-pool/segments/{segmentId}/delete', [SegmentController::class, 'delete']);
+        $router->post('/talent-pool/segments/{segmentId}/bulk-add', [SegmentController::class, 'bulkAdd']);
         $router->post('/talent-pool/add', [TalentPoolController::class, 'addCandidate']);
         $router->post('/talent-pool/bulk-add', [TalentPoolController::class, 'bulkAdd']);
+        $router->get('/talent-pool/{poolId}', [TalentPoolController::class, 'show']);
         $router->post('/talent-pool/{poolId}/remove', [TalentPoolController::class, 'removeCandidate']);
     }
 }

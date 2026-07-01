@@ -53,7 +53,11 @@ This module **requests AI behavior as capabilities** from the **AI Engine** and
 - **Offers:** formal hiring proposals with approval and lifecycle per
   `STATE_DIAGRAMS.md` §4.
 - **Talent Pool:** workspace collection of saved/passive/past candidates and
-  silver-medalist re-engagement.
+  silver-medalist re-engagement. **Smart Segments** — named, saved candidate
+  filters (rules combined by ALL/AND or ANY/OR over Skill, Language, min Score,
+  last-interview recency, Available, Status, Seniority) that evaluate over the
+  workspace's candidates and bulk-add matches into a pool. Managed with the
+  existing `talent.view` / `talent.manage` permissions (no new key).
 - **Templates:** reusable job descriptions, pipeline templates, screening
   question sets, scorecard templates, and message templates.
 - **Hiring Analytics:** recruitment-domain metrics surfaced for in-context views

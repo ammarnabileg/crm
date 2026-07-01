@@ -4,9 +4,12 @@
 /** @var bool $canManage */
 /** @var string|null $status */
 ?>
-<div class="mb-6">
-    <h1 class="text-2xl font-semibold text-slate-900">Talent Pool</h1>
-    <p class="mt-1 text-sm text-slate-500">Saved candidates you may want for future roles, plus smart lists for re-engagement.</p>
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-semibold text-slate-900">Talent Pool</h1>
+        <p class="mt-1 text-sm text-slate-500">Saved candidates you may want for future roles, plus smart lists for re-engagement.</p>
+    </div>
+    <a href="/talent-pool/segments" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50">Smart Segments →</a>
 </div>
 
 <?php if ($status): ?><div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?= e($status) ?></div><?php endif; ?>

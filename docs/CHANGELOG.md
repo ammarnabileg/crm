@@ -11,6 +11,30 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added — Talent Pool Smart Segments (named, saved candidate filters)
+- A smarter alternative to one-shot search: a **segment** is a named, saved set of
+  rules combined with **ALL** (AND) or **ANY** (OR). Each rule is one normalised
+  criterion — **Skill · Language · Score (min) · Last interview (within N months) ·
+  Available · Status · Seniority** — e.g. “React AND English AND Score ≥ 85 AND
+  interviewed ≤ 6 months AND Available”. New normalised, FK-constrained,
+  workspace-scoped tables `talent_segments` / `talent_segment_rules` (ULID PKs,
+  soft-deletes; migration `2026_07_01_000002`), **no JSON**.
+- **`SegmentService`** does CRUD over segments + rules and `evaluate()` builds a
+  **prepared** query from the rules (a pure `SegmentCompiler` emits one correlated
+  `EXISTS`/scalar predicate per rule; bindings are appended in exact textual order)
+  over the workspace's candidates, returning `user_id/name/email` **plus the reason
+  each matched**. Data comes from the normalised `candidate_profile_fields` (with a
+  `candidate_profiles.details` fallback), `MAX(candidate_assessments.fit_score)`,
+  and completed `interviews`. Fully tenant-isolated.
+- **UI:** a gateway inside the Talent Pool — saved segments, a simple cloneable
+  rule builder, results with per-candidate match reasons, and **Bulk-add to pool**
+  (reuses `TalentPoolService::addCandidates`). Routes under `/talent-pool/segments`
+  in `RecruitmentModule`. **Permissions:** view/run `talent.view`, manage
+  `talent.manage` — **no new permission**. Tests: +10 unit (compiler/rule
+  validation) +7 live-MySQL feature (create + AND/ANY + available + recency +
+  workspace isolation + empty segment + bulk-add) +3 view. Docs: `SCREEN_CATALOG`
+  (B5a), `Recruitment` spec.
+
 ### Changed — Sidebar grouped into labelled sections (navigation clarity)
 - Every `SidebarBuilder` item now carries a `group` key; the workspace menu is
   re-ordered into coherent sections — **Overview · Recruiting · Insights ·
