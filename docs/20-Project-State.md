@@ -146,9 +146,11 @@ Tracked authoritatively in `19-Assumptions.md` (open questions Q-01…Q-13) and
 
 ## 7. Phase Gate
 
-> **STOP.** Phase 1 is 100% complete. Per the Project Constitution and
-> `15-Project-Roadmap.md`, work halts here and awaits explicit owner approval before
-> Phase 2 begins. Do not start build work without that approval.
+> Phase 1 is 100% complete and Phase 2 is **in active, incremental build** under the
+> [Constitution](./CONSTITUTION.md). Per Constitution §10, each increment ships only when it
+> compiles, its tests are green, every new folder has a `README.md`, and its documents are updated
+> in the same change. See [15-Project-Roadmap.md](./15-Project-Roadmap.md) for the dependency-ordered
+> 12-phase plan and the root [PROJECT_STATE.md](../PROJECT_STATE.md) for the current build snapshot.
 
 ## Related Documents
 
@@ -163,3 +165,4 @@ Tracked authoritatively in `19-Assumptions.md` (open questions Q-01…Q-13) and
 | Version | Date | Author | Change |
 |---------|------|--------|--------|
 | 1.0.0 | 2026-07-01 | Architecture (Nizam Core) | Initial Phase 1 completion snapshot |
+| 2.0.0 | 2026-07-01 | Architecture (Nizam Core) | Reconciled top summary, §1 current phase, §4 forward plan, and §7 gate: project moved from Phase 1 (docs-only) into Phase 2 build under the Constitution as governing doc; Phase-2 foundation spine implemented and test-green. Detailed Phase-1 deliverable inventory retained. |

@@ -64,9 +64,24 @@ verified.** Delivered and test-green under `Nizam\Platform\*` and `Nizam\Kernel\
 - **Kernel/Tenancy** — `TenantContext` (+ `RequestContext`).
 - **Bootstrap** — `Application` composition root wiring the foundation singletons via `CoreServiceProvider`.
 
-**Verification (this snapshot):** the unit suite is **green — 76 tests, 151 assertions passing on
-PHP 8.4.19 with PHPUnit 11.5.55** (`vendor/bin/phpunit`); `composer` PSR-4 autoload is clean; every
-`src/`/`tests/` folder carries a `README.md`.
+**Professional Behavior Engine (Behavior bounded context) — DELIVERED and TEST-GREEN.** The
+`Nizam\Behavior\*` module (`src/Behavior/`) is implemented as a full Clean/Hexagonal increment: a pure
+Domain layer on the Kernel (role-bound `BehaviorProfile`/`BehaviorChangeProposal` aggregates, immutable
+versioned revisions, 18 enums, self-validating `BehaviorTraits`, explainable `BehaviorRecommendation`,
+consolidator/recommender domain services, ports, and `BEHAVIOR.*` exceptions); a CQRS Application layer
+(draft/propose/approve/reject/rollback/archive commands, get/history/list/explain queries, read-model
+DTOs, and a `BehaviorLearningService` that produces a **proposal only** and never auto-applies); and an
+Infrastructure layer (tenant-scoped InMemory and PDO adapters with a JSON mapper, a Postgres-16 migration
+plus runnable `SqliteSchema`, a dispatching event publisher, and the `BehaviorServiceProvider` /
+`BehaviorModule` facade). Profiles are per-**role** (never per-person), evolve only from **approved**
+observations, and are versioned, explainable, reversible, and approval-gated. The Interface (HTTP/Console)
+layer is deferred until the HTTP platform lands. See
+[docs/audit/PHASE_16_AUDIT.md](./docs/audit/PHASE_16_AUDIT.md).
+
+**Verification (this snapshot):** the suite is **green — 169 tests, 628 assertions passing on
+PHP 8.4.19 with PHPUnit 11.5.55** (`vendor/bin/phpunit`); the Behavior context added **93 tests** on top
+of the prior 76-test foundation baseline; `composer` PSR-4 autoload is clean; every `src/`/`tests/` folder
+carries a `README.md`.
 
 ## What is the forward plan
 
@@ -106,3 +121,4 @@ change. The Phase-1 cross-document consistency audit passed — see
 |---------|------|--------|--------|
 | 1.0.0 | 2026-07-01 | Architecture (Nizam Core) | Initial top-level project state |
 | 2.0.0 | 2026-07-01 | Architecture (Nizam Core) | Moved from Phase 1 (docs-only, STOP gate) to active incremental build under the Constitution; recorded the 12-phase program, the self-built native PHP 8.4 stack (ADR-0015), and Phase-2 foundation spine implemented and verified (76 tests / 151 assertions green on PHP 8.4.19 + PHPUnit 11). |
+| 2.1.0 | 2026-07-01 | Architecture (Nizam Core) | Recorded the **Professional Behavior Engine** (`Nizam\Behavior\*`, Behavior bounded context) as an implemented, test-green increment: role-bound, approval-gated, versioned, explainable, reversible profiles evolved only from approved observations; Domain/Application/Infrastructure delivered with InMemory + PDO (sqlite-validated) adapters. Suite green at **169 tests / 628 assertions** on PHP 8.4.19 + PHPUnit 11.5.55 (93 Behavior tests added). Interface/HTTP layer deferred until the HTTP platform lands. See docs/audit/PHASE_16_AUDIT.md. |

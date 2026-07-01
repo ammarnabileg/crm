@@ -32,6 +32,7 @@ Each record follows a standard ADR format: **Title, Status, Context, Decision, C
 | ADR-0016 | Plugin-based Agent architecture (Managers/Workers/Tools as plugins) | Accepted |
 | ADR-0017 | Single Master Orchestrator as the sole execution entry point | Accepted |
 | ADR-0018 | AI Runtime Execution Engine with an explicit execution state machine | Accepted |
+| ADR-0019 | Professional Behavior modeled per-Role, evolved only via approved observations | Accepted |
 
 ---
 
@@ -432,6 +433,37 @@ This ADR **supersedes ADR-0014** and **reaffirms and extends ADR-0007** (Clean A
 
 ---
 
+## ADR-0019 — Professional Behavior Modeled per-Role, Evolved Only via Approved Observations
+
+**Status:** Accepted
+
+**Context.** Nizam needs to model *how* work is performed inside a company — how a function decides, communicates, escalates, delegates, documents, negotiates, tolerates risk, and holds quality — so that agents and operators share one transparent, configurable, auditable definition of "good" conduct per function. Three forces shape the design. First, this behavioral model must be an **asset of the organization**, stable across staff turnover, and must not encode or leak how any specific individual works (a privacy and fairness concern, and a robustness concern — individuals are inconsistent and transient). Second, behavior must **improve from real practice**, but only from practice the business has *approved*; learning from unvetted activity would let mistakes and one-off exceptions silently become the norm. Third, because behavior governs how work is actually done, every change must be **reviewable, explainable, reversible, and gated by a human decision** — consistent with the platform principle "AI recommends, the owner decides" (`docs/PRODUCT_PRINCIPLES.md`) and with the audit/versioning posture of ADR-0011.
+
+**Decision.** Model professional behavior as a **`BehaviorProfile` bound to a `RoleId`, never to a person**, in the Behavior bounded context (`Nizam\Behavior\*`). A profile is a set of fourteen orthogonal behavior *style axes* plus an evidence requirement, and it evolves under four fixed rules:
+
+1. **Role, not person.** The profile is bound to its role at creation and can never be re-bound; it is derived by consolidating the **approved practice of all employees performing the role** (deterministic per-axis weighted majority vote), storing no person reference.
+2. **Approved observations only.** Only approved `BehaviorObservation`s may drive evolution; the `ObservationSource` port and its adapters surface nothing else.
+3. **Recommend, never auto-apply.** Learning raises a **pending `BehaviorChangeProposal`** with a rationale, supporting approved evidence, a confidence, and a stated business impact. A human approves it through the command bus; only then is a change applied. Nothing mutates production behavior automatically.
+4. **Versioned, explainable, reversible.** Every applied change appends an immutable revision (append-only history, never overwritten); every change carries a per-trait diff and business impact; rollback restores an earlier version's traits as a *new* version, so any change — including a rollback — can itself be undone. Elevated risk tolerance is adoptable only when a `RiskTolerancePolicy` permits it.
+
+The context is pure Hexagonal/DDD (ADR-0007), framework-independent (ADR-0015), UUIDv7-keyed (ADR-0003), tenant-scoped and soft-delete/audit aware (ADR-0002, ADR-0011), and records domain events for publication (ADR-0004). Full treatment: `docs/24-Professional-Behavior-Engine.md`.
+
+**Consequences.**
+- (+) Behavior is an organizational asset: stable across staff churn, privacy-preserving (no per-person modeling), and consolidated from the whole role's approved practice rather than one individual's.
+- (+) Trustworthy evolution: only approved practice can change behavior, every change is explainable (reason + evidence + confidence + how-to) and gated by an explicit human approval, honoring "AI recommends, the owner decides."
+- (+) Fully auditable and reversible: append-only revisions and version rollback give a complete, restorable history in line with ADR-0011.
+- (+) Clean seam: the module's public surface is its command/query buses + `BehaviorLearningService` behind the `BehaviorModule` facade, so the deferred HTTP/Console Interface layer plugs in without core change.
+- (−) More moving parts than a static, hand-edited behavior table: proposals, revisions, consolidation, and an approval workflow add domain and persistence surface.
+- (−) The consolidation and confidence heuristics are deterministic but simple; they must be revisited as real approved-practice corpora accumulate, and require good evidence quality to produce good recommendations.
+- (−) The human approval gate is a deliberate throughput cost: nothing improves until a reviewer acts, so the review UX (the "Behavior Review" screen) must make approval fast and clear.
+
+**Alternatives considered.**
+- **Per-person behavior cloning (model each individual's behavior):** rejected — it encodes and can leak how specific people work (privacy/fairness), and it is brittle: individual practice is inconsistent and disappears when a person leaves. Behavior must attach to the durable function, not the transient individual.
+- **Auto-applied learning (let the engine update behavior directly from observed practice):** rejected — it violates the platform's core principle that *AI recommends and the owner decides*, and it would let unreviewed or anomalous practice silently become the standard. Learning therefore produces a pending proposal only.
+- **Unversioned, mutable profiles (edit behavior in place):** rejected — it is neither reversible nor auditable; there would be no history to review, no way to explain what changed and why, and no safe rollback. Append-only versioning with explicit change logs is required.
+
+---
+
 ## Related Documents
 
 - `docs/00-Vision.md` — Product vision.
@@ -449,3 +481,4 @@ This ADR **supersedes ADR-0014** and **reaffirms and extends ADR-0007** (Clean A
 |---------|------|--------|--------|
 | 1.0.0 | 2026-07-01 | Architecture (Nizam Core) | Initial ADR log: ADR-0001 through ADR-0013 recorded and Accepted. |
 | 2.0.0 | 2026-07-01 | Architecture (Nizam Core) | Added ADR-0015 (self-built Native PHP 8.4 platform framework), ADR-0016 (plugin-based Agent architecture), ADR-0017 (single Master Orchestrator entry point), and ADR-0018 (AI Runtime Execution Engine with explicit state machine), all Accepted; ADR-0014 superseded by ADR-0015. |
+| 2.1.0 | 2026-07-01 | Architecture (Nizam Core) | Added ADR-0019 (Professional Behavior modeled per-Role, evolved only via approved observations; profiles versioned, explainable, reversible, approval-gated), Accepted; see `docs/24-Professional-Behavior-Engine.md`. |
