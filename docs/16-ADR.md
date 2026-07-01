@@ -2,7 +2,7 @@
 
 One-line purpose: The authoritative, append-only log of significant architecture decisions for **Nizam — the Bayan AI Operating System**, capturing context, decision, consequences, and rejected alternatives for every fixed choice.
 
-> **Status: Approved (Phase 1) | Version: 1.0.0 | Last updated: 2026-07-01 | Owner: Architecture (Nizam Core)**
+> **Status: Approved (Phase 1) | Version: 2.2.0 | Last updated: 2026-07-01 | Owner: Architecture (Nizam Core)**
 
 ---
 
@@ -33,6 +33,7 @@ Each record follows a standard ADR format: **Title, Status, Context, Decision, C
 | ADR-0017 | Single Master Orchestrator as the sole execution entry point | Accepted |
 | ADR-0018 | AI Runtime Execution Engine with an explicit execution state machine | Accepted |
 | ADR-0019 | Professional Behavior modeled per-Role, evolved only via approved observations | Accepted |
+| ADR-0020 | Plugin platform mechanics (manifest, SemVer, dependency resolution, permission-gated sandbox isolation) | Accepted |
 
 ---
 
@@ -464,6 +465,41 @@ The context is pure Hexagonal/DDD (ADR-0007), framework-independent (ADR-0015), 
 
 ---
 
+## ADR-0020 — Plugin Platform Mechanics (Manifest, SemVer, Dependency Resolution, Permission-Gated Sandbox Isolation)
+
+**Status:** Accepted
+
+**Context.** ADR-0016 decided *that* everything extensible is a versioned Plugin discovered and loaded by a Plugin Loader/Registry, and that Managers, Workers, Tools, Integrations, Automations and Departments are all plugin *kinds* implementing a stable Plugin SDK. It did **not** fix the concrete mechanics: how a plugin *describes* itself, how versions and compatibility are *computed*, how inter-plugin dependencies are *ordered and validated*, how a plugin's blast radius is *contained*, or how the whole substrate is *persisted and wired*. Those mechanics are security- and correctness-critical — an under-specified manifest, an ad-hoc version comparison, an unchecked dependency graph, or an unbounded plugin call would each become a defect or an attack surface — and they must be settled once, uniformly, so every present and future plugin kind is governed identically. This ADR records the implemented mechanics of the Plugin Platform (`Nizam\Platform\Plugin\*`); it **implements** ADR-0016 and changes none of its decisions.
+
+**Decision.** Build the Plugin Platform as a pure Hexagonal/DDD module (ADR-0007), framework-independent (ADR-0015), with these mechanics:
+
+1. **Manifest as the descriptor.** Every plugin publishes a self-validating, immutable `PluginManifest` (`plugin.json`): `name` (kebab/dotted id), `displayName`, `version`, `kind`, `description`, `author`, `license`, `entryPointClass` (FQCN), `platformConstraint`, `requiredPermissions`, `requiredCapabilities`, `dependencies`, `configSchema`, `healthCheckClass`, `tags`. It round-trips losslessly through `fromArray()`/`toArray()` and rejects any malformed shape.
+2. **Strict SemVer 2.0.0.** `SemanticVersion` parses and compares versions (pre-release precedence honoured, build metadata ignored); `VersionConstraint` parses `^`, `~`, ranges, `x`-wildcards and `*` and answers `satisfies()`. These drive platform-compatibility checks and the "an update must be strictly newer" rule.
+3. **Kind ↔ contract by reflection.** `PluginValidator` verifies (via reflection) that a manifest's `entryPointClass` actually implements the SDK contract its declared `kind` demands, alongside required-field, SemVer, platform-compatibility, permission/capability and config-schema-shape checks.
+4. **Deterministic dependency resolution.** `PluginDependencyResolver` computes a topological install order, **detects cycles** and **missing/incompatible required dependencies** (raising `PluginDependencyException`), and **skips satisfied optionals**.
+5. **Permission-gated, fault-catching isolation (in-process).** A plugin acts only within the `PermissionSet` handed to it via its `PluginContext`; `PluginPermissionGate` denies any ungranted permission. Every plugin call and lifecycle hook runs inside `PluginSandbox`, which catches any `Throwable`, converts it to a failure `Result`, marks the plugin `Failed` and emits `PluginFailed` — so a plugin crash never takes down the Core. **No `eval`, no process spawning.**
+6. **Guarded lifecycle + events.** `RegisteredPlugin` is a guarded state machine (`Discovered → Installed → Enabled ⇄ Disabled`, plus `Failed`, `Incompatible`, terminal `Uninstalled`) recording a domain event per transition (ADR-0004). `PluginManager` is the tenant-aware façade (install/update accept an optional owning `TenantId`; `null` = global).
+7. **Persistence & wiring.** UUIDv7-keyed (ADR-0003), tenant-nullable, soft-delete/audit aware (ADR-0002, ADR-0011): `plugin_registry`/`plugin_versions`/`plugin_dependencies`/`plugin_health` with a JSONB manifest; in-memory + PDO (SQLite/PostgreSQL) adapters; `DirectoryPluginSource`/`ArrayPluginSource`; a container-driven instantiator; all bound by `PluginServiceProvider`. Full treatment: `docs/25-Plugin-Platform.md`.
+
+**Consequences.**
+- (+) Uniform, testable governance: one manifest, one versioning scheme, one dependency algorithm, one isolation model for every plugin kind — present and future.
+- (+) Open/closed Core preserved (ADR-0016): capabilities install/upgrade/replace at runtime with no core edit; SemVer + rollback make upgrades reversible.
+- (+) Fault isolation: a faulting plugin degrades to a captured failure `Result` + event rather than an uncaught exception, keeping the Core available.
+- (+) Marketplace-ready seam: the `PluginManager` façade + `plugin.json` are the stable surface a later HTTP/marketplace layer plugs into without core change.
+- (−) Isolation is **in-process** (permission gate + sandbox), not OS-level; a fully untrusted plugin could still consume CPU/memory in-process. True OS-process/container isolation is deferred (see below).
+- (−) Real complexity: manifest validation, SemVer/constraint parsing and dependency resolution are non-trivial and depend on keeping the SDK contract stable (ADR-0016).
+
+**Alternatives considered.**
+- **Ad-hoc version strings / hand-rolled comparison:** rejected — non-deterministic ordering and compatibility bugs; strict SemVer 2.0.0 is the interoperable, marketplace-expected standard.
+- **Trust-based loading without a permission gate or sandbox:** rejected — a single misbehaving or malicious plugin could exceed its remit or crash the Core; scoping + fault-catching is the minimum viable isolation.
+- **OS-process / container isolation now:** deferred — it is the right long-term answer for fully untrusted third-party plugins but adds substantial runtime and operational complexity ahead of need; the in-process gate+sandbox is sufficient for the trusted-but-scoped plugins the platform loads today, and ADR-0016's "microkernel-with-services" path remains open.
+- **`eval`/dynamic include of plugin bodies without validation:** rejected outright — an unacceptable security and correctness hazard; plugins are real, autoloaded classes resolved through the container and gated by `PluginValidator` before use.
+- **Hardcoded extension points (a fixed switch of known capabilities):** rejected — it violates the open/closed principle and ADR-0016's "everything is a plugin" decision, forcing a core edit for every new capability; the manifest + kind↔contract SDK keeps the Core closed to modification yet open to extension.
+
+This ADR **implements ADR-0016** and **reaffirms** ADR-0007 (Hexagonal/DDD) and ADR-0015 (framework-independent).
+
+---
+
 ## Related Documents
 
 - `docs/00-Vision.md` — Product vision.
@@ -482,3 +518,4 @@ The context is pure Hexagonal/DDD (ADR-0007), framework-independent (ADR-0015), 
 | 1.0.0 | 2026-07-01 | Architecture (Nizam Core) | Initial ADR log: ADR-0001 through ADR-0013 recorded and Accepted. |
 | 2.0.0 | 2026-07-01 | Architecture (Nizam Core) | Added ADR-0015 (self-built Native PHP 8.4 platform framework), ADR-0016 (plugin-based Agent architecture), ADR-0017 (single Master Orchestrator entry point), and ADR-0018 (AI Runtime Execution Engine with explicit state machine), all Accepted; ADR-0014 superseded by ADR-0015. |
 | 2.1.0 | 2026-07-01 | Architecture (Nizam Core) | Added ADR-0019 (Professional Behavior modeled per-Role, evolved only via approved observations; profiles versioned, explainable, reversible, approval-gated), Accepted; see `docs/24-Professional-Behavior-Engine.md`. |
+| 2.2.0 | 2026-07-01 | Architecture (Nizam Core) | Added ADR-0020 (Plugin platform mechanics — manifest, strict SemVer 2.0.0 + constraints, kind↔contract reflection validation, topological dependency resolution, permission-gated fault-catching in-process sandbox isolation, guarded lifecycle + events, PDO/in-memory persistence), Accepted; implements ADR-0016 without changing its decision. See `docs/25-Plugin-Platform.md`. |
