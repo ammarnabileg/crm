@@ -11,6 +11,23 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added — full offer negotiation loop (company ⇄ candidate counter-offers)
+- The offer flow is now a complete two-sided negotiation. On **accept**, the
+  candidate records their **earliest start date** (written to the application's
+  `available_from`) and an optional **note**. On **reject**, the candidate can
+  **counter-offer** a specific amount with a note (why that number) — already
+  supported — and now **HR can respond** to that counter: **accept it** (→ hire),
+  **reject** it outright (ends the loop), or **counter back** with a revised, sent
+  offer. The loop continues until one side accepts or rejects without countering.
+  Implemented as backward-compatible additions to `OfferService`
+  (`acceptProposal`, `declineProposal`, `counterFromCompany`, and start-date/note
+  params on `accept`/`acceptAsCandidate`, sharing one `finalizeHire` path for both
+  directions), new `OffersController` endpoints + routes, and inline accept/counter
+  UI on both the candidate portal and the recruiter candidate page. No schema
+  change (reuses `offers.proposed_by`/`status` + `applications.available_from`).
+  Tests: +4 feature (accept-with-start-date, HR-accepts-counter, HR-rejects-counter,
+  HR-counters-then-candidate-accepts).
+
 ### Added — Candidate 360° Intelligence brief (reuses prior analysis, zero extra AI)
 - A hiring brief on the candidate page assembling **Executive Summary, Strengths,
   Weaknesses, Risks, Culture Fit, Leadership, Communication, Technical Depth,

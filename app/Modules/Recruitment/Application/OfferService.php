@@ -58,12 +58,43 @@ final class OfferService
         return $this->create($workspaceId, $applicationId, $title, $salary, $currency, $userId, $note, 'candidate');
     }
 
-    /** Accept an offer the candidate owns (verifies the offer belongs to them). */
-    public function acceptAsCandidate(string $workspaceId, string $offerId, string $userId): string
+    /**
+     * Accept an offer the candidate owns (verifies the offer belongs to them),
+     * capturing the earliest start date they can begin and an optional note.
+     */
+    public function acceptAsCandidate(string $workspaceId, string $offerId, string $userId, ?string $startDate = null, ?string $acceptNote = null): string
     {
         $this->assertCandidateOwns($workspaceId, $offerId, $userId);
 
-        return $this->accept($workspaceId, $offerId);
+        return $this->accept($workspaceId, $offerId, $startDate, $acceptNote);
+    }
+
+    /**
+     * The company accepts a candidate's counter-proposal (status 'proposed'),
+     * ending the negotiation with a hire. Mirror of {@see self::accept()} for the
+     * candidate-initiated side of the loop.
+     */
+    public function acceptProposal(string $workspaceId, string $offerId, ?string $startDate = null, ?string $acceptNote = null): string
+    {
+        return $this->finalizeHire($workspaceId, $offerId, 'proposed', $startDate, $acceptNote);
+    }
+
+    /** The company rejects a candidate's counter-proposal without countering (ends the loop). */
+    public function declineProposal(string $workspaceId, string $offerId): void
+    {
+        $this->transition($workspaceId, $offerId, from: 'proposed', to: 'declined', stamp: 'decided_at');
+    }
+
+    /**
+     * The company counters back with a new offer (a fresh company offer, sent
+     * immediately so the candidate can respond). Continues the negotiation loop.
+     */
+    public function counterFromCompany(string $workspaceId, string $applicationId, string $title, ?int $salary, string $currency, ?string $createdBy, ?string $note = null): string
+    {
+        $id = $this->create($workspaceId, $applicationId, $title, $salary, $currency, $createdBy, $note, 'company');
+        $this->send($workspaceId, $id);
+
+        return $id;
     }
 
     /** Decline an offer the candidate owns. */
@@ -90,26 +121,67 @@ final class OfferService
         $this->transition($workspaceId, $offerId, from: 'draft', to: 'sent', stamp: 'sent_at');
     }
 
-    /** Accept an offer → mark the application Hired and create the Employee. */
-    public function accept(string $workspaceId, string $offerId): string
+    /**
+     * Accept a SENT company offer → mark the application Hired and create the
+     * Employee. Optionally records the candidate's earliest start date and note.
+     */
+    public function accept(string $workspaceId, string $offerId, ?string $startDate = null, ?string $acceptNote = null): string
     {
-        return $this->connection->transaction(function () use ($workspaceId, $offerId): string {
+        return $this->finalizeHire($workspaceId, $offerId, 'sent', $startDate, $acceptNote);
+    }
+
+    /**
+     * Shared final step of the negotiation: whichever side accepts the other's
+     * latest open offer (a SENT company offer or a PROPOSED candidate counter)
+     * finalises the hire — offer accepted, application hired (+ start date), and
+     * the Employee created. One code path so both directions behave identically.
+     */
+    private function finalizeHire(string $workspaceId, string $offerId, string $requiredStatus, ?string $startDate, ?string $acceptNote): string
+    {
+        return $this->connection->transaction(function () use ($workspaceId, $offerId, $requiredStatus, $startDate, $acceptNote): string {
             $offer = $this->find($workspaceId, $offerId);
             if ($offer === null) {
                 throw new ApplicationException('Offer not found in this workspace.');
             }
-            if ((string) $offer['status'] !== 'sent') {
-                throw new ApplicationException('Only a sent offer can be accepted.');
+            if ((string) $offer['status'] !== $requiredStatus) {
+                throw new ApplicationException("Only a '{$requiredStatus}' offer can be accepted here.");
             }
 
             $now = gmdate('Y-m-d H:i:s');
-            $this->connection->statement('UPDATE offers SET status = ?, decided_at = ?, updated_at = ? WHERE id = ?', ['accepted', $now, $now, $offerId]);
+            $note = $this->appendNote((string) ($offer['note'] ?? ''), $acceptNote);
+            $this->connection->statement('UPDATE offers SET status = ?, note = ?, decided_at = ?, updated_at = ? WHERE id = ?', ['accepted', $note, $now, $now, $offerId]);
 
             $application = $this->connection->selectOne('SELECT * FROM applications WHERE id = ?', [(string) $offer['application_id']]);
-            $this->connection->statement('UPDATE applications SET status = ?, updated_at = ? WHERE id = ?', ['hired', $now, (string) $offer['application_id']]);
+            $start = $this->normalizeDate($startDate);
+            if ($start !== null) {
+                $this->connection->statement('UPDATE applications SET status = ?, available_from = ?, updated_at = ? WHERE id = ?', ['hired', $start, $now, (string) $offer['application_id']]);
+            } else {
+                $this->connection->statement('UPDATE applications SET status = ?, updated_at = ? WHERE id = ?', ['hired', $now, (string) $offer['application_id']]);
+            }
 
             return $this->createEmployee($workspaceId, (string) $application['user_id'], (string) $offer['application_id'], (string) ($offer['title'] ?? ''));
         });
+    }
+
+    private function appendNote(string $existing, ?string $acceptNote): string
+    {
+        $acceptNote = $acceptNote !== null ? trim($acceptNote) : '';
+        if ($acceptNote === '') {
+            return $existing;
+        }
+        $line = 'Accepted: ' . $acceptNote;
+
+        return trim($existing) === '' ? $line : trim($existing) . ' — ' . $line;
+    }
+
+    private function normalizeDate(?string $date): ?string
+    {
+        $date = $date !== null ? trim($date) : '';
+        if ($date === '' || preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+            return null;
+        }
+
+        return $date;
     }
 
     public function decline(string $workspaceId, string $offerId): void

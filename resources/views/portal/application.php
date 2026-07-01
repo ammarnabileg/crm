@@ -142,9 +142,19 @@ $deadlineTs = ! empty($application['deadline_at']) ? strtotime((string) $applica
                             <?php if ($o['salary'] !== null): ?><div class="mt-0.5 text-xs text-slate-500"><?= e(number_format((float) $o['salary'])) ?> <?= e($o['currency']) ?></div><?php endif; ?>
                             <?php if (! empty($o['note'])): ?><p class="mt-1 text-xs text-slate-500"><?= e($o['note']) ?></p><?php endif; ?>
                             <?php if ((string) $o['status'] === 'sent'): ?>
-                                <div class="mt-2 flex gap-2">
-                                    <form method="post" action="/my-offers/<?= e($o['id']) ?>/accept"><?= csrf_field() ?><button class="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Accept</button></form>
-                                    <form method="post" action="/my-offers/<?= e($o['id']) ?>/decline"><?= csrf_field() ?><button class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">Decline</button></form>
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    <details class="group">
+                                        <summary class="cursor-pointer list-none rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-emerald-700">Accept…</summary>
+                                        <form method="post" action="/my-offers/<?= e($o['id']) ?>/accept" class="mt-2 w-64 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                            <?= csrf_field() ?>
+                                            <label class="block text-xs font-medium text-slate-500">Earliest start date
+                                                <input type="date" name="start_date" class="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+                                            </label>
+                                            <textarea name="note" rows="2" placeholder="Optional note…" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"></textarea>
+                                            <button class="w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700">Confirm acceptance</button>
+                                        </form>
+                                    </details>
+                                    <form method="post" action="/my-offers/<?= e($o['id']) ?>/decline"><?= csrf_field() ?><button class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50">Decline</button></form>
                                 </div>
                             <?php endif; ?>
                         </div>

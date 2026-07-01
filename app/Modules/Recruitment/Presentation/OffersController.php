@@ -160,6 +160,93 @@ final class OffersController
         return Response::redirect($userId !== '' ? '/candidates/' . $userId : '/candidates');
     }
 
+    /** HR accepts a candidate's counter-proposal → hire (ends the negotiation loop). */
+    public function acceptProposal(Request $request, string $offerId): Response
+    {
+        if (($r = $this->gate('offer.send', $request)) !== null) {
+            return $r;
+        }
+
+        $userId = (string) $request->input('user_id', '');
+        try {
+            $this->offers->acceptProposal(
+                (string) $this->context->workspaceId(),
+                $offerId,
+                trim((string) $request->input('start_date', '')) ?: null,
+                trim((string) $request->input('note', '')) ?: null,
+            );
+            $this->audit->record('recruitment.offer.proposal_accepted', $this->auditMeta($offerId));
+            $this->session->flash('status', 'Counter-proposal accepted — candidate hired.');
+        } catch (Throwable $e) {
+            $this->session->flash('error', $e->getMessage());
+        }
+
+        return Response::redirect($userId !== '' ? '/candidates/' . $userId : '/offers');
+    }
+
+    /** HR rejects a candidate's counter-proposal outright (ends the loop, declined). */
+    public function declineProposal(Request $request, string $offerId): Response
+    {
+        if (($r = $this->gate('offer.send', $request)) !== null) {
+            return $r;
+        }
+
+        $userId = (string) $request->input('user_id', '');
+        try {
+            $this->offers->declineProposal((string) $this->context->workspaceId(), $offerId);
+            $this->audit->record('recruitment.offer.proposal_declined', $this->auditMeta($offerId));
+            $this->session->flash('status', 'Counter-proposal declined.');
+        } catch (Throwable $e) {
+            $this->session->flash('error', $e->getMessage());
+        }
+
+        return Response::redirect($userId !== '' ? '/candidates/' . $userId : '/offers');
+    }
+
+    /** HR counters back with a new offer, continuing the negotiation loop. */
+    public function counter(Request $request, string $userId): Response
+    {
+        if (($r = $this->gate('offer.create', $request)) !== null) {
+            return $r;
+        }
+
+        $applicationId = $this->offers->latestApplicationId((string) $this->context->workspaceId(), $userId);
+        if ($applicationId === null) {
+            $this->session->flash('error', 'This candidate has no application to counter on.');
+
+            return Response::redirect('/candidates/' . $userId);
+        }
+
+        try {
+            $offerId = $this->offers->counterFromCompany(
+                (string) $this->context->workspaceId(),
+                $applicationId,
+                trim((string) $request->input('title', 'Revised offer')) ?: 'Revised offer',
+                (int) $request->input('salary', 0) ?: null,
+                (string) $request->input('currency', 'USD'),
+                $this->context->userId(),
+                trim((string) $request->input('note', '')) ?: null,
+            );
+            $this->audit->record('recruitment.offer.countered', $this->auditMeta($offerId));
+            $this->session->flash('status', 'Counter-offer sent to the candidate.');
+        } catch (Throwable $e) {
+            $this->session->flash('error', $e->getMessage());
+        }
+
+        return Response::redirect('/candidates/' . $userId);
+    }
+
+    /** @return array<string,mixed> */
+    private function auditMeta(string $offerId): array
+    {
+        return [
+            'workspace_id' => $this->context->workspaceId(),
+            'actor_user_id' => $this->context->userId(),
+            'entity_type' => 'offer',
+            'entity_id' => $offerId,
+        ];
+    }
+
     private function gate(string $permission, Request $request): ?Response
     {
         if (! $this->auth->check()) {

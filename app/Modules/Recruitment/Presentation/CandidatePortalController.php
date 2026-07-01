@@ -736,7 +736,13 @@ final class CandidatePortalController
         }
 
         try {
-            $this->offers->acceptAsCandidate((string) $this->context->workspaceId(), $offerId, (string) $this->context->userId());
+            $this->offers->acceptAsCandidate(
+                (string) $this->context->workspaceId(),
+                $offerId,
+                (string) $this->context->userId(),
+                trim((string) $request->input('start_date', '')) ?: null,
+                trim((string) $request->input('note', '')) ?: null,
+            );
             $this->session->flash('status', 'Offer accepted. Welcome aboard!');
         } catch (ApplicationException $e) {
             $this->session->flash('status', $e->getMessage());

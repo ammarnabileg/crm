@@ -137,6 +137,9 @@ final class RecruitmentModule implements Module
         $router->post('/candidates/{userId}/ai-summary', [CandidatesController::class, 'aiSummary']);
         $router->post('/first-impression/{reportId}/override', [CandidatesController::class, 'overrideFirstImpression']);
         $router->post('/candidates/{userId}/offer', [OffersController::class, 'make']);
+        $router->post('/candidates/{userId}/offer/counter', [OffersController::class, 'counter']);
+        $router->post('/offers/{offerId}/accept-proposal', [OffersController::class, 'acceptProposal']);
+        $router->post('/offers/{offerId}/decline-proposal', [OffersController::class, 'declineProposal']);
         $router->get('/offers', [OffersController::class, 'index']);
         $router->get('/offers/{offerId}/print', [OffersController::class, 'print']);
         $router->post('/offers/{offerId}/accept', [OffersController::class, 'accept']);

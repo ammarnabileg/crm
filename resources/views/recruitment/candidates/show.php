@@ -584,14 +584,47 @@ $lbl = 'text-xs font-semibold uppercase tracking-wide text-slate-400';
                 <div class="<?= $card ?>">
                     <h2 class="<?= $h2 ?>">Offers</h2>
                     <?php foreach (($offers ?? []) as $offer): ?>
-                        <div class="mb-2 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                            <span><?= e($offer['title'] ?: 'Offer') ?> · <span class="text-slate-500"><?= e($offer['status']) ?></span></span>
-                            <?php if (($canDecide ?? false) && $offer['status'] === 'sent'): ?>
-                                <form method="post" action="/offers/<?= e($offer['id']) ?>/accept">
-                                    <?= csrf_field() ?>
-                                    <input type="hidden" name="user_id" value="<?= e($profile['user_id']) ?>">
-                                    <button class="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700">Mark accepted → hire</button>
-                                </form>
+                        <div class="mb-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span>
+                                    <?= e($offer['title'] ?: 'Offer') ?>
+                                    <?php if (! empty($offer['salary'])): ?><span class="text-slate-500"><?= e(number_format((float) $offer['salary'])) ?> <?= e($offer['currency']) ?></span><?php endif; ?>
+                                    · <span class="text-slate-500"><?= e($offer['status']) ?></span>
+                                    <?php if ((string) ($offer['proposed_by'] ?? '') === 'candidate'): ?><span class="ml-1 rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-600">candidate counter</span><?php endif; ?>
+                                </span>
+                                <?php if (($canDecide ?? false) && $offer['status'] === 'sent'): ?>
+                                    <form method="post" action="/offers/<?= e($offer['id']) ?>/accept">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="user_id" value="<?= e($profile['user_id']) ?>">
+                                        <button class="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-emerald-700">Mark accepted → hire</button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                            <?php if (! empty($offer['note'])): ?><p class="mt-1 text-xs text-slate-500"><?= e($offer['note']) ?></p><?php endif; ?>
+                            <?php if (($canDecide ?? false) && (string) $offer['status'] === 'proposed'): ?>
+                                <!-- HR responds to a candidate's counter-proposal: accept, reject, or counter back. -->
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    <form method="post" action="/offers/<?= e($offer['id']) ?>/accept-proposal">
+                                        <?= csrf_field() ?><input type="hidden" name="user_id" value="<?= e($profile['user_id']) ?>">
+                                        <button class="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-emerald-700">Accept counter → hire</button>
+                                    </form>
+                                    <form method="post" action="/offers/<?= e($offer['id']) ?>/decline-proposal">
+                                        <?= csrf_field() ?><input type="hidden" name="user_id" value="<?= e($profile['user_id']) ?>">
+                                        <button class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100">Reject</button>
+                                    </form>
+                                    <?php if ($canOffer ?? false): ?>
+                                        <details class="group">
+                                            <summary class="cursor-pointer list-none rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-indigo-700">Counter back…</summary>
+                                            <form method="post" action="/candidates/<?= e($profile['user_id']) ?>/offer/counter" class="mt-2 w-60 space-y-2 rounded-xl border border-slate-200 bg-white p-3">
+                                                <?= csrf_field() ?>
+                                                <input name="title" value="Revised offer" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+                                                <input name="salary" type="number" min="0" placeholder="New salary" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+                                                <textarea name="note" rows="2" placeholder="Optional note…" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"></textarea>
+                                                <button class="w-full rounded-lg bg-indigo-600 px-2 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-700">Send counter</button>
+                                            </form>
+                                        </details>
+                                    <?php endif; ?>
+                                </div>
                             <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
