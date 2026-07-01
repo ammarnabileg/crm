@@ -152,6 +152,10 @@ final class OfferService
             $this->connection->statement('UPDATE offers SET status = ?, note = ?, decided_at = ?, updated_at = ? WHERE id = ?', ['accepted', $note, $now, $now, $offerId]);
 
             $application = $this->connection->selectOne('SELECT * FROM applications WHERE id = ?', [(string) $offer['application_id']]);
+            if ($application === null) {
+                throw new ApplicationException('Cannot finalize the hire: the application behind this offer no longer exists.');
+            }
+
             $start = $this->normalizeDate($startDate);
             if ($start !== null) {
                 $this->connection->statement('UPDATE applications SET status = ?, available_from = ?, updated_at = ? WHERE id = ?', ['hired', $start, $now, (string) $offer['application_id']]);

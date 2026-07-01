@@ -39,7 +39,17 @@ final class CoreServiceProvider extends ServiceProvider
         $c->singleton(RouteDispatcher::class, RouteDispatcher::class);
         $c->singleton(HealthChecker::class, HealthChecker::class);
         $c->singleton(ModuleRegistry::class, ModuleRegistry::class);
-        $c->singleton(\HaHireAI\Core\Http\Session::class, \HaHireAI\Core\Http\Session::class);
+
+        // Session subsystem: config-driven cookies/lifetime + a driver-based store
+        // (file now; redis/database can be registered on this shared factory).
+        $c->singleton(
+            \HaHireAI\Core\Http\Session\SessionStoreFactory::class,
+            static fn (): \HaHireAI\Core\Http\Session\SessionStoreFactory => new \HaHireAI\Core\Http\Session\SessionStoreFactory(),
+        );
+        $c->singleton(\HaHireAI\Core\Http\Session::class, static fn (Container $container): \HaHireAI\Core\Http\Session => new \HaHireAI\Core\Http\Session(
+            \HaHireAI\Core\Http\Session\SessionConfig::fromArray((array) $config->get('session', [])),
+            $container->make(\HaHireAI\Core\Http\Session\SessionStoreFactory::class),
+        ));
         $c->singleton(\HaHireAI\Core\View\View::class, static fn (): \HaHireAI\Core\View\View => new \HaHireAI\Core\View\View(
             (string) $config->get('path.base') . '/resources/views',
         ));

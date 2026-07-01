@@ -10,6 +10,7 @@
 /storage/compiled/*
 /storage/uploads/*
 /storage/files/*
+/storage/sessions/*
 !/storage/**/.gitkeep
 
 # Build output

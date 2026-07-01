@@ -107,4 +107,58 @@ final class Request
     {
         return $this->server[$key] ?? $default;
     }
+
+    /**
+     * Whether the ORIGINAL request reached the edge over HTTPS.
+     *
+     * Direct TLS is detected from $_SERVER (HTTPS / SERVER_PORT 443). When the app
+     * sits behind a reverse proxy or CDN that terminates TLS (Nginx, HAProxy,
+     * Cloudflare), the real scheme only survives in forwarded headers — but those
+     * are client-spoofable, so they are trusted ONLY when $trustProxy is enabled
+     * (config session.trust_proxy). This is what lets the Secure cookie flag be
+     * set correctly in production without breaking plain-HTTP localhost.
+     */
+    public function isSecure(bool $trustProxy = false): bool
+    {
+        $https = $this->server('HTTPS');
+        if (is_string($https) && $https !== '' && strtolower($https) !== 'off') {
+            return true;
+        }
+
+        if ((int) $this->server('SERVER_PORT', 0) === 443) {
+            return true;
+        }
+
+        if (! $trustProxy) {
+            return false;
+        }
+
+        // X-Forwarded-Proto: https  (may be a comma list — the left-most is the client edge)
+        $proto = $this->header('x-forwarded-proto');
+        if ($proto !== null && strtolower(trim(explode(',', $proto)[0])) === 'https') {
+            return true;
+        }
+
+        // X-Forwarded-Ssl: on  /  Front-End-Https: on
+        foreach (['x-forwarded-ssl', 'front-end-https'] as $flag) {
+            $value = $this->header($flag);
+            if ($value !== null && strtolower(trim($value)) === 'on') {
+                return true;
+            }
+        }
+
+        // X-Forwarded-Port: 443
+        $port = $this->header('x-forwarded-port');
+        if ($port !== null && trim(explode(',', $port)[0]) === '443') {
+            return true;
+        }
+
+        // Cloudflare: CF-Visitor: {"scheme":"https"}
+        $visitor = $this->header('cf-visitor');
+        if ($visitor !== null && str_contains(strtolower(str_replace(' ', '', $visitor)), '"scheme":"https"')) {
+            return true;
+        }
+
+        return false;
+    }
 }

@@ -89,10 +89,26 @@ final class Logger implements LoggerContract
 
     private function write(string $line): void
     {
-        if (! is_dir($this->directory)) {
-            @mkdir($this->directory, 0775, true);
+        if (! is_dir($this->directory) && ! @mkdir($this->directory, 0775, true) && ! is_dir($this->directory)) {
+            $this->fallback('log directory is not writable: ' . $this->directory, $line);
+
+            return;
         }
 
-        @file_put_contents($this->directory . '/app.log', $line, FILE_APPEND | LOCK_EX);
+        $written = @file_put_contents($this->directory . '/app.log', $line, FILE_APPEND | LOCK_EX);
+
+        if ($written === false) {
+            $this->fallback('could not append to ' . $this->directory . '/app.log', $line);
+        }
+    }
+
+    /**
+     * Logging must never crash the request, but a failed write must not vanish
+     * either. Route the reason (and the dropped line) to PHP's own error stream
+     * so it surfaces in the server/container log instead of being swallowed.
+     */
+    private function fallback(string $reason, string $line): void
+    {
+        error_log('[HaHireAI Logger] ' . $reason . ' | dropped: ' . rtrim($line, PHP_EOL));
     }
 }

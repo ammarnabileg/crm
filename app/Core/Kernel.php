@@ -90,8 +90,9 @@ final class Kernel
     {
         $this->boot();
 
-        // Start the HTTP session (no-op under CLI/tests).
-        $this->container->make(\HaHireAI\Core\Http\Session::class)->start();
+        // Start the HTTP session (no-op under CLI/tests). The request drives
+        // reverse-proxy/Cloudflare-aware Secure-cookie detection.
+        $this->container->make(\HaHireAI\Core\Http\Session::class)->start($request);
 
         return $this->container->make(Dispatcher::class)
             ->dispatch($request, $this->container->make(Router::class));
