@@ -1,6 +1,6 @@
 # Folder Structure
 
-> The canonical production folder layout for the Nizam monorepo — where every app, package, bounded context, spec, migration, and deployment artifact lives, and why.
+> The canonical production folder layout for the Nizam monorepo — a **native PHP 8.3+ modular monolith** (Composer, PSR-4, framework-agnostic) — showing where every module, bounded context, spec, migration, and deployment artifact lives, and why.
 
 **Status: Approved (Phase 1) | Version: 1.0.0 | Last updated: 2026-07-01 | Owner: Architecture (Nizam Core)**
 
@@ -10,11 +10,13 @@
 
 The structure is designed to make the architecture inescapable:
 
-- **Modular monolith first, service-extractable.** All bounded contexts ship in one deployable API today; each context is a self-contained folder with its own layers, so it can be lifted into its own service later with no rewrite.
-- **Clean Architecture per module.** Every bounded context has `domain/ → application/ → infrastructure/ → interface/`. Folders make the dependency rule visible; a boundary linter enforces it.
-- **12 bounded contexts (FIXED)** — Core, IAM, Agents, Tools, Automation, Integrations, AI (Bayan Gateway), Billing, Monitoring, Settings, Notifications, Administration. Each is one folder under `apps/api/src/modules/`.
-- **Contracts are first-class.** OpenAPI/AsyncAPI specs, event schemas, and n8n workflow definitions live in versioned, reviewable folders — not scattered in code.
-- **Shared, not duplicated.** Truly cross-cutting types/utilities live in `packages/`; business rules never do.
+- **Native PHP, framework-agnostic.** PHP 8.3+ with `declare(strict_types=1)` everywhere, Composer for dependency management, **PSR-4 autoloading** under the root vendor namespace `Nizam\`. Built on PSR standards (PSR-7/15 HTTP, PSR-11 container, PSR-3 logging via Monolog); **no full-stack framework lock-in** (no Laravel/Symfony-full). Select Composer components are used only behind ports.
+- **Modular monolith first, service-extractable.** All bounded contexts ship in one deployable process today; each context is a self-contained module namespace with its own layers, so it can be lifted into its own service later with no rewrite.
+- **Clean Architecture per module.** Every bounded context has `Domain/ → Application/ → Infrastructure/ → Interface/`. Folders make the dependency rule visible; static analysis (PHPStan/Psalm) plus an architecture ruleset enforce it.
+- **12 bounded contexts (FIXED)** — Core (Kernel), IAM, Agents, Tools, Automation, Integrations, AI (Bayan Gateway), Billing, Monitoring, Settings, Notifications, Administration. Each is one folder under `src/Modules/` (Core lives in `src/Kernel/`).
+- **One class per file.** `ClassName.php` matches its PascalCase class; the PSR-4 path mirrors the namespace exactly.
+- **Contracts are first-class.** OpenAPI/AsyncAPI specs and n8n workflow definitions live in versioned, reviewable folders (`contracts/`, `infra/n8n/`) — not scattered in code.
+- **README per folder (constitution rule 16).** Every module and every layer folder carries a `README.md` stating its purpose, public surface, and layer map.
 
 ---
 
@@ -22,51 +24,79 @@ The structure is designed to make the architecture inescapable:
 
 ```
 nizam/
-├── apps/                          # Deployable applications (one build target each)
-│   ├── api/                       # NestJS modular monolith — all 12 bounded contexts
-│   ├── web/                       # Next.js 15 frontend (App Router, AR/EN RTL/LTR)
-│   └── worker/                    # Background processors: outbox relay, BullMQ jobs, sagas, schedulers
+├── composer.json                  # PSR-4 autoload map (Nizam\ → src/), require/require-dev, scripts
+├── composer.lock                  # Pinned dependency graph (committed)
+├── phpunit.xml.dist               # PHPUnit suites: Unit, Integration, Contract, E2E
+├── phpstan.neon                   # PHPStan level max + architecture/boundary rules
+├── psalm.xml                      # Psalm config (taint + type coverage) — second static gate
+├── .php-cs-fixer.dist.php         # PER/PSR-12 coding-style ruleset (replaces ESLint/Prettier)
+├── .editorconfig · .gitattributes
 │
-├── packages/                      # Shared, versioned libraries (no business rules)
-│   ├── kernel/                    # Shared kernel: Result/Either, base VOs, ids (UUIDv7), clock, tenant-context types
-│   ├── contracts/                 # Generated TS types from OpenAPI/AsyncAPI + integration-event contracts
-│   ├── config/                    # 12-factor env schema (zod) + typed config loader
-│   ├── observability/             # OpenTelemetry setup, pino logger, correlation-id propagation
-│   ├── eventing/                  # EventBus port + NATS JetStream / Redis Streams adapters, outbox helpers
-│   ├── testing/                   # Shared test utilities: fakes, Testcontainers helpers, fixtures builders
-│   └── ui/                        # Shared React UI kit (design system, Help Popup, Wizard, form primitives)
+├── public/                        # Web root — the ONLY publicly exposed directory
+│   └── index.php                  # Front controller: PSR-7 request → PSR-15 middleware pipe → emit response
 │
-├── infra/                         # Everything to run & deploy Nizam
-│   ├── docker/                    # Dockerfiles per app + local docker-compose (Postgres, Redis, NATS, n8n)
-│   ├── helm/                      # Helm charts (api, web, worker, n8n) + values per environment
-│   ├── k8s/                       # Raw manifests / kustomize overlays not owned by Helm
-│   ├── terraform/                 # Cloud infra: cluster, DB, Redis, secrets manager, networking
-│   ├── n8n/                       # n8n self-hosted config + exported workflow definitions (JSON, versioned)
-│   └── observability/             # Prometheus/Grafana/Loki/Tempo config, dashboards, alert rules
+├── bin/                           # Console entrypoints (long-running workers & operational commands)
+│   ├── console                    # Command bus dispatcher (PSR-11 resolved commands)
+│   ├── queue-worker               # Redis-backed queue consumer (jobs, sagas)
+│   ├── outbox-relay               # Transactional-outbox → NATS JetStream relay loop
+│   └── scheduler                  # Cron/interval trigger loop
+│
+├── config/                        # 12-factor configuration (the only place env is read)
+│   ├── container.php              # PSR-11 container definitions (port → adapter bindings)
+│   ├── config.php                 # Typed config aggregation from env
+│   ├── env.schema.php             # Env validation/typing at bootstrap (fail-fast)
+│   ├── routes.php                 # PSR-15 route table (context controllers → paths)
+│   └── middleware.php             # Global middleware pipeline order
+│
+├── src/                           # All application source (PSR-4 root: Nizam\ → src/)
+│   ├── Kernel/                    # Core (Kernel) shared kernel — Nizam\Kernel\...
+│   └── Modules/                   # The 11 business bounded contexts, one folder each
+│       ├── Iam/                   # Nizam\Iam\...
+│       ├── Agents/                # Nizam\Agents\...        (detailed in §5)
+│       ├── Tools/                 # Nizam\Tools\...
+│       ├── Automation/            # Nizam\Automation\...
+│       ├── Integrations/          # Nizam\Integrations\...
+│       ├── Ai/                    # Nizam\Ai\...            (Bayan Gateway ACL)
+│       ├── Billing/               # Nizam\Billing\...
+│       ├── Monitoring/            # Nizam\Monitoring\...
+│       ├── Settings/              # Nizam\Settings\...
+│       ├── Notifications/         # Nizam\Notifications\...
+│       └── Administration/        # Nizam\Administration\...
+│
+├── tests/                         # PHPUnit — mirrors src/ (Nizam\Tests\... in composer autoload-dev)
+│   ├── Unit/                      # Pure domain/application, no I/O (fakes for ports)
+│   ├── Integration/               # Real Postgres/Redis/NATS via Testcontainers
+│   ├── Contract/                  # OpenAPI/AsyncAPI conformance (provider & consumer)
+│   └── E2E/                       # Full intent-flow against a running system
 │
 ├── migrations/                    # Expand/contract SQL migrations (design source; run by tooling, not app)
 │   ├── <context>/                 # Migrations grouped by owning bounded context
-│   └── shared/                    # Cross-cutting (audit_log, outbox, RLS policies, extensions: pgvector)
+│   └── shared/                    # Cross-cutting: audit_log, outbox, RLS policies, extensions (pgvector)
+│
+├── contracts/                     # Interface contracts (source of truth, versioned)
+│   ├── openapi/                   # OpenAPI 3.1 REST specs, per context
+│   └── asyncapi/                  # AsyncAPI 2.6 event specs, per context
+│
+├── infra/                         # Everything to run & deploy Nizam
+│   ├── docker/                    # Dockerfiles (php-fpm/cli) + local docker-compose (Postgres, Redis, NATS, n8n)
+│   ├── k8s/                       # Raw manifests / kustomize overlays not owned by Helm
+│   ├── helm/                      # Helm charts (api, worker, n8n) + values per environment
+│   ├── n8n/                       # n8n self-hosted config + exported workflow definitions (JSON, versioned)
+│   └── otel/                      # OpenTelemetry Collector config + Prometheus/Grafana/Loki/Tempo assets
+│
+├── apps/                          # Decoupled clients (orthogonal to the PHP backend)
+│   └── web/                       # Next.js 15 operator console — consumes the PHP REST API only
 │
 ├── docs/                          # Architecture & product documentation (this phase's output)
 │   ├── adr/                       # Architecture Decision Records
-│   ├── openapi/                   # OpenAPI 3.1 REST specs (source of truth), per context
-│   ├── asyncapi/                  # AsyncAPI 2.6 event specs (source of truth), per context
 │   ├── diagrams/                  # Exported Mermaid/architecture diagrams
 │   └── audit/                     # Architecture-Audit, Missing-Items, Risks reports
 │
-├── test/                          # Cross-app e2e & contract test suites (per-module unit tests stay colocated)
-│   ├── e2e/                       # Full-stack intent-flow tests against a running system
-│   └── contract/                  # Pact / schema-conformance suites (provider & consumer)
-│
-├── scripts/                       # Repo tooling: codegen, migration runner, seeders, lint helpers
-├── .github/                       # CI/CD workflows, PR templates, CODEOWNERS
-├── .dependency-cruiser.cjs        # Clean-Architecture boundary rules (CI-enforced)
-├── eslint.config.mjs · .prettierrc · commitlint.config.cjs
-├── tsconfig.base.json             # Strict TS base extended by every app/package
-├── turbo.json  ·  pnpm-workspace.yaml
-└── package.json  ·  README.md
+├── .github/                       # CI/CD workflows, PR templates, CODEOWNERS (per-context ownership)
+└── README.md                      # Repo entry point (Project Constitution rules apply repo-wide)
 ```
+
+> **Naming:** PHP folders/namespaces are **PascalCase** (`src/Modules/Agents/Domain/`); non-PHP asset folders (docs, infra, contracts, migrations) are **kebab-case/lowercase**. One class per file, `ClassName.php`, path mirrors namespace.
 
 ---
 
@@ -76,195 +106,222 @@ nizam/
 
 | Path | Responsibility |
 |------|----------------|
-| `apps/` | Independently deployable applications; each has exactly one build/deploy target. |
-| `apps/api/` | The NestJS modular monolith hosting all 12 bounded contexts behind one process. |
-| `apps/web/` | Next.js 15 frontend for non-technical users; bilingual AR/EN, RTL/LTR. |
-| `apps/worker/` | Out-of-request processing: transactional-outbox relay, BullMQ consumers, saga/process managers, scheduled jobs. |
-| `packages/` | Cross-cutting shared libraries consumed by apps; contain infrastructure/utility only, never business rules. |
-| `packages/kernel/` | Shared kernel primitives: `Result`, base `Entity`/`ValueObject`, UUIDv7 ids, `ClockPort`, tenant-context type. Mirrors the **Core (Kernel)** context's *shareable* pieces. |
-| `packages/contracts/` | TS types generated from OpenAPI/AsyncAPI + hand-authored integration-event payload contracts; the typed boundary between contexts and clients. |
-| `packages/config/` | The single 12-factor env schema and typed config loader; the only code allowed to read `process.env`. |
-| `packages/observability/` | OpenTelemetry init, pino structured logger, correlation-id/trace propagation, redaction serializers. |
-| `packages/eventing/` | `EventBus`/`EventPublisher` ports and their NATS JetStream (primary) + Redis Streams (fallback) adapters, plus outbox read/relay helpers. |
-| `packages/testing/` | Shared fakes, Testcontainers setup, fixture/builder helpers used across suites. |
-| `packages/ui/` | Design-system React components: Help Popup, Wizard, form field + `(!)` help icon, Basic/Advanced toggle. |
-| `infra/` | All build, deploy, and run artifacts. |
-| `infra/docker/` | Per-app Dockerfiles and the local `docker-compose.yml` (Postgres 16, Redis 7, NATS JetStream, n8n). |
-| `infra/helm/` | Helm charts for `api`, `web`, `worker`, `n8n`; per-env `values-*.yaml`; HPA definitions. |
-| `infra/k8s/` | Manifests/kustomize overlays not covered by Helm (namespaces, network policies). |
-| `infra/terraform/` | Provisioning of cluster, managed Postgres/Redis, secrets manager, networking. |
-| `infra/n8n/` | Self-hosted n8n configuration and **exported workflow definitions** (versioned JSON) that the Automation Engine drives. |
-| `infra/observability/` | Prometheus scrape config, Grafana dashboards, Loki/Tempo config, alerting rules. |
+| `composer.json` | PSR-4 autoload map (`Nizam\` → `src/`, `Nizam\Tests\` → `tests/`), runtime/dev requirements, and dev scripts (test, stan, psalm, cs-fix). |
+| `composer.lock` | The pinned, committed dependency graph — reproducible installs across environments. |
+| `phpunit.xml.dist` | Test-runner config declaring the Unit/Integration/Contract/E2E suites that mirror `src/`. |
+| `phpstan.neon` | PHPStan at max level plus custom rules enforcing the inward dependency rule and cross-context boundaries. |
+| `psalm.xml` | Second static-analysis gate: type coverage and taint analysis for security-sensitive flows. |
+| `.php-cs-fixer.dist.php` | PER/PSR-12 coding-style ruleset applied in CI and pre-commit (replaces ESLint/Prettier). |
+| `public/` | The only web-exposed directory; contains nothing but the front controller. |
+| `public/index.php` | Front controller: builds the PSR-7 request, runs the PSR-15 middleware pipeline, dispatches to a context controller, emits the response. No business logic. |
+| `bin/` | Console/CLI entrypoints, including long-running background workers. |
+| `bin/console` | Command dispatcher resolving console commands from the PSR-11 container. |
+| `bin/queue-worker` | Redis-backed queue consumer processing jobs and saga steps behind the `Queue` port. |
+| `bin/outbox-relay` | Reads the transactional `outbox` table and publishes integration events to NATS JetStream (Redis Streams fallback). |
+| `bin/scheduler` | Cron/interval loop firing time-based triggers (Automation schedules, digests). |
+| `config/` | 12-factor configuration; the only code permitted to read the environment. |
+| `config/container.php` | PSR-11 container wiring — the single composition root binding domain ports to infrastructure adapters. |
+| `config/config.php` | Typed, immutable config object assembled from validated env. |
+| `config/env.schema.php` | Declares and validates required env vars at bootstrap; process fails fast if invalid. |
+| `config/routes.php` | The PSR-15 route table mapping URL paths (`/v1/...`) to context controllers. |
+| `config/middleware.php` | Global middleware order (tenant context, auth, correlation-id, error mapping). |
+| `src/` | All PHP source; PSR-4 root namespace `Nizam\`. |
+| `src/Kernel/` | The **Core (Kernel)** context: base `Entity`/`ValueObject`, `Result`/error types, UUIDv7 id generation, `ClockPort`, event-bus abstractions, `TenantContext`/`RequestContext`. No business rules. |
+| `src/Modules/` | The 11 business bounded contexts; each is one folder = one namespace = one Clean-Architecture module. |
+| `src/Modules/Iam/` | Identity & Access: tenants, users, orgs, roles, permissions, sessions, RBAC/ABAC; owns AuthN/AuthZ. |
+| `src/Modules/Agents/` | Agent Framework: agent definitions, runtime/orchestration, agent runs, guardrails, memory scoping (see §5). |
+| `src/Modules/Tools/` | Tool Registry: tool definitions, JSON Schemas, capability metadata, versioning, permission scopes. |
+| `src/Modules/Automation/` | Automation Engine: workflow definitions, triggers, the n8n adapter, run history, retries, idempotency, compensation. |
+| `src/Modules/Integrations/` | External connectors (ACLs): CRM, email, messaging, calendars, storage; credential binding, health. |
+| `src/Modules/Ai/` | Bayan Gateway ACL + `LlmProvider` port; intent intake, context assembly, response shaping. No reasoning. |
+| `src/Modules/Billing/` | Plans, subscriptions, metering/usage, quotas, invoices. |
+| `src/Modules/Monitoring/` | Health, metrics, traces, audit read models, SLO tracking, alerting (read-side). |
+| `src/Modules/Settings/` | Tenant/user config, feature flags, Basic/Advanced mode, localization prefs. |
+| `src/Modules/Notifications/` | Multi-channel delivery (in-app, email, push, webhook), templates, preferences, digests. |
+| `src/Modules/Administration/` | Back-office: tenant lifecycle, global flags, audited impersonation, announcements, marketplace approval. |
+| `tests/` | PHPUnit suites mirroring `src/` (`Nizam\Tests\` autoloaded via `autoload-dev`). |
+| `tests/Unit/` | Pure domain/application tests with fake ports; no I/O, no containers. |
+| `tests/Integration/` | Adapter tests against real Postgres 16/Redis/NATS via Testcontainers. |
+| `tests/Contract/` | Provider/consumer conformance to the OpenAPI/AsyncAPI specs in `contracts/`. |
+| `tests/E2E/` | Full-stack intent-flow suites against a running system. |
 | `migrations/` | Expand/contract DB migrations as the design source of record; applied by the migration runner in CI/CD, never by the app at runtime. |
 | `migrations/<context>/` | Migrations owned by a single bounded context (that context owns its tables). |
 | `migrations/shared/` | Cross-cutting schema: `audit_log`, `outbox`, RLS policies, extensions (`pgvector`), common trigger functions. |
+| `contracts/` | First-class interface contracts, versioned and reviewed. |
+| `contracts/openapi/` | OpenAPI 3.1 REST contracts (source of truth), per context. |
+| `contracts/asyncapi/` | AsyncAPI 2.6 event contracts (source of truth), per context. |
+| `infra/` | All build, deploy, and run artifacts. |
+| `infra/docker/` | php-fpm/php-cli Dockerfiles and the local `docker-compose.yml` (Postgres 16, Redis 7, NATS JetStream, n8n). |
+| `infra/k8s/` | Manifests/kustomize overlays not covered by Helm (namespaces, network policies). |
+| `infra/helm/` | Helm charts for `api`, `worker`, `n8n`; per-env `values-*.yaml`; HPA definitions. |
+| `infra/n8n/` | Self-hosted n8n configuration and **exported workflow definitions** (versioned JSON) that the Automation Engine drives. |
+| `infra/otel/` | OpenTelemetry Collector config plus Prometheus/Grafana/Loki/Tempo dashboards and alerting rules. |
+| `apps/` | Decoupled client applications; orthogonal to the PHP backend and deployed separately. |
+| `apps/web/` | Next.js 15 operator console for non-technical users (AR/EN, RTL/LTR); consumes the PHP REST API only — never the DB. |
 | `docs/` | All architecture and product documentation (Phase 1 deliverables). |
 | `docs/adr/` | Architecture Decision Records — one file per non-obvious decision. |
-| `docs/openapi/` | OpenAPI 3.1 REST contracts (source of truth), organized per context. |
-| `docs/asyncapi/` | AsyncAPI 2.6 event contracts (source of truth), organized per context. |
 | `docs/diagrams/` | Rendered/exported diagrams referenced by docs. |
 | `docs/audit/` | Architecture-Audit, Missing-Items, and Risks reports. |
-| `test/e2e/` | Full-stack, intent-flow end-to-end suites against a running system. |
-| `test/contract/` | Consumer/provider contract suites validating OpenAPI/AsyncAPI conformance. |
-| `scripts/` | Repo automation: type/codegen from specs, migration runner, tenant seeders. |
 | `.github/` | CI/CD pipelines, PR template, `CODEOWNERS` (per-context ownership). |
-| `.dependency-cruiser.cjs` | Machine-enforced Clean-Architecture layer + cross-context boundary rules. |
+| `README.md` | Repo entry point; the Project Constitution (README-per-folder, docs-per-task) applies repo-wide. |
 
-> **Note on per-module unit tests:** `*.spec.ts` files are **colocated** with their source inside each module (see §5). Only cross-app `e2e/` and `contract/` suites live in the top-level `test/`.
-
----
-
-## 4. `apps/api/` Internals
-
-```
-apps/api/
-├── src/
-│   ├── main.ts                    # Bootstrap: config validate → OTel → Nest app → listen (fail-fast)
-│   ├── app.module.ts              # Root composition root — imports every context module
-│   ├── modules/                   # The 12 bounded contexts (each = one folder, one NestJS module)
-│   │   ├── core/                  # Kernel context: base types, event-bus abstractions, tenant context
-│   │   ├── iam/                   # Identity & Access: tenants, users, roles, RBAC/ABAC, AuthN/AuthZ
-│   │   ├── agents/                # Agent Framework (detailed in §5)
-│   │   ├── tools/                 # Tool Registry: definitions, JSON Schemas, versioning, scopes
-│   │   ├── automation/            # Automation Engine: workflows, triggers, n8n adapter, retries, compensation
-│   │   ├── integrations/          # External connectors (ACLs): CRM, email, messaging, calendars, storage
-│   │   ├── ai/                    # Bayan Gateway ACL + LlmProvider port; intent intake, context assembly
-│   │   ├── billing/               # Plans, subscriptions, metering, quotas, invoices
-│   │   ├── monitoring/            # Health, metrics, traces, audit read models, SLOs, alerts (read-side)
-│   │   ├── settings/              # Tenant/user config, feature flags, Basic/Advanced mode, localization
-│   │   ├── notifications/         # Multi-channel delivery, templates, preferences, digests
-│   │   └── administration/        # Back-office: tenant lifecycle, global flags, audited impersonation
-│   └── shared/                    # API-app-local wiring only (global filters, guards, interceptors, pipes)
-├── test/                          # API-scoped e2e specs
-├── Dockerfile → (see infra/docker)
-├── nest-cli.json · tsconfig.json · project.json
-└── README.md                      # Required per-app README (constitution)
-```
-
-Each folder under `modules/` is a complete bounded context and follows the identical Clean-Architecture layout shown next.
+> **README per folder:** Every module (`src/Modules/<Context>/README.md`) and each layer folder carries a README with purpose, public surface, and layer map — constitution rule 16.
 
 ---
 
-## 5. Anatomy of ONE Bounded Context — `modules/agents/`
+## 4. Bounded-Context Module Shape
 
-This is the reference layout **every** context copies. Agents (the Agent Framework) is shown in full.
+Each context under `src/Modules/` is a complete Clean-Architecture module. The namespace is `Nizam\<Context>\{Domain,Application,Infrastructure,Interface}` and every file is one PascalCase class, path-mirroring the namespace.
 
 ```
-modules/agents/
-├── agents.module.ts               # Composition root: binds ports→adapters via tokens, registers controllers/consumers
-├── index.ts                       # Public surface: the ONLY thing other contexts may import (facade + event types)
+src/Modules/<Context>/
 ├── README.md                      # Required: purpose, public contract, layer map (constitution)
-│
-├── domain/                        # ← innermost. Imports: kernel only. No frameworks, no I/O.
-│   ├── aggregates/
-│   │   ├── agent.aggregate.ts             # Agent definition aggregate root
-│   │   └── agent-run.aggregate.ts         # Event-sourced run aggregate (critical aggregate)
-│   ├── entities/
-│   │   └── plan-step.entity.ts            # Non-root entity within a run
-│   ├── value-objects/
-│   │   ├── agent-id.vo.ts                 # Immutable, self-validating
-│   │   ├── guardrail-policy.vo.ts
-│   │   └── memory-scope.vo.ts
-│   ├── events/
-│   │   ├── agent-run-started.event.ts     # Past-tense, immutable domain events
-│   │   ├── agent-run-completed.event.ts
-│   │   └── agent-run-failed.event.ts
-│   ├── services/
-│   │   └── plan-resolution.domain-service.ts   # Rule spanning aggregates, stateless
-│   ├── ports/
-│   │   ├── agent.repository.ts            # Repository PORT (interface only)
-│   │   ├── agent-run.repository.ts
-│   │   └── guardrail-evaluator.port.ts
-│   └── errors/
-│       └── agents.errors.ts               # Typed domain errors (AGENTS.* codes)
-│
-├── application/                   # ← use cases. Imports: domain + kernel. No infra.
-│   ├── use-cases/
-│   │   ├── start-agent-run/
-│   │   │   ├── start-agent-run.use-case.ts
-│   │   │   └── start-agent-run.spec.ts    # Colocated unit test (fake ports)
-│   │   ├── advance-plan-step/
-│   │   └── query-agent-run/               # CQRS read path
-│   ├── dtos/
-│   │   ├── start-agent-run.command.ts
-│   │   └── agent-run.view.dto.ts
-│   ├── ports/
-│   │   ├── tool-invoker.port.ts           # Outbound port to the Tools context (via its facade)
-│   │   └── event-publisher.port.ts
-│   └── sagas/
-│       └── intent-execution.saga.ts       # Process manager: Agents→Tools→Automation→Integrations, with compensation
-│
-├── infrastructure/                # ← adapters. Imports: application + domain + SDKs. No interface.
-│   ├── persistence/
-│   │   ├── agent.repository.pg.ts         # Postgres adapter implementing the domain port
-│   │   ├── agent-run.event-store.pg.ts    # Event-sourced store for run aggregate
-│   │   └── agent.mapper.ts                # Domain ↔ row mapping
-│   ├── messaging/
-│   │   └── agents.event-publisher.outbox.ts   # Writes domain events to the transactional outbox
-│   ├── clients/
-│   │   └── tools.facade-client.ts         # Adapter over the Tools context public facade
-│   └── config/
-│       └── agents.config.ts               # Context-scoped config slice (from packages/config)
-│
-├── interface/                     # ← outermost. Imports: application (+ domain types). No direct I/O.
-│   ├── http/
-│   │   ├── agent-runs.controller.ts       # REST /v1/agent-runs; maps HTTP ↔ use case
-│   │   └── dtos/                           # Request/response DTOs (camelCase wire types)
-│   ├── events/
-│   │   └── intent-received.consumer.ts    # Reacts to integration events from AI/Bayan Gateway
-│   └── cli/
-│       └── replay-agent-run.command.ts    # Operational CLI command
-│
-└── test/
-    └── agent-runs.e2e-spec.ts             # Context-level e2e
+├── Domain/                        # ← innermost. Depends on Nizam\Kernel only. No frameworks, no I/O.
+├── Application/                   # ← use cases. Depends on Domain + Kernel. No infra.
+├── Infrastructure/                # ← adapters. Depends on Application + Domain + Composer SDKs.
+└── Interface/                     # ← outermost. PSR-15 controllers, event consumers, console commands.
 ```
+
+The next section shows the **Agents** context in full; every other context copies this exact shape.
+
+---
+
+## 5. Anatomy of ONE Bounded Context — `src/Modules/Agents/`
+
+This is the reference layout **every** context copies. Namespace root: `Nizam\Agents\`. One class per file.
+
+```
+src/Modules/Agents/
+├── README.md                              # Required: purpose, public surface, layer map (constitution)
+│
+├── Domain/                                # Nizam\Agents\Domain — pure PHP, imports Nizam\Kernel only
+│   ├── AgentDefinition.php                # Aggregate root: an agent's configuration & guardrails
+│   ├── AgentRun.php                       # Event-sourced run aggregate (critical aggregate)
+│   ├── PlanStep.php                       # Non-root entity within a run
+│   ├── ValueObject/
+│   │   ├── AgentId.php                     # UUIDv7-backed, immutable, self-validating
+│   │   ├── GuardrailPolicy.php
+│   │   └── MemoryScope.php
+│   ├── Event/
+│   │   ├── AgentRunStarted.php             # Past-tense, immutable domain events
+│   │   ├── AgentRunCompleted.php
+│   │   └── AgentRunFailed.php
+│   ├── Service/
+│   │   └── PlanResolutionService.php       # Stateless rule spanning aggregates
+│   ├── Port/                               # Repository/collaborator PORTS (interfaces only)
+│   │   ├── AgentRepository.php             # interface — persistence contract
+│   │   ├── AgentRunRepository.php          # interface — event-store contract
+│   │   └── GuardrailEvaluator.php          # interface — policy evaluation contract
+│   └── Exception/
+│       └── AgentDomainException.php        # Typed domain errors (AGENTS.* codes)
+│
+├── Application/                           # Nizam\Agents\Application — use cases; imports Domain + Kernel
+│   ├── Command/
+│   │   ├── StartAgentRun/
+│   │   │   ├── StartAgentRunCommand.php    # Input DTO
+│   │   │   └── StartAgentRunHandler.php    # Command handler (depends on Domain ports)
+│   │   └── AdvancePlanStep/
+│   │       ├── AdvancePlanStepCommand.php
+│   │       └── AdvancePlanStepHandler.php
+│   ├── Query/                              # CQRS read path
+│   │   ├── GetAgentRun/
+│   │   │   ├── GetAgentRunQuery.php
+│   │   │   └── GetAgentRunHandler.php
+│   ├── Dto/
+│   │   └── AgentRunView.php                # Read-model DTO returned to Interface layer
+│   ├── Port/                               # Outbound application ports
+│   │   ├── ToolInvoker.php                 # interface — outbound to Tools context facade
+│   │   └── EventPublisher.php              # interface — outbound to the event backbone
+│   └── Saga/
+│       └── IntentExecutionSaga.php         # Process manager: Agents→Tools→Automation→Integrations, w/ compensation
+│
+├── Infrastructure/                        # Nizam\Agents\Infrastructure — adapters; imports Application + Domain
+│   ├── Persistence/
+│   │   ├── PostgresAgentRepository.php     # Implements Domain\Port\AgentRepository (PDO/Postgres 16, RLS-aware)
+│   │   ├── PostgresAgentRunEventStore.php  # Implements Domain\Port\AgentRunRepository (event-sourced)
+│   │   └── AgentRowMapper.php              # Domain ↔ row mapping
+│   ├── Messaging/
+│   │   ├── OutboxEventPublisher.php        # Implements Application\Port\EventPublisher (writes to outbox)
+│   │   └── NatsAgentEventPublisher.php     # NATS JetStream publisher used by the outbox relay
+│   ├── Client/
+│   │   ├── ToolsFacadeClient.php           # Implements Application\Port\ToolInvoker (calls Tools facade)
+│   │   └── N8nAutomationAdapter.php        # Adapter driving n8n via the Automation context
+│   └── Config/
+│       └── AgentsConfig.php                # Context-scoped config slice (from config/)
+│
+├── Interface/                             # Nizam\Agents\Interface — outermost; imports Application (+ Domain types)
+│   ├── Http/
+│   │   ├── AgentRunsController.php         # PSR-15 handler for /v1/agent-runs; maps HTTP ↔ command/query
+│   │   └── Request/
+│   │       └── StartAgentRunRequest.php    # Wire DTO (camelCase) → Application command
+│   ├── Consumer/
+│   │   └── IntentReceivedConsumer.php      # Consumes integration events from AI (Bayan Gateway)
+│   └── Console/
+│       └── ReplayAgentRunCommand.php       # Operational console command (invoked via bin/console)
+│
+└── (tests mirror this tree under tests/Unit|Integration|Contract|E2E/Modules/Agents/)
+```
+
+### What lives in each layer (Agents)
+
+| Layer | Namespace | Contents | May depend on |
+|-------|-----------|----------|---------------|
+| **Domain** | `Nizam\Agents\Domain` | `AgentDefinition`, `AgentRun`, `PlanStep`; value objects (`AgentId`, `GuardrailPolicy`, `MemoryScope`); domain events; domain service; **repository/collaborator interfaces (ports)**; typed exceptions. | `Nizam\Kernel` only. No frameworks, no I/O. |
+| **Application** | `Nizam\Agents\Application` | Command/query handlers, input/output **DTOs**, outbound ports (`ToolInvoker`, `EventPublisher`), the `IntentExecutionSaga`. Orchestrates domain via ports. | Domain + Kernel. No infrastructure. |
+| **Infrastructure** | `Nizam\Agents\Infrastructure` | Postgres repositories/event store, outbox + **NATS JetStream** publisher, **n8n adapter**, Tools facade client, config slice — concrete implementations of the ports. | Application + Domain + Composer SDKs. |
+| **Interface** | `Nizam\Agents\Interface` | **PSR-15 controllers**, **event consumers**, **console commands**; wire DTOs. Translates transport ↔ use cases. | Application (+ Domain types). No direct I/O. |
+
+Binding of ports to adapters happens once, in `config/container.php` (the PSR-11 composition root) — the only place inner ports meet outer adapters.
 
 ### How the layers depend (Agents context)
 
 ```mermaid
 flowchart TD
-    subgraph interface
-      C[agent-runs.controller] --> UC
-      K[intent-received.consumer] --> UC
+    subgraph interface["Interface (Nizam\\Agents\\Interface)"]
+      C[AgentRunsController] --> H
+      K[IntentReceivedConsumer] --> H
+      CLI[ReplayAgentRunCommand] --> H
     end
-    subgraph application
-      UC[start-agent-run.use-case] --> D
-      S[intent-execution.saga] --> UC
-      UC -->|uses port| P1[tool-invoker.port]
-      UC -->|uses port| P2[agent-run.repository]
+    subgraph application["Application (Nizam\\Agents\\Application)"]
+      H[StartAgentRunHandler] --> D
+      S[IntentExecutionSaga] --> H
+      H -->|uses port| P1[ToolInvoker]
+      H -->|uses port| P2[EventPublisher]
     end
-    subgraph domain
-      D[agent-run.aggregate] --> E[agent-run-completed.event]
-      D --> VO[guardrail-policy.vo]
+    subgraph domain["Domain (Nizam\\Agents\\Domain)"]
+      D[AgentRun] --> E[AgentRunCompleted]
+      D --> VO[GuardrailPolicy]
+      D --> P3[AgentRunRepository]
     end
-    subgraph infrastructure
-      A1[agent-run.event-store.pg] -. implements .-> P2
-      A2[tools.facade-client] -. implements .-> P1
-      A3[event-publisher.outbox] -. implements .-> EP[event-publisher.port]
+    subgraph infrastructure["Infrastructure (Nizam\\Agents\\Infrastructure)"]
+      A1[PostgresAgentRunEventStore] -. implements .-> P3
+      A2[ToolsFacadeClient] -. implements .-> P1
+      A3[OutboxEventPublisher] -. implements .-> P2
+      A4[N8nAutomationAdapter]
     end
-    UC -. binds via tokens in .-> M[agents.module.ts]
-    A1 -. binds via tokens in .-> M
+    H -. bound via PSR-11 in .-> M[config/container.php]
+    A1 -. bound via PSR-11 in .-> M
 ```
 
-Solid arrows are compile-time imports (always inward). Dotted arrows are runtime bindings wired in the composition root — the only place inner ports meet outer adapters.
+Solid arrows are compile-time `use` imports — **always inward** (Interface → Application → Domain). Dotted arrows are runtime bindings wired in `config/container.php`. Domain depends on nothing but `Nizam\Kernel`; Infrastructure and Interface never depend on each other.
 
 ---
 
-## 6. `apps/web/` and `apps/worker/` (brief)
+## 6. `public/`, `bin/`, and `apps/web/` (brief)
 
 ```
-apps/web/                          apps/worker/
-├── src/                           ├── src/
-│   ├── app/        # App Router   │   ├── main.ts        # Worker bootstrap
-│   │   ├── (basic)/# Basic Mode   │   ├── outbox/        # Outbox → NATS relay
-│   │   └── (advanced)/            │   ├── jobs/          # BullMQ consumers
-│   ├── components/ # + packages/ui│   ├── sagas/         # Long-running process managers
-│   ├── i18n/       # AR/EN, RTL   │   └── schedulers/    # Cron/interval triggers
-│   └── lib/                       └── README.md
-└── README.md
+public/                     bin/                          apps/web/  (decoupled — orthogonal)
+└── index.php               ├── console                   ├── src/
+   PSR-7 request →          ├── queue-worker  # jobs      │   ├── app/        # App Router
+   PSR-15 pipeline →        ├── outbox-relay  # outbox→   │   │   ├── (basic)/# Basic Mode
+   context controller →     │                  NATS       │   │   └── (advanced)/
+   emit PSR-7 response      └── scheduler     # cron       │   ├── components/
+                                                           │   ├── i18n/       # AR/EN, RTL
+                                                           │   └── lib/apiClient # OpenAPI-typed REST
+                                                           └── README.md
 ```
 
-`apps/web` consumes typed clients from `packages/contracts`; it never talks to the DB. `apps/worker` shares the same `modules/*` code as `apps/api` (imported as libraries), differing only in which entrypoints it activates — this is what keeps the monolith service-extractable.
+`public/index.php` is the single HTTP entrypoint; the workers in `bin/` share the exact same `src/Modules/*` code (autoloaded via Composer), differing only in which entrypoints they activate — this is what keeps the monolith **service-extractable**. `apps/web` is a separate Next.js deployment that consumes only the PHP REST API described in `contracts/openapi/`; it never talks to the database and shares no PHP code.
 
 ---
 
@@ -273,25 +330,28 @@ apps/web/                          apps/worker/
 | Artifact | Location |
 |----------|----------|
 | n8n config + exported workflows | `infra/n8n/` |
-| The internal Automation Engine (owns n8n) | `apps/api/src/modules/automation/` |
+| The internal Automation Engine (owns n8n) | `src/Modules/Automation/` |
+| n8n adapter (drives n8n from a context) | `src/Modules/<Context>/Infrastructure/Client/` (e.g., `Automation/Infrastructure/`) |
 | DB migrations (expand/contract) | `migrations/<context>/`, `migrations/shared/` |
 | Helm charts | `infra/helm/` |
-| OpenAPI 3.1 specs | `docs/openapi/` |
-| AsyncAPI 2.6 specs | `docs/asyncapi/` |
-| Integration-event TS contracts | `packages/contracts/` |
-| Transactional outbox relay | `apps/worker/src/outbox/` + `packages/eventing/` |
-| Sagas / process managers | `modules/<context>/application/sagas/` + `apps/worker/src/sagas/` |
-| Per-module unit tests | Colocated `*.spec.ts` inside each module layer |
-| Cross-app e2e / contract tests | `test/e2e/`, `test/contract/` |
-| Module README (required) | `modules/<context>/README.md` |
+| OpenAPI 3.1 specs | `contracts/openapi/` |
+| AsyncAPI 2.6 specs | `contracts/asyncapi/` |
+| Queue workers (Redis-backed) | `bin/queue-worker` + `Queue` port impl in `src/Kernel/` / context Infrastructure |
+| Transactional outbox relay | `bin/outbox-relay` (reads `migrations/shared/` outbox table → NATS) |
+| Sagas / process managers | `src/Modules/<Context>/Application/Saga/` (driven by `bin/queue-worker`) |
+| Front controller (PSR-7/15 entry) | `public/index.php` |
+| PSR-11 container / composition root | `config/container.php` |
+| Static-analysis config | `phpstan.neon`, `psalm.xml`, `.php-cs-fixer.dist.php` |
+| Tests (Unit/Integration/Contract/E2E) | `tests/` (mirrors `src/`), configured by `phpunit.xml.dist` |
+| Module README (required) | `src/Modules/<Context>/README.md` (+ per-layer READMEs) |
 
 ---
 
 ## Related Documents
 
-- [13-Coding-Standards.md](./13-Coding-Standards.md) — Rules the layout enforces
+- [13-Coding-Standards.md](./13-Coding-Standards.md) — PHP/PSR rules the layout enforces
 - [01-System-Overview.md](./01-System-Overview.md) — Contexts & execution chain
-- [README.md — Project Constitution](../README.md) — README-per-module & docs-per-task rule
+- [README.md — Project Constitution](../README.md) — README-per-folder & docs-per-task rule
 - [21-Database-Design.md](./21-Database-Design.md) — Migrations, tenancy, audit tables
 - [03-Architecture.md](./03-Architecture.md) — How `infra/` is deployed
 - [../README.md](../README.md) — Project entry point
@@ -302,4 +362,4 @@ apps/web/                          apps/worker/
 
 | Version | Date | Author | Change |
 |---------|------|--------|--------|
-| 1.0.0 | 2026-07-01 | Architecture (Nizam Core) | Initial canonical monorepo folder structure for Phase 1. |
+| 1.0.0 | 2026-07-01 | Architecture (Nizam Core) | Initial canonical monorepo folder structure for Phase 1 — native PHP 8.3+ (Composer, PSR-4, framework-agnostic) layout. |

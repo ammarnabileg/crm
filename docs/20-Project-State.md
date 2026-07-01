@@ -43,7 +43,7 @@ any Phase 2 (build) work begins.
 | 13 | `13-Coding-Standards.md` | ✅ Done | Enforceable engineering standards |
 | 14 | `14-Folder-Structure.md` | ✅ Done | Full monorepo tree, every folder explained |
 | 15 | `15-Project-Roadmap.md` | ✅ Done | Phases 1–8, exit criteria, STOP gate |
-| 16 | `16-ADR.md` | ✅ Done | ADR-0001…0013, all Accepted |
+| 16 | `16-ADR.md` | ✅ Done | ADR-0001…0014, all Accepted |
 | 17 | `17-Glossary.md` | ✅ Done | Ubiquitous language dictionary |
 | 18 | `18-Risks.md` | ✅ Done | 20-item risk register |
 | 19 | `19-Assumptions.md` | ✅ Done | 12 assumptions + 13 open questions |
@@ -65,7 +65,10 @@ These are fixed and recorded in `16-ADR.md`. They are the foundation every later
 phase must obey.
 
 - **Naming:** Bayan = external brain; **Nizam** = the AI Operating System (this project).
-- **Architecture style:** Modular monolith first (NestJS), service-extractable; Clean
+- **Stack (ADR-0014):** **native PHP 8.3+** (`declare(strict_types=1)`), framework-agnostic
+  on **PSR** standards (PSR-4/7/15/11/3), Composer, PHPStan/Psalm, PHPUnit, Monolog;
+  Redis-backed PHP queue workers behind a `Queue` port; decoupled Next.js operator console.
+- **Architecture style:** Modular monolith first (native PHP), service-extractable; Clean
   Architecture + DDD + Hexagonal per module; Event-Driven by default.
 - **Data:** PostgreSQL 16, shared-schema **RLS** multi-tenancy (Pool/Bridge/Silo tiers),
   **UUID v7** keys, soft delete, audit columns + `audit_log` + event sourcing for
@@ -117,7 +120,7 @@ Tracked authoritatively in `19-Assumptions.md` (open questions Q-01…Q-13) and
 - All internal document cross-links resolve to existing files.
 - No `TODO`/placeholder/demo/fake content; no application code present.
 - Naming, tech stack, and the 12-context list are consistent across all documents.
-- 68 Mermaid diagrams; all fenced code blocks balanced.
+- 86 Mermaid diagrams; all fenced code blocks balanced.
 
 ## 7. Phase Gate
 

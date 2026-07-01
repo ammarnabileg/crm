@@ -96,7 +96,7 @@ graph LR
 | **At rest** | Encrypted DB volumes and object storage; encrypted backups |
 | **PII classification** | Data classified (Public / Internal / Confidential / Restricted-PII). Classification drives encryption, retention, redaction, and access policy (ABAC input) |
 | **Field-level encryption** | Restricted-PII fields (e.g. national IDs, tokens, sensitive contact data) encrypted with per-tenant DEK (envelope encryption) beyond disk encryption |
-| **Redaction in logs** | Structured logging (pino) passes through a redaction layer; classified fields and secrets are masked/omitted; deny-list + allow-list of loggable fields; no raw request bodies for sensitive endpoints |
+| **Redaction in logs** | Structured logging (Monolog / PSR-3) passes through a redaction layer; classified fields and secrets are masked/omitted; deny-list + allow-list of loggable fields; no raw request bodies for sensitive endpoints |
 | **Data minimization & retention** | Retain only what is needed; per-classification retention windows; purge on offboarding (crypto-shred) |
 | **Backups** | Encrypted, access-controlled, tenant-attributable; restore paths preserve RLS |
 

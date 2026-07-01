@@ -22,7 +22,7 @@ This document is the source of truth for *structure and flow*. Data shapes live 
 
 ## 1. High Level Architecture
 
-Nizam is a **modular monolith** (NestJS) that is *service-extractable*: every module is a DDD **bounded context** with its own domain, application, infrastructure, and interface layers, communicating with other contexts **only** through integration events or explicit contracts — never through a shared database.
+Nizam is a **modular monolith** (native PHP) that is *service-extractable*: every module is a DDD **bounded context** with its own domain, application, infrastructure, and interface layers, communicating with other contexts **only** through integration events or explicit contracts — never through a shared database.
 
 ### 1.1 Full layer chain (component view)
 
@@ -64,7 +64,7 @@ flowchart TB
 
     subgraph Backbone["Platform Backbone"]
         PG[("PostgreSQL 16<br/>RLS + pgvector")]
-        REDIS[("Redis 7<br/>cache + BullMQ")]
+        REDIS[("Redis 7<br/>cache + PHP queue workers")]
         NATS[["NATS JetStream<br/>event backbone"]]
         VAULT["Secrets Manager<br/>(Vault / KMS)"]
         OTEL["OpenTelemetry Collector"]
@@ -102,7 +102,7 @@ flowchart TB
 
 ### 1.2 The 12 bounded contexts
 
-Nizam is composed of exactly **twelve** bounded contexts. Each is a DDD context and a NestJS module. Names are fixed and used verbatim everywhere.
+Nizam is composed of exactly **twelve** bounded contexts. Each is a DDD context and a PHP module. Names are fixed and used verbatim everywhere.
 
 ```mermaid
 flowchart LR
@@ -170,7 +170,7 @@ flowchart TB
     end
     subgraph Infrastructure["infrastructure/"]
         REPO["DB Repositories (Postgres)"]
-        BROKER["Broker Adapters (NATS/BullMQ)"]
+        BROKER["Broker Adapters (NATS / PHP queue workers)"]
         HTTP["HTTP Clients / SDKs"]
         CACHE["Cache Adapters (Redis)"]
     end
@@ -235,7 +235,7 @@ Because adapters implement ports, any adapter is replaceable without touching th
 | **n8n** | External executor (self-hosted) | Executes workflow graphs against external systems. Driven only via the Automation Engine adapter. |
 | **Integrations connectors** | Stateless ACL adapters | Translate external system APIs into Nizam domain terms; manage credentials & connection health. |
 | **PostgreSQL 16** | Stateful store | Primary DB with RLS multi-tenancy + pgvector for embeddings. |
-| **Redis 7** | Stateful store | Cache-aside store and BullMQ job backend. |
+| **Redis 7** | Stateful store | Cache-aside store and Redis-backed PHP queue-worker job backend. |
 | **NATS JetStream** | Event backbone | Durable, at-least-once integration-event delivery between contexts. |
 | **Secrets Manager** | External | Vault-style secret storage, abstracted behind `SecretsProvider`. |
 | **OpenTelemetry stack** | Sidecar/collector | Traces/metrics/logs → Prometheus, Grafana, Loki, Tempo. |
@@ -360,7 +360,7 @@ flowchart TB
     end
     subgraph Async["Asynchronous (fire-and-react)"]
         EVENTS["Integration events → NATS JetStream"]
-        JOBS["Background jobs → BullMQ"]
+        JOBS["Background jobs → PHP queue workers"]
     end
     subgraph Security["Transport security"]
         MTLS["mTLS between services"]
@@ -378,7 +378,7 @@ flowchart TB
 | WebSocket / SSE | Sync (streaming) | Realtime agent-run progress to the Next.js UI. |
 | gRPC | Sync | Internal service-to-service once contexts are extracted; secured by **mTLS**. |
 | NATS JetStream | Async | Cross-context integration events. |
-| BullMQ | Async | Intra-system background jobs (retries, digests, metering rollups). |
+| Redis-backed PHP queue workers | Async | Intra-system background jobs (retries, digests, metering rollups). |
 
 **Rule:** cross-context communication is **async events by default**; synchronous cross-context calls are avoided to prevent coupling and cascading failure.
 
@@ -539,7 +539,7 @@ sequenceDiagram
 
 ## 14. Queue Strategy
 
-Two async substrates with distinct jobs: **BullMQ** for intra-system jobs, **NATS JetStream** for integration events. The **Transactional Outbox** bridges DB writes to the event backbone.
+Two async substrates with distinct jobs: **Redis-backed PHP queue workers** for intra-system jobs, **NATS JetStream** for integration events. The **Transactional Outbox** bridges DB writes to the event backbone.
 
 ```mermaid
 flowchart LR
@@ -549,11 +549,11 @@ flowchart LR
     NATS --> C["Idempotent consumers"]
     C -->|fail N times| DLQ[["Dead Letter Queue"]]
 
-    JOBS["BullMQ jobs<br/>(retries, digests, rollups)"] --> WORKERS["Workers"]
+    JOBS["PHP queue-worker jobs<br/>(retries, digests, rollups)"] --> WORKERS["Workers"]
     WORKERS -->|fail| JDLQ[["Job DLQ"]]
 ```
 
-- **BullMQ** (on Redis): background jobs — retries with backoff, notification digests, usage rollups.
+- **Redis-backed PHP queue workers** (on Redis): background jobs — retries with backoff, notification digests, usage rollups.
 - **NATS JetStream**: durable integration events, **at-least-once** delivery, durable consumers.
 - **Transactional Outbox**: events are written in the same transaction as state, then relayed — no lost or phantom events.
 - **Idempotency**: every consumer/job carries an idempotency key; duplicates are safely ignored.
@@ -565,7 +565,7 @@ Full detail lives in `12-Event-Architecture.md`.
 
 ## 15. Logging Strategy
 
-- **Structured JSON logs via pino**, one event per line.
+- **Structured JSON logs via Monolog (PSR-3)**, one event per line.
 - Every log carries **correlation ID** and **trace/span IDs** (propagated from the gateway) plus **`tenant_id`** tagging.
 - **PII redaction** at the logger boundary: sensitive fields (emails, tokens, credentials) are masked before serialization.
 - Log levels are consistent (`error/warn/info/debug`); `debug` is off in production by default.
@@ -573,7 +573,7 @@ Full detail lives in `12-Event-Architecture.md`.
 
 ```mermaid
 flowchart LR
-    APP["Service (pino)"] -->|JSON + trace/tenant ids| OTEL["OTel Collector"]
+    APP["Service (Monolog)"] -->|JSON + trace/tenant ids| OTEL["OTel Collector"]
     OTEL --> LOKI["Loki (logs)"]
     OTEL --> TEMPO["Tempo (traces)"]
     LOKI <-->|trace id join| TEMPO

@@ -66,7 +66,7 @@ The phase ordering is deliberately **dependency-driven**: no phase begins until 
 ### Phase 2 — Core Kernel + IAM + Multi-Tenant Foundation
 
 **Goals**
-- Stand up the modular monolith skeleton (NestJS) with Clean Architecture layering per module.
+- Stand up the modular monolith skeleton (native PHP) with Clean Architecture layering per module.
 - Implement the shared **Core (Kernel)**: base entities, value objects, event-bus abstractions, result/error types, clock, UUID v7 generation, tenant context propagation, Transactional Outbox scaffolding.
 - Implement **Identity & Access (IAM)**: tenants, users, orgs, roles, permissions, sessions, OAuth2/OIDC, JWT access+refresh, mTLS for service-to-service, and the RBAC+ABAC policy engine.
 - Enforce tenant isolation via PostgreSQL 16 **Row-Level Security** on shared-schema tables.

@@ -61,11 +61,9 @@
 
 **Bayan Gateway** — The **AI (Bayan Gateway)** bounded context: the ACL to the Bayan brain plus the `LlmProvider` port. It validates intents against the Published Language, assembles context, and shapes responses. It performs no reasoning of its own.
 
-**Bounded Context** — An explicit boundary within which a domain model and its ubiquitous language are consistent. Nizam has exactly **12** bounded contexts, each a NestJS module. See [`05-Bounded-Contexts.md`](./05-Bounded-Contexts.md).
+**Bounded Context** — An explicit boundary within which a domain model and its ubiquitous language are consistent. Nizam has exactly **12** bounded contexts, each a PHP module. See [`05-Bounded-Contexts.md`](./05-Bounded-Contexts.md).
 
 **Broker** — The event backbone that carries integration events between contexts. Primary: **NATS JetStream**; lightweight local/dev fallback: Redis Streams.
-
-**BullMQ** — The Redis-backed queue/job library used for intra-system jobs (scheduling, delivery, retries).
 
 ## C
 
@@ -153,7 +151,7 @@
 
 **NATS JetStream** — The primary event **broker** carrying integration events between contexts (Redis Streams is the dev fallback).
 
-**NestJS** — The backend framework; Nizam is a modular monolith of NestJS modules (one per bounded context), service-extractable later.
+**Native PHP (PSR, framework-agnostic)** — The backend stack; Nizam is a modular monolith of PHP modules (one per bounded context) built on PSR standards, service-extractable later.
 
 **Nizam** — (Arabic **نظام**, "system/order.") The **AI Operating System** this project builds — the **execution layer** of the Bayan AI Operating System. Full name: *"Nizam — the Bayan AI Operating System."* Short: **Nizam AIOS** / **Nizam**. It receives intents from Bayan and executes them safely, observably, and multi-tenant.
 
@@ -182,6 +180,10 @@
 **Process Manager — see Saga.**
 
 **Published Language (PL)** — A shared, versioned interchange format used across a boundary. In Nizam: the **Intent** contract (Bayan↔Nizam), plus AsyncAPI event schemas and OpenAPI DTOs.
+
+## Q
+
+**Queue Workers (Redis-backed PHP)** — Redis-backed PHP queue workers (a messenger abstraction such as Symfony Messenger/Enqueue, behind a `Queue` port) used for intra-system jobs: scheduling, delivery, retries, and saga steps. Replaces the previously-considered BullMQ.
 
 ## R
 

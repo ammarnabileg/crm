@@ -310,7 +310,7 @@ graph TD
 ## 9. Concurrency & Isolation
 
 - **Run isolation.** Each `AgentRun` is an independent unit of work carrying its own tenant context; there is no shared mutable state between runs beyond the explicitly scoped stores of §7.
-- **Execution.** Runs are scheduled as BullMQ jobs (canon §2). Per-tenant concurrency caps prevent one tenant from starving others; global caps protect the platform. Long-running or delegated steps (e.g. Automation) are non-blocking — the run parks and resumes on an integration event.
+- **Execution.** Runs are scheduled as Redis-backed PHP queue-worker jobs (canon §2). Per-tenant concurrency caps prevent one tenant from starving others; global caps protect the platform. Long-running or delegated steps (e.g. Automation) are non-blocking — the run parks and resumes on an integration event.
 - **Idempotency.** Every side-effecting step carries an idempotency key (`runId:stepIndex:hash(input)`), so a retried or replayed step produces exactly-once effect (canon §6.9).
 - **Optimistic concurrency.** The `AgentDefinition` uses a `version` column; `AgentRun` conflicts are impossible by construction because each run owns its own stream.
 

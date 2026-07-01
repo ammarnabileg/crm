@@ -16,7 +16,7 @@ One-line purpose: The DESIGN-ONLY reference for Nizam AIOS's PostgreSQL data mod
 |-----------|------|-----------|
 | **UUID v7 primary keys** | Every table's PK is `id UUID` generated as **UUID v7** (time-sortable) | Globally unique, non-guessable, index-friendly (near-sequential ⇒ low B-tree fragmentation), safe to expose vs. serial IDs (§11) |
 | **`tenant_id` everywhere** | Every tenant-scoped table has `tenant_id UUID NOT NULL`, leading column of composite indexes/uniques | Enables RLS + tenant pruning (see `09-Multi-Tenant.md`) |
-| **snake_case** | All DB identifiers snake_case (camelCase in TS, mapped by the ORM) | Canon §3 naming |
+| **snake_case** | All DB identifiers snake_case (camelCase for PHP methods/properties — PascalCase classes, UPPER_SNAKE constants — mapped by the data mapper/hydrator) | Canon §3 naming |
 | **Soft delete** | `deleted_at TIMESTAMPTZ NULL`; rows are hidden, not physically removed, by default | Reversibility, audit, referential safety (§10) |
 | **Audit columns** | Every table: `created_at, updated_at, created_by, updated_by` | Traceability (§9) |
 | **Optimistic concurrency** | `version INT NOT NULL DEFAULT 0` where concurrent edits are possible | Lost-update prevention without long locks |

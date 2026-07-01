@@ -14,7 +14,7 @@ Each record follows a standard ADR format: **Title, Status, Context, Decision, C
 
 | ID | Title | Status |
 |----|-------|--------|
-| ADR-0001 | Modular monolith first (NestJS) | Accepted |
+| ADR-0001 | Modular monolith first (native PHP) | Accepted |
 | ADR-0002 | PostgreSQL 16 + RLS shared-schema multi-tenancy | Accepted |
 | ADR-0003 | UUID v7 primary keys | Accepted |
 | ADR-0004 | Event-driven with Transactional Outbox + NATS JetStream | Accepted |
@@ -27,16 +27,17 @@ Each record follows a standard ADR format: **Title, Status, Context, Decision, C
 | ADR-0011 | Soft delete + audit columns + event sourcing for critical aggregates | Accepted |
 | ADR-0012 | Basic/Advanced mode + Wizard-driven UX | Accepted |
 | ADR-0013 | Tenant tiers: Pool / Bridge / Silo | Accepted |
+| ADR-0014 | Native PHP on PSR standards (framework-agnostic) | Accepted |
 
 ---
 
-## ADR-0001 — Modular Monolith First (NestJS)
+## ADR-0001 — Modular Monolith First (Native PHP)
 
 **Status:** Accepted
 
 **Context.** Nizam spans twelve bounded contexts. A distributed system from day one would multiply operational surface (networking, deployment, distributed tracing, partial-failure handling) while the domain model is still stabilizing. The team needs fast iteration, transactional consistency within a context, and low operational overhead, without foreclosing later extraction to services.
 
-**Decision.** Build a **modular monolith** in **NestJS** (Node.js 22 LTS, TypeScript 5.x strict). Each bounded context is a NestJS module with strict internal boundaries (Clean Architecture layering, ports & adapters). Modules communicate through explicit contracts and integration events, never by reaching into each other's internals, so any module can later be extracted into an independent service with minimal churn.
+**Decision.** Build a **modular monolith** in **native PHP 8.3+** (`declare(strict_types=1)`), framework-agnostic and built on **PSR standards** (PSR-4 autoloading via Composer, PSR-7/15 HTTP, PSR-11 container, PSR-3 logging). Each bounded context is a PHP module/package (namespace `Nizam\<Context>\...`) with strict internal boundaries (Clean Architecture layering, ports & adapters). Modules communicate through explicit contracts and integration events, never by reaching into each other's internals, so any module can later be extracted into an independent service with minimal churn. See ADR-0014 for the native-PHP/PSR decision rationale.
 
 **Consequences.**
 - (+) Single deploy unit; in-process calls; local transactions within a context; simpler local dev.
@@ -171,7 +172,7 @@ Each record follows a standard ADR format: **Title, Status, Context, Decision, C
 
 **Alternatives considered.**
 - **Layered/transaction-script or anemic MVC:** rejected — business logic leaks into controllers/ORM, poor testability, framework coupling.
-- **Framework-driven structure (organize by NestJS convention only):** rejected — couples domain to the framework, undermines extractability (ADR-0001).
+- **Framework-driven structure (organize by framework/active-record convention only):** rejected — couples domain to the framework, undermines extractability (ADR-0001, ADR-0014).
 
 ---
 
@@ -305,6 +306,36 @@ Tier is a provisioning/configuration concern; application code is tier-agnostic 
 - **Pool-only:** rejected — cannot satisfy strong-isolation, performance, or residency requirements of large/regulated tenants.
 - **Silo-only:** rejected — prohibitively costly and operationally heavy for many small tenants.
 - **Separate codebase per tier:** rejected — duplication and drift; tiers must share one code path.
+
+---
+
+## ADR-0014 — Native PHP on PSR Standards (Framework-Agnostic)
+
+**Status:** Accepted
+
+**Context.** The implementation language and framework posture must be fixed before Phase 2. The owner requires **native PHP** and the constitution mandates PHPDoc on every class. The system is an enterprise, multi-tenant, event-driven execution OS that must follow Clean Architecture and DDD, remain modular and replaceable, and avoid coupling the domain to any framework. A heavyweight full-stack framework (Laravel/Symfony-full) would embed framework concepts into the domain and reduce replaceability; hand-rolling everything would reinvent solved cross-cutting concerns.
+
+**Decision.** Build on **native PHP 8.3+** (`declare(strict_types=1)`), **framework-agnostic**, standardizing on **PSR interfaces** so implementations are swappable:
+- **Composer** + **PSR-4** autoloading; namespaces `Nizam\<Context>\{Domain,Application,Infrastructure,Interface}`.
+- **PSR-11** container for DI; **PSR-7** HTTP messages + **PSR-15** middleware/handlers for the HTTP boundary; **PSR-3** logging via **Monolog**.
+- **PSR-12 / PER** coding style, enforced by **PHP-CS-Fixer / PHP_CodeSniffer**; static analysis by **PHPStan (max)** + **Psalm**.
+- Tests with **PHPUnit** (Pest optional). Queue via **Redis-backed PHP workers** behind a `Queue` port (messenger component such as Symfony Messenger or Enqueue).
+- The **domain layer is pure PHP** with zero library dependencies; all I/O sits behind ports (ADR-0007). Select Composer libraries are used only in `Infrastructure/` adapters.
+- **PHPDoc on every class** (and on public methods where types are insufficient), satisfying the constitution.
+
+The operator console remains a **decoupled Next.js SPA** over the REST API; frontend technology is orthogonal to the PHP backend.
+
+**Consequences.**
+- (+) Domain stays framework-free → maximally testable, portable, and replaceable (SOLID/DDD payoff).
+- (+) PSR interfaces make every cross-cutting adapter (container, HTTP, logging, queue) swappable without touching domain/application code.
+- (+) Satisfies the owner's native-PHP requirement and the PHPDoc constitution rule.
+- (−) More wiring than adopting an opinionated full framework; the team must assemble and own the composition root.
+- (−) Requires discipline (PHPStan max, PSR-12, review gates) to keep native code consistent across contexts.
+
+**Alternatives considered.**
+- **Laravel (full framework):** rejected — fast to start but couples domain to framework abstractions (Eloquent active-record, facades), undermining Clean Architecture and replaceability; "native PHP" was the explicit requirement.
+- **Symfony (full framework):** rejected as the default for the same coupling/lock-in reasons; however, **individual Symfony *components*** (e.g., Messenger) MAY be used behind ports in `Infrastructure/`.
+- **TypeScript / NestJS (previous baseline):** superseded by the owner's native-PHP decision; retained only for the decoupled frontend.
 
 ---
 

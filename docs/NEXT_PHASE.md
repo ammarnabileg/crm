@@ -29,12 +29,12 @@ features yet.
 Aligned with `15-Project-Roadmap.md` Phase 2:
 
 1. **Repository & tooling foundation**
-   - Monorepo per `14-Folder-Structure.md` (apps/api, apps/worker, packages, infra).
-   - TypeScript strict, ESLint/Prettier, Conventional Commits, CI pipeline (build,
+   - Monorepo per `14-Folder-Structure.md` (`public/`, `src/Kernel` + `src/Modules/<Context>`, `bin/` workers, `config/`, `migrations/`, `infra/`).
+   - PHP 8.3+ (strict types), PHP-CS-Fixer + PHPStan/Psalm, Conventional Commits, CI pipeline (build,
      lint, test, migrations check) per `13-Coding-Standards.md`.
 2. **Core (Kernel) bounded context**
    - Shared kernel: base Entity/Aggregate/Value-Object, `Result`/typed-error types,
-     Clock, UUID v7 ID generation, tenant context (AsyncLocalStorage), domain-event
+     Clock, UUID v7 ID generation, tenant context (per-request RequestContext/TenantContext service), domain-event
      base + in-process dispatcher.
    - Transactional **Outbox** table + relay to **NATS JetStream**; idempotent consumer
      scaffold; DLQ.
@@ -47,7 +47,7 @@ Aligned with `15-Project-Roadmap.md` Phase 2:
      `tenant_id`, soft delete, audit columns — realized as **migrations** (expand/contract).
    - Pool tier only in Phase 2; Bridge/Silo deferred.
 5. **Cross-cutting foundations**
-   - OpenTelemetry tracing/metrics/logs; pino structured logging; correlation IDs.
+   - OpenTelemetry tracing/metrics/logs; Monolog (PSR-3) structured logging; correlation IDs.
    - OpenAPI 3.1 surface for IAM; error envelope; idempotency-key middleware.
    - Secrets accessed via an abstracted provider (backend chosen — see entry criteria).
 

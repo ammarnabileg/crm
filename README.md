@@ -96,17 +96,18 @@ Phase 1 is architecture and documentation only. The full document set:
 
 | Concern | Choice |
 |---------|--------|
-| Runtime / language | Node.js 22 LTS, TypeScript 5.x (strict) |
-| Backend | NestJS (modular monolith first, service-extractable) |
-| Frontend | Next.js 15 (App Router), React 19, TailwindCSS, bilingual AR/EN RTL/LTR |
+| Runtime / language | **PHP 8.3+ (native, `declare(strict_types=1)`)** |
+| Backend | **Framework-agnostic native PHP on PSR standards** (PSR-4/7/15/11/3), Composer; modular monolith first, service-extractable |
+| Frontend | Next.js 15 operator console (decoupled SPA over the REST API), bilingual AR/EN RTL/LTR |
 | Primary DB | PostgreSQL 16 with Row-Level Security (RLS) + `pgvector` |
 | Cache / ephemeral | Redis 7 |
-| Queue / jobs | BullMQ (on Redis) |
+| Queue / jobs | Redis-backed PHP queue workers behind a `Queue` port (messenger component such as Symfony Messenger/Enqueue) |
 | Event backbone | Transactional Outbox → NATS JetStream (primary), Redis Streams (dev fallback) |
 | Automation | Internal Automation Engine driving self-hosted **n8n** |
 | AI brain access | **Bayan Gateway** Anti-Corruption Layer over a stable Intent contract |
 | Nizam's own LLM calls | Claude models via Anthropic API, behind an `LlmProvider` port |
-| Observability | OpenTelemetry → Prometheus + Grafana + Loki + Tempo; pino JSON logs |
+| Observability | OpenTelemetry → Prometheus + Grafana + Loki + Tempo; Monolog (PSR-3) JSON logs |
+| Quality gates | PHPStan (max) + Psalm, PHP-CS-Fixer/PHP_CodeSniffer (PER/PSR-12), PHPUnit |
 | AuthN | OAuth2 / OIDC, JWT access + refresh, mTLS service-to-service |
 | AuthZ | RBAC + ABAC, enforced at API and DB (RLS) |
 | Secrets | Vault-style manager (HashiCorp Vault or cloud KMS), abstracted |

@@ -191,11 +191,11 @@ sequenceDiagram
     Bayan->>GW: Intent (contract)
     Note over GW: Validate JWT; extract tenant_id claim<br/>attach TenantContext to Intent
     GW->>API: Intent + TenantContext
-    Note over API: AsyncLocalStorage request context<br/>{ tenantId, userId, roles, requestId, traceId }
+    Note over API: per-request RequestContext/TenantContext service<br/>{ tenantId, userId, roles, requestId, traceId }
     API->>DB: BEGIN; set_config('app.current_tenant', tenantId)
     API->>Agent: dispatch (context in-band)
     Agent->>Tool: resolve tool (tenant-scoped, permission-checked)
-    Tool->>Auto: delegate (tenant_id in job payload + BullMQ key prefix)
+    Tool->>Auto: delegate (tenant_id in job payload + PHP queue-worker key prefix)
     Auto->>N8N: execute workflow (tenant_id in execution context + credentials scoped)
     N8N-->>Auto: result
     Auto-->>Tool-->>Agent-->>API: result
@@ -210,10 +210,10 @@ sequenceDiagram
 |-----|----------------------------|-------|
 | **JWT** | `tenant_id` claim (and `org_id`, `roles`, `scopes`) | Signed by IAM; verified at every service boundary |
 | **Bayan Gateway** | Attaches `TenantContext` to the validated Intent envelope | ACL ensures Bayan cannot spoof a tenant; gateway re-derives tenant from the JWT, not from Intent body |
-| **Request context** | `AsyncLocalStorage` (NestJS request scope) holds `{ tenantId, userId, roles, requestId, traceId }` | Immutable per request; not passed as loose function args |
+| **Request context** | A per-request `RequestContext`/`TenantContext` service holds `{ tenantId, userId, roles, requestId, traceId }` | Immutable per request; not passed as loose function args |
 | **DB session** | `app.current_tenant` GUC set per transaction | Drives RLS; unset ⇒ fail-closed |
 | **Domain/integration events** | Event envelope field `tenantId` (and `causationId`, `correlationId`) | Outbox row includes `tenant_id`; consumers set their own DB session tenant from it |
-| **BullMQ jobs** | `tenantId` in payload **and** queue/job key prefix | Enables per-tenant concurrency limits |
+| **PHP queue-worker jobs** | `tenantId` in payload **and** queue/job key prefix | Enables per-tenant concurrency limits |
 | **n8n execution** | `tenant_id` injected into workflow execution context; credentials resolved per tenant | Automation Engine never runs a workflow without a tenant context |
 | **Cache (Redis)** | Key namespace `tenant:{tenantId}:{context}:{key}` | Guarantees no cross-tenant cache hit |
 | **Object storage** | Per-tenant prefix / bucket (`{tenantId}/...`) | Enforced at the storage adapter |
@@ -230,7 +230,7 @@ Density (especially Pool tier) requires active fairness controls so one tenant c
 | Control | Mechanism | Enforced at |
 |---------|-----------|-------------|
 | **API rate limits** | Token-bucket per `(tenant, plan)` and per user | API gateway / middleware (Redis-backed) |
-| **Concurrency caps** | Max concurrent agent runs / tool calls / automation executions per tenant | Agent Framework + Automation Engine + BullMQ per-tenant queue prefixes |
+| **Concurrency caps** | Max concurrent agent runs / tool calls / automation executions per tenant | Agent Framework + Automation Engine + PHP queue-worker per-tenant queue prefixes |
 | **Usage quotas** | Metered units — agent runs, tool calls, automation executions, LLM tokens — checked against plan quotas before admitting work | Billing context (quota check), enforced pre-execution |
 | **Resource weighting / fair scheduling** | Weighted queue draining so large tenants can't monopolize workers | Automation Engine scheduler |
 | **DB guardrails** | `statement_timeout`, per-role connection limits, work_mem bounds; heavy tenants can be promoted to Bridge/Silo | PostgreSQL role config + placement |
@@ -267,7 +267,7 @@ Quota exhaustion returns a typed, plain-language error (per UI/UX rules) and emi
 | Concern | Tenant-aware design |
 |---------|---------------------|
 | **Caching (Redis)** | All keys namespaced `tenant:{tenantId}:...`; cache invalidation events carry `tenantId`; no shared cache entries across tenants; TTLs and memory budgets can be per-tenant on high tiers |
-| **Queues (BullMQ / NATS)** | Job keys and JetStream subjects encode tenant (`nizam.{tenant}.{context}.{event}` pattern); per-tenant concurrency and priority; poison-message handling scoped per tenant |
+| **Queues (PHP queue workers / NATS)** | Job keys and JetStream subjects encode tenant (`nizam.{tenant}.{context}.{event}` pattern); per-tenant concurrency and priority; poison-message handling scoped per tenant |
 | **Observability (OTel)** | `tenant_id` attached as a span attribute and structured-log field on every record; used as a **bounded** metric label (or exemplar) to avoid cardinality blow-up; per-tenant dashboards, SLOs, and alerting in the Monitoring context |
 | **Audit** | `audit_log` rows carry `tenant_id`; audit read models are tenant-scoped and RLS-protected |
 

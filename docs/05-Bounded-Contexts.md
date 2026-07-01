@@ -8,7 +8,7 @@
 
 ## 1. Purpose
 
-This document is the **authoritative boundary contract** for **Nizam — the Bayan AI Operating System**. Where [`04-Domain-Driven-Design.md`](./04-Domain-Driven-Design.md) explains *how* we model, this document fixes *what each context is responsible for* and *how contexts talk*. Each context is one **bounded context** and one **NestJS module**, layered per Clean Architecture (`domain/ → application/ → infrastructure/ → interface/`).
+This document is the **authoritative boundary contract** for **Nizam — the Bayan AI Operating System**. Where [`04-Domain-Driven-Design.md`](./04-Domain-Driven-Design.md) explains *how* we model, this document fixes *what each context is responsible for* and *how contexts talk*. Each context is one **bounded context** and one **PHP module**, layered per Clean Architecture (`domain/ → application/ → infrastructure/ → interface/`).
 
 **Non-negotiable boundary rules (apply to all 12):**
 
@@ -156,7 +156,7 @@ graph TD
 - **Key aggregates/entities:** `WorkflowDefinition` (root; entities `Trigger`, `StepBinding`), `AutomationRun` (root; entities `RunStep`, `CompensationStep`; VOs `IdempotencyKey`, `RetryPolicy`, `RunStatus`).
 - **Events published:** `automation.AutomationRunStarted`, `automation.AutomationRunCompleted`, `automation.AutomationRunFailed`, `automation.AutomationRunCompensated`, `automation.AutomationStepRequested` (→ Integrations).
 - **Events consumed:** `tools.ToolDelegatedToAutomation` (trigger); `integrations.ExternalCallCompleted` (advance/finish a step).
-- **Ports/adapters owned:** `WorkflowRepository`, `AutomationRunRepository` ports; `WorkflowExecutor` port with the **n8n adapter**; `RetryPolicyEvaluator` domain service; BullMQ job adapter for scheduling.
+- **Ports/adapters owned:** `WorkflowRepository`, `AutomationRunRepository` ports; `WorkflowExecutor` port with the **n8n adapter**; `RetryPolicyEvaluator` domain service; Redis-backed PHP queue-worker job adapter for scheduling.
 - **Upstream/downstream:** Downstream of Tools (Customer/Supplier). Upstream to Integrations and to n8n (ACL). Participates in cross-context **sagas**.
 - **Boundary rules:** n8n is hidden behind the `WorkflowExecutor` port — n8n must be replaceable. Every run is idempotent and compensable; a failed step yields either a scheduled retry or a queued compensation before the run is marked `Failed`.
 
@@ -222,7 +222,7 @@ graph TD
 - **Key aggregates/entities:** `NotificationTemplate` (root), `NotificationDelivery` (root; entity `ChannelAttempt`; VOs `Channel`, `DeliveryStatus`, `Recipient`).
 - **Events published:** `notifications.NotificationDelivered`, `notifications.NotificationFailed`.
 - **Events consumed:** `monitoring.AlertRaised`, `billing.QuotaExceeded`, `billing.InvoiceIssued`, `agents.AgentRunCompleted`, and other user-relevant events.
-- **Ports/adapters owned:** `ChannelAdapter` per channel (email/push/webhook/in-app) ports; `TemplateRenderer` port; BullMQ delivery jobs; DLQ for exhausted retries.
+- **Ports/adapters owned:** `ChannelAdapter` per channel (email/push/webhook/in-app) ports; `TemplateRenderer` port; Redis-backed PHP queue-worker delivery jobs; DLQ for exhausted retries.
 - **Upstream/downstream:** Downstream (Conformist) of Monitoring, Billing, Agents, and others. Upstream to external delivery providers (via channel adapters).
 - **Boundary rules:** Deliveries respect recipient preferences/quiet hours and are idempotent per triggering event. Exhausted retries route to a DLQ, not silent loss.
 

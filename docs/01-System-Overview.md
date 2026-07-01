@@ -70,7 +70,7 @@ flowchart TD
 
 ## The 12 Bounded Contexts
 
-Nizam is decomposed into twelve DDD bounded contexts, each realized as a NestJS module. Named exactly:
+Nizam is decomposed into twelve DDD bounded contexts, each realized as a PHP module. Named exactly:
 
 ```mermaid
 flowchart LR
@@ -111,7 +111,7 @@ flowchart LR
 
 ## Deployment Shape: Modular Monolith → Services
 
-Nizam ships first as a **modular monolith**: one deployable NestJS application in which each bounded context is a strongly isolated module with its own domain, application, infrastructure, and interface layers, communicating through in-process ports and asynchronous domain events.
+Nizam ships first as a **modular monolith**: one deployable native PHP application in which each bounded context is a strongly isolated module with its own domain, application, infrastructure, and interface layers, communicating through in-process ports and asynchronous domain events.
 
 This is a deliberate choice, not a compromise:
 
@@ -122,7 +122,7 @@ This is a deliberate choice, not a compromise:
 ```mermaid
 flowchart LR
     subgraph Now["Phase: Modular Monolith"]
-      M["Single NestJS app\n12 isolated modules\nin-process ports + outbox events"]
+      M["Single native PHP app\n12 isolated modules\nin-process ports + outbox events"]
     end
     subgraph Later["Phase: Selective Service Extraction"]
       S1["Core + IAM"]
@@ -133,7 +133,7 @@ flowchart LR
     Now -->|extract by scaling need,\nno rewrite| Later
 ```
 
-Both phases run on Docker + Kubernetes (Helm) with horizontal pod autoscaling; PostgreSQL 16 (RLS + pgvector), Redis 7 (cache + BullMQ), and NATS JetStream (event backbone) sit behind the application.
+Both phases run on Docker + Kubernetes (Helm) with horizontal pod autoscaling; PostgreSQL 16 (RLS + pgvector), Redis 7 (cache + Redis-backed PHP queue workers), and NATS JetStream (event backbone) sit behind the application.
 
 ---
 

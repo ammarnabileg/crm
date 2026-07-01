@@ -8,7 +8,7 @@
 
 ## 1. Purpose & scope
 
-This document defines the **Domain-Driven Design** discipline for **Nizam** — the execution layer of the Bayan AI Operating System. It is normative: it fixes *how* we model the domain so that every NestJS module, every aggregate, and every event contract is designed consistently.
+This document defines the **Domain-Driven Design** discipline for **Nizam** — the execution layer of the Bayan AI Operating System. It is normative: it fixes *how* we model the domain so that every PHP module, every aggregate, and every event contract is designed consistently.
 
 DDD is chosen deliberately. Nizam is not a CRUD application; it is a **safe, observable, multi-tenant execution substrate** that turns *intents* produced by the **Bayan** brain into real-world effects across agents, tools, automations and external systems. That complexity is *behavioral* and *policy-driven*, which is exactly the class of problem DDD is built for.
 
@@ -29,7 +29,7 @@ The **ubiquitous language** is a single, shared, precise vocabulary used identic
 Principles we enforce:
 
 1. **One term, one meaning, one context.** A word means exactly one thing inside a bounded context. If the same word means something different elsewhere (e.g., "Run" in Agents vs. Automation), it is a *different concept* and must be named or namespaced distinctly.
-2. **Code mirrors language.** Class names, aggregate names, event names, and method names are the ubiquitous language rendered in code — no translation layer between how we speak and how we type. Naming follows the canon: `PascalCase` aggregates, `camelCase` members, `snake_case` DB columns.
+2. **Code mirrors language.** Class names, aggregate names, event names, and method names are the ubiquitous language rendered in code — no translation layer between how we speak and how we type. Naming follows the canon: `PascalCase` classes/aggregates, `camelCase` methods/properties, `UPPER_SNAKE_CASE` constants, `snake_case` DB columns.
 3. **The glossary is authoritative.** [`17-Glossary.md`](./17-Glossary.md) is the canonical dictionary. Any new term enters the glossary before it enters a diagram or a module.
 4. **Bilingual by design.** Product names and user-facing terms carry AR/EN definitions (**Bayan** = بيان, "a clear statement/exposition"; **Nizam** = نظام, "system/order"). Internal code identifiers remain English.
 5. **Refine, don't accumulate.** When a term becomes ambiguous, we split it. Ambiguity is a modeling smell, not a documentation problem.
@@ -53,7 +53,7 @@ Principles we enforce:
 
 ## 4. Strategic design — bounded contexts
 
-A **bounded context** is an explicit boundary within which a model and its ubiquitous language are consistent. Nizam has **exactly 12** bounded contexts, each realized as a NestJS module. The definitive per-context contract lives in [`05-Bounded-Contexts.md`](./05-Bounded-Contexts.md); this section fixes the *strategic relationships* between them.
+A **bounded context** is an explicit boundary within which a model and its ubiquitous language are consistent. Nizam has **exactly 12** bounded contexts, each realized as a PHP module. The definitive per-context contract lives in [`05-Bounded-Contexts.md`](./05-Bounded-Contexts.md); this section fixes the *strategic relationships* between them.
 
 | # | Bounded Context | Type | Role in the layer chain |
 |---|-----------------|------|-------------------------|

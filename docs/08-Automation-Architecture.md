@@ -14,7 +14,7 @@ The Automation Engine is the link between the Tool Registry and external systems
 User → Bayan (Brain) → Nizam (AI OS) → Agent Framework → Tool Registry → Automation Engine → n8n → External Systems
 ```
 
-The **Automation Engine** is an internal Nizam service (a NestJS module, canon §2, §4.5) that is the sole owner and driver of a **self-hosted n8n** instance. When a tool needs multi-step, connector-heavy, operator-authored work done, it delegates to the Automation Engine, which governs and dispatches the corresponding n8n workflow, then reports results and events back into Nizam.
+The **Automation Engine** is an internal Nizam service (a PHP module, canon §2, §4.5) that is the sole owner and driver of a **self-hosted n8n** instance. When a tool needs multi-step, connector-heavy, operator-authored work done, it delegates to the Automation Engine, which governs and dispatches the corresponding n8n workflow, then reports results and events back into Nizam.
 
 ---
 
