@@ -36,6 +36,18 @@ final class VendorlessBootTest extends TestCase
 
     public function test_application_autoloads_without_composer_vendor(): void
     {
+        // ROOT-CAUSE GUARD for the "fork exhaustion kills the session" failure.
+        // Resource-constrained / interactive containers (Claude Code on the web,
+        // shared CI boxes) export HAHIREAI_SKIP_SUBPROCESS_TESTS=1 so this test
+        // never even ATTEMPTS to spawn a subprocess — zero forks, so it can never
+        // trigger the "Unable to fork" cascade that used to take the shell/session
+        // down. The vendorless guarantee is still fully enforced on a normal CI
+        // runner, where this flag is unset. See CLAUDE.md and .claude/settings.json.
+        $skip = strtolower(trim((string) getenv('HAHIREAI_SKIP_SUBPROCESS_TESTS')));
+        if (in_array($skip, ['1', 'true', 'yes', 'on'], true)) {
+            $this->markTestSkipped('HAHIREAI_SKIP_SUBPROCESS_TESTS set — no subprocess spawned (protects resource-constrained/interactive hosts); vendorless boot is enforced on CI.');
+        }
+
         $root = dirname(__DIR__, 2);
         $harness = $this->tmp . '/probe.php';
 
