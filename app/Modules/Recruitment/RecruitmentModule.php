@@ -131,6 +131,7 @@ final class RecruitmentModule implements Module
         $router->get('/candidates/compare', [CandidatesController::class, 'compare']);
         $router->get('/candidates/{userId}', [CandidatesController::class, 'show']);
         $router->post('/candidates/{userId}/notes', [CandidatesController::class, 'addNote']);
+        $router->post('/candidates/{userId}/timeline', [CandidatesController::class, 'addTimelineEntry']);
         $router->post('/candidates/{userId}/tags', [CandidatesController::class, 'addTag']);
         $router->post('/candidates/{userId}/parse-cv', [CandidatesController::class, 'parseCv']);
         $router->post('/candidates/{userId}/ai-summary', [CandidatesController::class, 'aiSummary']);

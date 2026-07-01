@@ -292,6 +292,38 @@ final class CandidatesController
         return Response::redirect('/candidates/' . $userId);
     }
 
+    /** Log a manual Timeline entry (mini-CRM): a call, message, meeting, note or update. */
+    public function addTimelineEntry(Request $request, string $userId): Response
+    {
+        if (($r = $this->gate('candidate.note', $request)) !== null) {
+            return $r;
+        }
+
+        $body = trim((string) $request->input('body', ''));
+        if ($body !== '') {
+            $ws = (string) $this->context->workspaceId();
+            $this->candidates->getOrCreate($ws, $userId); // ensure a profile exists
+            $occurredAt = trim((string) $request->input('occurred_at', ''));
+            $entryId = $this->timeline->addEntry(
+                $ws,
+                $userId,
+                $body,
+                (string) $request->input('kind', 'update'),
+                $occurredAt !== '' ? str_replace('T', ' ', $occurredAt) . ':00' : null,
+                $this->context->userId(),
+            );
+            $this->audit->record('recruitment.candidate.timeline_logged', [
+                'workspace_id' => $ws,
+                'actor_user_id' => $this->context->userId(),
+                'entity_type' => 'candidate_timeline_entry',
+                'entity_id' => $entryId,
+            ]);
+            $this->session->flash('status', 'Timeline updated.');
+        }
+
+        return Response::redirect('/candidates/' . $userId . '#timeline');
+    }
+
     /** Parse pasted CV text into structured profile fields (merged, non-destructive). */
     public function parseCv(Request $request, string $userId): Response
     {

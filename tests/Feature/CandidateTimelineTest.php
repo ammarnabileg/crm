@@ -126,6 +126,43 @@ final class CandidateTimelineTest extends TestCase
         $this->assertNotSame([], $this->timeline->timeline($wsA, $candidate, $profileId));
     }
 
+    public function test_manual_entry_appears_with_kind_and_actor(): void
+    {
+        [$ws, $owner, $candidate] = $this->workspace();
+        $profileId = $this->candidates->getOrCreate($ws, $candidate);
+
+        $this->timeline->addEntry($ws, $candidate, 'Called — very interested', 'call', '2026-06-30 10:00:00', $owner);
+
+        $events = $this->timeline->timeline($ws, $candidate, $profileId);
+        $this->assertCount(1, $events);
+        $this->assertSame('call', $events[0]['type']);
+        $this->assertSame('Called — very interested', $events[0]['label']);
+        $this->assertSame('Owner', $events[0]['by']);            // actor attributed
+        $this->assertSame('2026-06-30 10:00:00', $events[0]['at']); // recruiter-set date
+    }
+
+    public function test_manual_entries_are_workspace_isolated(): void
+    {
+        [$wsA, $ownerA, $candidate] = $this->workspace();
+        [$wsB] = $this->workspace('b@example.com');
+        $profileId = $this->candidates->getOrCreate($wsA, $candidate);
+
+        $this->timeline->addEntry($wsA, $candidate, 'Private note', 'note', null, $ownerA);
+
+        $this->assertSame([], $this->timeline->timeline($wsB, $candidate, $profileId)); // B sees nothing
+        $this->assertCount(1, $this->timeline->timeline($wsA, $candidate, $profileId));
+    }
+
+    public function test_unknown_kind_falls_back_to_update(): void
+    {
+        [$ws, $owner, $candidate] = $this->workspace();
+        $profileId = $this->candidates->getOrCreate($ws, $candidate);
+
+        $this->timeline->addEntry($ws, $candidate, 'Something', 'bogus-kind', null, $owner);
+
+        $this->assertSame('update', $this->timeline->timeline($ws, $candidate, $profileId)[0]['type']);
+    }
+
     /** @return array{0:string,1:string,2:string} [workspaceId, ownerId, candidateId] */
     private function workspace(string $ownerEmail = 'owner@example.com'): array
     {

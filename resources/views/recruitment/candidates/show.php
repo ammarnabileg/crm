@@ -474,6 +474,27 @@ $lbl = 'text-xs font-semibold uppercase tracking-wide text-slate-400';
         <div <?= $panel('timeline') ?>>
             <div class="<?= $card ?>">
                 <h2 class="<?= $h2 ?>">Timeline <span class="text-xs font-normal text-slate-400">— this workspace only</span></h2>
+
+                <?php if (! empty($canNote)): ?>
+                    <form method="post" action="/candidates/<?= e($profile['user_id']) ?>/timeline" class="mb-5 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                        <?= csrf_field() ?>
+                        <div class="flex flex-wrap gap-2">
+                            <select name="kind" class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+                                <option value="update">Update</option>
+                                <option value="call">Call</option>
+                                <option value="message">Message</option>
+                                <option value="meeting">Meeting</option>
+                                <option value="note">Note</option>
+                            </select>
+                            <input type="datetime-local" name="occurred_at" class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-600">
+                        </div>
+                        <textarea name="body" required rows="2" placeholder="Log a call, message, meeting or update…" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+                        <div class="mt-2 text-right">
+                            <button class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-700">Add to timeline</button>
+                        </div>
+                    </form>
+                <?php endif; ?>
+
                 <?php if (($timeline ?? []) === []): ?>
                     <p class="text-sm text-slate-400">No activity yet.</p>
                 <?php else: ?>
@@ -482,7 +503,9 @@ $lbl = 'text-xs font-semibold uppercase tracking-wide text-slate-400';
                             <li class="relative">
                                 <span class="absolute -start-[1.42rem] top-1.5 h-2 w-2 rounded-full bg-indigo-400"></span>
                                 <div class="text-slate-700"><?= e($ev['label']) ?></div>
-                                <div class="text-xs text-slate-400"><?= e($ev['type']) ?> · <?= e($ev['at']) ?> UTC</div>
+                                <div class="text-xs text-slate-400">
+                                    <?= e($ev['type']) ?> · <?= e($ev['at']) ?> UTC<?php if (! empty($ev['by'])): ?> · by <?= e($ev['by']) ?><?php endif; ?>
+                                </div>
                             </li>
                         <?php endforeach; ?>
                     </ol>

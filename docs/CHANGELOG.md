@@ -11,6 +11,19 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added — Candidate Timeline mini-CRM (manual activity log + richer aggregation)
+- The candidate Timeline now merges **manual entries** a recruiter logs by hand —
+  a **call / message / meeting / note / update** with the date it happened and the
+  **account that logged it** — alongside the already-observed events. New
+  workspace-scoped, FK-constrained `candidate_timeline_entries` table (ULID PK,
+  soft-deletes; migration `2026_07_01_000003`), a `CandidateTimelineService::addEntry`
+  writer, and a `POST /candidates/{userId}/timeline` action gated by `candidate.note`
+  (no new permission). The aggregation also now surfaces **Learning enrollments** and
+  attributes an **actor** (`by`) on every event that has one; the returned event shape
+  gains a backward-compatible `by` field. UI: an inline “add to timeline” form + actor
+  line on the candidate page. Tests: +3 feature (manual entry with actor/kind/date,
+  workspace isolation, kind fallback).
+
 ### Changed — activate `permission.assign` as a composite role-edit gate
 - `RolesController::update` now enforces the documented composite: `role.update`
   edits a role, but changing its **permission grants** additionally requires

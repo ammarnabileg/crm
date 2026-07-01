@@ -6,13 +6,15 @@ namespace HaHireAI\Modules\Recruitment\Application;
 
 use HaHireAI\Core\Database\Connection;
 use HaHireAI\Core\Contracts\FileStorage;
+use HaHireAI\Shared\Ulid;
 
 /**
  * Builds a candidate's activity Timeline within ONE workspace by merging events
  * already stored across the workspace's own data (applications, stage moves,
- * interviews, notes, files, offers). Pure aggregation — no new tables — and
- * strictly workspace-scoped, so a company only ever sees its own interaction
- * (docs/DOMAIN_MODEL.md, privacy isolation).
+ * interviews, notes, files, offers, learning) together with manual "mini-CRM"
+ * entries a recruiter logs by hand (calls, messages, meetings, notes). Mostly
+ * pure aggregation over data already collected; strictly workspace-scoped, so a
+ * company only ever sees its own interaction (docs/DOMAIN_MODEL.md, privacy).
  */
 final class CandidateTimelineService
 {
@@ -23,7 +25,29 @@ final class CandidateTimelineService
     }
 
     /**
-     * @return list<array{at: string, type: string, label: string}> newest first
+     * Log a manual Timeline entry (the mini-CRM surface): free-form text, the date
+     * it happened, and the account that recorded it. Workspace-scoped.
+     */
+    public function addEntry(
+        string $workspaceId,
+        string $userId,
+        string $body,
+        string $kind = 'update',
+        ?string $occurredAt = null,
+        ?string $createdBy = null,
+    ): string {
+        $id = Ulid::generate();
+        $now = gmdate('Y-m-d H:i:s');
+        $this->connection->statement(
+            'INSERT INTO candidate_timeline_entries (id, workspace_id, user_id, kind, body, occurred_at, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [$id, $workspaceId, $userId, $this->normalizeKind($kind), mb_substr($body, 0, 1000), $occurredAt ?: $now, $createdBy, $now],
+        );
+
+        return $id;
+    }
+
+    /**
+     * @return list<array{at: string, type: string, label: string, by: string}> newest first
      */
     public function timeline(string $workspaceId, string $userId, string $profileId): array
     {
@@ -64,7 +88,32 @@ final class CandidateTimelineService
               WHERE n.workspace_id = ? AND n.candidate_profile_id = ? AND n.deleted_at IS NULL',
             [$workspaceId, $profileId],
         ) as $r) {
-            $events[] = ['at' => (string) $r['at'], 'type' => 'note', 'label' => 'Note added by ' . (string) ($r['author'] ?? 'system')];
+            $events[] = ['at' => (string) $r['at'], 'type' => 'note', 'label' => 'Note added', 'by' => (string) ($r['author'] ?? 'system')];
+        }
+
+        // Learning enrollments (onboarding / development) tied to this user.
+        foreach ($this->connection->select(
+            'SELECT COALESCE(e.completed_at, e.started_at, e.created_at) AS at, e.status, e.progress_percent, p.title
+               FROM learning_enrollments e JOIN learning_programs p ON p.id = e.program_id
+              WHERE e.workspace_id = ? AND e.user_id = ?',
+            [$workspaceId, $userId],
+        ) as $r) {
+            $events[] = ['at' => (string) $r['at'], 'type' => 'learning', 'label' => 'Learning: ' . (string) $r['title'] . ' — ' . (string) $r['status'] . ' (' . (int) $r['progress_percent'] . '%)'];
+        }
+
+        // Manual mini-CRM entries — calls, messages, meetings, notes, updates.
+        foreach ($this->connection->select(
+            'SELECT c.occurred_at AS at, c.kind, c.body, u.name AS author FROM candidate_timeline_entries c
+               LEFT JOIN users u ON u.id = c.created_by
+              WHERE c.workspace_id = ? AND c.user_id = ? AND c.deleted_at IS NULL',
+            [$workspaceId, $userId],
+        ) as $r) {
+            $events[] = [
+                'at' => (string) $r['at'],
+                'type' => (string) $r['kind'],
+                'label' => (string) $r['body'],
+                'by' => (string) ($r['author'] ?? 'system'),
+            ];
         }
 
         foreach ($this->connection->select(
@@ -81,8 +130,18 @@ final class CandidateTimelineService
             $events[] = ['at' => (string) $f['created_at'], 'type' => 'file', 'label' => 'File: ' . (string) $f['original_name']];
         }
 
+        // Guarantee every event exposes an actor field (empty for observed events).
+        $events = array_map(static fn (array $e): array => $e + ['by' => ''], $events);
+
         usort($events, static fn (array $a, array $b): int => strcmp((string) $b['at'], (string) $a['at']));
 
         return $events;
+    }
+
+    private function normalizeKind(string $kind): string
+    {
+        $kind = strtolower(trim($kind));
+
+        return in_array($kind, ['update', 'call', 'message', 'meeting', 'note'], true) ? $kind : 'update';
     }
 }
