@@ -77,6 +77,30 @@ MySQL 8, server-rendered, no framework._
 | Candidate comparison + AI Q&A | ✅ |
 | Never decides — human decides | ✅ |
 
+### Learning & Development (paid add-on — `learning` feature)
+| Area | Status | Notes |
+|---|---|---|
+| **Programs** | ✅ | tree of sections → items (lesson/video/document/link/task/todo_list/quiz/note), cover/category/tags/difficulty/duration, draft→published→archived, multi-editor + version snapshots |
+| **To-dos** | ✅ | self vs **manager-controlled** completion, due/priority/assignee + status history |
+| **Comments** | ✅ | polymorphic (program/section/item/todo), replies, @mentions, edit, soft delete |
+| **Assignment → enrollment → progress** | ✅ | user/role/dept/team fan-out, per-item progress, roster + stats, learner **My Learning** |
+| **Quizzes** | ✅ | author + take + zero-AI grading, attempts, pass mark → item complete |
+| **Certificates** | ✅ | auto-issued on completion, printable + serial verify |
+| **Prerequisites** | ✅ | a program can require others first; learner reader gates on unmet |
+| **Learning paths (tracks)** | ✅ | ordered program sequences + per-learner path progress |
+| **Analytics / dashboards** | ✅ | manager/instructor dashboard (overview, per-program, top learners) |
+| **Onboarding-after-hire** | ✅ | Workflow “Enroll in Program” action via `LearningCatalog` |
+| **Billing gate** | ✅ | paid add-on; disabling blocks access, never deletes data |
+
+### First Impression Engine (zero-AI gate) — enhanced
+- **Candidate Intelligence** (advisory, zero-AI): career progression, seniority,
+  employment stability, tech-stack/industry/leadership detection, skill-gap,
+  consistency, portfolio & résumé quality.
+- **Social Credibility** as a pluggable adapter platform: GitHub, **GitLab**,
+  StackOverflow, **dev.to** (all official public APIs) + website + neutral
+  recogniser. Résumé + job-match remains the basis; social is a bounded, job-
+  relevance-focused ±30% helper.
+
 ### Platform (System Owner)
 Overview · Workspaces · Users · Subscriptions · Pricing · Audit logs · Diagnostics — ✅
 
