@@ -141,6 +141,18 @@ final class RolesController
 
         /** @var list<string> $keys */
         $keys = (array) $request->input('permissions', []);
+
+        // Composite authorisation (docs/PERMISSION_MODEL.md): `role.update` edits a
+        // role; changing its *permission grants* additionally requires
+        // `permission.assign`. Renaming stays available with `role.update` alone —
+        // when the actor lacks `permission.assign` we preserve the existing grants
+        // instead of applying the submitted set. The owner holds every permission by
+        // direct grant, so this never locks the owner out (backward-compatible).
+        $assignmentBlocked = ! $this->context->can('permission.assign');
+        if ($assignmentBlocked) {
+            $keys = $this->roles->permissionKeysForRole($roleId);
+        }
+
         if (! $this->roles->updateRole($workspaceId, $roleId, $name, $keys)) {
             $this->session->flash('error', 'Role not found in this workspace.');
 
@@ -156,7 +168,9 @@ final class RolesController
             'changes' => ['name' => $name, 'permissions' => count($keys)],
         ]);
 
-        $this->session->flash('status', "Role “{$name}” updated with " . count($keys) . ' permission(s).');
+        $this->session->flash('status', $assignmentBlocked
+            ? "Role “{$name}” renamed. (Changing permissions needs the “permission.assign” right.)"
+            : "Role “{$name}” updated with " . count($keys) . ' permission(s).');
 
         return Response::redirect('/roles/' . $roleId);
     }

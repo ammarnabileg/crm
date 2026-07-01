@@ -11,6 +11,24 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Changed — activate `permission.assign` as a composite role-edit gate
+- `RolesController::update` now enforces the documented composite: `role.update`
+  edits a role, but changing its **permission grants** additionally requires
+  `permission.assign`. Renaming stays available with `role.update` alone (existing
+  grants are preserved when the actor lacks `permission.assign`). The owner holds
+  every permission by direct grant and no default roles are seeded, so no existing
+  setup is locked out — fully backward-compatible. This wires the only one of the 21
+  never-enforced catalog keys that can be activated without breaking compat; the
+  other 20 (6 no-action placeholders, 14 that would break the deliberate coarse
+  design) are documented in `AUDIT_FOLLOWUP.md`.
+
+### Refactored — consolidated duplicated helpers into `app/Support` (behaviour-preserving)
+- `Slug::make`, `Filename::safe`, `Position::next`, `TemplateTokens::resolve` replace
+  copies previously duplicated across 6+ services; every call site delegates so the
+  output is byte-for-byte unchanged. `PromptEngine`'s token variant is intentionally
+  left separate (different value contract). +1 unit suite pins the legacy behaviour.
+  Full dead-code re-audit produced no deletions (see `AUDIT_FOLLOWUP.md`).
+
 ### Added — Talent Pool Smart Segments (named, saved candidate filters)
 - A smarter alternative to one-shot search: a **segment** is a named, saved set of
   rules combined with **ALL** (AND) or **ANY** (OR). Each rule is one normalised
