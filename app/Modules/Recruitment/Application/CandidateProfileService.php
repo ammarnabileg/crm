@@ -68,14 +68,19 @@ final class CandidateProfileService
     {
         $like = '%' . $q . '%';
 
+        // Matches name/email/summary, the legacy JSON details, AND the normalised
+        // candidate_profile_fields (the migration target) — so search keeps working
+        // as readers move off the JSON blob.
         return $this->connection->select(
             "SELECT cp.user_id, u.name, u.email,
                     (SELECT COUNT(*) FROM applications a WHERE a.workspace_id = cp.workspace_id AND a.user_id = cp.user_id AND a.deleted_at IS NULL) AS applications
                FROM candidate_profiles cp JOIN users u ON u.id = cp.user_id
               WHERE cp.workspace_id = ?
-                AND (u.name LIKE ? OR u.email LIKE ? OR cp.summary LIKE ? OR CAST(cp.details AS CHAR) LIKE ?)
+                AND (u.name LIKE ? OR u.email LIKE ? OR cp.summary LIKE ? OR CAST(cp.details AS CHAR) LIKE ?
+                     OR EXISTS (SELECT 1 FROM candidate_profile_fields f
+                                 WHERE f.workspace_id = cp.workspace_id AND f.user_id = cp.user_id AND f.field_value LIKE ?))
               ORDER BY u.name",
-            [$workspaceId, $like, $like, $like, $like],
+            [$workspaceId, $like, $like, $like, $like, $like],
         );
     }
 
@@ -106,6 +111,58 @@ final class CandidateProfileService
             'UPDATE candidate_profiles SET details = ?, updated_at = ? WHERE workspace_id = ? AND user_id = ?',
             [json_encode($details), gmdate('Y-m-d H:i:s'), $workspaceId, $userId],
         );
+        // Gradual migration off the JSON blob: dual-write the normalised rows so the
+        // new table always mirrors the JSON. Readers can move over incrementally;
+        // the JSON column is dropped only in a later, approved step.
+        $this->syncFields($workspaceId, $userId, $details);
+    }
+
+    /**
+     * Mirror a details map into the normalised `candidate_profile_fields` table
+     * (shared flatten logic with the backfill migration). Best-effort: never blocks
+     * a details save if the normalised table is absent.
+     *
+     * @param  array<string,mixed>  $details
+     */
+    private function syncFields(string $workspaceId, string $userId, array $details): void
+    {
+        try {
+            $this->connection->statement(
+                'DELETE FROM candidate_profile_fields WHERE workspace_id = ? AND user_id = ?',
+                [$workspaceId, $userId],
+            );
+            $now = gmdate('Y-m-d H:i:s');
+            foreach (\HaHireAI\Modules\Recruitment\Domain\CandidateProfileFields::flatten($details) as $row) {
+                $this->connection->statement(
+                    'INSERT INTO candidate_profile_fields (id, workspace_id, user_id, field_key, field_value, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [Ulid::generate(), $workspaceId, $userId, $row['key'], $row['value'], $row['position'], $now],
+                );
+            }
+        } catch (\Throwable) {
+            // The normalised table may not exist yet (pre-migration) — the JSON
+            // write above is the source of truth until every reader has moved.
+        }
+    }
+
+    /**
+     * Read the normalised fields for a candidate (the migration target). Grouped by
+     * key: scalar keys → the single value, array keys → the list.
+     *
+     * @return array<string, string|list<string>>
+     */
+    public function fields(string $workspaceId, string $userId): array
+    {
+        $rows = $this->connection->select(
+            'SELECT field_key, field_value FROM candidate_profile_fields WHERE workspace_id = ? AND user_id = ? ORDER BY field_key, position',
+            [$workspaceId, $userId],
+        );
+        $out = [];
+        foreach ($rows as $r) {
+            $out[(string) $r['field_key']][] = (string) $r['field_value'];
+        }
+
+        // Collapse single-value keys to a scalar for ergonomic reads.
+        return array_map(static fn (array $v): string|array => count($v) === 1 ? $v[0] : $v, $out);
     }
 
     /** @return array<string, mixed>|null the profile + the user identity, workspace-scoped */

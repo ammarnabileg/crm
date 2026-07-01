@@ -11,6 +11,25 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Changed — candidate_profiles.details → normalised (gradual, backward-compatible)
+- Introduced the normalised **`candidate_profile_fields`** table
+  (`2026_07_01_000001`) as the migration target for the legacy
+  `candidate_profiles.details` JSON blob. **Additive and non-destructive:** the
+  migration **backfills** every existing `details` map into normalised rows (shared
+  pure `CandidateProfileFields::flatten()`), `CandidateProfileService::saveDetails`
+  now **dual-writes** both, a normalised `fields()` reader was added, and keyword
+  search matches the normalised table too. The JSON column and all its readers are
+  **untouched** — nothing lost, fully backward-compatible. The column is dropped
+  only in a later, **approved** step once every reader has moved over (see the
+  Requires-Approval report). Tests: +2 unit (flatten) +1 feature (dual-write +
+  backfill verified on live MySQL).
+
+### Removed — verified-dead code (legacy audit)
+- Dead `MethodNotAllowedException`; orphan views `workspace/none.php` and
+  `account/plan.php` (controller redirects to `/billing`); unused config key
+  `integration.webhook_timeout`. Only 100%-proven-unused items were removed; all
+  doubtful/legacy/data-bearing items are listed in the Requires-Approval report.
+
 ### Added — Learning becomes a real LMS + a paid add-on
 - **Certificates:** completing a program now issues a verifiable certificate
   (`learning_certificates`, idempotent, printable page + serial verify); auto-issued

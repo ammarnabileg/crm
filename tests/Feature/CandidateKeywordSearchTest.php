@@ -67,6 +67,37 @@ final class CandidateKeywordSearchTest extends TestCase
         $this->assertSame([], $this->profiles->searchByKeyword($this->ws, 'Kubernetes'));
     }
 
+    public function test_details_are_dual_written_to_normalised_fields(): void
+    {
+        $sara = $this->candidate('Sara Q', 'saraq@acme.com');
+        $this->profiles->getOrCreate($this->ws, $sara);
+        $this->profiles->saveDetails($this->ws, $sara, [
+            'email' => 'saraq@acme.com',
+            'skills' => ['PHP', 'Laravel', 'Docker'],
+            'availability' => 'Immediate',
+        ]);
+
+        // The JSON blob still holds the truth (backward-compatible)…
+        $this->assertSame('Immediate', $this->profiles->details($this->ws, $sara)['availability']);
+
+        // …and the normalised table mirrors it.
+        $fields = $this->profiles->fields($this->ws, $sara);
+        $this->assertSame(['PHP', 'Laravel', 'Docker'], $fields['skills']);
+        $this->assertSame('Immediate', $fields['availability']);
+        $count = (int) $this->connection->selectOne(
+            'SELECT COUNT(*) c FROM candidate_profile_fields WHERE workspace_id = ? AND user_id = ?',
+            [$this->ws, $sara],
+        )['c'];
+        $this->assertSame(5, $count); // email + 3 skills + availability
+
+        // A re-save replaces the normalised rows (no stale duplicates).
+        $this->profiles->saveDetails($this->ws, $sara, ['skills' => ['Go']]);
+        $this->assertSame(['Go'], (array) $this->profiles->fields($this->ws, $sara)['skills']);
+
+        // Search matches a value that lives in the normalised table.
+        $this->assertSame([$sara], $this->ids($this->profiles->searchByKeyword($this->ws, 'Go')));
+    }
+
     /** @param list<array<string,mixed>> $rows @return list<string> */
     private function ids(array $rows): array
     {
