@@ -11,6 +11,19 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Changed — Sidebar grouped into labelled sections (navigation clarity)
+- Every `SidebarBuilder` item now carries a `group` key; the workspace menu is
+  re-ordered into coherent sections — **Overview · Recruiting · Insights ·
+  Learning · Automation · Team & Access · Tools · Settings** — the platform menu
+  into **Overview · Access · Commerce · System**, and the candidate portal into a
+  single **My Space** group. `build()` returns the `group` on every item (all
+  three contexts) and the app layout renders an uppercase section heading + a
+  divider whenever the group changes. Headings are derived **after**
+  permission/feature filtering, so an empty group renders no heading — gating is
+  unchanged and fully backward-compatible. Tests: +3 unit (group present on every
+  item; recruiter sees only Recruiting+Insights; Learning group hides without the
+  feature).
+
 ### Changed — candidate_profiles.details → normalised (gradual, backward-compatible)
 - Introduced the normalised **`candidate_profile_fields`** table
   (`2026_07_01_000001`) as the migration target for the legacy

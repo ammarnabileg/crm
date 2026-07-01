@@ -87,6 +87,74 @@ final class SidebarBuilderTest extends TestCase
         $this->assertContains('Users', $asSystemOwner);
     }
 
+    public function test_every_built_item_carries_a_group_heading(): void
+    {
+        $sidebar = new SidebarBuilder();
+
+        // An all-permissions staff view and the platform view both expose a
+        // non-empty `group` on every item; groups drive the section headings.
+        $workspace = $sidebar->build('workspace', [
+            'workspace.view', 'job.view', 'candidate.view', 'pipeline.view', 'talent.view',
+            'interview.view', 'offer.view', 'avatar.view', 'report.view', 'learning.view',
+            'workflow.view', 'integration.view', 'member.view', 'role.view', 'audit.view',
+            'task.view', 'search.use', 'files.view', 'ai.view', 'workspace.branding',
+            'settings.view', 'settings.update', 'billing.view',
+        ]);
+        $this->assertNotSame([], $workspace);
+        foreach ($workspace as $item) {
+            $this->assertArrayHasKey('group', $item);
+            $this->assertNotSame('', $item['group']);
+        }
+
+        $platform = $sidebar->build('platform', [
+            'system.dashboard.view', 'system.workspaces.manage', 'system.users.manage',
+            'system.roles.manage', 'system.subscriptions.manage', 'system.pricing.manage',
+            'system.ai.manage', 'system.audit.view', 'system.diagnostics.run', 'system.settings.manage',
+        ]);
+        foreach ($platform as $item) {
+            $this->assertNotSame('', $item['group']);
+        }
+
+        // Candidate items are context-driven but still grouped under "My Space".
+        foreach ($sidebar->build('candidate', []) as $item) {
+            $this->assertSame('My Space', $item['group']);
+        }
+    }
+
+    public function test_recruiter_only_sees_recruiting_and_insights_groups(): void
+    {
+        // A recruiter with the four view perms below sees exactly two groups:
+        // Recruiting (Jobs/Candidates/AI Interviews) and Insights (Reports/First
+        // Impression). No Overview, no Settings, no Team — those items are gated
+        // out, so their headings never render.
+        $items = (new SidebarBuilder())->build('workspace', [
+            'job.view', 'candidate.view', 'interview.view', 'report.view',
+        ]);
+
+        $groups = array_values(array_unique(array_map(
+            static fn (array $i): string => $i['group'],
+            $items,
+        )));
+
+        $this->assertSame(['Recruiting', 'Insights'], $groups);
+    }
+
+    public function test_learning_group_disappears_without_the_learning_feature(): void
+    {
+        $sidebar = new SidebarBuilder();
+        $keys = ['workspace.view', 'learning.view'];
+
+        // Plan without the learning feature → no Learning items, no heading.
+        $free = $sidebar->build('workspace', $keys, []);
+        $freeGroups = array_map(static fn (array $i): string => $i['group'], $free);
+        $this->assertNotContains('Learning', $freeGroups);
+
+        // Enable the feature → the Learning group returns.
+        $pro = $sidebar->build('workspace', $keys, ['learning']);
+        $proGroups = array_map(static fn (array $i): string => $i['group'], $pro);
+        $this->assertContains('Learning', $proGroups);
+    }
+
     public function test_feature_gated_items_hide_when_the_plan_lacks_the_feature(): void
     {
         $sidebar = new SidebarBuilder();

@@ -1,7 +1,7 @@
 <?php
 /** @var string $content */
 /** @var array<string,mixed> $user */
-/** @var list<array{label:string,route:string,permission:string}> $sidebar */
+/** @var list<array{label:string,route:string,permission:string,group:string}> $sidebar */
 /** @var string|null $workspaceName */
 
 $currentPath = '/' . trim((string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/'), '/');
@@ -137,7 +137,16 @@ $partial = ($_SERVER['HTTP_X_PARTIAL'] ?? '') === '1';
             <div class="mx-3 mb-1 truncate rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400" title="<?= e($workspaceName) ?>"><?= e($workspaceName) ?></div>
         <?php endif; ?>
         <nav class="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
+            <?php $prevGroup = null; ?>
             <?php foreach ($sidebar as $item): ?>
+                <?php $group = (string) ($item['group'] ?? ''); ?>
+                <?php if ($group !== $prevGroup): ?>
+                    <?php if ($prevGroup !== null): ?>
+                        <hr class="mx-1 my-2 border-slate-100">
+                    <?php endif; ?>
+                    <p class="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400"><?= e($group) ?></p>
+                    <?php $prevGroup = $group; ?>
+                <?php endif; ?>
                 <?php $active = (string) $item['route'] === $activeRoute; ?>
                 <a href="<?= e($item['route']) ?>" data-pjax class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium <?= $active ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' ?>">
                     <span class="<?= $active ? 'text-indigo-600' : 'text-slate-400' ?>"><?= $navIcon((string) $item['label']) ?></span>
