@@ -613,7 +613,7 @@ $lbl = 'text-xs font-semibold uppercase tracking-wide text-slate-400';
                                         <button class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100">Reject</button>
                                     </form>
                                     <?php if ($canOffer ?? false): ?>
-                                        <details class="group">
+                                        <details class="group" data-popover>
                                             <summary class="cursor-pointer list-none rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-indigo-700">Counter back…</summary>
                                             <form method="post" action="/candidates/<?= e($profile['user_id']) ?>/offer/counter" class="mt-2 w-60 space-y-2 rounded-xl border border-slate-200 bg-white p-3">
                                                 <?= csrf_field() ?>

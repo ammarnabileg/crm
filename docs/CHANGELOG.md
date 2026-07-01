@@ -11,6 +11,16 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Changed — modern UX motion & interaction layer (system-wide, zero view churn)
+- A cohesive, tasteful motion layer applied over the existing Tailwind design from
+  the shared layout, so every page benefits without per-view edits: content **cards
+  lift on hover**, buttons gain press feedback + a soft primary-hover glow, inputs
+  transition smoothly, tab panels and `<details>` popovers **animate in**, and
+  scrollbars are refined. `<details data-popover>` popovers (offer accept/counter)
+  now **close on outside-click / Escape** like real popovers, and server flash
+  banners **auto-dismiss**. Everything fully honours `prefers-reduced-motion`, and
+  the JS is progressive-enhancement only (wrapped so it can never break the app).
+
 ### Added — full offer negotiation loop (company ⇄ candidate counter-offers)
 - The offer flow is now a complete two-sided negotiation. On **accept**, the
   candidate records their **earliest start date** (written to the application's

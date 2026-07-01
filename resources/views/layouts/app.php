@@ -114,6 +114,35 @@ $partial = ($_SERVER['HTTP_X_PARTIAL'] ?? '') === '1';
         <script src="https://cdn.tailwindcss.com"></script>
     <?php endif; ?>
     <script defer src="/assets/hh-ux.js"></script>
+    <?php /* Modern motion & interaction layer — applied system-wide over the
+             existing Tailwind design, no per-view churn. Fully honours
+             prefers-reduced-motion. (docs/UI_GUIDELINES.md) */ ?>
+    <style>
+      @media (prefers-reduced-motion: no-preference) {
+        /* Content cards gently lift on hover for a tactile, modern feel. */
+        #app-shell main [class*="rounded-2xl"],
+        #app-shell main [class*="rounded-xl"] { transition: transform .18s ease, box-shadow .2s ease; }
+        #app-shell main [class*="rounded-2xl"][class*="shadow-sm"]:hover { transform: translateY(-2px); box-shadow: 0 14px 32px -14px rgba(2,6,23,.22); }
+        /* Buttons: press feedback + a soft glow on primary hover. */
+        button, a[class*="rounded-lg"], a[class*="rounded-full"] { transition: transform .08s ease, background-color .16s ease, box-shadow .18s ease, color .16s ease; }
+        button:active { transform: translateY(1px) scale(.99); }
+        button[class*="bg-indigo-6"]:hover, button[class*="bg-emerald-6"]:hover, button[class*="bg-slate-9"]:hover { box-shadow: 0 8px 20px -6px rgba(2,6,23,.35); }
+        /* Inputs: smooth focus. */
+        input, select, textarea { transition: border-color .16s ease, box-shadow .16s ease; }
+        /* Popovers opened via <details> animate in. */
+        details[open] > *:not(summary) { animation: hh-reveal .16s ease; }
+        /* Tab panels & flash messages fade in. */
+        [data-panel]:not(.hidden) { animation: hh-in .2s ease; }
+      }
+      @keyframes hh-reveal { from { opacity: 0; transform: translateY(-4px) scale(.99); } to { opacity: 1; transform: none; } }
+      @keyframes hh-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+      /* Refined, unobtrusive scrollbars. */
+      * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+      *::-webkit-scrollbar { width: 9px; height: 9px; }
+      *::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9px; border: 2px solid transparent; background-clip: content-box; }
+      *::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }
+      summary::-webkit-details-marker { display: none; }
+    </style>
 </head>
 <body class="min-h-screen bg-slate-100 font-sans text-slate-800 antialiased<?= $platformTheme ? ' theme-platform' : '' ?>">
 <?php endif; ?>

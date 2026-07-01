@@ -143,7 +143,7 @@ $deadlineTs = ! empty($application['deadline_at']) ? strtotime((string) $applica
                             <?php if (! empty($o['note'])): ?><p class="mt-1 text-xs text-slate-500"><?= e($o['note']) ?></p><?php endif; ?>
                             <?php if ((string) $o['status'] === 'sent'): ?>
                                 <div class="mt-2 flex flex-wrap gap-2">
-                                    <details class="group">
+                                    <details class="group" data-popover>
                                         <summary class="cursor-pointer list-none rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-emerald-700">Accept…</summary>
                                         <form method="post" action="/my-offers/<?= e($o['id']) ?>/accept" class="mt-2 w-64 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
                                             <?= csrf_field() ?>
