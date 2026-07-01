@@ -139,9 +139,7 @@ final class UserResumeService
 
     private function safeName(string $name): string
     {
-        $clean = preg_replace('/[^a-zA-Z0-9._-]+/', '_', $name) ?? 'cv';
-
-        return substr(trim($clean, '_'), 0, 120) ?: 'cv';
+        return \HaHireAI\Support\Filename::safe($name, 'cv');
     }
 
     private function guessMime(string $ext): string

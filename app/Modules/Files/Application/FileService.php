@@ -166,8 +166,6 @@ final class FileService implements FileStorage
 
     private function safeName(string $name): string
     {
-        $clean = preg_replace('/[^a-zA-Z0-9._-]+/', '_', $name) ?? 'file';
-
-        return substr(trim($clean, '_'), 0, 120) ?: 'file';
+        return \HaHireAI\Support\Filename::safe($name, 'file');
     }
 }

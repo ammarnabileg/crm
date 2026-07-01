@@ -548,7 +548,7 @@ final class InterviewRoomService
 
     private function append(string $workspaceId, string $interviewId, string $role, string $content): void
     {
-        $position = (int) (($this->connection->selectOne('SELECT COALESCE(MAX(position), -1) AS p FROM interview_messages WHERE interview_id = ?', [$interviewId])['p']) ?? -1) + 1;
+        $position = \HaHireAI\Support\Position::next($this->connection, 'interview_messages', ['interview_id' => $interviewId]);
         $this->connection->statement(
             'INSERT INTO interview_messages (id, workspace_id, interview_id, role, content, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [Ulid::generate(), $workspaceId, $interviewId, $role, $content, $position, gmdate('Y-m-d H:i:s')],

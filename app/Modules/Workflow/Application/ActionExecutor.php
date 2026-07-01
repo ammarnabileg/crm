@@ -260,15 +260,7 @@ final class ActionExecutor
      */
     private function resolve(string $value, array $payload): string
     {
-        if (! str_contains($value, '{{')) {
-            return $value;
-        }
-
-        return (string) preg_replace_callback('/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/', static function (array $m) use ($payload): string {
-            $v = $payload[$m[1]] ?? '';
-
-            return is_scalar($v) ? (string) $v : (string) json_encode($v);
-        }, $value);
+        return \HaHireAI\Support\TemplateTokens::resolve($value, $payload);
     }
 
     /**

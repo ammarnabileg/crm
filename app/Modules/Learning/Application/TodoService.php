@@ -176,12 +176,11 @@ final class TodoService
 
     private function nextPosition(string $workspaceId, string $programId, ?string $itemId): int
     {
-        $row = $this->connection->selectOne(
-            'SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM learning_todos WHERE workspace_id = ? AND program_id = ? AND (item_id <=> ?)',
-            [$workspaceId, $programId, $itemId],
-        );
-
-        return (int) ($row['pos'] ?? 0);
+        return \HaHireAI\Support\Position::next($this->connection, 'learning_todos', [
+            'workspace_id' => $workspaceId,
+            'program_id' => $programId,
+            'item_id' => $itemId,
+        ]);
     }
 
     private function date(mixed $value): ?string

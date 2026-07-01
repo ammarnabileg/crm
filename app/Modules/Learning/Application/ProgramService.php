@@ -514,21 +514,14 @@ final class ProgramService
 
     private function slugify(string $title): string
     {
-        $slug = strtolower(trim($title));
-        $slug = preg_replace('/[^a-z0-9]+/i', '-', $slug) ?? '';
-        $slug = trim($slug, '-');
+        $slug = \HaHireAI\Support\Slug::make($title, 150);
 
-        return $slug !== '' ? mb_substr($slug, 0, 150) : 'program-' . substr(Ulid::generate(), -8);
+        return $slug !== '' ? $slug : 'program-' . substr(Ulid::generate(), -8);
     }
 
     private function nextPosition(string $table, string $column, string $value, string $workspaceId): int
     {
-        $row = $this->connection->selectOne(
-            "SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM {$table} WHERE {$column} = ? AND workspace_id = ?",
-            [$value, $workspaceId],
-        );
-
-        return (int) ($row['pos'] ?? 0);
+        return \HaHireAI\Support\Position::next($this->connection, $table, [$column => $value, 'workspace_id' => $workspaceId]);
     }
 
     private function touch(string $workspaceId, string $programId): void

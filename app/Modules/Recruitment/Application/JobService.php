@@ -287,7 +287,7 @@ final class JobService
 
     private function slug(string $title): string
     {
-        $base = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($title)) ?? '', '-') ?: 'job';
+        $base = \HaHireAI\Support\Slug::make($title) ?: 'job';
 
         return $base . '-' . substr(bin2hex(random_bytes(3)), 0, 6);
     }

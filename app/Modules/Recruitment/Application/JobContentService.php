@@ -38,7 +38,7 @@ final class JobContentService
         $text = trim($text);
         $id = Ulid::generate();
         $now = gmdate('Y-m-d H:i:s');
-        $pos = (int) (($this->connection->selectOne('SELECT COALESCE(MAX(position), -1) AS p FROM job_questions WHERE job_id = ?', [$jobId])['p']) ?? -1) + 1;
+        $pos = \HaHireAI\Support\Position::next($this->connection, 'job_questions', ['job_id' => $jobId]);
         $this->connection->statement(
             'INSERT INTO job_questions (id, workspace_id, job_id, text, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [$id, $workspaceId, $jobId, $text, $pos, $now, $now],
@@ -66,7 +66,7 @@ final class JobContentService
         $id = Ulid::generate();
         $now = gmdate('Y-m-d H:i:s');
         $weight = max(1, min(100, $weight));
-        $pos = (int) (($this->connection->selectOne('SELECT COALESCE(MAX(position), -1) AS p FROM job_criteria WHERE job_id = ?', [$jobId])['p']) ?? -1) + 1;
+        $pos = \HaHireAI\Support\Position::next($this->connection, 'job_criteria', ['job_id' => $jobId]);
         $this->connection->statement(
             'INSERT INTO job_criteria (id, workspace_id, job_id, label, weight, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [$id, $workspaceId, $jobId, trim($label), $weight, $pos, $now, $now],

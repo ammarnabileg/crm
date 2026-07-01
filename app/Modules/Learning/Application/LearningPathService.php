@@ -128,18 +128,15 @@ final class LearningPathService
 
     private function nextPosition(string $workspaceId, string $pathId): int
     {
-        $row = $this->connection->selectOne(
-            'SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM learning_path_programs WHERE workspace_id = ? AND path_id = ?',
-            [$workspaceId, $pathId],
-        );
-
-        return (int) ($row['pos'] ?? 0);
+        return \HaHireAI\Support\Position::next($this->connection, 'learning_path_programs', [
+            'workspace_id' => $workspaceId,
+            'path_id' => $pathId,
+        ]);
     }
 
     private function uniqueSlug(string $workspaceId, string $title): string
     {
-        $base = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $title) ?? '', '-')) ?: 'path-' . substr(Ulid::generate(), -8);
-        $base = mb_substr($base, 0, 150);
+        $base = \HaHireAI\Support\Slug::make($title, 150) ?: 'path-' . substr(Ulid::generate(), -8);
         $slug = $base;
         $i = 2;
         while ($this->connection->selectOne('SELECT id FROM learning_paths WHERE workspace_id = ? AND slug = ?', [$workspaceId, $slug]) !== null) {

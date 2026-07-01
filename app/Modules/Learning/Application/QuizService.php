@@ -136,11 +136,6 @@ final class QuizService
 
     private function nextPosition(string $table, string $column, string $value, string $workspaceId): int
     {
-        $row = $this->connection->selectOne(
-            "SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM {$table} WHERE {$column} = ? AND workspace_id = ?",
-            [$value, $workspaceId],
-        );
-
-        return (int) ($row['pos'] ?? 0);
+        return \HaHireAI\Support\Position::next($this->connection, $table, [$column => $value, 'workspace_id' => $workspaceId]);
     }
 }
