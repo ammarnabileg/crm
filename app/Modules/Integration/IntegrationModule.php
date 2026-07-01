@@ -16,7 +16,9 @@ use HaHireAI\Modules\Integration\Contracts\HttpClient;
 use HaHireAI\Modules\Integration\Contracts\HttpFetcher;
 use HaHireAI\Modules\Integration\Infrastructure\CurlHttpClient;
 use HaHireAI\Modules\Integration\Infrastructure\CurlHttpFetcher;
+use HaHireAI\Modules\Integration\Infrastructure\Social\DevToAdapter;
 use HaHireAI\Modules\Integration\Infrastructure\Social\GithubAdapter;
+use HaHireAI\Modules\Integration\Infrastructure\Social\GitlabAdapter;
 use HaHireAI\Modules\Integration\Infrastructure\Social\RecognizedProfileAdapter;
 use HaHireAI\Modules\Integration\Infrastructure\Social\StackOverflowAdapter;
 use HaHireAI\Modules\Integration\Infrastructure\Social\WebsiteAdapter;
@@ -62,7 +64,9 @@ final class IntegrationModule implements Module
 
             return new SocialAdapterRegistry([
                 new GithubAdapter($fetcher),
+                new GitlabAdapter($fetcher),
                 new StackOverflowAdapter($fetcher),
+                new DevToAdapter($fetcher),
                 new RecognizedProfileAdapter(),
                 new WebsiteAdapter($fetcher),
             ]);

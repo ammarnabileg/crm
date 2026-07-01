@@ -213,7 +213,17 @@ New application status: **`filtered_pre_ai`** (“Filtered Before AI”).
   `ResumeParserManager`. Nothing else changes.
 - **A new social source** → implement `SocialAdapter` in the Integration Platform,
   register it in `SocialAdapterRegistry` (specific adapters before the website
-  catch-all). Recruitment and the scoring engine are untouched.
+  catch-all). Recruitment and the scoring engine are untouched. Shipped adapters,
+  all via **official, unauthenticated, legal** public APIs (or neutral recognition
+  for login-walled platforms): **GitHub**, **GitLab**, **StackOverflow**,
+  **dev.to** (article tags = strong technical signal), a **website** catch-all
+  (title/meta/SSL/tech hints), and a neutral **RecognizedProfileAdapter** for
+  LinkedIn/X/… (recorded, never scraped, always neutral). Every adapter is
+  resilient (failure → unreachable/neutral, never an exception, never a penalty)
+  and the whole layer is optional — **the résumé + job match remains the basis**;
+  social is a bounded ±30% helper focused on **job relevance** (overlap of the
+  candidate's public technical footprint with the job's required skills), not on a
+  raw popularity score.
 
 ---
 
