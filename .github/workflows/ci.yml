@@ -55,6 +55,12 @@ jobs:
           done < <(find app database tests bin config bootstrap public routes resources -name '*.php' -print0)
           if [ "$err" = 0 ]; then echo "lint clean"; else exit 1; fi
 
+      - name: Static analysis (PHPStan level 4)
+        run: vendor/bin/phpstan analyse --no-progress
+
+      - name: Dependency vulnerability audit
+        run: composer audit --no-dev
+
       - name: Prepare .env
         run: |
           cp .env.example .env

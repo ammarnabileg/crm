@@ -11,6 +11,15 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added — static analysis gate (PHPStan level 4) + dependency audit in CI
+- Wires the Constitution §13 quality gates that were missing: **PHPStan (level 4)**
+  over `app/` with a committed **baseline** (captures the 35 pre-existing findings so
+  the gate is green today and enforces level 4 on all *new* code), plus
+  **`composer audit`** for dependency vulnerabilities. Both run in CI after the lint
+  sweep and before the test suite. Dev-only tooling — **no production impact**.
+  `composer analyse` runs PHPStan locally. Config in `phpstan.neon` /
+  `phpstan-baseline.neon`.
+
 ### Changed — modern UX motion & interaction layer (system-wide, zero view churn)
 - A cohesive, tasteful motion layer applied over the existing Tailwind design from
   the shared layout, so every page benefits without per-view edits: content **cards
