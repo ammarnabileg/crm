@@ -2,7 +2,7 @@
 
 One-line purpose: The authoritative, append-only log of significant architecture decisions for **Nizam — the Bayan AI Operating System**, capturing context, decision, consequences, and rejected alternatives for every fixed choice.
 
-> **Status: Approved (Phase 1) | Version: 2.2.0 | Last updated: 2026-07-01 | Owner: Architecture (Nizam Core)**
+> **Status: Approved (Phase 1) | Version: 2.3.0 | Last updated: 2026-07-01 | Owner: Architecture (Nizam Core)**
 
 ---
 
@@ -34,6 +34,7 @@ Each record follows a standard ADR format: **Title, Status, Context, Decision, C
 | ADR-0018 | AI Runtime Execution Engine with an explicit execution state machine | Accepted |
 | ADR-0019 | Professional Behavior modeled per-Role, evolved only via approved observations | Accepted |
 | ADR-0020 | Plugin platform mechanics (manifest, SemVer, dependency resolution, permission-gated sandbox isolation) | Accepted |
+| ADR-0021 | Runtime execution persistence & event-sourced state store (append-only history, advisory locks, idempotent execution) | Accepted |
 
 ---
 
@@ -500,6 +501,39 @@ This ADR **implements ADR-0016** and **reaffirms** ADR-0007 (Hexagonal/DDD) and 
 
 ---
 
+## ADR-0021 — Runtime Execution Persistence & Event-Sourced State Store (Append-Only History, Advisory Locks, Idempotent Execution)
+
+**Status:** Accepted
+
+**Context.** ADR-0017 decided *that* every execution enters through one Master Orchestrator, and ADR-0018 decided *that* the AI Runtime is driven by an explicit thirteen-state execution state machine that is persisted, event-sourced, retryable, recoverable, replayable, and cost/performance-tracked, with every transition emitting an event (ADR-0004). Neither fixed the concrete **persistence and consistency mechanics** the Runtime needs to make those guarantees real: *what* is the authoritative source of an execution's state, *how* execution history is stored so it can be replayed and audited exactly, *how* concurrent work on the same execution is serialized across processes, and *how* an execution is prevented from running twice. These mechanics are correctness- and audit-critical — an implicit status flag, a mutable history, an unsynchronized concurrent run, or a non-idempotent re-entry would each corrupt execution state or destroy the audit trail. They must be settled once, uniformly, for every execution the Runtime drives. This ADR records the implemented persistence layer of the Runtime module (`Nizam\Runtime\*`, `src/Runtime/`); it **implements ADR-0018** and changes none of its decisions. Full treatment: `docs/26-AI-Runtime.md`.
+
+**Decision.** Persist executions with an **event-sourced, append-only history as the authoritative source of state**, backed by a queryable snapshot, advisory locks, and an idempotency guard:
+
+1. **Append-only history is the source of truth.** Every state transition records exactly one immutable domain event (`ExecutionStarted … ExecutionCancelled`, thirteen event types) appended to `execution_history`, ordered per execution by a unique `(execution_id, sequence_no)`. This table is **never updated and never deleted** (not even soft-deleted). An `Execution` aggregate is rebuilt by **replay** of its event stream (`Execution::replay(DomainEvent[])`), which is what makes **recovery** (crash → rebuild → `Recovered`) and **read-only replay** (audit/debug → `ExecutionReplayView`) exact.
+2. **Snapshot + projections for cheap reads.** An `executions` row holds the current, queryable snapshot (state, metadata, cost, performance, timeline, version); child projections (`execution_timeline`, `execution_logs`, `manager_decisions`, `worker_results`, `execution_metrics`, `evidence`) serve the Execution Monitor and reporting. These are derived from the authoritative history and are soft-delete/audit aware (ADR-0002, ADR-0011); the snapshot is a convenience, never the source of truth.
+3. **Advisory locks serialize per-execution work.** An `ExecutionLockManager` port with a lock keyed by execution, an `owner_token`, and a **TTL** (`execution_locks.expires_at`) ensures only one process drives a given execution at a time; a crashed holder cannot block a key forever because the lock expires. The PDO adapter is a DB advisory-lock **row**; an in-memory adapter serves single-process use and tests.
+4. **Idempotent execution.** The `ExecutionEngine` runs inside the lock and is **idempotent by `ExecutionId`**: a re-entered execution short-circuits rather than double-running, so at-least-once delivery of the driving request (ADR-0004) never produces a double execution.
+5. **State-machine legality is enforced at persistence-time.** Only transitions legal under `ExecutionStateMachine` (ADR-0018) are ever recorded; an illegal transition throws and nothing is appended, so a corrupt state can never be persisted.
+6. **Tenant-scoped, UUIDv7-keyed, dual-driver.** Every table carries `tenant_id` and audit columns; keys are application-minted UUIDv7 (ADR-0003); JSON documents use JSONB; the same schema runs on **PostgreSQL 16** and **SQLite** (via `SqliteSchema::apply`). Hot paths are indexed `(tenant_id, state)` and `(execution_id, sequence_no)`.
+
+**Consequences.**
+- (+) Exact auditability and reconstruction: the append-only history is an audit-grade record from which any execution is replayed or recovered deterministically, satisfying ADR-0011's event-sourcing posture for critical aggregates.
+- (+) Safe concurrency and no double-runs: advisory locks + idempotency-by-id make the single-entry Runtime (ADR-0017) robust under at-least-once delivery and multi-process operation.
+- (+) Legality is a persistence invariant: illegal transitions can never be written, so stored state is always reachable through the ADR-0018 graph.
+- (+) Cheap reads without sacrificing truth: snapshot + projections power the Execution Monitor and metering while the event stream remains authoritative.
+- (−) More persistence surface and write amplification than a single status column: an event row (plus projection updates) per transition, versus one `UPDATE`.
+- (−) Schema evolution of stored events must be handled carefully (versioned payloads/upcasting) as event shapes change over time.
+- (−) The advisory lock is a **DB row**, not a true distributed lock manager; it serializes correctly for the current single-datastore deployment but a Redis/dedicated distributed lock is the right future answer for multi-datastore scale (tracked as tech debt). The parallel worker coordinator is in-process deterministic fan-out, not multi-node.
+
+**Alternatives considered.**
+- **Status-flag-only persistence (a `state` column, no history):** rejected — **unauditable** and race-prone; transitions become implicit, and an execution can be neither replayed nor recovered deterministically. This is the exact anti-pattern ADR-0018 rejected, made concrete at the storage layer.
+- **An external workflow engine for the Runtime's internal control state:** rejected — that is **n8n's role for *automations*** (ADR-0005), not for the Runtime's own execution control (ADR-0018); the Runtime **owns** its execution state and must not delegate its control spine or its store to an external engine.
+- **Full event sourcing of all runtime state everywhere:** rejected — excessive complexity for CRUD-style projections and snapshots; event sourcing is **scoped to executions** (the critical aggregate) per ADR-0011, with snapshots/projections kept as plain, derivable rows.
+
+This ADR **implements ADR-0018** and **reaffirms** ADR-0007 (Hexagonal/DDD), ADR-0011 (event sourcing for critical aggregates), ADR-0015 (framework-independent), and ADR-0017 (single Master Orchestrator).
+
+---
+
 ## Related Documents
 
 - `docs/00-Vision.md` — Product vision.
@@ -519,3 +553,4 @@ This ADR **implements ADR-0016** and **reaffirms** ADR-0007 (Hexagonal/DDD) and 
 | 2.0.0 | 2026-07-01 | Architecture (Nizam Core) | Added ADR-0015 (self-built Native PHP 8.4 platform framework), ADR-0016 (plugin-based Agent architecture), ADR-0017 (single Master Orchestrator entry point), and ADR-0018 (AI Runtime Execution Engine with explicit state machine), all Accepted; ADR-0014 superseded by ADR-0015. |
 | 2.1.0 | 2026-07-01 | Architecture (Nizam Core) | Added ADR-0019 (Professional Behavior modeled per-Role, evolved only via approved observations; profiles versioned, explainable, reversible, approval-gated), Accepted; see `docs/24-Professional-Behavior-Engine.md`. |
 | 2.2.0 | 2026-07-01 | Architecture (Nizam Core) | Added ADR-0020 (Plugin platform mechanics — manifest, strict SemVer 2.0.0 + constraints, kind↔contract reflection validation, topological dependency resolution, permission-gated fault-catching in-process sandbox isolation, guarded lifecycle + events, PDO/in-memory persistence), Accepted; implements ADR-0016 without changing its decision. See `docs/25-Plugin-Platform.md`. |
+| 2.3.0 | 2026-07-01 | Architecture (Nizam Core) | Added ADR-0021 (Runtime execution persistence & event-sourced state store — append-only `execution_history` as source of truth, snapshot + projections for reads, TTL advisory locks, idempotent execution by `ExecutionId`, persistence-time state-machine legality, tenant-scoped UUIDv7 dual-driver PostgreSQL/SQLite), Accepted; implements ADR-0018 without changing its decision. See `docs/26-AI-Runtime.md`. |

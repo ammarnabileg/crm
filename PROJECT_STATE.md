@@ -3,7 +3,7 @@
 > Executive, top-level snapshot of where the project stands. For the detailed
 > deliverable-by-deliverable status, see [docs/20-Project-State.md](./docs/20-Project-State.md).
 
-**Status:** Active incremental build — Phase 2 (Core Infrastructure Platform) in progress | **Version:** 2.0.0 | **Last updated:** 2026-07-01 | **Owner:** Architecture (Nizam Core)
+**Status:** Active incremental build — Phase 2 (Core Infrastructure Platform) in progress; Phase-3 **AI Runtime + Master Orchestrator** delivered & test-green | **Version:** 2.3.0 | **Last updated:** 2026-07-01 | **Owner:** Architecture (Nizam Core)
 
 ---
 
@@ -78,10 +78,29 @@ observations, and are versioned, explainable, reversible, and approval-gated. Th
 layer is deferred until the HTTP platform lands. See
 [docs/audit/PHASE_16_AUDIT.md](./docs/audit/PHASE_16_AUDIT.md).
 
-**Verification (this snapshot):** the suite is **green — 169 tests, 628 assertions passing on
-PHP 8.4.19 with PHPUnit 11.5.55** (`vendor/bin/phpunit`); the Behavior context added **93 tests** on top
-of the prior 76-test foundation baseline; `composer` PSR-4 autoload is clean; every `src/`/`tests/` folder
-carries a `README.md`.
+**AI Runtime Engine + Master Orchestrator (Runtime bounded context) — DELIVERED and TEST-GREEN.** The
+`Nizam\Runtime\*` module (`src/Runtime/`) realizes **ADR-0017** (single Master Orchestrator), **ADR-0018**
+(execution state machine), and **ADR-0021** (event-sourced persistence + advisory-row locks + idempotent
+execution) as a full Clean/Hexagonal increment. The **Master Orchestrator is the sole entry point**: it
+validates a request, resolves tenant/user/permissions/department, loads the Manager plugin, and drives an
+event-sourced **`Execution`** aggregate through a 13-state machine (`Pending`→…→`Completed`) where every
+transition is guarded by `ExecutionStateMachine`. Worker plugins are dispatched **only** through the
+`WorkerCoordinator` (Sequential, deterministic in-process Parallel fan-out, and Collaborative re-entry —
+never worker-to-worker); results are merged (`ResultMerger`), scored (`ConfidenceEvaluator`), and returned
+as a `ManagerDecision`. Executions are **idempotent by `ExecutionId`**, retryable (`RetryPolicy` +
+`RetryExhausted`), timeout-enforced (`TimeoutManager`), recoverable (`RecoveryService`), and read-only
+replayable (`ReplayService`). Infrastructure ships InMemory + PDO (sqlite-validated) adapters with a
+**tenant-scoped, soft-deleting** repository and an **append-only** event store, a Postgres-16 migration plus
+runnable `SqliteSchema`, a dispatching event publisher, seedable InMemory port providers, `Testing/` fakes
+implementing the `Nizam\Platform\Plugin\Contract\*` kind contracts, and the `RuntimeServiceProvider` /
+`RuntimeModule` facade. See [docs/26-AI-Runtime.md](./docs/26-AI-Runtime.md) and
+[docs/audit/PHASE_RUNTIME_AUDIT.md](./docs/audit/PHASE_RUNTIME_AUDIT.md).
+
+**Verification (this snapshot):** the suite is **green — 488 tests, 1378 assertions passing on
+PHP 8.4.19 with PHPUnit 11.5.55** (`vendor/bin/phpunit`, `failOnWarning`/`failOnRisky`); the Runtime
+context added **141 tests** (128 unit + 13 integration) on top of the prior 347-test baseline; the Behavior
+context contributed **93 tests** on the 76-test foundation baseline; `composer dump-autoload -o` is clean
+(1959 classes); every `src/`/`tests/` folder carries a `README.md`.
 
 ## What is the forward plan
 
@@ -124,3 +143,4 @@ change. The Phase-1 cross-document consistency audit passed — see
 | 2.1.0 | 2026-07-01 | Architecture (Nizam Core) | Recorded the **Professional Behavior Engine** (`Nizam\Behavior\*`, Behavior bounded context) as an implemented, test-green increment: role-bound, approval-gated, versioned, explainable, reversible profiles evolved only from approved observations; Domain/Application/Infrastructure delivered with InMemory + PDO (sqlite-validated) adapters. Suite green at **169 tests / 628 assertions** on PHP 8.4.19 + PHPUnit 11.5.55 (93 Behavior tests added). Interface/HTTP layer deferred until the HTTP platform lands. See docs/audit/PHASE_16_AUDIT.md. |
 | 2.2.0 | 2026-07-01 | Architecture (Nizam Core) | Recorded the **Plugin Platform** (`Nizam\Platform\Plugin\*`) as an implemented, test-green increment: the "everything is a plugin" extensibility substrate (ADR-0016) with its concrete mechanics (ADR-0020) — SDK contracts + nine plugin kinds, self-validating manifest (`plugin.json`), strict SemVer 2.0.0 + constraints, reflection-checked kind↔entry-point validation, topological dependency resolution, permission-gated fault-catching in-process sandbox isolation (no eval/process-spawn), guarded lifecycle + domain events, health checks, and a tenant-aware `PluginManager` façade; Domain/Contracts/Application/Infrastructure delivered with InMemory + PDO (sqlite-validated) adapters, directory/array sources, and a container instantiator. Suite green at **347 tests / 967 assertions** on PHP 8.4.19 + PHPUnit 11.5.55 (178 Plugin tests added). OS-process isolation and the Interface/HTTP "Marketplace / Plugins" screen deferred. See docs/25-Plugin-Platform.md and docs/audit/PHASE_PLUGIN_AUDIT.md. |
 | 2.2.1 | 2026-07-01 | Architecture (Nizam Core) | Re-verified the **Plugin Platform** increment on a real run and refreshed `docs/audit/PHASE_PLUGIN_AUDIT.md` (retitled "Plugin Platform — Implementation Audit"). Confirmed HONEST numbers: 70 `src/Platform/Plugin/` source files (16 folder READMEs) all `php -l` clean, `composer dump-autoload -o` clean, and the full suite green under `failOnWarning`/`failOnRisky` at **347 tests / 967 assertions** (Plugin: 178 = 160 unit + 18 integration) on PHP 8.4.19 + PHPUnit 11.5.55. No source change; audit/state verification only. |
+| 2.3.0 | 2026-07-01 | Architecture (Nizam Core) | Recorded the **AI Runtime Engine + Master Orchestrator** (`Nizam\Runtime\*`, Runtime bounded context) as an implemented, test-green increment realizing ADR-0017 (single Master Orchestrator), ADR-0018 (13-state execution state machine), and ADR-0021 (event-sourced persistence + advisory-row lock + idempotent execution): a sole-entry orchestrator; a state-machine-guarded, event-sourced, replayable `Execution` aggregate; worker isolation through the `WorkerCoordinator` (Sequential / in-process Parallel fan-out / Collaborative re-entry — never worker-to-worker); merge + confidence scoring → `ManagerDecision`; idempotency by `ExecutionId`, retry/timeout/recovery; and InMemory + PDO (sqlite-validated) adapters with a **tenant-scoped, soft-deleting** repository and an **append-only** event store. Suite green under `failOnWarning`/`failOnRisky` at **488 tests / 1378 assertions** on PHP 8.4.19 + PHPUnit 11.5.55 (Runtime: 141 = 128 unit + 13 integration; 140 source files, 28 folder READMEs, all `php -l` clean). Redis/true-distributed lock, multi-node parallel dispatch, Postgres CI validation, and the Execution Monitor UI deferred. See docs/26-AI-Runtime.md and docs/audit/PHASE_RUNTIME_AUDIT.md. |
