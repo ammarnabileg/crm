@@ -1,0 +1,17 @@
+{
+  "env": {
+    "HAHIREAI_SKIP_SUBPROCESS_TESTS": "1"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

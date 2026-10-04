@@ -1,0 +1,37 @@
+# HaHireAI — fallback when the web root is the PROJECT root (e.g. Plesk/cPanel
+# "httpdocs"), not the public/ folder. It forwards requests into public/ and
+# blocks direct web access to everything else.
+#
+# RECOMMENDED instead: set the site's Document Root to this folder's "public"
+# subfolder (in Plesk: Hosting Settings → Document Root → .../httpdocs/public).
+# Then only public/.htaccess is needed and nothing outside public/ is reachable.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block direct access to application internals and secrets.
+    RewriteRule ^\.env - [F,L]
+    RewriteRule ^\.git - [F,L]
+    RewriteRule ^(app|bootstrap|config|database|docs|resources|routes|storage|tests|vendor|bin|scratchpad)(/|$) - [F,L]
+    RewriteRule ^(composer\.(json|lock)|package(-lock)?\.json|phpunit\.xml|tailwind\.config\.js|postcss\.config\.js) - [F,L]
+
+    # Serve real files that live under public/ (assets, the built CSS, etc.).
+    RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f
+    RewriteRule ^(.*)$ public/$1 [L]
+
+    # Everything else → the front controller in public/.
+    RewriteRule ^ public/index.php [L]
+</IfModule>
+
+Options -Indexes
+
+# Belt-and-braces: deny the secret file even if mod_rewrite is unavailable.
+<Files ".env">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</Files>

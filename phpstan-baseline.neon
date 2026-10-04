@@ -1,0 +1,163 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Unsafe usage of new static\(\)\.$#'
+			identifier: new.static
+			count: 1
+			path: app/Core/Database/Repository.php
+
+		-
+			message: '#^Parameter \$handler of method HaHireAI\\Core\\Routing\\Route\:\:__construct\(\) has invalid type HaHireAI\\Core\\Routing\\Closure\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Core/Routing/Route.php
+
+		-
+			message: '#^Property HaHireAI\\Core\\Routing\\Route\:\:\$handler has unknown class HaHireAI\\Core\\Routing\\Closure as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Core/Routing/Route.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between array\{string, int\<0, max\>\}\|string and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Modules/Installer/Application/Installer.php
+
+		-
+			message: '#^Offset 0 on list\<string\> on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Modules/Integration/Infrastructure/Social/RecognizedProfileAdapter.php
+
+		-
+			message: '#^Method HaHireAI\\Modules\\Learning\\Application\\ProgramService\:\:editorsFor\(\) should return list\<string\> but returns list\<array\<string, mixed\>\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Modules/Learning/Application/ProgramService.php
+
+		-
+			message: '#^Property HaHireAI\\Modules\\Recruitment\\Application\\CandidateContext\:\:\$resolved is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Modules/Recruitment/Application/CandidateContext.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 4
+			path: app/Modules/Recruitment/Application/CandidateHealthService.php
+
+		-
+			message: '#^Anonymous function has an unused use \$scored\.$#'
+			identifier: closure.unusedUse
+			count: 1
+			path: app/Modules/Recruitment/Application/FirstImpressionService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 3
+			path: app/Modules/Recruitment/Application/FirstImpressionService.php
+
+		-
+			message: '#^Method HaHireAI\\Modules\\Recruitment\\Application\\InterviewRoomService\:\:countAsked\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: app/Modules/Recruitment/Application/InterviewRoomService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Modules/Recruitment/Application/InterviewRoomService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: app/Modules/Recruitment/Application/InterviewService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Modules/Recruitment/Application/ReportService.php
+
+		-
+			message: '#^Offset 0 on list\<string\> on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Modules/Recruitment/Application/UserSocialProfileService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: app/Modules/Recruitment/Domain/FirstImpression/JobProfile.php
+
+		-
+			message: '#^PHPDoc tag @var with type object is not subtype of native type Smalot\\PdfParser\\Parser\.$#'
+			identifier: varTag.nativeType
+			count: 1
+			path: app/Modules/Recruitment/Infrastructure/Resume/PdfResumeParser.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$avatar$#'
+			identifier: parameter.notFound
+			count: 1
+			path: app/Modules/Recruitment/Presentation/AvatarController.php
+
+		-
+			message: '#^Property HaHireAI\\Modules\\Recruitment\\Presentation\\JobsController\:\:\$applications is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Modules/Recruitment/Presentation/JobsController.php
+
+		-
+			message: '#^Binary operation "\+" between string and 0 results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: app/Modules/Workflow/Domain/FormulaEvaluator.php
+
+		-
+			message: '#^Match arm comparison between ''date'' and ''date'' is always true\.$#'
+			identifier: match.alwaysTrue
+			count: 1
+			path: app/Modules/Workflow/Domain/FormulaEvaluator.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 1
+			path: app/Modules/Workflow/Domain/FormulaEvaluator.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''\('' and ''\)'' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Modules/Workflow/Domain/FormulaEvaluator.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''op'' and ''op'' will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: app/Modules/Workflow/Domain/FormulaEvaluator.php
+
+		-
+			message: '#^Property HaHireAI\\Modules\\Workspaces\\Application\\PlatformContext\:\:\$resolved is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Modules/Workspaces/Application/PlatformContext.php
+
+		-
+			message: '#^Property HaHireAI\\Modules\\Workspaces\\Application\\WorkspaceContext\:\:\$resolved is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Modules/Workspaces/Application/WorkspaceContext.php
+
+		-
+			message: '#^Property HaHireAI\\Modules\\Workspaces\\Presentation\\DashboardController\:\:\$view is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Modules/Workspaces/Presentation/DashboardController.php

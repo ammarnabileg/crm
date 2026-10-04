@@ -1,0 +1,31 @@
+# Dependencies
+/vendor/
+
+# Environment & secrets
+.env
+
+# Runtime artifacts
+/storage/logs/*
+/storage/cache/*
+/storage/compiled/*
+/storage/uploads/*
+/storage/files/*
+/storage/sessions/*
+!/storage/**/.gitkeep
+
+# Build output
+/public/assets/build/
+
+# Installer lock
+/storage/installed.lock
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Node (browser certification tooling)
+node_modules/
+tests/browser/node_modules/
